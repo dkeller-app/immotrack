@@ -6,8 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import * as W from '../../js/core/edl-video-vues.js';
 import * as V from '../../js/core/edl-voix-vues.js';
-import { noticeVideo, mentionPdf, MENTION_PDF, MENTION_PDF_VIDEO, edlAPhotosVideo } from '../../js/core/ia-transparence.js';
-import { lignesAccord, peutFilmer } from '../../js/core/edl-video.js';
+import { noticeVideo, mentionPdf, MENTION_PDF, MENTION_PDF_VIDEO, edlAPhotosVideo, versionNoticeVideo } from '../../js/core/ia-transparence.js';
+import { lignesAccord, peutFilmer, lignesAccordAvec } from '../../js/core/edl-video.js';
 
 const ic = (n) => `<svg class="uic" data-i="${n}"></svg>`;
 const TUTOIE = /(?<!\p{L})(tu|te|toi|ton|ta|tes|vous|votre|vos)(?!\p{L})/iu;
@@ -46,6 +46,19 @@ describe('vues vidéo', () => {
     const ok = W.vueAccord({ notice: noticeVideo(), lignes, peut: peutFilmer(lignes).ok }, { ic });
     expect(ok.pied).not.toMatch(/disabled/);
     expect(ok.corps.match(/aria-checked="true"/g)).toHaveLength(2);
+  });
+  it('accord déjà donné : ligne cochée et FIGÉE (aucun geste) ; notice : où est stockée la vidéo, litige ; version = empreinte du texte', () => {
+    const lignes = lignesAccordAvec('Claire, Paul', [{ nom: 'Claire', accord: true, at: 'x' }]);
+    const v = W.vueAccord({ notice: noticeVideo(), lignes, peut: false }, { ic });
+    charte(v);
+    expect(v.corps).toContain('accord déjà donné pour cet état des lieux');
+    expect(v.corps).not.toContain('_edlVideoAccordCocher(0)');
+    expect(v.corps).toContain('_edlVideoAccordCocher(1)');
+    const n = noticeVideo();
+    expect(JSON.stringify(n)).toMatch(/Union européenne/);
+    expect(JSON.stringify(n)).toMatch(/litige en cours/);
+    expect(versionNoticeVideo(n)).toMatch(/^nv-[0-9a-f]{8}$/);
+    expect(versionNoticeVideo({ ...n, intro: n.intro + ' ' })).not.toBe(versionNoticeVideo(n));
   });
   it('viseur : vidéo muette inline, minuteur, 3 min, une action primaire, classe plein écran', () => {
     const v = W.vueFilmer({ piece: 'Cuisine', mode: 'entree', sec: 41, max: 180, elements: ['Sol', 'Évier'] }, { ic });

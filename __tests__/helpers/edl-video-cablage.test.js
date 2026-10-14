@@ -27,15 +27,15 @@ describe('interrupteur : « Filmer » seulement si le relais ouvre la vidéo', (
 });
 
 describe('accord des locataires présents (décisions 1-2)', () => {
-  it('filmer passe par l’accord tant qu’aucun accord n’est enregistré pour l’EDL', () => {
+  it('filmer passe par l’accord dès qu’un locataire de l’EDL n’a pas d’accord (arrivé, ajouté, absent plus tôt)', () => {
     const f = bloc.slice(bloc.indexOf('function _edlVideoFilmer('), bloc.indexOf('function _edlVideoVueAccord('));
-    expect(f).toMatch(/if \(_edlVideoAccords\.length\) \{ _edlVideoDemarrer\(\); return; \}/);
-    expect(f).toContain('lignesAccord(');
+    expect(f).toContain('if (!M.EdlVideo.accordManquant(noms, _edlVideoAccords)) { _edlVideoDemarrer(); return; }');
+    expect(f).toContain('lignesAccordAvec(noms, _edlVideoAccords)');
   });
   it('« Filmer » refusé sans l’accord de chaque présent ; accords horodatés enregistrés', () => {
     const f = bloc.slice(bloc.indexOf('function _edlVideoAccordOk('), bloc.indexOf('function _edlVideoSansVideo('));
     expect(f).toContain('peutFilmer(_EVX.accord).ok');
-    expect(f).toContain('enregistrerAccords(_EVX.accord)');
+    expect(f).toContain('enregistrerAccords(_EVX.accord, { existants: _edlVideoAccords, version: M.IaTransparence.versionNoticeVideo() })');
   });
 });
 
@@ -55,14 +55,18 @@ describe('persistance dans l’EDL (et dans l’instantané signé)', () => {
 });
 
 describe('envoi et registre', () => {
-  it('envoi reprenable (TUS), jamais d’écrasement ; un fichier existant compte comme envoyé', () => {
+  it('envoi reprenable (TUS), jamais d’écrasement ; un fichier déjà présent n’est tenu pour envoyé qu’après contrôle de sa taille', () => {
     expect(entry).toContain('window.__immoCloudUploadResumable = async function');
-    expect(entry).toContain("if (r.ok || r.code === 'existe') return { ok: true, path");
+    expect(entry).toContain("if (r.code === 'existe') return { ok: true, path, url: '', existait: true }");
+    const f = bloc.slice(bloc.indexOf('async function _edlVideoEnvoyer('), bloc.indexOf('async function _edlVideoEnregistrer('));
+    expect(f).toMatch(/if \(r\.existait\) \{[\s\S]*?taille !== local\.buf\.byteLength[\s\S]*?return; \}/);
     expect(lire('js/core/tus-client.js')).toContain("'x-upsert': 'false'");
   });
   it('registre 0058 tolérant (table absente / EDL pas synchronisé), sans écrasement', () => {
-    expect(entry).toContain("upsert(ligne, { onConflict: 'storage_path', ignoreDuplicates: true })");
+    expect(entry).toContain("client.from('edl_medias').insert(ligne)");
+    expect(entry).toContain("String(ex.edl_legacy_id) === String(o.edlLocalId) ? { ok: true } : { ok: false, code: 'conflit' }");
     expect(entry).toContain("'table_absente'");
+    expect(entry).toContain(".eq('espace_id', o.espace).eq('edl_legacy_id'");
   });
   it('limite de fichier = celle annoncée par le relais (plan gratuit : 50 Mo), contrôlée avant l’envoi', () => {
     expect(bloc).toContain('_EVX.video.fichierMaxOctets');

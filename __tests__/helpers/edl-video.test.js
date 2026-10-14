@@ -92,13 +92,29 @@ describe('accord des locataires présents (décisions 1-2)', () => {
     expect(V.peutFilmer([{ nom: 'A', present: false, accord: true }])).toMatchObject({ ok: false, raison: 'aucun_present' });
     expect(V.peutFilmer([{ nom: 'A', present: true, accord: 'true' }]).ok).toBe(false);   // seul true compte
   });
-  it('accords horodatés, versionnés, représentant noté ; seuls les présents qui ont accepté', () => {
+  it('accords horodatés, versionnés, représentant noté ; absences gardées (preuve de qui était là)', () => {
     const at = new Date('2026-10-14T10:02:00Z');
-    const r = V.enregistrerAccords([{ nom: 'Claire', present: true, accord: true }, { nom: 'Paul', present: true, accord: true, representant: 'Jean (mandataire)' }, { nom: 'Zoé', present: false, accord: true }], { maintenant: at });
+    const r = V.enregistrerAccords([{ nom: 'Claire', present: true, accord: true }, { nom: 'Paul', present: true, accord: true, representant: 'Jean (mandataire)' }, { nom: 'Zoé', present: false, accord: true }], { maintenant: at, version: 'nv-1' });
     expect(r).toEqual([
-      { nom: 'Claire', accord: true, at: '2026-10-14T10:02:00.000Z', version: V.VERSION_TEXTE_ACCORD },
-      { nom: 'Paul', accord: true, at: '2026-10-14T10:02:00.000Z', version: V.VERSION_TEXTE_ACCORD, representant: 'Jean (mandataire)' },
+      { nom: 'Claire', accord: true, at: '2026-10-14T10:02:00.000Z', version: 'nv-1' },
+      { nom: 'Paul', accord: true, at: '2026-10-14T10:02:00.000Z', version: 'nv-1', representant: 'Jean (mandataire)' },
+      { nom: 'Zoé', accord: false, absent: true, at: '2026-10-14T10:02:00.000Z', version: 'nv-1' },
     ]);
+  });
+  it('relecture Fable I2 : un locataire sans accord (arrivé, ajouté, ou noté absent) fait redemander l’accord ; les accords donnés restent figés', () => {
+    const t1 = new Date('2026-10-14T10:02:00Z'), t2 = new Date('2026-10-14T10:40:00Z');
+    const a1 = V.enregistrerAccords([{ nom: 'Claire', present: true, accord: true }, { nom: 'Paul', present: false }], { maintenant: t1 });
+    expect(V.accordManquant('Claire, Paul', a1)).toBe(true);                     // Paul était absent
+    expect(V.accordManquant('Claire', a1)).toBe(false);
+    expect(V.accordManquant('', a1)).toBe(true);                                // aucun locataire renseigné
+    const l = V.lignesAccordAvec('Claire, Paul', a1);
+    expect(l[0]).toMatchObject({ nom: 'Claire', accord: true, fige: true });
+    expect(l[1]).toMatchObject({ nom: 'Paul', accord: false });
+    l[1].accord = true;
+    const a2 = V.enregistrerAccords(l, { maintenant: t2, existants: a1 });
+    expect(a2.find((a) => a.nom === 'Claire').at).toBe('2026-10-14T10:02:00.000Z');   // horodatage d'origine
+    expect(a2.find((a) => a.nom === 'Paul')).toMatchObject({ accord: true, at: '2026-10-14T10:40:00.000Z' });
+    expect(V.accordManquant('Claire, Paul', a2)).toBe(false);
   });
 });
 
@@ -201,6 +217,11 @@ describe('conservation (décision 7 : restitution du DG + 3 ans, alerte 30 jours
     expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05' }, [{ ref: 'F101', debut: '2020-01-01', finEffective: '2025-12-31' }])).toBe('2029-02-28');
     expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05', conservationMedias: { gelJusquau: '2031-01-01' } }, baux)).toBe('2031-01-01');
     expect(V.echeanceVideosEDL({ ...edl, videos: [] }, baux)).toBeNull();
+  });
+  it('relecture Fable I1 : un bail terminé AVANT l’EDL (nouveau bail pas encore saisi) ne donne jamais d’échéance', () => {
+    const edl = { logement: 'F101', date: '2026-06-28', videos: [{ id: 'v' }] };
+    expect(V.echeanceVideosEDL(edl, [{ ref: 'F101', debut: '2019-01-01', cloture: true, fin: '2022-01-31', dgRestitueAt: '2022-03-01' }])).toBeNull();
+    expect(V.echeanceVideosEDL(edl, [{ ref: 'F101', debut: '2019-01-01', finEffective: '2026-05-31' }])).toBeNull();
   });
   it('gel pour litige : un an après la plus tardive d’aujourd’hui et de l’échéance', () => {
     const auj = new Date('2026-10-16T09:00:00Z');

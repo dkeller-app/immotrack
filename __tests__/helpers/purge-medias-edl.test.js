@@ -1,6 +1,6 @@
 /**
  * __tests__/helpers/purge-medias-edl.test.js — EDL-VIDEO-IA : purge planifiée des vidéos à échéance (0058).
- * Fichier d'abord, ligne ensuite ; un fichier qui résiste garde sa ligne ; journal sans contenu.
+ * Ligne d'abord (la base ne supprime que ce qui est encore à échéance), fichier ensuite ; journal sans contenu.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { purger, interpreterSuppression } from '../../supabase/functions/purge-medias-edl/purge.js';
@@ -8,30 +8,34 @@ import { purger, interpreterSuppression } from '../../supabase/functions/purge-m
 const lot = (n, d = 0) => Array.from({ length: n }, (_, i) => ({ id: 'id' + (i + d), storage_path: `e/s/files/vid_${i + d}.webm` }));
 
 describe('purge des médias d’EDL à échéance', () => {
-  it('efface les fichiers puis les lignes correspondantes', async () => {
+  it('supprime les lignes encore à échéance, PUIS efface leurs fichiers', async () => {
     const aPurger = vi.fn().mockResolvedValueOnce(lot(3)).mockResolvedValueOnce([]);
+    const supprimer = vi.fn(async (ids) => ids.map((id) => `e/s/files/vid_${id.slice(2)}.webm`));
     const effacer = vi.fn(async (ch) => ({ effaces: ch, echecs: [] }));
-    const supprimer = vi.fn(async () => ({ ok: true }));
     const b = await purger({ aPurger, effacer, supprimer, limite: 3 });
-    expect(b).toEqual({ lus: 3, fichiers: 3, lignes: 3, echecs: 0, erreurs: 0 });
+    expect(b).toEqual({ lus: 3, lignes: 3, fichiers: 3, echecs: 0, erreurs: 0 });
     expect(supprimer).toHaveBeenCalledWith(['id0', 'id1', 'id2']);
-    expect(effacer.mock.invocationCallOrder[0]).toBeLessThan(supprimer.mock.invocationCallOrder[0]);
+    expect(supprimer.mock.invocationCallOrder[0]).toBeLessThan(effacer.mock.invocationCallOrder[0]);
   });
-  it('un fichier qui ne s’efface pas garde sa ligne (retenté au prochain passage)', async () => {
-    const supprimer = vi.fn(async () => ({ ok: true }));
-    const b = await purger({ aPurger: async () => lot(3), effacer: async (ch) => ({ effaces: [ch[0], ch[2]], echecs: [ch[1]] }), supprimer });
-    expect(supprimer).toHaveBeenCalledWith(['id0', 'id2']);
-    expect(b).toMatchObject({ fichiers: 2, lignes: 2, echecs: 1 });
+  it('un gel posé entre-temps : la base garde la ligne, son fichier n’est PAS effacé', async () => {
+    const effacer = vi.fn(async (ch) => ({ effaces: ch, echecs: [] }));
+    const b = await purger({ aPurger: async () => lot(3), supprimer: async () => ['e/s/files/vid_0.webm', 'e/s/files/vid_2.webm'], effacer });
+    expect(effacer).toHaveBeenCalledWith(['e/s/files/vid_0.webm', 'e/s/files/vid_2.webm']);
+    expect(b).toMatchObject({ lignes: 2, fichiers: 2 });
   });
-  it('panne de la base ou du stockage : rien n’est supprimé, erreur comptée', async () => {
-    const supprimer = vi.fn();
-    expect((await purger({ aPurger: async () => { throw new Error('x'); }, effacer: vi.fn(), supprimer })).erreurs).toBe(1);
-    expect((await purger({ aPurger: async () => lot(2), effacer: async () => { throw new Error('x'); }, supprimer })).erreurs).toBe(1);
-    expect(supprimer).not.toHaveBeenCalled();
+  it('fichier qui résiste : compté (sur-conservation à reprendre), jamais l’inverse', async () => {
+    const b = await purger({ aPurger: async () => lot(2), supprimer: async (ids) => ids.map((i) => i), effacer: async (ch) => ({ effaces: [ch[0]], echecs: [ch[1]] }) });
+    expect(b).toMatchObject({ lignes: 2, fichiers: 1, echecs: 1 });
+  });
+  it('panne de la base : rien n’est effacé, erreur comptée', async () => {
+    const effacer = vi.fn();
+    expect((await purger({ aPurger: async () => { throw new Error('x'); }, effacer, supprimer: vi.fn() })).erreurs).toBe(1);
+    expect((await purger({ aPurger: async () => lot(2), supprimer: async () => { throw new Error('x'); }, effacer })).erreurs).toBe(1);
+    expect(effacer).not.toHaveBeenCalled();
   });
   it('plusieurs lots pleins, borné en nombre de tours', async () => {
     let d = 0;
-    const b = await purger({ aPurger: async (n) => { const l = lot(n, d); d += n; return l; }, effacer: async (ch) => ({ effaces: ch }), supprimer: async () => ({ ok: true }), limite: 2, tours: 3 });
+    const b = await purger({ aPurger: async (n) => { const l = lot(n, d); d += n; return l; }, supprimer: async (ids) => ids, effacer: async (ch) => ({ effaces: ch }), limite: 2, tours: 3 });
     expect(b.lignes).toBe(6);
   });
   it('interpréter storage.remove : absent = effacé ; présent = échec ; erreur = tout en échec', async () => {

@@ -11,7 +11,10 @@
 //       échéance : jamais avant signature + 3 ans, jamais avancée ; gel : prolongation seulement ;
 //   (5) STORAGE : l'objet d'un média scellé ne s'efface ni ne s'écrase ; un objet ordinaire, si ;
 //   (6) edl_medias_a_purger : interdite aux utilisateurs ; à échéance, la ligne scellée devient supprimable ;
-//   (7) contraintes : chemin hors espace / hors files/vid_ refusé, empreinte malformée refusée.
+//   (7) contraintes : chemin hors espace / hors files/vid_ refusé, empreinte malformée refusée ;
+//   (8) relecture Fable : scellé jamais posé par le client (date antidatée ignorée / refusée), EDL d'un autre logement
+//       ignoré, chemin rangé sous une autre SCI refusé, prise non scellée jamais purgée, gel posé entre-temps respecté,
+//       scellé posé par la signature jouée EN TANT QU'UTILISATEUR.
 // Usage : DOTENV_CONFIG_PATH=../Immo/.env node supabase/tests/sim/0058-edl-medias.sim.mjs   (lit SUPABASE_DB_URL)
 import { config } from 'dotenv'
 import { readFileSync } from 'node:fs'
@@ -123,7 +126,8 @@ try {
 
   // (3) scellé : la signature de l'EDL A scelle la prise ; échéance relevée au plancher
   await q('update public.edl_medias set purge_apres = current_date where id = $1', [MA])
-  await q('update public.edl set signed_at = now() where id = $1', [EDL.A])
+  const sig = await asUserGarde(U.alice, 'update public.edl set signed_at = now() where id = $1 returning id', [EDL.A])
+  check('signature de l\'EDL jouée par Alice (utilisateur) : réussie', sig.ok && sig.rows.length === 1, JSON.stringify(sig))
   const sc = await q('select signed_at, purge_apres, (purge_apres >= (current_date + interval \'3 years\' - interval \'1 day\')::date) as plancher from public.edl_medias where id = $1', [MA])
   check('signature de l\'EDL : la prise est scellée', sc.rows[0].signed_at !== null, JSON.stringify(sc.rows))
   check('… et son échéance relevée à signature + 3 ans (aucune purge anticipée)', sc.rows[0].plancher === true, JSON.stringify(sc.rows))
@@ -177,12 +181,23 @@ try {
   const p1 = await asUser(U.alice, 'select * from public.edl_medias_a_purger(10)', [])
   check('edl_medias_a_purger interdite aux utilisateurs (42501)', !p1.ok && p1.code === '42501', JSON.stringify(p1))
   await q("set local app.bypass_immutable = 'on'")
-  // Vieillir la prise : signée il y a 4 ans, échéance hier (plancher signature + 3 ans respecté).
-  await q("update public.edl_medias set signed_at = now() - interval '4 years', purge_apres = current_date - 1, gel_jusquau = null where id = $1", [MA2])
+  // Vieillir la prise : scellée il y a 4 ans, échéance hier (plancher scellé + 3 ans respecté).
+  await q("update public.edl_medias set signed_at = now() - interval '4 years', scelle_le = now() - interval '4 years', purge_apres = current_date - 1, gel_jusquau = null where id = $1", [MA2])
   await q("set local app.bypass_immutable = 'off'")
   const p2 = await q('select id from public.edl_medias_a_purger(10)')
   check('à échéance : la prise apparaît dans la liste de purge', p2.rows.some(r => r.id === MA2), JSON.stringify(p2.rows))
-  const p3 = await q('delete from public.edl_medias where id = $1 returning id', [MA2])
+  // Gel posé entre la lecture de la liste et la suppression : la fonction de purge ne supprime pas la ligne.
+  await q("update public.edl_medias set gel_jusquau = current_date + 10, gel_motif = 'litige' where id = $1", [MA2])
+  const pg1 = await q('select storage_path from public.edl_medias_purger_lignes($1::uuid[])', [[MA2]])
+  check('purge : un gel posé entre-temps protège la ligne (aucun chemin rendu)', pg1.rows.length === 0, JSON.stringify(pg1.rows))
+  await q("set local app.bypass_immutable = 'on'")
+  await q('update public.edl_medias set gel_jusquau = null, gel_motif = null where id = $1', [MA2])
+  await q("set local app.bypass_immutable = 'off'")
+  const pg2 = await q('select storage_path from public.edl_medias_purger_lignes($1::uuid[])', [[MA2]])
+  check('purge : la ligne à échéance est supprimée, son chemin est rendu (fichier effacé ensuite)', pg2.rows.length === 1, JSON.stringify(pg2.rows))
+  const pz2 = await asUser(U.alice, 'select * from public.edl_medias_purger_lignes($1::uuid[])', [[MB]])
+  check('edl_medias_purger_lignes interdite aux utilisateurs (42501)', !pz2.ok && pz2.code === '42501', JSON.stringify(pz2))
+  const p3 = { rows: pg2.rows }
   check('à échéance : la ligne scellée se supprime (tâche serveur)', p3.rows.length === 1, JSON.stringify(p3.rows))
   const p4 = await asUser(U.alice, 'select 1', [])
   check('(contrôle)', p4.ok, '')
@@ -199,6 +214,29 @@ try {
   check('empreinte malformée refusée (23514)', !k3.ok && k3.code === '23514', JSON.stringify(k3))
   const k4 = await asUser(U.alice, 'update public.edl_medias set espace_id = $2 where id = $1', [MB, randomUUID()])
   check('espace_id gelé', !k4.ok, JSON.stringify(k4))
+
+  // (8) relecture Fable
+  console.log('RELECTURE FABLE :')
+  const INSS = 'insert into public.edl_medias (id, espace_id, logement_id, edl_id, storage_path, sha256, signed_at, purge_apres) values ($1,$2,$3,$4,$5,$6,$7,$8) returning signed_at, scelle_le, purge_apres'
+  const f1 = await asUser(U.carol, INSS, [randomUUID(), espace, L.A, null, chemin('A', 'f1'), H, '2000-01-01T00:00:00Z', '2003-01-02'])
+  check('C1 : scellé antidaté envoyé par le client IGNORÉ à l\'insertion (prise non scellée)', f1.ok && f1.rows[0].signed_at === null && f1.rows[0].scelle_le === null, JSON.stringify(f1))
+  const MF = randomUUID()
+  await asUserGarde(U.carol, INS, [MF, espace, L.A, null, chemin('A', 'f2'), H])
+  const f2 = await asUser(U.carol, "update public.edl_medias set signed_at = '2000-01-01', purge_apres = '2003-01-02' where id = $1", [MF])
+  check('C1 : un client ne scelle jamais une prise lui-même (MEDIA_EDL_SCELLE)', !f2.ok && /MEDIA_EDL_SCELLE/.test(f2.msg), JSON.stringify(f2))
+  const EDLX = randomUUID()
+  await q("insert into public.edl (id, espace_id, logement_id, type_edl, date_edl, signed_at) values ($1,$2,$3,'Entrée','2019-01-01','2019-01-01T10:00:00Z')", [EDLX, espace, L.B])
+  const f3 = await asUser(U.alice, INS, [randomUUID(), espace, L.A, EDLX, chemin('A', 'f3'), H])
+  check('C1 : edl_id d\'un EDL signé d\'un AUTRE logement ignoré (pas de scellé antidaté)', f3.ok && f3.rows[0].signed_at === null, JSON.stringify(f3))
+  const f4 = await asUser(U.carol, INS, [randomUUID(), espace, L.A, EDL.A, `${espace}/${E.B}/files/vid_croise_${RUN}.webm`, H])
+  check('I3 : Carol ne peut PAS inscrire un fichier rangé sous SCI-B (42501)', !f4.ok && f4.code === '42501', JSON.stringify(f4))
+  await q("set local app.bypass_immutable = 'on'")
+  await q("update public.edl_medias set purge_apres = current_date - 30 where id = $1", [MF])
+  await q("set local app.bypass_immutable = 'off'")
+  const f5 = await q('select id from public.edl_medias_a_purger(500)')
+  check('I1 : une prise NON scellée à échéance n\'est jamais listée pour la purge', !f5.rows.some(r => r.id === MF), JSON.stringify(f5.rows))
+  const f6 = await q('select signed_at, scelle_le, (scelle_le > now() - interval \'1 hour\') as recent from public.edl_medias where id = $1', [MA])
+  check('scellé daté par l\'horloge de la base (scelle_le)', f6.rows[0].scelle_le !== null && f6.rows[0].recent === true, JSON.stringify(f6.rows))
 } finally {
   try { await q('rollback') } catch (e) {}
   await client.end()

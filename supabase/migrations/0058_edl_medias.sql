@@ -19,7 +19,10 @@
 --      APRÈS la signature (envoi différé) est scellé dès son insertion ;
 --   4. STORAGE : les politiques update/delete de `espace-files` (0031) refusent un objet dont le chemin est
 --      celui d'un média scellé (fonction `media_edl_protege`). Lecture et insertion inchangées ;
---   5. `edl_medias_a_purger(limite)` : liste des médias à échéance, réservée au rôle service (tâche planifiée).
+--   5. `edl_medias_a_purger(limite)` / `edl_medias_purger_lignes(ids)` : médias SCELLÉS à échéance (jamais une prise
+--      non scellée), réservées au rôle service (tâche planifiée) ; la ligne est supprimée avant le fichier.
+-- Relecture Fable (14/10) intégrée : scellé jamais posé par le client (horloge de la base, `scelle_le`), EDL du même
+-- logement, chemin sous une entité autorisée, purge limitée aux médias scellés, scellé jamais bloquant pour l'EDL.
 --
 -- Le front lit/écrit la table de façon TOLÉRANTE (table absente → vidéo gardée sur l'appareil + dans le
 -- stockage, rien ne casse). ORDRE DE DÉPLOIEMENT : cette migration AVANT le front qui enregistre les vidéos.
@@ -45,7 +48,8 @@ create table public.edl_medias (
   sha256         text,
   piece          text,
   prise          integer,
-  signed_at      timestamptz,               -- scellé (posé par la signature de l'EDL)
+  signed_at      timestamptz,               -- scellé : signature de l'EDL (posé par la BASE seulement, jamais par le client)
+  scelle_le      timestamptz,               -- horloge de la BASE au moment du scellé : sert au plancher de conservation
   purge_apres    date,                      -- échéance de conservation ; null = conserver
   gel_jusquau    date,                      -- litige : pas de suppression avant cette date
   gel_motif      text,
@@ -59,13 +63,15 @@ create table public.edl_medias (
   constraint edl_medias_duree_chk check (duree_s is null or duree_s >= 0),
   constraint edl_medias_sha256_chk check (sha256 is null or sha256 ~ '^[0-9a-f]{64}$'),
   constraint edl_medias_gel_chk check (gel_motif is null or length(gel_motif) <= 300),
-  -- Plancher de conservation d'un média scellé : jamais avant 3 ans après la signature (la restitution du
-  -- dépôt de garantie est postérieure à tout EDL du bail ; restitution + 3 ans >= signature + 3 ans).
-  -- Empêche de poser une échéance proche AVANT de signer pour faire purger la vidéo aussitôt après.
+  -- Plancher de conservation d'un média scellé : jamais avant 3 ans après le SCELLÉ, daté par l'horloge de la base
+  -- (la restitution du dépôt est postérieure à tout EDL du bail ; restitution + 3 ans >= signature + 3 ans).
+  -- `scelle_le` et non `signed_at` : une date de signature antidatée par un client ne peut pas avancer la purge
+  -- (relecture Fable C1). Empêche aussi de poser une échéance proche avant de signer.
   constraint edl_medias_purge_min_chk check (
     signed_at is null or purge_apres is null
-    or purge_apres >= ((signed_at at time zone 'UTC') + interval '3 years')::date
+    or purge_apres >= ((coalesce(scelle_le, created_at) at time zone 'UTC') + interval '3 years')::date
   ),
+  constraint edl_medias_scelle_chk check ((signed_at is null) = (scelle_le is null)),
   -- Le fichier vit DANS l'espace de la ligne, sous files/, et c'est une vidéo d'EDL (clé vid_…).
   constraint edl_medias_path_chk check (
     split_part(storage_path, '/', 1) = espace_id::text
@@ -107,13 +113,23 @@ begin
   end if;
 
   -- UPDATE
-  -- Scellé posé par cette mise à jour : l'échéance est relevée au plancher (signature + 3 ans), jamais refusée
-  -- (une signature ne doit jamais échouer à cause d'une échéance trop proche).
-  if old.signed_at is null and new.signed_at is not null and new.purge_apres is not null then
-    new.purge_apres := greatest(new.purge_apres, ((new.signed_at at time zone 'UTC') + interval '3 years')::date);
+  -- Seule la BASE scelle (fonction edl_sceller_medias, SECURITY DEFINER : current_user = son propriétaire). Un client
+  -- (authenticated / anon) qui touche signed_at ou scelle_le est refusé : sinon il pourrait sceller avec une date
+  -- antidatée puis faire purger la vidéo (relecture Fable C1).
+  if (new.signed_at is distinct from old.signed_at or new.scelle_le is distinct from old.scelle_le)
+     and current_user in ('authenticated', 'anon') then
+    raise exception 'MEDIA_EDL_SCELLE' using detail = 'le scellé est posé par la signature de l''EDL, jamais par un client';
+  end if;
+  -- Scellé posé par cette mise à jour : horloge de la base, échéance relevée au plancher (jamais refusée : une
+  -- signature ne doit jamais échouer à cause d'une échéance trop proche).
+  if old.signed_at is null and new.signed_at is not null then
+    new.scelle_le := now();
+    if new.purge_apres is not null then
+      new.purge_apres := greatest(new.purge_apres, ((now() at time zone 'UTC') + interval '3 years')::date);
+    end if;
   end if;
   if old.signed_at is not null then
-    if new.signed_at is distinct from old.signed_at
+    if new.signed_at is distinct from old.signed_at or new.scelle_le is distinct from old.scelle_le
        or new.storage_path is distinct from old.storage_path or new.sha256 is distinct from old.sha256
        or new.octets is distinct from old.octets or new.mime is distinct from old.mime
        or new.duree_s is distinct from old.duree_s or new.kind is distinct from old.kind
@@ -154,12 +170,16 @@ set search_path = ''
 as $$
 declare s timestamptz;
 begin
+  -- La valeur envoyée par le client est IGNORÉE (relecture Fable C1) : seul l'EDL réel — même espace, MÊME logement,
+  -- non supprimé — scelle, et l'horloge de la base date le scellé.
+  new.signed_at := null; new.scelle_le := null;
   if new.edl_id is not null then
-    select e.signed_at into s from public.edl e where e.id = new.edl_id and e.espace_id = new.espace_id;
-    if s is not null then new.signed_at := coalesce(new.signed_at, s); end if;
+    select e.signed_at into s from public.edl e
+     where e.id = new.edl_id and e.espace_id = new.espace_id and e.logement_id = new.logement_id and e.deleted_at is null;
+    if s is not null then new.signed_at := s; new.scelle_le := now(); end if;
   end if;
   if new.signed_at is not null and new.purge_apres is not null then
-    new.purge_apres := greatest(new.purge_apres, ((new.signed_at at time zone 'UTC') + interval '3 years')::date);
+    new.purge_apres := greatest(new.purge_apres, ((now() at time zone 'UTC') + interval '3 years')::date);
   end if;
   return new;
 end;
@@ -177,8 +197,13 @@ set search_path = ''
 as $$
 begin
   if new.signed_at is not null and (tg_op = 'INSERT' or old.signed_at is null) then
-    update public.edl_medias m set signed_at = new.signed_at   -- la garde relève l'échéance au plancher
-     where m.edl_id = new.id and m.espace_id = new.espace_id and m.signed_at is null;
+    begin
+      update public.edl_medias m set signed_at = new.signed_at   -- la garde date le scellé et relève l'échéance
+       where m.edl_id = new.id and m.espace_id = new.espace_id and m.logement_id = new.logement_id and m.signed_at is null;
+    exception when others then
+      -- Une signature d'EDL ne doit JAMAIS échouer à cause du registre des médias : on le signale et on continue.
+      raise warning 'edl_sceller_medias : scellé non posé pour edl %', new.id;
+    end;
   end if;
   return new;
 end;
@@ -193,11 +218,15 @@ alter table public.edl_medias force  row level security;
 
 create policy edl_medias_select on public.edl_medias for select to authenticated
   using ( public.has_entite_access(espace_id, public.entite_of_logement(espace_id, logement_id)) );
+-- Écriture : droit sur l'entité du LOGEMENT ET sur l'entité du CHEMIN du fichier (segment 2) — un associé d'une SCI
+-- ne peut pas inscrire (donc verrouiller à la signature) un fichier rangé sous une autre SCI (relecture Fable I3).
 create policy edl_medias_insert on public.edl_medias for insert to authenticated
-  with check ( public.has_entite_write(espace_id, public.entite_of_logement(espace_id, logement_id)) );
+  with check ( public.has_entite_write(espace_id, public.entite_of_logement(espace_id, logement_id))
+               and public.has_entite_write(espace_id, public.safe_uuid(split_part(storage_path, '/', 2))) );
 create policy edl_medias_update on public.edl_medias for update to authenticated
   using      ( public.has_entite_write(espace_id, public.entite_of_logement(espace_id, logement_id)) )
-  with check ( public.has_entite_write(espace_id, public.entite_of_logement(espace_id, logement_id)) );
+  with check ( public.has_entite_write(espace_id, public.entite_of_logement(espace_id, logement_id))
+               and public.has_entite_write(espace_id, public.safe_uuid(split_part(storage_path, '/', 2))) );
 -- Suppression par un associé : seulement une prise NON scellée (refaire une prise avant la signature).
 create policy edl_medias_delete on public.edl_medias for delete to authenticated
   using ( signed_at is null and public.has_entite_write(espace_id, public.entite_of_logement(espace_id, logement_id)) );
@@ -259,7 +288,8 @@ set search_path = ''
 as $$
   select m.id, m.storage_path
     from public.edl_medias m
-   where m.purge_apres is not null and m.purge_apres <= current_date
+   where m.signed_at is not null                     -- jamais une prise non scellée (relecture Fable I1)
+     and m.purge_apres is not null and m.purge_apres <= current_date
      and (m.gel_jusquau is null or m.gel_jusquau < current_date)
    order by m.purge_apres, m.id
    limit greatest(1, least(coalesce(p_limite, 100), 500));
@@ -267,5 +297,23 @@ $$;
 revoke all on function public.edl_medias_a_purger(integer) from public;
 revoke all on function public.edl_medias_a_purger(integer) from anon, authenticated;
 grant execute on function public.edl_medias_a_purger(integer) to service_role;
+
+-- Supprime les lignes ENCORE à échéance au moment de l'appel (un gel posé entre-temps les protège) et rend leurs
+-- chemins : la tâche n'efface que ces fichiers-là. Rôle service seulement.
+create or replace function public.edl_medias_purger_lignes(p_ids uuid[])
+returns table (storage_path text)
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from public.edl_medias m
+   where m.id = any(p_ids) and m.signed_at is not null
+     and m.purge_apres is not null and m.purge_apres <= current_date
+     and (m.gel_jusquau is null or m.gel_jusquau < current_date)
+  returning m.storage_path;
+$$;
+revoke all on function public.edl_medias_purger_lignes(uuid[]) from public;
+revoke all on function public.edl_medias_purger_lignes(uuid[]) from anon, authenticated;
+grant execute on function public.edl_medias_purger_lignes(uuid[]) to service_role;
 
 commit;

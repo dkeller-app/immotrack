@@ -38,9 +38,11 @@ Deno.serve(async (req: Request) => {
         return !(e && /not.?found|does not exist/i.test(String((e as { message?: string }).message || '')));
       });
     },
+    // La base supprime seulement les lignes ENCORE à échéance (gel posé entre-temps = gardée) et rend leurs chemins.
     supprimer: async (ids: string[]) => {
-      const { error } = await sb.from('edl_medias').delete().in('id', ids);
-      return { ok: !error };
+      const { data, error } = await sb.rpc('edl_medias_purger_lignes', { p_ids: ids });
+      if (error) throw new Error('rpc');
+      return (data || []).map((r: { storage_path: string }) => r.storage_path);
     },
   });
   console.log(`[purge-medias-edl] lus=${bilan.lus} fichiers=${bilan.fichiers} lignes=${bilan.lignes} echecs=${bilan.echecs} erreurs=${bilan.erreurs}`);

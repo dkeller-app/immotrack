@@ -6011,8 +6011,11 @@ function _edlVideoEdlId() { return el('edl-edit-id') ? String(el('edl-edit-id').
 function _edlVideoFilmer(pi) {
   const M = _evxV(); if (!M || !_edlVideoDispo() || !_edlP[pi]) return;
   _EVX.ctx = { cible: 'piece', pi, pieceNom: _edlP[pi].nom || 'Pièce', video: true };
-  if (_edlVideoAccords.length) { _edlVideoDemarrer(); return; }
-  _EVX.accord = M.EdlVideo.lignesAccord(el('edl-loc') ? el('edl-loc').value : '');
+  // L'accord est redemandé dès qu'un locataire de l'EDL n'a pas d'accord enregistré (arrivé ou ajouté après coup,
+  // ou noté absent plus tôt) ; les accords déjà donnés sont affichés figés (relecture Fable I2).
+  const noms = el('edl-loc') ? el('edl-loc').value : '';
+  if (!M.EdlVideo.accordManquant(noms, _edlVideoAccords)) { _edlVideoDemarrer(); return; }
+  _EVX.accord = M.EdlVideo.lignesAccordAvec(noms, _edlVideoAccords);
   _edlVideoVueAccord();
 }
 function _edlVideoVueAccord() {
@@ -6020,13 +6023,13 @@ function _edlVideoVueAccord() {
   const peut = M.EdlVideo.peutFilmer(_EVX.accord).ok;
   _edlVoixAfficher(M.EdlVideoVues.vueAccord({ notice: M.IaTransparence.noticeVideo(), lignes: _EVX.accord, peut }, { ic: _evxIc }), 'accord');
 }
-function _edlVideoAccordCocher(i) { const l = _EVX.accord && _EVX.accord[i]; if (!l || !l.present) return; l.accord = !l.accord; _edlVideoVueAccord(); }
-function _edlVideoAccordPresence(i) { const l = _EVX.accord && _EVX.accord[i]; if (!l) return; l.present = !l.present; if (!l.present) l.accord = false; _edlVideoVueAccord(); }
+function _edlVideoAccordCocher(i) { const l = _EVX.accord && _EVX.accord[i]; if (!l || !l.present || l.fige) return; l.accord = !l.accord; _edlVideoVueAccord(); }
+function _edlVideoAccordPresence(i) { const l = _EVX.accord && _EVX.accord[i]; if (!l || l.fige) return; l.present = !l.present; if (!l.present) l.accord = false; _edlVideoVueAccord(); }
 function _edlVideoAccordRepresentant(i, v) { const l = _EVX.accord && _EVX.accord[i]; if (l) l.representant = String(v || '').slice(0, 120); }
 function _edlVideoAccordOk() {
   const M = _evxV(); if (!M || !_EVX.accord) return;
   if (!M.EdlVideo.peutFilmer(_EVX.accord).ok) { showToast('Chaque locataire présent coche sa case avant de filmer.', 'warn', 4000); return; }
-  _edlVideoAccords = M.EdlVideo.enregistrerAccords(_EVX.accord);
+  _edlVideoAccords = M.EdlVideo.enregistrerAccords(_EVX.accord, { existants: _edlVideoAccords, version: M.IaTransparence.versionNoticeVideo() });
   _EVX.accord = null;
   _edlAutosaveTrigger('video-accord');
   _edlVideoDemarrer();
@@ -6264,7 +6267,7 @@ async function _edlVideoProlonger() {
   if (!confirm2(`Garder les vidéos de cet état des lieux jusqu’au ${fd(gel)} (litige en cours) ? Le gel pourra être prolongé ; il ne pourra pas être raccourci.`)) return;
   rec.conservationMedias = { ...(rec.conservationMedias || {}), gelJusquau: gel, gelMotif: 'litige' };
   saveDB({ autosave: true, quoi: 'edl-video' });
-  if (typeof window.__immoEdlMediaEcheance === 'function') { const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, gelJusquau: gel, gelMotif: 'litige' }); if (!r || !r.ok) showToast('Gel noté sur l’appareil ; il sera transmis au prochain passage.', 'info', 4000); }
+  if (typeof window.__immoEdlMediaEcheance === 'function') { const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, espace: (((rec.videos || []).find((v) => v && v.cloudKey) || {}).cloudKey || '').split('/')[0], gelJusquau: gel, gelMotif: 'litige' }); if (!r || !r.ok) showToast('Gel noté sur l’appareil ; il sera transmis au prochain passage.', 'info', 4000); }
   showToast(`Vidéos gardées jusqu’au ${fd(gel)}.`, 'ok', 3500);
   _edlVoixRafraichir();
 }
@@ -6311,6 +6314,16 @@ async function _edlVideoEnvoyer(id) {
       _edlVideoEtat(id, { etat: r && r.code === 'offline' ? 'attente' : 'echec', message: r && r.code === 'trop_lourd' ? 'Le stockage refuse un fichier de cette taille.' : '' });
       return;
     }
+    // Fichier « déjà présent » (envoi déjà fait, ou autre chose) : on vérifie qu'il a la bonne taille avant de
+    // considérer la vidéo à l'abri ; sinon la copie locale est GARDÉE (relecture Fable M4).
+    if (r.existait) {
+      let taille = -1;
+      try {
+        const u = typeof window.__immoCloudFileUrl === 'function' ? await window.__immoCloudFileUrl(r.path, 60) : null;
+        if (u) { const h = await fetch(u, { method: 'HEAD' }); taille = Number(h.headers.get('content-length')); }
+      } catch (_) { taille = -1; }
+      if (taille !== local.buf.byteLength) { _edlVideoEtat(id, { etat: 'echec', message: 'Un fichier différent porte déjà ce nom dans le stockage : la vidéo reste sur l’appareil.' }); return; }
+    }
     // À l'abri : chemin posé des deux côtés (enregistrement synchronisé + EDL ouvert), puis copie locale effacée.
     meta.cloudKey = r.path;
     const ouvert = _edlVideos.find((v) => v.id === id); if (ouvert) ouvert.cloudKey = r.path;
@@ -6331,6 +6344,7 @@ async function _edlVideoEnvoyer(id) {
 async function _edlVideoEnregistrer(rec, meta) {
   if (!meta || !meta.cloudKey || meta.registre || typeof window.__immoEdlMediaRegister !== 'function') return;
   const r = await window.__immoEdlMediaRegister({ path: meta.cloudKey, edlLocalId: rec.id, mime: meta.mime, octets: meta.octets, duree: meta.duree, sha256: meta.sha256, piece: meta.piece, prise: meta.prise });
+  if (r && r.code === 'conflit') console.warn('[edl vidéo] registre : chemin déjà inscrit pour un autre état des lieux');
   if (r && r.ok) {
     meta.registre = true;
     const ouvert = _edlVideos.find((v) => v.id === meta.id); if (ouvert) ouvert.registre = true;
@@ -6356,7 +6370,8 @@ async function _edlVideoTransmettreEcheance(rec) {
   if (_EVX.echeances[cle]) return;
   _EVX.echeances[cle] = 1;
   const g = rec.conservationMedias || {};
-  const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, purgeApres: c.dateFin, ...(g.gelJusquau ? { gelJusquau: g.gelJusquau, gelMotif: g.gelMotif || 'litige' } : {}) });
+  const chemin = (rec.videos.find((v) => v && v.cloudKey) || {}).cloudKey || '';
+  const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, espace: chemin.split('/')[0], purgeApres: c.dateFin, ...(g.gelJusquau ? { gelJusquau: g.gelJusquau, gelMotif: g.gelMotif || 'litige' } : {}) });
   if (!r || !r.ok) delete _EVX.echeances[cle];
 }
 
@@ -7328,10 +7343,10 @@ async function generateEDLPdfNative(edl) {
     const _EVd = (typeof window !== 'undefined') ? window.EdlVideo : null;
     const _IATv = (typeof window !== 'undefined') ? window.IaTransparence : null;
     const _lv = _EVd ? _EVd.lignesVideosPdf(edl) : [];
-    if (_lv.length) {
+    if (_lv.length || (edl.videoAccords || []).length) {
       y = newPageIfNeeded(y, 40);
       y = drawTitle(y, 'Vidéos de l’état des lieux', 2);
-      pdf.autoTable({
+      if (_lv.length) pdf.autoTable({
         startY: y,
         head: [['Pièce', 'Durée', 'Filmée le', 'Empreinte SHA-256', 'Stockage']],
         body: _lv.map(l => [l.piece, l.duree, l.filmeLe, l.empreinte, l.aLAbri ? 'À l’abri' : 'En attente d’envoi']),
@@ -7340,10 +7355,13 @@ async function generateEDLPdfNative(edl) {
         headStyles: { fillColor: [60,60,60], textColor: [255,255,255] },
         columnStyles: { 3: { font: 'courier', fontSize: 6.5, cellWidth: 62 } }
       });
-      y = pdf.lastAutoTable.finalY + 4;
-      const _acc = (edl.videoAccords || []).map(a => `${a.nom}${a.representant ? ' (représenté par ' + a.representant + ')' : ''}, le ${fd(String(a.at || '').slice(0, 10))} à ${String(a.at || '').slice(11, 16)}`).join(' ; ');
+      if (_lv.length) y = pdf.lastAutoTable.finalY + 4;
+      const _quand = a => `le ${fd(String(a.at || '').slice(0, 10))} à ${String(a.at || '').slice(11, 16)}`;
+      const _acc = (edl.videoAccords || []).map(a => a.accord === true
+        ? `${a.nom}${a.representant ? ' (représenté par ' + a.representant + ')' : ''} : accord ${_quand(a)}`
+        : `${a.nom} : absent ${_quand(a)}`).join(' ; ');
       pdf.setFont('helvetica','normal').setFontSize(8).setTextColor(60,60,60);
-      if (_acc) { const _al = pdf.splitTextToSize('Accord pour filmer : ' + _acc + '.', CW); y = newPageIfNeeded(y, _al.length * 4 + 2); pdf.text(_al, M, y); y += _al.length * 4 + 1; }
+      if (_acc) { const _al = pdf.splitTextToSize('Accord pour filmer : ' + _acc + '. ' + ((_IATv && _IATv.MENTION_ACCORD_VIDEO) || ''), CW); y = newPageIfNeeded(y, _al.length * 4 + 2); pdf.text(_al, M, y); y += _al.length * 4 + 1; }
       if (_IATv && _IATv.MENTION_COPIE_VIDEO) { const _cl = pdf.splitTextToSize(_IATv.MENTION_COPIE_VIDEO, CW); y = newPageIfNeeded(y, _cl.length * 4 + 2); pdf.text(_cl, M, y); y += _cl.length * 4 + 4; }
     }
   }

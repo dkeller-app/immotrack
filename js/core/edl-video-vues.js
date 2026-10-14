@@ -36,11 +36,15 @@ export function vueAccord({ notice, lignes, peut }, { ic }) {
     + notice.sections.map((s) => `<h3>${ic(s.icone)} ${esc(s.titre)}</h3><p>${esc(s.texte)}</p>`).join('') + '</div>'
     + '<div class="evx-sect">Accord de chaque locataire présent</div>';
   if (!lignes.length) corps += '<div class="evx-nc">Aucun locataire n’est renseigné dans l’état des lieux. Ajouter le nom du locataire dans l’étape « Parties » avant de filmer.</div>';
-  corps += lignes.map((l, i) => `<div class="evx-acc${l.present ? '' : ' abs'}">`
+  corps += lignes.map((l, i) => (l.fige
+    // Accord déjà donné pour cet état des lieux : affiché, jamais recoché ni retiré ici (son horodatage fait foi).
+    ? `<div class="evx-acc"><button type="button" class="evx-box" role="checkbox" aria-checked="true" disabled>${ic('check')}<span class="evx-sr">Accord donné</span></button>`
+      + `<div class="evx-acc-tx"><b>${esc(notice.accord)}</b><small>${esc(l.nom)} · accord déjà donné pour cet état des lieux</small></div></div>`
+    : `<div class="evx-acc${l.present ? '' : ' abs'}">`
     + `<button type="button" class="evx-box" role="checkbox" aria-checked="${l.accord && l.present ? 'true' : 'false'}" ${l.present ? '' : 'disabled'} onclick="_edlVideoAccordCocher(${i})">${l.accord && l.present ? ic('check') : ''}<span class="evx-sr">Accord</span></button>`
     + `<div class="evx-acc-tx"><b>${esc(notice.accord)}</b><small>${esc(l.nom)}${l.present ? (l.accord ? ' · accord donné' : ' · case à cocher par le locataire') : ' · absent'}</small>`
-    + (l.present ? `<label class="evx-lab" for="evx-rep-${i}">Représenté par (facultatif)</label><input class="evx-fld" id="evx-rep-${i}" type="text" value="${esc(l.representant || '')}" onchange="_edlVideoAccordRepresentant(${i},this.value)" placeholder="Nom du représentant qui coche pour le locataire">` : '')
-    + `<button type="button" class="evx-lnk" onclick="_edlVideoAccordPresence(${i})">${l.present ? 'Indiquer absent' : 'Indiquer présent'}</button></div></div>`).join('');
+    + (l.present ? `<label class="evx-lab" for="evx-rep-${i}">Représenté par (facultatif)</label><input class="evx-fld" id="evx-rep-${i}" type="text" value="${esc(l.representant || '')}" onchange="_edlVideoAccordRepresentant(${i},this.value)" placeholder="Représentant muni d’un mandat, qui coche pour le locataire">` : '')
+    + `<button type="button" class="evx-lnk" onclick="_edlVideoAccordPresence(${i})">${l.present ? 'Indiquer absent' : 'Indiquer présent'}</button></div></div>`)).join('');
   corps += '<p class="evx-note">Chaque accord est enregistré dans l’état des lieux avec la date, l’heure et la version de ce texte. Un locataire absent n’est pas filmé sans son accord : filmer seulement avec l’accord des présents.</p>';
   const pied = sec('_edlVideoSansVideo()', 'Continuer sans vidéo') + pri('_edlVideoAccordOk()', `${ic('video')} Filmer`, peut ? '' : ' disabled');
   return { titre: notice.titre, sousTitre: notice.sousTitre, corps, pied, ferme: 'close' };

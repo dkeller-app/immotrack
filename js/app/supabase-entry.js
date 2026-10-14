@@ -663,7 +663,9 @@ async function boot() {
         url: o.url || '', onUrl: o.onUrl, onProgres: o.onProgres,
       })
       const r = await envoi.demarrer()
-      if (r.ok || r.code === 'existe') return { ok: true, path, url: r.url || '' }
+      if (r.ok) return { ok: true, path, url: r.url || '' }
+      // Fichier déjà présent : l'appelant vérifie sa taille avant de le tenir pour sa vidéo (jamais d'écrasement).
+      if (r.code === 'existe') return { ok: true, path, url: '', existait: true }
       return { ok: false, code: r.code, url: r.url || '' }
     } catch (e) { return { ok: false, code: 'reseau' } }
   }
@@ -686,7 +688,12 @@ async function boot() {
         duree_s: Number.isFinite(Number(o.duree)) ? Math.round(Number(o.duree)) : null,
         sha256: /^[0-9a-f]{64}$/.test(String(o.sha256 || '')) ? o.sha256 : null, piece: o.piece || null, prise: Number(o.prise) || null,
       }
-      const { error } = await client.from('edl_medias').upsert(ligne, { onConflict: 'storage_path', ignoreDuplicates: true })
+      const { error } = await client.from('edl_medias').insert(ligne)
+      if (error && String(error.code) === '23505') {
+        // Chemin déjà inscrit : seulement « fait » s'il s'agit bien de CE même état des lieux (jamais d'écrasement).
+        const { data: ex } = await client.from('edl_medias').select('edl_legacy_id').eq('storage_path', o.path).maybeSingle()
+        return ex && String(ex.edl_legacy_id) === String(o.edlLocalId) ? { ok: true } : { ok: false, code: 'conflit' }
+      }
       if (error) return { ok: false, code: /42P01|PGRST20|does not exist|schema cache/i.test(String(error.code) + ' ' + String(error.message)) ? 'table_absente' : 'refus' }
       return { ok: true }
     } catch (e) { return { ok: false, code: 'reseau' } }
@@ -701,7 +708,8 @@ async function boot() {
       if ('purgeApres' in o) patch.purge_apres = o.purgeApres || null
       if (o.gelJusquau) { patch.gel_jusquau = o.gelJusquau; patch.gel_motif = String(o.gelMotif || 'litige').slice(0, 300) }
       if (!Object.keys(patch).length) return { ok: true }
-      const { error } = await client.from('edl_medias').update(patch).eq('edl_legacy_id', String(o.edlLocalId))
+      if (!o.espace) return { ok: false, code: 'cloud' }
+      const { error } = await client.from('edl_medias').update(patch).eq('espace_id', o.espace).eq('edl_legacy_id', String(o.edlLocalId))
       return error ? { ok: false, code: 'refus' } : { ok: true }
     } catch (e) { return { ok: false, code: 'reseau' } }
   }

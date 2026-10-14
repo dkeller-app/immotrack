@@ -37,13 +37,37 @@ export function peutFilmer(lignes) {
   return manque.length ? { ok: false, raison: 'accord_manquant', manque } : { ok: true, manque: [] };
 }
 
-/** Enregistrements horodatés posés dans l'EDL (videoAccords) pour les présents qui ont accepté. */
-export function enregistrerAccords(lignes, { maintenant = new Date(), version = VERSION_TEXTE_ACCORD } = {}) {
+/** Enregistrements horodatés posés dans l'EDL (videoAccords) : accords des présents ET absences déclarées (preuve
+ *  de qui était là). Un accord déjà donné n'est jamais réécrit (son horodatage d'origine fait foi). */
+export function enregistrerAccords(lignes, { maintenant = new Date(), version = VERSION_TEXTE_ACCORD, existants = [] } = {}) {
   const at = maintenant.toISOString();
-  return (Array.isArray(lignes) ? lignes : []).filter((x) => x && x.present && x.accord === true).map((x) => {
+  const deja = new Map((Array.isArray(existants) ? existants : []).filter((a) => a && a.accord === true).map((a) => [String(a.nom).toLowerCase(), a]));
+  const out = [];
+  for (const x of Array.isArray(lignes) ? lignes : []) {
+    if (!x) continue;
+    const nom = String(x.nom || '').trim().slice(0, 120) || 'Locataire';
+    if (deja.has(nom.toLowerCase())) { out.push(deja.get(nom.toLowerCase())); continue; }
     const rep = String(x.representant || '').trim().slice(0, 120);
-    return { nom: String(x.nom || '').trim().slice(0, 120) || 'Locataire', accord: true, at, version, ...(rep ? { representant: rep } : {}) };
-  });
+    if (x.present && x.accord === true) out.push({ nom, accord: true, at, version, ...(rep ? { representant: rep } : {}) });
+    else if (!x.present) out.push({ nom, accord: false, absent: true, at, version });
+  }
+  // Accords d'un nom retiré depuis de la liste : gardés (preuve).
+  for (const [k, a] of deja) if (!out.some((o) => o.nom.toLowerCase() === k)) out.push(a);
+  return out;
+}
+
+/** Faut-il (re)demander l'accord avant de filmer ? Oui dès qu'un locataire de l'EDL n'a pas d'accord enregistré
+ *  (arrivé ou ajouté après coup) — y compris un locataire noté absent plus tôt, qui peut être arrivé (Fable I2). */
+export function accordManquant(noms, accords) {
+  const ok = new Set((Array.isArray(accords) ? accords : []).filter((a) => a && a.accord === true).map((a) => String(a.nom).toLowerCase()));
+  const l = lignesAccord(noms);
+  return !l.length || l.some((x) => !ok.has(x.nom.toLowerCase()));
+}
+
+/** Lignes de l'écran d'accord, pré-remplies : un accord déjà donné est affiché coché et figé. */
+export function lignesAccordAvec(noms, accords) {
+  const ok = new Map((Array.isArray(accords) ? accords : []).filter((a) => a && a.accord === true).map((a) => [String(a.nom).toLowerCase(), a]));
+  return lignesAccord(noms).map((l) => (ok.has(l.nom.toLowerCase()) ? { ...l, accord: true, fige: true, at: ok.get(l.nom.toLowerCase()).at } : l));
 }
 
 /** Lignes de départ de l'écran d'accord : les locataires de l'EDL, aucune case cochée. */
@@ -253,7 +277,12 @@ export function echeanceVideosEDL(edl, baux) {
   const bail = avant.length ? avant[avant.length - 1] : liste[0];
   const fini = !!(bail.cloture || bail.finEffective);
   const gel = edl.conservationMedias && edl.conservationMedias.gelJusquau;
-  return dateFinConservation({ restitutionDG: bail.dgRestitueAt || null, finBail: fini ? (bail.finEffective || bail.fin || null) : null, prolongeJusquau: gel || null });
+  const restitution = bail.dgRestitueAt ? String(bail.dgRestitueAt).slice(0, 10) : '';
+  const fin = fini ? String(bail.finEffective || bail.fin || '').slice(0, 10) : '';
+  // Une restitution ou une fin ANTÉRIEURE à l'EDL vient d'un autre bail (nouveau bail pas encore saisi) : on conserve
+  // (null), jamais une échéance déjà passée qui ferait purger une vidéo toute neuve (relecture Fable I1).
+  if (d && ((restitution && restitution < d) || (!restitution && fin && fin < d))) return null;
+  return dateFinConservation({ restitutionDG: restitution || null, finBail: fin || null, prolongeJusquau: gel || null });
 }
 
 /** Gel pour litige : au moins un an après aujourd'hui ou après l'échéance (la plus tardive). */
