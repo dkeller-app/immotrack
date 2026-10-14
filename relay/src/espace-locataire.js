@@ -16,7 +16,7 @@ import { sha256hex } from './crypto-utils.js';
 import { generateCode, hashCode, verifyCode, OTP_TTL_MS, OTP_MAX_ATTEMPTS } from './otp.js';
 import { makeSender } from './email-sender.js';
 
-export const EL_ASSET_VERSION = '1';
+export const EL_ASSET_VERSION = '2';
 
 // En-têtes de TOUTE réponse de l'espace locataire (page et API) — exigence pilotage : CSP, Referrer-Policy, no-store.
 export const EL_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; "

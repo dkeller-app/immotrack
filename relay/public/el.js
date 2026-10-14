@@ -3,13 +3,16 @@
 // une URL de requête, ni stocké. Toute donnée affichée passe par textContent (aucun innerHTML de donnée).
 // Écrans : maquette validée mockups/ESPACE-LOCATAIRE/maquette.html ; ton neutre (infinitif, ni « tu » ni « vous »).
 
+import { documentNouveau, plusRecentDabord, confirmationAccord } from './el-lib.js';
+
 const JETON_RE = /^[A-Za-z0-9_-]{43}$/;
 const root = document.getElementById('app');
+const accordInitial = () => ({ coche: false, etape: 'texte', code: '', a: '', envoi: false });
 const S = {
   jeton: null, info: null, inactif: false, erreur: null,
   docs: null, sigs: null, msgs: null,
-  vue: 'accueil', couche: null, filtre: 'tout', docSel: null, sigSel: null,
-  sig: null, accord: { coche: false, etape: 'texte', code: '', a: '' },
+  vue: 'accueil', couche: null, filtre: 'tout', docSel: null, sigSel: null, confirmation: null,
+  sig: null, accord: accordInitial(),
   msg: { texte: '', pieces: [], envoi: false },
 };
 
@@ -119,7 +122,7 @@ function navItems() {
   return [['accueil', 'home', 'Accueil'], ['documents', 'doc', 'Documents'], ['suivi', 'tool', 'Signalements', c.signalements_ouverts], ['messages', 'chat', 'Messages', c.messages_non_lus]];
 }
 function aller(vue) {
-  S.vue = vue; S.couche = null;
+  S.vue = vue; S.couche = null; S.confirmation = null;
   if (vue === 'messages') rechargerMsgs();
   if (vue === 'suivi' && !S.sigs) rechargerSigs();
   render();
@@ -198,8 +201,8 @@ function vueDocuments() {
     const l = visibles.filter((d) => groupe(d) === g); if (!l.length) continue;
     contenu.push(h('div', { class: 'sec' }, g), h('div', { class: 'list' }, l.map(ligneDoc)));
   }
-  const q = visibles.filter((d) => d.type === 'quittance');
-  const annees = [...new Set(q.map((d) => String(d.date_doc || d.publie_le).slice(0, 4)))].sort().reverse();
+  const q = visibles.filter((d) => d.type === 'quittance').sort(plusRecentDabord);   // par période, jamais par ordre de publication
+  const annees = [...new Set(q.map((d) => String(d.date_doc || d.publie_le).slice(0, 4)))].sort().reverse();   // l'ordre dans chaque année reste celui de q
   for (const a of annees) contenu.push(h('div', { class: 'sec' }, 'Quittances · ' + a), h('div', { class: 'list' }, q.filter((d) => String(d.date_doc || d.publie_le).startsWith(a)).map(ligneDoc)));
   contenu.push(h('p', { class: 'small mt' }, 'En colocation, la quittance est commune aux colocataires du bail.'));
   return { contenu };
@@ -237,6 +240,7 @@ function vueAccueil() {
   const i = S.info, docs = S.docs || [], c = i.compteurs || {};
   const contenu = [h('h1', { class: 'h1' }, i.phase === 'complet' ? 'Bonjour ' + i.locataire : 'Bail terminé'),
     h('p', { class: 'lead' }, [i.logement, i.bailleur ? 'bailleur : ' + i.bailleur : '', i.bail_debut ? 'bail du ' + fd(i.bail_debut) : ''].filter(Boolean).join(' · '))];
+  if (S.confirmation) contenu.push(h('div', { class: 'banner pos', role: 'status', style: 'margin-bottom:12px' }, I('check'), h('span', null, h('b', null, S.confirmation))));
   if (i.phase !== 'complet') {
     const t = i.phase === 'depart'
       ? `Bail terminé le ${fd(i.fin_bail)}. Les messages restent ouverts jusqu'à la clôture des comptes ; les signalements sont fermés.`
@@ -244,7 +248,7 @@ function vueAccueil() {
     contenu.push(h('div', { class: 'banner' }, I('clock'), h('span', null, h('b', null, `Documents consultables jusqu'au ${fd(i.fin_acces)}. `), t)));
     if (docs.length) contenu.push(h('button', { class: 'btn p w mt', onclick: (e) => toutTelecharger(e.currentTarget) }, I('zip'), `Tout télécharger (${docs.length} document${docs.length > 1 ? 's' : ''})`));
   } else {
-    const recent = docs.filter((d) => Date.now() - new Date(d.publie_le).getTime() < 30 * 864e5).sort((a, b) => String(b.publie_le).localeCompare(String(a.publie_le)))[0];
+    const recent = documentNouveau(docs);   // le plus récent par période / date du document (pas l'ordre de publication)
     if (recent) contenu.push(h('div', { class: 'card' }, h('div', { class: 'row' }, h('span', { class: 'ic acc' }, I('doc', 22)), h('div', { class: 'grow' }, h('span', { class: 'chip acc', style: 'margin-bottom:4px' }, 'Nouveau'), h('b', { style: 'display:block;font-size:15px' }, recent.titre), h('span', { class: 'muted' }, 'Disponible depuis le ' + fd(recent.publie_le)))),
       h('button', { class: 'btn p w mt', onclick: () => { S.docSel = recent; ouvrirCouche('doc'); } }, I('eye'), 'Ouvrir le document')));
   }
@@ -252,7 +256,7 @@ function vueAccueil() {
     const a = i.accord || {}, donne = a.donne_le && !a.retire_le;
     contenu.push(h('div', { class: 'card mt' }, h('div', { class: 'row top' }, h('span', { class: donne ? 'ic pos' : 'ic adv' }, I(donne ? 'check' : 'mail', 20)),
       h('div', { class: 'grow' }, h('b', { style: 'display:block' }, 'Quittances par voie électronique'), h('span', { class: 'muted' }, donne ? 'Accord donné le ' + fdh(a.donne_le) + '.' : "Accord non donné. La loi le permet seulement avec l'accord exprès du locataire."))),
-      h('button', { class: 'btn s w mt', onclick: () => { S.accord = { coche: false, etape: 'texte', code: '', a: '' }; ouvrirCouche('accord'); } }, donne ? 'Voir ou retirer l\'accord' : 'Lire et décider', I('chev', 16))));
+      h('button', { class: 'btn s w mt', onclick: () => { S.accord = accordInitial(); S.confirmation = null; ouvrirCouche('accord'); } }, donne ? 'Voir ou retirer l\'accord' : 'Lire et décider', I('chev', 16))));
   }
   const tuiles = [h('button', { class: 'tile', onclick: () => aller('documents') }, h('span', { class: 'ic' }, I('doc')), h('b', null, 'Documents'), h('span', null, docs.length + ' document' + (docs.length > 1 ? 's' : '')))];
   if (peut('signaler')) tuiles.push(h('button', { class: 'tile', onclick: debuterSignalement }, h('span', { class: 'ic' }, I('alert')), h('b', null, 'Signaler un problème'), h('span', null, 'Photos possibles')));
@@ -315,17 +319,18 @@ function coucheAccord() {
   const loi = [h('div', { class: 'quote' }, (R.art21 ? R.art21.texte : []).map((t, k) => h('p', null, (k === 0 ? '« ' : '') + t + (k === R.art21.texte.length - 1 ? ' »' : '')))),
     h('p', { class: 'src' }, R.art21 ? R.art21.source : '')];
   if (S.accord.etape === 'code') {
-    return { titre: 'Confirmer par code', retour: () => { S.accord.etape = 'texte'; render(); },
+    const env = S.accord.envoi;
+    return { titre: 'Confirmer par code', retour: () => { if (S.accord.envoi) return; S.accord.etape = 'texte'; render(); },
       contenu: [h('p', { class: 'h2' }, 'Saisir le code reçu par e-mail'), h('p', { class: 'muted' }, `Code à 6 chiffres envoyé à ${S.accord.a}. Valable 10 minutes, 5 essais.`),
         h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Code'), h('input', { class: 'inp otp', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, value: S.accord.code, oninput: (e) => { S.accord.code = e.target.value.replace(/\D/g, '').slice(0, 6); } })),
-        h('button', { class: 'btn g w', onclick: (e) => demanderCode(e.currentTarget) }, 'Recevoir un nouveau code')],
-      pied: [h('button', { class: 'btn p', onclick: (e) => envoyerAccord(S.accord.donner, e.currentTarget) }, I('check'), 'Confirmer')] };
+        h('button', { class: 'btn g w', disabled: env, onclick: () => demanderCode() }, 'Recevoir un nouveau code')],
+      pied: [h('button', { class: 'btn p', disabled: env, onclick: () => envoyerAccord(S.accord.donner) }, I('check'), env ? 'Envoi…' : 'Confirmer')] };
   }
   if (donne) {
     return { titre: 'Accord électronique', contenu: [h('div', { class: 'banner pos' }, I('check'), h('span', null, h('b', null, 'Accord donné le ' + fdh(a.donne_le) + '. '), 'Le bailleur voit cet accord.')),
       h('div', { class: 'card mt' }, h('b', { style: 'display:block;margin-bottom:4px' }, "Retirer l'accord"), h('span', { class: 'muted' }, 'Le bailleur reprend alors la remise papier sur demande. Les quittances déjà déposées restent consultables ici.')),
       h('div', { class: 'mt' }, loi)],
-      pied: [h('button', { class: 'btn s', onclick: (e) => lancerAccord(false, e.currentTarget) }, I('ban'), "Retirer l'accord")] };
+      pied: [h('button', { class: 'btn s', disabled: S.accord.envoi, onclick: () => lancerAccord(false) }, I('ban'), S.accord.envoi ? 'Envoi…' : "Retirer l'accord")] };
   }
   const coche = S.accord.coche;
   return { titre: 'Accord électronique', contenu: [
@@ -339,25 +344,37 @@ function coucheAccord() {
     h('button', { class: 'chk mt', role: 'checkbox', 'aria-checked': coche ? 'true' : 'false', onclick: () => { S.accord.coche = !S.accord.coche; render(); } },
       h('span', { class: 'bx' }, I('check', 16)), h('span', null, i.libelleAccord)),
     h('p', { class: 'small mt' }, 'Case jamais pré-cochée. Enregistré : date et heure, version du texte (' + (R.accordVersion || 'v1') + '). Aucune autre donnée.')],
-    pied: [h('button', { class: 'btn p', disabled: !coche, onclick: (e) => lancerAccord(true, e.currentTarget) }, I('check'), "Donner l'accord")] };
+    pied: [h('button', { class: 'btn p', disabled: !coche || S.accord.envoi, onclick: () => lancerAccord(true) }, I('check'), S.accord.envoi ? 'Envoi…' : "Donner l'accord")] };
 }
-async function demanderCode(bouton) {
-  bouton && bouton.classList.add('busy');
-  try { const r = await api('accord/code'); S.accord.etape = 'code'; S.accord.a = r.a || "l'adresse du bail"; render(); toast('Code envoyé.'); }
-  catch (e) { echec(e); } finally { bouton && bouton.classList.remove('busy'); }
+// Envoi en cours : le bouton est RENDU désactivé (le DOM est reconstruit à chaque render) et un second toucher est ignoré.
+// Les messages (toast) sont posés APRÈS le dernier render, qui efface le DOM — sinon la confirmation disparaîtrait aussitôt.
+async function demanderCode() {
+  if (S.accord.envoi) return;
+  S.accord.envoi = true; render();
+  let err = null;
+  try { const r = await api('accord/code'); S.accord.etape = 'code'; S.accord.a = r.a || "l'adresse du bail"; }
+  catch (e) { err = e; }
+  S.accord.envoi = false; render();
+  if (err) echec(err); else toast('Code envoyé.');
 }
-async function lancerAccord(donner, bouton) {
+async function lancerAccord(donner) {
+  if (S.accord.envoi) return;
   S.accord.donner = donner;
-  if (S.info.codeAccord) return demanderCode(bouton);
-  return envoyerAccord(donner, bouton);
+  if (S.info.codeAccord) return demanderCode();
+  return envoyerAccord(donner);
 }
-async function envoyerAccord(donner, bouton) {
-  bouton && bouton.classList.add('busy');
-  try {
-    const r = await api('accord', { donner, code: S.accord.code || undefined });
-    S.info.accord = r.accord; S.accord = { coche: false, etape: 'texte', code: '', a: '' };
-    S.couche = 'accord'; render(); toast(donner ? 'Accord enregistré.' : 'Accord retiré.');
-  } catch (e) { echec(e); } finally { bouton && bouton.classList.remove('busy'); }
+async function envoyerAccord(donner) {
+  if (S.accord.envoi) return;
+  S.accord.envoi = true; render();
+  let r = null, err = null;
+  try { r = await api('accord', { donner, code: S.accord.code || undefined }); } catch (e) { err = e; }
+  if (err) { S.accord.envoi = false; render(); echec(err); return; }
+  // Succès : retour à l'ACCUEIL (la carte « Quittances par voie électronique » reflète le nouvel état) avec une confirmation
+  // datée, visible tant qu'on ne change pas de page, en plus du message passager.
+  S.info.accord = r.accord; S.accord = accordInitial();
+  S.confirmation = confirmationAccord(donner, r.accord, fdh);
+  S.vue = 'accueil'; S.couche = null; render();
+  toast(S.confirmation);
 }
 
 // ─────────────── signaler ───────────────

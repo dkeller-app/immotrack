@@ -126,8 +126,8 @@ export function detecterDoublon({ edls = [], logement, type, date, idCourant = n
     message: 'Un état des lieux existe déjà pour ' + logement + ' — ' + (type || '?')
       + ' du ' + String(date).slice(0, 10) + ', commencé sur ' + ou + (h ? ' à ' + h : '')
       + (m && quand ? '.' : ", pas encore remonté.")
-      + '\n\nAttends la synchronisation pour le reprendre, ou crée-en un second en connaissance de cause '
-      + '(tu auras alors deux états des lieux pour la même visite).',
+      + '\n\nAttendre la synchronisation pour le reprendre, ou en créer un second en connaissance de cause '
+      + '(il y aura alors deux états des lieux pour la même visite).',
   };
 }
 
@@ -164,9 +164,9 @@ export function verrouOuverture(edl, idAppareilCourant) {
     peutReprendre: true,
     appareil: m.nom,
     message: 'Cet état des lieux a été travaillé sur ' + m.nom + (jh ? ' le ' + jh : '')
-      + '. Si tu écris ici en même temps, la visite risque de se dédoubler.'
-      + '\n\nSi cet appareil-là n’est plus disponible, ou si tu préfères finir ici,'
-      + ' choisis « Reprendre ici quand même ».',
+      + '. Écrire ici en même temps risque de dédoubler la visite.'
+      + '\n\nSi cet appareil-là n’est plus disponible, ou pour finir ici,'
+      + ' choisir « Reprendre ici quand même ».',
   };
 }
 
@@ -284,7 +284,7 @@ export function messageVersionsConservees(conserves) {
   const detail = n === 1
     ? '« ' + c.nom +' » (' + r.elements + ' éléments · ' + r.photos + ' photos)'
     : n + ' versions locales';
-  return 'Une modification concurrente a été reçue. Ta saisie n’a PAS été écrasée : '
+  return 'Une modification concurrente a été reçue. La saisie n’a PAS été écrasée : '
     + detail + ' est conservée à côté de la version reçue. '
-    + 'Compare les deux, garde celle que tu veux, supprime l’autre — rien n’a été fusionné.';
+    + 'Comparer les deux, garder celle voulue, supprimer l’autre — rien n’a été fusionné.';
 }

@@ -238,3 +238,26 @@ describe('E-8 · attribution à la location (relecture adverse : jamais les docu
     expect(EL.champsIncident({ id: '3f2a9c10-4b5e-4d6f-8a7b-1c2d3e4f5a6b', piece: 'cuisine', element: 'autre', urgence: 'faible', description: 'x x x' }, { logRef: 'L', imm: 'Immeuble Demo' }).imm).toBe('')
   })
 })
+
+describe('E-titres · élision française des titres publiés (smoke 14/10 : « Quittance de avril 2026 »)', () => {
+  it('elide : voyelle et h muet → d\'… ; consonne → de …', () => {
+    expect(EL.elide('avril')).toBe("d'avril")
+    expect(EL.elide('août')).toBe("d'août")
+    expect(EL.elide('octobre')).toBe("d'octobre")
+    expect(EL.elide('Avril 2026')).toBe("d'Avril 2026")
+    expect(EL.elide('hiver')).toBe("d'hiver")
+    expect(EL.elide('mars')).toBe('de mars')
+    expect(EL.elide('février')).toBe('de février')
+    expect(EL.elide('')).toBe('')
+  })
+  it('titreQuittance : les 12 mois, élision seulement pour avril, août, octobre', () => {
+    const mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+    const attendu = mois.map((m) => (['avril', 'août', 'octobre'].includes(m) ? "Quittance d'" + m + ' 2026' : 'Quittance de ' + m + ' 2026'))
+    expect(mois.map((m) => EL.titreQuittance(m + ' 2026'))).toEqual(attendu)
+    for (const t of attendu) expect(t).not.toMatch(/\bde (avril|août|octobre)\b/)
+  })
+  it('le moisCle reste cohérent avec le libellé fabriqué (le titre ne change pas la clé du document)', () => {
+    expect(EL.moisCle('août 2026')).toBe('2026-08')
+    expect(EL.cleDocument('quittance', EL.moisCle('août 2026'))).toBe('quittance:2026-08')
+  })
+})
