@@ -235,7 +235,8 @@ export function moisCle(mois) {
 }
 /**
  * Élision française d'une préposition devant un mot : « de » + « avril » → « d'avril », « de » + « mars » → « de mars ».
- * Voyelle (accentuée ou non) ou h muet (les mois n'en comptent pas d'aspiré). Source UNIQUE des titres fabriqués à la
+ * Voyelle (accentuée ou non) ou « h » TRAITÉ COMME MUET : prévue pour les MOIS (aucun n'a de h aspiré) ; ne pas l'étendre à des mots
+ * quelconques (« d'haricot »). Source UNIQUE des titres fabriqués à la
  * publication (relais et app ne refabriquent jamais le titre : il est figé en base au moment de la publication).
  */
 export function elide(mot, prep = 'de') {

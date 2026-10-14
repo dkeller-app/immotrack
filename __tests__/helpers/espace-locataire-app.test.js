@@ -18,7 +18,7 @@ function monter() {
     uuid: (...p) => 'u:' + p.join('|'),
     select: vi.fn(async (table, filtre) => {
       appels.select.push(table)
-      if (table === 'locataire_signalements') return api._sigs.filter((s) => !filtre || filtre.importe_le !== null || true)
+      if (table === 'locataire_signalements') return api._sigs
       return []
     }),
     update: vi.fn(async () => [{ id: SIG_ID }]),
@@ -27,6 +27,10 @@ function monter() {
   }
   window.__immoEspaceLoc = api
   window.rAccueil = () => { appels.rAccueil++ }
+  window._rPeriodPage = () => { if (globalThis.currentPage === 'accueil') window.rAccueil() }   // même contrat que app-part1.js
+  appels.aregarder = 0
+  window._accmShowAregarder = () => { appels.aregarder++ }
+  document.querySelector = () => null
   window._refreshAfterMutation = () => { appels.refresh++ }
   window.saveDB = () => {}
   window._stamp = () => {}
@@ -65,6 +69,12 @@ describe('import des signalements → accueil redessiné', () => {
     appels.rAccueil = 0
     api._sigs = []
     expect(await mod._pourTests.importerSignalements()).toBe(0)
+    expect(appels.rAccueil).toBe(0)
+  })
+  it("téléphone, liste « À regarder » ouverte : c'est elle qui est rafraîchie, pas l'accueil", async () => {
+    document.querySelector = (sel) => (sel === '#accm-phone .atr' ? {} : null)
+    expect(await mod._pourTests.importerSignalements()).toBe(1)
+    expect(appels.aregarder).toBe(1)
     expect(appels.rAccueil).toBe(0)
   })
   it('un rendu de l\'accueil qui échoue ne casse pas l\'import', async () => {

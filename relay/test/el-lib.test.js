@@ -25,9 +25,14 @@ describe('documentNouveau — le plus récent par période, pas par ordre de pub
     expect(documentNouveau(docs, MAINTENANT).periode).toBe('août 2026');
     expect(documentNouveau([...docs].reverse(), MAINTENANT).periode).toBe('août 2026');
   });
-  it('deux publications de la MÊME période : la plus récente (réédition)', () => {
-    const l = [q('août 2026', 5000, { id: 'v1' }), q('août 2026', 100, { id: 'v2' }), q('juin 2026', 10)];
-    expect(documentNouveau(l, MAINTENANT).id).toBe('v2');
+  it('un document publié PLUS TARD que le lot reste mis en avant (décompte ancien, avenant daté du passé)', () => {
+    const jours = (n) => n * 864e5;
+    const octobre = q('octobre 2026', jours(13), { date_doc: '2026-10-01' });          // publiée le 01/10
+    const decompte = { id: 'd', type: 'decompte', titre: 'Décompte 2025', date_doc: '2026-03-15', publie_le: new Date(MAINTENANT - 1000).toISOString() };   // publié le 14/10
+    expect(documentNouveau([octobre, decompte], MAINTENANT).id).toBe('d');
+    // même jour de publication : la période départage (cas du smoke)
+    const memeJour = { ...decompte, id: 'd2', publie_le: new Date(MAINTENANT - 500).toISOString() };
+    expect(documentNouveau([...docs, { ...memeJour, type: 'bail', date_doc: '2026-01-01' }], MAINTENANT).periode).toBe('août 2026');
   });
   it('au-delà de 30 jours : rien n\'est mis en avant ; hors quittance : date du document', () => {
     expect(documentNouveau([q('août 2026', 31 * 864e5)], MAINTENANT)).toBeNull();

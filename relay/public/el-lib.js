@@ -33,10 +33,14 @@ export function plusRecentDabord(a, b) {
     || String((b && b.publie_le) || '').localeCompare(String((a && a.publie_le) || ''));
 }
 
-/** Document mis en avant (« Nouveau ») : publié depuis moins de `jours` jours, le plus récent par période / date. */
+/**
+ * Document mis en avant (« Nouveau ») : publié depuis moins de `jours` jours. D'abord le JOUR de publication le plus
+ * récent (un document arrivé après les autres reste mis en avant), puis, parmi les documents publiés le même jour
+ * (quittances rééditées en lot), le plus récent par période / date du document.
+ */
 export function documentNouveau(docs, maintenant = Date.now(), jours = 30) {
   const l = (docs || []).filter((d) => { const t = new Date(d && d.publie_le).getTime(); return !isNaN(t) && maintenant - t < jours * 864e5; });
-  return l.sort(plusRecentDabord)[0] || null;
+  return l.sort((a, b) => jour(b.publie_le).localeCompare(jour(a.publie_le)) || plusRecentDabord(a, b))[0] || null;
 }
 
 /** Texte de confirmation après « Donner l'accord » / « Retirer l'accord » (date et heure du serveur). */

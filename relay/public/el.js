@@ -80,6 +80,11 @@ const MSG_ERREUR = {
   413: 'Fichier trop lourd : 10 Mo au plus.', 415: 'Format non accepté : photo (JPEG, PNG) ou PDF.',
   503: 'Service momentanément indisponible. Réessayer plus tard.', 404: 'Fichier introuvable. Prévenir le bailleur.',
 };
+// Erreurs précises du relais, prioritaires sur le message du statut (un 409 n'est pas toujours « bail terminé »).
+const MSG_ERREUR_CODE = {
+  sans_email: "Aucune adresse e-mail n'est connue pour ce bail : prévenir le bailleur.",
+  code_inactif: 'La confirmation par code est indisponible pour le moment. Réessayer plus tard.',
+};
 async function api(route, corps, opts = {}) {
   const headers = { 'X-El-Jeton': S.jeton, ...(opts.headers || {}) };
   if (!opts.binaire) headers['Content-Type'] = 'application/json';
@@ -90,7 +95,7 @@ async function api(route, corps, opts = {}) {
   if (r.status === 410) { S.inactif = true; S.couche = null; render(); throw Object.assign(new Error('inactif'), { inactif: true }); }
   if (!r.ok) {
     let j = {}; try { j = await r.json(); } catch (e) { j = {}; }
-    const m = j.message || MSG_ERREUR[r.status] || (j.erreur === 'code_faux' ? 'Code incorrect.' : j.erreur === 'code_requis' ? 'Code expiré : en demander un nouveau.' : 'Une erreur est survenue. Réessayer.');
+    const m = j.message || MSG_ERREUR_CODE[j.erreur] || MSG_ERREUR[r.status] || (j.erreur === 'code_faux' ? 'Code incorrect.' : j.erreur === 'code_requis' ? 'Code expiré : en demander un nouveau.' : 'Une erreur est survenue. Réessayer.');
     throw Object.assign(new Error(m), { statut: r.status, code: j.erreur });
   }
   return opts.blob ? r.blob() : r.json();
@@ -129,7 +134,7 @@ function aller(vue) {
   const b = root.querySelector('.el-body'); if (b) b.scrollTop = 0;
 }
 function ouvrirCouche(c) { S.couche = c; render(); const f = root.querySelector('.pg .bk'); if (f) f.focus(); }
-function fermerCouche() { S.couche = null; render(); }
+function fermerCouche() { if (S.couche === 'accord' && S.accord.envoi) return; S.couche = null; render(); }   // pas de fermeture pendant l'envoi de l'accord
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.couche) fermerCouche(); });
 window.addEventListener('hashchange', () => { location.reload(); });
 

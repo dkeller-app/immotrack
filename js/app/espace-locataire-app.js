@@ -27,7 +27,7 @@ const jour = (s) => { const v = String(s == null ? '' : s); if (/^\d{4}-\d{2}-\d
 const db = () => { try { return DB } catch (e) { return null } }   // eslint-disable-line no-undef
 const vivant = (o) => o && !o._deleted
 
-const etat = { acces: [], docs: new Map(), msgs: new Map(), relais: null, charge: false, enCours: false, dernier: 0, accesLuLe: 0, echecs: new Set() }
+const etat = { acces: [], docs: new Map(), msgs: new Map(), relais: null, charge: false, enCours: false, dernier: 0, accesLuLe: 0, accesTenteLe: 0, echecs: new Set() }
 
 // ─────────────────────────── Correspondance bail (app) ↔ ligne `baux` (cloud) ───────────────────────────
 function locatairesDuBail(bail, log) {
@@ -170,7 +170,7 @@ function blocHtml(log, bail, ref) {
     if (!etat.charge && !etat.enCours) setTimeout(() => { rafraichir().then(majBloc) }, 0)
     // « Dernière visite » : les accès sont relus à l'ouverture de la fiche si la lecture a plus d'une minute (sinon le bloc
     // montrait la valeur du dernier cycle, jusqu'à 10 minutes plus tôt). majBloc ne relance rien : pas de boucle.
-    else if (etat.charge && !etat.enCours && Date.now() - etat.accesLuLe > DUREE_LECTURE_ACCES) setTimeout(() => { rafraichir().then(majBloc) }, 0)
+    else if (etat.charge && !etat.enCours && Date.now() - Math.max(etat.accesLuLe, etat.accesTenteLe) > DUREE_LECTURE_ACCES) { etat.accesTenteLe = Date.now(); setTimeout(() => { rafraichir().then(majBloc) }, 0) }
     const bid = bail ? bailId(ref, bail) : null
     if (bid && !etat.docs.has(bid)) chargerDocs(bid).then(majBloc)
     const html = blocInterieur(log, bail, ref)
@@ -549,11 +549,18 @@ const ecrireImports = (l) => { try { localStorage.setItem(_lsKey('imsb-el-import
 // L'accueil (bulle « Incidents à traiter ») est rendu au chargement, AVANT cet import asynchrone : sans nouveau rendu, la
 // bulle n'apparaissait qu'au changement d'onglet. _refreshAfterMutation ne connaît pas l'accueil (volontairement : il ne
 // doit pas redessiner l'accueil après chaque mutation) ; ce rendu-ci est limité au cas « l'import a ajouté des incidents ».
+// Réutilise _rPeriodPage (DRY : « rAccueil si on est sur l'accueil »). Sur téléphone, si la liste « À regarder » est ouverte,
+// c'est elle qui est rafraîchie (rAccueil la remplacerait par l'accueil et ferait perdre la position).
 function rafraichirAccueil() {
-  let page = ''
-  try { page = currentPage } catch (e) { return }   // eslint-disable-line no-undef
-  if (page !== 'accueil' || !G('rAccueil')) return
-  try { W.rAccueil() } catch (e) { console.warn('[espace-locataire] accueil', e && e.message) }
+  try {
+    if (document.querySelector('#accm-phone .atr') && G('_accmShowAregarder')) {
+      let page = ''
+      try { page = currentPage } catch (e) { return }   // eslint-disable-line no-undef
+      if (page === 'accueil') W._accmShowAregarder()
+      return
+    }
+    if (G('_rPeriodPage')) W._rPeriodPage()
+  } catch (e) { console.warn('[espace-locataire] accueil', e && e.message) }
 }
 
 async function importerSignalements() {
