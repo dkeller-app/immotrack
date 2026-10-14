@@ -1,76 +1,48 @@
 // __tests__/helpers/candidature.test.js
 import { describe, it, expect } from 'vitest';
+import * as Candidature from '../../js/core/candidature.js';
 import {
-  _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
-  _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
+  _candidatVersLocataire, _candidatVersGarant,
+  _nouveauCandidat, _migrerDocsCandidatVersBail,
   buildComplementShareMessage, shouldAutoPull,
   countUnreadCandidats, nouveauDossierToast,
   majDossierToast, repullDecision, loyerAttenduForLog,
-  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie,
+  PIECES_REQUISES, candHasGarantie, categoriesManquantes, libelleGarantie,
   candidatLinkExpire, partitionCandidatLinks, CANDIDATURE_PULL_GRACE_MS
 } from '../../js/core/candidature.js';
 
-describe('_calculConfiance', () => {
-  it('ratio >= 3 + CDI + garant + pièces complètes = 100', () => {
-    const c = { revenus: 3000, contrat: 'CDI', garant: { nom: 'Papa' }, piecesCompletes: true };
-    expect(_calculConfiance(c, 1000)).toBe(100); // 35 + 25 + 20 + 20
+// CANDIDATURES-CONFORMITE lot 1 (12/10/2026) : plus AUCUN score (art. 22 RGPD, CJUE SCHUFA C-634/21).
+describe('aucun score de candidat', () => {
+  it('le module n\'exporte plus de calcul de score ni de points de pièces', () => {
+    expect(Candidature._calculConfiance).toBeUndefined();
+    expect(Candidature.piecesScoreFromCategories).toBeUndefined();
+    expect(Candidature._purgeCandidatsRefuses).toBeUndefined(); // remplacé par js/core/candidature-purge.js
   });
-  it('ratio >= 3 seul = 35 pts (barème renforcé sur la solvabilité)', () => {
-    expect(_calculConfiance({ revenus: 3000 }, 1000)).toBe(35);
+  it('un candidat neuf ne porte pas de champ confianceScore, même si on en fournit un', () => {
+    expect('confianceScore' in _nouveauCandidat()).toBe(false);
+    expect('confianceScore' in _nouveauCandidat({ confianceScore: 80 })).toBe(false);
   });
-  it('ratio entre 2.5 et 3 = 20 pts de ratio', () => {
-    const c = { revenus: 2700, contrat: 'Autre', garant: null };
-    expect(_calculConfiance(c, 1000)).toBe(20);
+});
+
+describe('PIECES_REQUISES / categoriesManquantes — état factuel des pièces', () => {
+  it('les 4 catégories du décret 2015-1437 (garant exclu)', () => {
+    expect(PIECES_REQUISES).toEqual(['identite', 'domicile', 'situation', 'ressources']);
   });
-  it('ratio entre 2 et 2.5 = 10 pts', () => {
-    expect(_calculConfiance({ revenus: 2200 }, 1000)).toBe(10);
+  it('liste les catégories requises absentes, dans l\'ordre du décret', () => {
+    expect(categoriesManquantes(['ressources', 'identite'])).toEqual(['domicile', 'situation']);
+    expect(categoriesManquantes(['identite', 'domicile', 'situation', 'ressources', 'garant'])).toEqual([]);
   });
-  it('ratio < 2 = 0 pt de ratio', () => {
-    expect(_calculConfiance({ revenus: 1500 }, 1000)).toBe(0);
+  it('entrée invalide → toutes manquantes', () => {
+    expect(categoriesManquantes(null)).toEqual(PIECES_REQUISES);
   });
-  it('CDD = 10, CDI = 25', () => {
-    expect(_calculConfiance({ contrat: 'CDD' }, 0)).toBe(10);
-    expect(_calculConfiance({ contrat: 'CDI' }, 0)).toBe(25);
-  });
-  it('garant compte seulement si nom non vide', () => {
-    expect(_calculConfiance({ garant: { nom: '  ' } }, 0)).toBe(0);
-    expect(_calculConfiance({ garant: { nom: 'Tante' } }, 0)).toBe(20);
-  });
-  it('garantie Visale (n° de visa) compte comme garant = 20 pts', () => {
-    expect(_calculConfiance({ visale: { visaId: 'V-2026-4827193' } }, 0)).toBe(20);
-    expect(_calculConfiance({ visale: { visaId: '  ' } }, 0)).toBe(0); // visa vide → rien
-  });
-  it('Visale + garant physique = 20 pts (crédité une seule fois)', () => {
-    expect(_calculConfiance({ garant: { nom: 'Papa' }, visale: { visaId: 'V-1' } }, 0)).toBe(20);
-  });
-  it('pièces complètes (flag déclaratif) = 20 pts quand piecesPts absent', () => {
-    expect(_calculConfiance({ piecesCompletes: true }, 0)).toBe(20);
-  });
-  it('piecesPts (documents réels) fait foi sur le flag déclaratif', () => {
-    // flag true mais 0 doc → 0 pt de pièces (le paramètre explicite gagne)
-    expect(_calculConfiance({ piecesCompletes: true }, 0, 0)).toBe(0);
-    // flag false mais 3 catégories fournies (15) → 15 pts
-    expect(_calculConfiance({ piecesCompletes: false }, 0, 15)).toBe(15);
-    // clamp 0-20
-    expect(_calculConfiance({}, 0, 999)).toBe(20);
-    expect(_calculConfiance({}, 0, -5)).toBe(0);
-  });
-  it('le RIB n\'entre PAS dans le score (décret 2015-1437 / art. 22-2 loi 1989)', () => {
-    expect(_calculConfiance({ ribFourni: true }, 0)).toBe(0);
-    // ribFourni n'ajoute rien même combiné à un dossier par ailleurs identique
-    expect(_calculConfiance({ contrat: 'CDI', ribFourni: true }, 0))
-      .toBe(_calculConfiance({ contrat: 'CDI' }, 0));
-  });
-  it('loyer 0 ou revenus 0 → pas de points de ratio, pas de crash', () => {
-    expect(_calculConfiance({ revenus: 0, contrat: 'CDI' }, 1000)).toBe(25);
-    expect(_calculConfiance({ revenus: 3000, contrat: 'CDI' }, 0)).toBe(25);
-  });
-  it('entrée nulle → 0', () => {
-    expect(_calculConfiance(null, 1000)).toBe(0);
-  });
-  it('plafonné à 100', () => {
-    const c = { revenus: 99999, contrat: 'CDI', garant: { nom: 'X' }, piecesCompletes: true };
-    expect(_calculConfiance(c, 1)).toBe(100);
+});
+
+describe('libelleGarantie — sans jugement', () => {
+  it('Visale, Garant ou Aucune', () => {
+    expect(libelleGarantie({ visale: { visaId: 'V-1' } })).toBe('Visale');
+    expect(libelleGarantie({ garant: { nom: 'Papa' } })).toBe('Garant');
+    expect(libelleGarantie({ garant: { nom: ' ' } })).toBe('Aucune');
+    expect(libelleGarantie(null)).toBe('Aucune');
   });
 });
 
@@ -87,29 +59,6 @@ describe('candHasGarantie', () => {
   it('ni garant ni Visale → false ; entrée nulle → false', () => {
     expect(candHasGarantie({})).toBe(false);
     expect(candHasGarantie(null)).toBe(false);
-  });
-});
-
-describe('piecesScoreFromCategories', () => {
-  it('5 points par catégorie requise présente (max 20)', () => {
-    expect(piecesScoreFromCategories([])).toBe(0);
-    expect(piecesScoreFromCategories(['identite'])).toBe(5);
-    expect(piecesScoreFromCategories(['identite', 'ressources'])).toBe(10);
-    expect(piecesScoreFromCategories(['identite', 'domicile', 'situation'])).toBe(15);
-    expect(piecesScoreFromCategories(['identite', 'domicile', 'situation', 'ressources'])).toBe(20);
-  });
-  it('déduplique et ignore les catégories hors requises (garant, candidature, vide)', () => {
-    expect(piecesScoreFromCategories(['identite', 'identite'])).toBe(5); // dédup
-    expect(piecesScoreFromCategories(['garant', 'candidature', ''])).toBe(0); // non requises
-    expect(piecesScoreFromCategories(['identite', 'garant'])).toBe(5); // garant ne compte pas
-  });
-  it('entrée invalide → 0, pas de crash', () => {
-    expect(piecesScoreFromCategories(null)).toBe(0);
-    expect(piecesScoreFromCategories(undefined)).toBe(0);
-    expect(piecesScoreFromCategories('identite')).toBe(0); // pas un tableau
-  });
-  it('PIECES_REQUISES = les 4 catégories du décret 2015-1437 (garant exclu)', () => {
-    expect(PIECES_REQUISES).toEqual(['identite', 'domicile', 'situation', 'ressources']);
   });
 });
 
@@ -152,7 +101,6 @@ describe('_nouveauCandidat', () => {
     expect(c._archived).toBe(false);
     expect(typeof c.id).toBe('string');
     expect(c.id.length).toBeGreaterThan(0);
-    expect(c.confianceScore).toBe(0);
     expect(c.garant).toBeNull();
     expect(c.dateDebutSouhaitee).toBe('');
   });
@@ -190,26 +138,6 @@ describe('_migrerDocsCandidatVersBail', () => {
   });
   it('entrée non-array → []', () => {
     expect(_migrerDocsCandidatVersBail(null, 'x', 'y', 'z')).toEqual([]);
-  });
-});
-
-describe('_purgeCandidatsRefuses', () => {
-  const now = Date.parse('2026-06-02T00:00:00Z');
-  const day = 24 * 60 * 60 * 1000;
-  it('supprime un refusé plus vieux que 30 j, garde un refusé récent', () => {
-    const cands = [
-      { id: 'old', statut: 'refuse', _modifiedAt: new Date(now - 31 * day).toISOString() },
-      { id: 'new', statut: 'refuse', _modifiedAt: new Date(now - 10 * day).toISOString() }
-    ];
-    const kept = _purgeCandidatsRefuses(cands, now, 30).map(c => c.id);
-    expect(kept).toEqual(['new']);
-  });
-  it('ne touche jamais les non-refusés même très anciens', () => {
-    const cands = [{ id: 'v', statut: 'valide', _modifiedAt: new Date(now - 999 * day).toISOString() }];
-    expect(_purgeCandidatsRefuses(cands, now, 30)).toHaveLength(1);
-  });
-  it('entrée non-array → []', () => {
-    expect(_purgeCandidatsRefuses(null, now)).toEqual([]);
   });
 });
 

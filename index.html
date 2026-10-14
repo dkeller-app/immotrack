@@ -8,7 +8,7 @@
      (handlers onclick conservés, Approche A) ; PAS de 'unsafe-eval' (vérifié : aucune lib vendorisée
      n'utilise eval/new Function). connect-src = liste EXHAUSTIVE des endpoints réseau réels du runtime.
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://recherche-entreprises.api.gouv.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Propryo v15.732</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
@@ -150,6 +150,9 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/gestion-dg-impayes.js">
 <link rel="modulepreload" href="js/core/vetuste-grille.js">
 <link rel="modulepreload" href="js/core/candidature.js">
+<link rel="modulepreload" href="js/core/candidature-purge.js">
+<link rel="modulepreload" href="js/core/pieces-candidature.js">
+<link rel="modulepreload" href="js/core/employeur.js">
 <link rel="modulepreload" href="js/core/relay-client.js">
 <link rel="modulepreload" href="js/core/backup.js">
 <link rel="modulepreload" href="js/core/espace-purge.js">
@@ -734,8 +737,8 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="cand-tbl" id="cand-table">
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr>
-            <th>Candidat</th><th>Bien</th><th>Date début</th><th>Statut</th>
-            <th class="num">Revenus</th><th>Garant</th><th>Confiance</th>
+            <th>Candidat</th><th>Bien</th><th>Reçu le</th><th>Statut</th>
+            <th class="num">Revenus déclarés</th><th>Garantie</th><th>Pièces</th>
           </tr></thead>
           <tbody id="cand-tbody"></tbody>
         </table></div>
@@ -2316,6 +2319,8 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg"><label>Revenus mensuels nets (€)</label><input class="inp" type="number" id="cand-revenus" min="0" step="1"></div>
       <div class="fg"><label>Employeur</label><input class="inp" id="cand-employeur"></div>
     </div>
+    <div class="fg"><label>SIREN ou SIRET de l'employeur <span class="mu sm" style="font-weight:400">— facultatif</span></label><input class="inp" id="cand-siren" inputmode="numeric" autocomplete="off" placeholder="9 ou 14 chiffres">
+      <div class="sm mu" style="margin-top:4px">Vérifié dans l'Annuaire des entreprises de l'État : un employeur introuvable ou fermé apparaît dans « Points à vérifier ».</div></div>
     <div class="fg">
       <label>Type de contrat</label>
       <select class="inp" id="cand-contrat" onchange="_candContratToggle()">
@@ -2443,24 +2448,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
 #ov-fiche-candidat .piece .pchk{font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 #ov-fiche-candidat .piece .pchk.ok{color:var(--grn)}
 #ov-fiche-candidat .piece .pchk.no{color:var(--ora)}
-/* Scoring — anneau EMPILÉ au-dessus des critères (colonne étroite → évite la coupe des valeurs). */
-#ov-fiche-candidat .score-hero{display:flex;flex-direction:column;align-items:stretch;gap:14px}
-#ov-fiche-candidat .score-hero>div:not(.score-ring){min-width:0;width:100%}
-#ov-fiche-candidat .score-ring{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center}
-#ov-fiche-candidat .score-ring .inner{width:74px;height:74px;border-radius:50%;background:var(--sur);display:flex;align-items:center;justify-content:center;flex-direction:column}
-#ov-fiche-candidat .score-ring .sv{font-family:var(--display);font-weight:800;font-size:26px;line-height:1}
-#ov-fiche-candidat .score-ring .sl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:2px}
-#ov-fiche-candidat .crit{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--bor2)}
-#ov-fiche-candidat .crit:last-child{border-bottom:none}
-#ov-fiche-candidat .crit .cname{flex:1;min-width:0;font-size:13px}
-#ov-fiche-candidat .crit .cbar{width:84px;height:6px;background:var(--bor);border-radius:3px;overflow:hidden;flex-shrink:0}
-#ov-fiche-candidat .crit .cbar i{display:block;height:100%;background:var(--acc);border-radius:3px}
-#ov-fiche-candidat .crit .cpts{font-family:var(--display);font-weight:700;font-size:13px;width:54px;text-align:right;flex-shrink:0}
-/* Tooltip transparence */
-#ov-fiche-candidat .tip-wrap{position:relative;display:inline-flex}
-#ov-fiche-candidat .tip-ic{width:18px;height:18px;border-radius:50%;background:var(--sur3);color:var(--t2);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;cursor:help;border:1px solid var(--bor)}
-#ov-fiche-candidat .tip-pop{position:absolute;top:24px;left:0;width:280px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:12px 14px;font-size:12px;color:var(--t2);line-height:1.5;z-index:30;display:none}
-#ov-fiche-candidat .tip-wrap:hover .tip-pop,#ov-fiche-candidat .tip-wrap.show .tip-pop{display:block}
+/* CANDIDATURES-CONFORMITE : carte « Score de confiance » retirée (anneau, critères, infobulle). */
 /* Toggle pièces vérifiées */
 #ov-fiche-candidat .toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
 #ov-fiche-candidat .toggle .track{width:42px;height:24px;border-radius:12px;background:var(--bor);position:relative;transition:background .2s;flex-shrink:0}
@@ -2472,7 +2460,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
   #ov-fiche-candidat .fc-g2{grid-template-columns:1fr 1fr}
   #ov-fiche-candidat .fc-side{position:static}
 }
-@media (max-width:680px){#ov-fiche-candidat .fc-g2{grid-template-columns:1fr}#ov-fiche-candidat .score-hero{flex-direction:column;align-items:flex-start}#ov-fiche-candidat .crit .cbar{width:80px}}
+@media (max-width:680px){#ov-fiche-candidat .fc-g2{grid-template-columns:1fr}}
 @media (max-width:560px){
   #ov-fiche-candidat .modal{width:96vw}
   #ov-fiche-candidat .fc-actions .btn{flex:1 1 100%}
@@ -4533,9 +4521,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=d9257e4e" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=68050168" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=ea8eb4d4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part1.js?v=06783845" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=dae768b5" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=290116da" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">

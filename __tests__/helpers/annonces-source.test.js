@@ -23,7 +23,8 @@ describe('D1 — le loyer de l\'annonce est le loyer souhaité, jamais l\'ancien
     // Statut 06/10 : le verrou du loyer reste le BAIL OUVERT (pas le statut) — sur un lot parti, bail à clôturer,
     // _syncLogToBail recopierait log.hc dans le bail du locataire sorti.
     expect(cont).toContain('_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))');
-    expect(cont).toContain('_rescoreCandidatsDuLogement(log.ref)');
+    // CANDIDATURES-CONFORMITE (12/10/2026) : plus aucun score de candidat à recalculer.
+    expect(cont).not.toContain('_rescoreCandidatsDuLogement');
     expect(cont).toContain('_stamp(log)');
     expect(cont).toContain('saveDB()');
     expect(cont).toContain('_appReadOnly');
@@ -87,8 +88,12 @@ describe('texte unique (maquette v2)', () => {
     expect(html).toContain("info.depensesEnergie = (sg && sg.prev) || '';");
     expect(html).toContain('prev: _prev');
   });
-  it('re-score des candidats : une seule source', () => {
-    expect(html.split('x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x))').length - 1).toBe(1);
+  // CANDIDATURES-CONFORMITE (12/10/2026) : le score des candidats est retiré (art. 22 RGPD) — plus aucun
+  // calcul ni écriture, nulle part dans l'app assemblée.
+  it('aucun score de candidat : ni calcul, ni écriture, ni recalcul au changement de loyer', () => {
+    expect(html).not.toContain('_calculConfiance');
+    expect(html).not.toContain('_rescoreCandidatsDuLogement');
+    expect(html).not.toMatch(/confianceScores*=/);
   });
 });
 

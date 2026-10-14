@@ -1,3 +1,5 @@
+// CANDIDATURES-CONFORMITE lot 2 : type de pièce contrôlé contre la liste fermée du décret n° 2015-1437.
+import { typeValide } from '../../js/core/pieces-candidature.js';
 import { randomHex } from './crypto-utils.js';
 import { putCand, getCand, delCand, putPiece, getPiece, delPiece, candidatureTtl } from './storage.js';
 
@@ -30,7 +32,7 @@ export async function saveDossier(env, linkId, dossier) {
   return c;
 }
 
-export async function addPiece(env, linkId, { categorie, filename, contentType, bytes }) {
+export async function addPiece(env, linkId, { categorie, filename, contentType, bytes, type }) {
   const c = await getCand(env, linkId);
   if (!c) throw new Error('candidature-not-found');
   const pieceId = randomHex(8);
@@ -38,10 +40,24 @@ export async function addPiece(env, linkId, { categorie, filename, contentType, 
   c.pieces.push({
     pieceId, categorie: String(categorie || 'autre').slice(0, 40),
     filename: String(filename || 'piece').slice(0, 200),
+    type: typeValide(String(categorie || ''), String(type || '')) ? String(type || '') : '',
     contentType, size: bytes.byteLength, uploadedAt: new Date().toISOString()
   });
   await putCand(env, linkId, c, ttlOf(c));
   return { pieceId, candidature: c };
+}
+
+// Candidat : choisit (ou change) le type d'une pièce déjà déposée. Type hors liste → refus (null).
+export async function setPieceType(env, linkId, pieceId, type) {
+  const c = await getCand(env, linkId);
+  if (!c) throw new Error('candidature-not-found');
+  const p = (c.pieces || []).find((x) => x.pieceId === pieceId);
+  if (!p) return null;
+  const t = String(type || '');
+  if (!typeValide(String(p.categorie || ''), t)) return null;
+  p.type = t;
+  await putCand(env, linkId, c, ttlOf(c));
+  return p;
 }
 
 export async function removePiece(env, linkId, pieceId) {

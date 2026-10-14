@@ -16014,7 +16014,7 @@ function _renderAttachmentSection(opts) {
 // d'une checklist + une liste à plat). Réutilise _attachmentRowHtml (rendu ligne) + les handlers
 // _handleAttachmentUpload/Open/Delete. Chaque catégorie a un « + Ajouter » qui TAGUE le fichier
 // dans cette catégorie. Les fichiers de catégorie inconnue (ajout manuel générique / anciens
-// dépôts) tombent dans « Autres pièces ». Statut ✓/⏳ aligné sur les vraies pièces (cf. score).
+// dépôts) tombent dans « Autres pièces ». Statut Fournie / Manquante aligné sur les vraies pièces.
 function _renderCandidatPiecesGrouped(cand){
   const candId = String(cand.id);
   const logRefArg = cand.logRef != null ? `'${_lyQ(cand.logRef)}'` : 'null';
@@ -16039,15 +16039,27 @@ function _renderCandidatPiecesGrouped(cand){
     return `<div style="margin-top:8px"><label for="${upId}" class="btn bs bb" style="cursor:pointer;font-size:12px">+ Ajouter</label>`
       + `<input type="file" id="${upId}" accept="${accept}" style="display:none" onchange="_handleAttachmentUpload(this,'candidat','${candId}','${candId}',${logRefArg},'${catKey}')"></div>`;
   };
+  // CANDIDATURES-CONFORMITE lot 2 — TYPE de chaque pièce, pris dans la liste FERMÉE du décret n° 2015-1437
+  // pour sa catégorie (pas d'option « Autre » : la loi ferme la liste). Pièce existante → « Type non précisé ».
+  const _PC = window.PiecesCand;
+  const _rowAvecType = (d, catKey) => {
+    const types = _PC ? _PC.typesPourCategorie(catKey) : [];
+    if (!types.length) return _attachmentRowHtml(d);
+    const cur = String(d.pieceType || '');
+    const opts = '<option value=""' + (cur ? '' : ' selected') + '>Type non précisé</option>'
+      + types.map(t => '<option value="' + escHtml(t.id) + '"' + (t.id === cur ? ' selected' : '') + '>' + escHtml(t.libelle) + '</option>').join('');
+    return '<div class="cand-piece">' + _attachmentRowHtml(d)
+      + '<label class="cand-piece-type"><span>Type</span><select class="inp' + (cur ? '' : ' np') + '" onchange="_candSetPieceType(' + JSON.stringify(d.id).replace(/"/g, '&quot;') + ', this.value)" aria-label="Type de la pièce « ' + escHtml(d.originalName || d.name || '') + ' »">' + opts + '</select></label></div>';
+  };
   const catHtml = CATS.map(cat => {
     const files = byCat[cat.key] || [];
     const has = files.length > 0;
     const okTxt = 'Fourni' + (cat.fem ? 'e' : '') + (cat.plural ? 's' : '');
     const badge = has
       ? `<span style="color:var(--grn,#16a34a);font-weight:700;font-size:12px">✓ ${okTxt}</span>`
-      : `<span style="color:var(--ora,#e0771c);font-weight:700;font-size:12px">⏳ Manquante</span>`;
-    const body = (has ? files.map(_attachmentRowHtml).join('')
-                      : `<div class="mu sm" style="padding:4px 2px;color:var(--ora,#e0771c)">Aucune pièce déposée pour cette catégorie.</div>`)
+      : `<span style="color:var(--t2);font-weight:700;font-size:12px">Manquante</span>`;
+    const body = (has ? files.map(d => _rowAvecType(d, cat.key)).join('')
+                      : `<div class="mu sm" style="padding:4px 2px">Aucune pièce déposée pour cette catégorie.</div>`)
                + _addBtn(cat.key);
     return `<details ${has?'open':''} style="border:1px solid var(--bor);border-radius:9px;margin-bottom:8px;background:var(--sur,#fff)">
       <summary style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;list-style:none">
@@ -16068,6 +16080,19 @@ function _renderCandidatPiecesGrouped(cand){
     </details>` : '';
   const flag = `<div class="flex-b" style="align-items:center;padding:8px 2px 0;border-top:1px dashed var(--bor);margin-top:4px;font-size:12.5px;color:var(--t2)"><span>Dossier déclaré complet par le candidat</span><span style="font-weight:700;color:${cand.piecesCompletes?'var(--grn,#16a34a)':'var(--ora,#e0771c)'}">${cand.piecesCompletes?'✓ Oui':'⏳ Non'}</span></div>`;
   return `<div id="cand-pieces-grouped-${candId}">${catHtml}${autresHtml}${flag}</div>`;
+}
+
+// CANDIDATURES-CONFORMITE lot 2 — type d'une pièce de candidat (liste fermée du décret, contrôlée).
+function _candSetPieceType(docId, typeId) {
+  const d = (DB.documents || []).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat');
+  if (!d) return;
+  const val = String(typeId || '');
+  if (window.PiecesCand && !window.PiecesCand.typeValide(String(d.category || ''), val)) { showToast('Type de pièce non reconnu pour cette catégorie', 'warn'); return; }
+  if (val) d.pieceType = val; else delete d.pieceType;
+  _stamp(d);
+  try { if (typeof _auditLog === 'function') _auditLog('update', 'attachment', d.id, 'type de pièce : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : val)); } catch (e) {}
+  saveDB();
+  showToast('Type enregistré : ' + (window.PiecesCand ? window.PiecesCand.libelleType(val) : (val || 'non précisé')), 'ok', 2500);
 }
 
 // v15.156 — Rafraîchit en place une section de PJ (après upload/suppression), sans re-render
@@ -16109,6 +16134,14 @@ async function _handleAttachmentUpload(input, parentType, parentId, parentRef, l
     input.value = '';
     return;
   }
+  // CANDIDATURES-CONFORMITE lot 2 — pièce de CANDIDAT dont le nom évoque une pièce hors de la liste du décret
+  // n° 2015-1437 (relevé de compte, RIB, carte Vitale…) : avertissement avec le texte légal, l'utilisateur décide.
+  if (parentType === 'candidat' && window.PiecesCand) {
+    const _hl = window.PiecesCand.nomFichierHorsListe(f.name, category);
+    if (_hl.length && !confirm2('Ce fichier semble être une pièce hors de la liste autorisée : ' + _hl.map(x => x.libelle).join(', ') + '.\n\n'
+        + 'Le bailleur ne peut exiger que les pièces de la liste du décret n° 2015-1437. Loi n° 89-462, art. 22-2 : « ' + window.PiecesCand.TEXTE_AMENDE_22_2 + ' »\n\n'
+        + 'Ajouter quand même ce fichier au dossier ?')) { input.value = ''; return; }
+  }
   try {
     const dataB64 = await new Promise((resolve, reject) => {
       const r = new FileReader();
@@ -16149,9 +16182,21 @@ async function _handleAttachmentUpload(input, parentType, parentId, parentRef, l
 async function _handleAttachmentDelete(docId) {
   const doc = (DB.documents||[]).find(d => d && !d._deleted && d.id === docId);
   if (!doc) return;
-  if (!confirm2('Supprimer la PJ « ' + (doc.originalName || doc.name) + ' » ?\n(Tombstone DB + IDB purge + Drive trash 30j)')) return;
+  const _candDoc = doc.parentType === 'candidat' ? (DB.candidats || []).find(x => x && String(x.id) === String(doc.parentId)) : null;
+  const _estCand = doc.parentType === 'candidat' && !(_candDoc && (_candDoc.statut === 'converti' || String(_candDoc.bailRef || '').trim()));   // converti : pièce du futur bail, preuve légale
+  if (!confirm2(_estCand
+      ? 'Supprimer la pièce « ' + (doc.originalName || doc.name) + ' » ?\n\nElle est effacée de l\'app et du stockage en ligne (RGPD). Action irréversible.'
+      : 'Supprimer la PJ « ' + (doc.originalName || doc.name) + ' » ?\n(Tombstone DB + IDB purge + Drive trash 30j)')) return;
   const _pt = doc.parentType, _pi = doc.parentId;
-  await _attachmentDelete(docId);
+  if (_estCand && typeof _candEffacerPieces === 'function') {
+    // CANDIDATURES-CONFORMITE (décision Didier 12/10, Q2) : une pièce de candidat est effacée pour de bon —
+    // local tout de suite, fichier en ligne dans la foulée (hors ligne → file d'attente). Les autres pièces
+    // gardent le comportement « preuve légale » de _attachmentDelete (fichier en ligne conservé).
+    const _p = _candEffacerPieces([doc]);
+    try { if (typeof _auditLog === 'function') _auditLog('delete', 'attachment', docId, 'pièce de candidat effacée (RGPD)'); } catch (e) {}
+    saveDB();
+    _p.catch(e => console.warn('[candidat] effacement de la pièce', e));
+  } else await _attachmentDelete(docId);
   showToast('🗑 PJ supprimée', 'ok', 3000);
   // v15.156 — rafraîchit la section en place (fiche ou modale)
   if (!_attachmentRefresh(_pt, _pi)) {
@@ -22348,7 +22393,7 @@ function _annonceStep1Continuer() {
     log.loyerHcRef = hcS; log.chargesRef = chS;
     // Bail OUVERT, pas le statut : jamais de log.hc poussé tant que le bail du locataire sorti est ouvert
     // (_syncLogToBail le recopierait dans son bail). Le loyer souhaité reste porté par loyerHcRef.
-    if (_logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref))) _rescoreCandidatsDuLogement(log.ref);
+    _logpPushLoyerRef(log, { loyerHcRef: hcS, chargesRef: chS }, !!_bienActiveBail(log.ref));   // (plus de score candidat à recalculer — CANDIDATURES-CONFORMITE)
     _stamp(log);
     try { _auditLog('update', 'logement', log.id, log.ref); } catch (e) {}
     saveDB();
@@ -22876,10 +22921,7 @@ function saveParamLog() {
     // Bail OUVERT, pas le statut : sur un lot parti (bail à clôturer), le loyer poussé dans log.hc serait
     // recopié dans le bail du locataire sorti par _syncLogToBail (juste après) — dû et impayés faussés.
     const _lrOcc = !!_bienActiveBail(log.ref);
-    if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
-      // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
-      _rescoreCandidatsDuLogement(log.ref);
-    }
+    _logpPushLoyerRef(log, presa.log, _lrOcc);   // (plus de score candidat à recalculer — CANDIDATURES-CONFORMITE)
     // Propage equipementsCommuns vers l'immeuble parent — UNIQUEMENT si le bloc était dans le DOM.
     // (P0-2 : la modale Immeuble porte déjà ces cases ; ici c'est le doublon, qui ne doit surtout
     // pas écraser l'immeuble avec des cases inexistantes.)

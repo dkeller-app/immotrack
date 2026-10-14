@@ -11,7 +11,7 @@ import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossie
 import { stampSignedPdf } from './sign-stamp.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
 import {
-  createCandidature, loadCandidature, saveDossier, addPiece, removePiece,
+  createCandidature, loadCandidature, saveDossier, addPiece, removePiece, setPieceType,
   markOpened, submitCandidature, reopenForComplement, reopenByCandidate, revokeCandidature, purgeCandidature
 } from './candidatures.js';
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
@@ -519,9 +519,23 @@ app.post('/api/candidatures/:linkId/piece', async (c) => {
   const { pieceId } = await addPiece(c.env, linkId, {
     categorie: c.req.header('X-Piece-Categorie') || 'autre',
     filename,
+    type: c.req.header('X-Piece-Type') || '',   // CANDIDATURES-CONFORMITE : contrôlé contre la liste du décret
     contentType, bytes
   });
   return c.json({ pieceId }, 201);
+});
+
+// Candidat : choisit le type d'une pièce (liste fermée du décret n° 2015-1437). CANDIDATURES-CONFORMITE lot 2.
+app.patch('/api/candidatures/:linkId/piece/:pieceId', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandidat(c, linkId);
+  if (guard.error) return guard.error;
+  if (guard.cand.status !== 'open') return c.json({ error: 'not-open' }, 409);
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
+  const p = await setPieceType(c.env, linkId, c.req.param('pieceId'), body && body.type);
+  if (!p) return c.json({ error: 'bad-type' }, 400);
+  return c.json({ ok: true, type: p.type });
 });
 
 // Candidat : supprime une de ses pièces (remplacement avant envoi).
@@ -559,7 +573,7 @@ app.get('/api/candidatures/:linkId/result', async (c) => {
     linkId: cand.linkId, logRef: cand.logRef, bienLabel: cand.bienLabel, loyer: cand.loyer,
     status: cand.status, submittedAt: cand.submittedAt,
     dossier: cand.dossier,
-    pieces: cand.pieces.map((p) => ({ pieceId: p.pieceId, categorie: p.categorie, filename: p.filename, contentType: p.contentType, size: p.size }))
+    pieces: cand.pieces.map((p) => ({ pieceId: p.pieceId, categorie: p.categorie, filename: p.filename, contentType: p.contentType, size: p.size, type: p.type || '' }))
   });
 });
 

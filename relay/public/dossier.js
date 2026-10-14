@@ -12,20 +12,43 @@ const MAX_BYTES = 20 * 1024 * 1024;
 const ALLOWED = ['image/jpeg', 'image/png', 'application/pdf'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Catégories de pièces (décret n°2015-1437) — libellés validés mockup.
+// Catégories de pièces — libellés alignés sur le décret n° 2015-1437, annexes I et II (CANDIDATURES-CONFORMITE
+// lot 2) : la facture d'énergie n'est exigible que de la CAUTION (annexe II C.2), les bulletins de salaire sont
+// des RESSOURCES (annexe I D.2). Le type exact de chaque fichier se choisit dans la liste fermée (window.__CAND__.types).
 const CATS = [
-  { key:'identite',   req:true,  title:"Pièce d'identité",           big:'Ajouter — CNI, passeport ou titre de séjour',        small:'Recto-verso accepté · plusieurs fichiers' },
-  { key:'domicile',   req:true,  title:'Justificatif de domicile',   big:'Ajouter un justificatif récent',                     small:'Quittance, facture énergie, attestation hébergement…' },
-  { key:'situation',  req:true,  title:'Situation professionnelle',  big:'Contrat de travail <b>et</b> 3 dernières fiches de paie', small:'Glissez plusieurs fichiers dans cette case (contrat + bulletins)' },
-  { key:'ressources', req:true,  title:'Justificatif de ressources', big:"Dernier avis d'imposition",                          small:'PDF de préférence' },
-  { key:'garant',     req:false, title:'Pièces du garant',           big:'Identité + ressources du garant',                    small:'Si vous avez indiqué un garant' }
+  { key:'identite',   req:true,  title:"Pièce d'identité",           big:"Ajouter une pièce d'identité en cours de validité", small:"Carte d'identité, passeport, permis de conduire ou titre de séjour · recto-verso accepté" },
+  { key:'domicile',   req:true,  title:'Justificatif de domicile',   big:'Ajouter un justificatif de domicile',                small:"Une seule pièce : trois dernières quittances de loyer (ou attestation du précédent bailleur), attestation d'hébergement, attestation d'élection de domicile ou dernier avis de taxe foncière" },
+  { key:'situation',  req:true,  title:'Situation professionnelle',  big:"Ajouter un justificatif d'activité",                 small:"Contrat de travail ou de stage (ou attestation de l'employeur), extrait K bis, carte professionnelle, carte d'étudiant…" },
+  { key:'ressources', req:true,  title:'Ressources',                 big:'Ajouter un justificatif de ressources',              small:"Avis d'imposition, trois derniers bulletins de salaire, bilans, justificatifs de pensions ou prestations, simulation des aides au logement…" },
+  { key:'garant',     req:false, title:'Pièces du garant',           big:'Identité, domicile, activité et ressources du garant', small:"Ou l'attestation de visa Visale" }
 ];
+const TYPES = CAND.types || {};
 const STEP_LABELS = ['Identité', 'Situation', 'Garantie', 'Pièces'];
 
 // ── État ─────────────────────────────────────────────────────────────────
 const dossier = normalizeDossier(CAND.dossier);
 const pieces = {}; CATS.forEach(c => { pieces[c.key] = []; });
 (CAND.pieces || []).forEach(p => { (pieces[p.categorie] || (pieces[p.categorie] = [])).push({ ...p, status:'done' }); });
+// Sélecteur de type (liste fermée du décret) sous un fichier envoyé. Le choix part au relais (contrôlé côté serveur).
+function addTypeSelect(tile, cat, cur){
+  const types = TYPES[cat] || [];
+  if(!types.length || tile.querySelector('.tsel')) return;
+  const wrap = document.createElement('label');
+  wrap.className = 'tsel';
+  wrap.innerHTML = '<span>Type de pièce</span><select class="inp"><option value="">Choisir le type de pièce</option>'
+    + types.map(t => '<option value="' + esc(t.id) + '"' + (t.id === cur ? ' selected' : '') + '>' + esc(t.libelle) + '</option>').join('') + '</select>';
+  const sel = wrap.querySelector('select');
+  sel.addEventListener('change', async () => {
+    const pieceId = tile.dataset.pieceId; if(!pieceId) return;
+    try {
+      const r = await fetch(`${API}/piece/${pieceId}`, { method:'PATCH', headers:{ 'X-Cand-Token':TOKEN, 'content-type':'application/json' }, body: JSON.stringify({ type: sel.value }) });
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const p = (pieces[cat]||[]).find(x => x.pieceId === pieceId); if(p) p.type = sel.value;
+      tile.classList.remove('err');
+    } catch(_) { tile.classList.add('err'); const s = tile.querySelector('.s'); if(s) s.textContent = 'type non enregistré — réessayer'; }
+  });
+  tile.appendChild(wrap);
+}
 let step = 1;
 let saveTimer = null;
 
@@ -33,7 +56,7 @@ function normalizeDossier(d) {
   d = d || {};
   return {
     identite: Object.assign({ civilite:'M.', nom:'', prenom:'', ddn:'', lieuNaiss:'', tel:'', email:'', adresseActuelle:'' }, d.identite),
-    situation: Object.assign({ contrat:'CDI', employeur:'', revenus:'' }, d.situation),
+    situation: Object.assign({ contrat:'CDI', employeur:'', siren:'', revenus:'' }, d.situation),
     garant: d.garant ? Object.assign({ nom:'', adresse:'', ddn:'', lieuNaiss:'' }, d.garant) : null,
     visale: d.visale ? Object.assign({ visaId:'' }, d.visale) : null
   };
@@ -75,7 +98,7 @@ function build() {
              « loyer charges comprises ». */''}
         ${CAND.loyer?`<div class="rent">${esc(String(CAND.loyer))} €<br><span style="font-weight:500;color:var(--t3);font-size:11px">HC / mois</span></div>`:''}
       </div>
-      <div class="reassure">🔒 <span><b>Transmission chiffrée</b> au propriétaire uniquement · données supprimées sous 30 j si non retenu</span></div>
+      <div class="reassure">🔒 <span><b>Transmission chiffrée</b> au propriétaire · dossier non retenu supprimé 30 jours après la décision</span></div>
     </div>
 
     <div class="cbanner" id="cbanner" hidden><span class="i">📌</span><div id="cbanner-txt"></div></div>
@@ -113,6 +136,8 @@ function build() {
           <select class="inp" data-path="situation.contrat">${['CDI','CDD','Freelance / Indépendant','Étudiant','Retraité','Autre'].map(o=>`<option>${o}</option>`).join('')}</select>
         </div>
         <div class="field"><label>Employeur</label><input class="inp" data-path="situation.employeur" placeholder="Nom de l'employeur"></div>
+        <div class="field"><label>SIREN ou SIRET de l'employeur <span class="opt">facultatif</span></label><input class="inp" inputmode="numeric" autocomplete="off" data-path="situation.siren" placeholder="9 ou 14 chiffres">
+          <div class="hint">Il figure sur les bulletins de salaire. Il permet au propriétaire de retrouver l'entreprise dans l'Annuaire des entreprises de l'État.</div></div>
         <div class="field"><label>Revenus mensuels nets (€) <span class="req">*</span></label><input class="inp" inputmode="numeric" data-path="situation.revenus" placeholder="ex. 3200"></div>
       </section>
 
@@ -150,11 +175,11 @@ function build() {
       <!-- 4 · Pièces -->
       <section class="sec" data-step="4" hidden>
         <div class="sec-h"><span class="si">📎</span> Pièces justificatives</div>
-        <div class="info" style="margin-bottom:12px"><span class="i">⚖️</span><span>Seules les pièces autorisées par la loi (décret n°2015-1437) vous sont demandées. <b>JPG, PNG ou PDF · 20 Mo max par fichier.</b> Vous pouvez en ajouter plusieurs et revenir plus tard avec ce lien.</span></div>
+        <div class="info" style="margin-bottom:12px"><span class="i">⚖️</span><span>Seules les pièces de la liste fixée par le décret n° 2015-1437 peuvent être demandées. Aucune autre pièce n'est à fournir (relevé bancaire, photo, carte Vitale…), et aucune somme ne peut être réclamée avant la signature du bail. <b>JPG, PNG ou PDF · 20 Mo max par fichier.</b> Plusieurs fichiers possibles ; reprise plus tard avec le même lien.</span></div>
         ${piecesHtml}
         <div class="info warn" style="margin-top:12px"><span class="i">💡</span><span>Astuce mobile : photographiez vos documents un par un, la lumière du jour suffit. Vous pouvez revenir compléter avec le même lien.</span></div>
         <div class="rgpd" style="margin-top:14px"><a id="rgpd-toggle">Mentions d'information RGPD ▾</a></div>
-        <div class="rgpd-panel" id="rgpd-panel" hidden><b>Responsable :</b> le propriétaire du bien ci-dessus. <b>Finalité :</b> étude de votre candidature à la location. <b>Destinataire :</b> le propriétaire uniquement. <b>Conservation :</b> supprimée automatiquement sous 30 jours si votre dossier n'est pas retenu ; conservée le temps du bail s'il est conclu. <b>Vos droits :</b> accès, rectification, suppression — par le contact indiqué par le propriétaire. Hébergement chiffré (Cloudflare), aucune donnée revendue.</div>
+        <div class="rgpd-panel" id="rgpd-panel" hidden><b>Responsable :</b> le propriétaire du bien ci-dessus. <b>Finalité :</b> étudier la candidature à la location. <b>Destinataires :</b> le propriétaire, et les associés de la société qui gère le bien le cas échéant. <b>Contrôles :</b> le propriétaire peut vérifier dans l'Annuaire des entreprises de l'État que l'employeur indiqué est une entreprise active ; aucun score n'est calculé et aucune décision n'est automatique. <b>Conservation :</b> dossier non retenu supprimé 30 jours après la décision (pièces et fichiers compris) ; dossier jamais envoyé effacé au plus tard 7 jours après l'expiration du lien ; dossier retenu conservé avec le bail. <b>Hébergement :</b> Cloudflare (dépôt en ligne, réseau mondial) et Supabase (espace du propriétaire, serveurs en Irlande), données chiffrées en transit ; aucune donnée revendue. <b>Droits :</b> accès, rectification, effacement, auprès du propriétaire ; réclamation possible auprès de la CNIL (cnil.fr).</div>
       </section>
     </div>
 
@@ -234,7 +259,7 @@ async function saveNow(){
 }
 
 // ── Pièces (upload multi-fichiers + tuiles) ──────────────────────────────
-function makeTile(cat, { name, sizeTxt, type, mode, sub, pieceId }){
+function makeTile(cat, { name, sizeTxt, type, mode, sub, pieceId, pieceType }){
   const k = kindOf(type);
   const tile = document.createElement('div');
   tile.className = 'tile' + (mode==='err'?' err':'');
@@ -246,6 +271,7 @@ function makeTile(cat, { name, sizeTxt, type, mode, sub, pieceId }){
   const x = tile.querySelector('.x');
   if(x) x.addEventListener('click', () => removeTile(tile));
   $('#tiles-'+cat).appendChild(tile);
+  if(mode === 'done' && pieceId) addTypeSelect(tile, cat, pieceType || '');
   return tile;
 }
 function setTileProgress(tile, pct){ const b=tile.querySelector('.pbar i'); if(b)b.style.width=pct+'%'; const s=tile.querySelector('.s'); if(s)s.textContent=pct+' %'; }
@@ -254,6 +280,7 @@ function tileDone(tile, pieceId, sizeTxt){
   tile.querySelector('.s').textContent = sizeTxt + ' · envoyé';
   const pbar = tile.querySelector('.pbar'); if(pbar) pbar.remove();
   const x = tile.querySelector('.x'); if(x){ x.outerHTML = '<span class="ok">✓</span>'; }
+  addTypeSelect(tile, tile.dataset.cat, '');
 }
 function tileError(tile, msg){ tile.classList.add('err'); tile.querySelector('.s').textContent = msg; const pbar=tile.querySelector('.pbar'); if(pbar)pbar.remove(); }
 async function removeTile(tile){
@@ -297,7 +324,7 @@ function bindUploads(){
 }
 function renderExistingPieces(){
   CATS.forEach(cat => (pieces[cat.key]||[]).forEach(p =>
-    makeTile(cat.key, { name:p.filename, type:guessType(p.filename), mode:'done', sub:'envoyé', pieceId:p.pieceId })));
+    makeTile(cat.key, { name:p.filename, type:guessType(p.filename), mode:'done', sub:'envoyé', pieceId:p.pieceId, pieceType:p.type || '' })));
 }
 function guessType(name){ const n=(name||'').toLowerCase(); if(n.endsWith('.pdf'))return'application/pdf'; if(n.endsWith('.png'))return'image/png'; return'image/jpeg'; }
 

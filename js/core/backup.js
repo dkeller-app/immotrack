@@ -119,7 +119,9 @@ export function collectBackupFiles(db, lastBackupAt) {
   const push = (key, name, kind, ts, logRef, category) => {
     if (key && after(ts)) out.push({ key, name, kind, ts: ts || null, dir: backupFolderFor(logMap, logRef, category) })
   }
-  for (const d of (db && db.documents) || []) push(d.cloudKey, backupDocName(d), 'document', d._modifiedAt, d.logRef, d.category || 'documents')
+  // CANDIDATURES-CONFORMITE : une pièce de candidat supprimée (purge RGPD, suppression manuelle) n'est pas
+  // sauvegardée — ses données doivent disparaître. Les autres pièces supprimées restent (preuve légale).
+  for (const d of (db && db.documents) || []) if (!(d && d._deleted && d.parentType === 'candidat')) push(d.cloudKey, backupDocName(d), 'document', d._modifiedAt, d.logRef, d.category || 'documents')
   for (const [ref, b] of Object.entries((db && db.baux) || {})) {
     const s = b && b.signatures; if (!s) continue
     push(s.cloudPdfKey, _safeName('bail-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt, ref, 'bail')

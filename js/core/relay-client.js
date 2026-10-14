@@ -41,7 +41,7 @@ export function buildInvitationPayload({ logRef, bienLabel, loyer, message, expD
  * Mappe le résultat relais (dossier soumis) vers un *partial* candidat (à passer à
  * _nouveauCandidat). Pur. Renomme : identite.adresseActuelle → adressePrecedente ;
  * garant.lieuNaiss → garant.lieu. source:'lien', statut:'recu', piecesCompletes:false
- * (le bailleur vérifie ensuite). AUCUN score (recalculé via _calculConfiance).
+ * (le bailleur vérifie ensuite). AUCUN score (CANDIDATURES-CONFORMITE : plus aucun score nulle part).
  */
 export function _relayDossierVersCandidat(result, ctx = {}) {
   const d = (result && result.dossier) || {};
@@ -63,6 +63,7 @@ export function _relayDossierVersCandidat(result, ctx = {}) {
     adressePrecedente: id.adresseActuelle || id.adressePrecedente || '',
     revenus: Number(si.revenus) || 0,
     employeur: si.employeur || '',
+    employeurSiren: String(si.siren || '').trim().slice(0, 20),   // CANDIDATURES-CONFORMITE : SIREN/SIRET facultatif
     contrat: si.contrat || '',
     garant: g && String(g.nom || '').trim()
       ? { nom: g.nom || '', adresse: g.adresse || '', ddn: g.ddn || '', lieu: g.lieuNaiss || g.lieu || '' }
