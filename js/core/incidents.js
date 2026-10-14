@@ -19,7 +19,8 @@ export const SIGNALE_PAR = Object.freeze([
   { k: 'locataire', lbl: 'Locataire' }, { k: 'bailleur', lbl: 'Bailleur' }, { k: 'syndic', lbl: 'Syndic' }, { k: 'autre', lbl: 'Autre' },
 ]);
 export const CANAUX = Object.freeze([
-  { k: 'telephone', lbl: 'Par téléphone' }, { k: 'sms', lbl: 'Par SMS' }, { k: 'email', lbl: 'Par e-mail' }, { k: 'visite', lbl: 'Sur place' }, { k: 'autre', lbl: 'Autre' },
+  { k: 'telephone', lbl: 'Par téléphone' }, { k: 'sms', lbl: 'Par SMS' }, { k: 'email', lbl: 'Par e-mail' }, { k: 'visite', lbl: 'Sur place' },
+  { k: 'espace', lbl: 'Par l\'espace locataire' }, { k: 'autre', lbl: 'Autre' },
 ]);
 
 const _s = (v) => (v == null ? '' : String(v));
