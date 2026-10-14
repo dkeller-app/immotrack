@@ -219,7 +219,7 @@ export function _planErasure(db, logRef) {
       collection: 'incidents',
       entityId: i.id,
       entityRef: logRef,
-      fields: ['signaleParNom', 'description'],
+      fields: ['signaleParNom', 'description', 'elementLibre'],
       reason: 'Incident : conservation du registre du bien + anonymisation du locataire'
     });
   });

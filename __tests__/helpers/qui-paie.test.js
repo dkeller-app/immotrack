@@ -241,15 +241,68 @@ describe('Q-5 · urgences, sinistre, message, qualification', () => {
     expect(messageLocataire(quiPaie({ element: 'ballon' }), {})).toBeNull();
     expect(messageLocataire(null)).toBeNull();
   });
-  it('qualification : trois catégories existantes, suggestion « entretien / réparation »', () => {
+  it('qualification : catégories existantes ; suggestion « entretien » sauf entretien collectif avancé (R8 → récupérable)', () => {
     expect(QUALIFS.map((q) => q.cat)).toEqual([
       'Travaux (entretien, réparation, amélioration)',
       'Travaux de rénovation énergétique',
       'Travaux de construction / agrandissement (non déductible)',
+      'Charges récupérables (eau, énergie…)',
     ]);
     expect(qualificationSuggeree()).toBe('travaux');
+    const r8 = quiPaie({ element: 'chauffage_coll', intervention: 'entretien', contexte: { copro: false } });
+    expect(r8).toMatchObject({ payeur: 'bailleur', regle: 'R8', confiance: CONFIANCE.PROBABLE });
+    expect(qualificationSuggeree(r8)).toBe('recup');
+  });
+  it('message (relecture C3) : en zone grise, cite la lecture « locataire » ; retenu contre la suggestion → sans citation', () => {
+    const arb = quiPaie({ element: 'mur_plafond', nature: 'humidite' });
+    const m1 = messageLocataire(arb, { element: 'Plafond' });
+    expect(m1).toMatch(/art\. 7 c\)/);
+    expect(m1).not.toMatch(/art\. 6/);
+    const bai = quiPaie({ element: 'ballon', intervention: 'remplacement_complet' });
+    expect(messageLocataire(bai, { element: 'Ballon' })).toBeNull();
+    const m2 = messageLocataire(bai, { element: 'Ballon', retenuLocataire: true });
+    expect(m2).toMatch(/selon le bailleur, à la charge du locataire/);
+    expect(m2).not.toMatch(/«/);
+    expect(m2).not.toMatch(/relève/);
   });
   it('les URGENCES ont toutes au moins une consigne', () => {
     URGENCES.forEach((u) => expect(u.consignes.length).toBeGreaterThan(0));
+  });
+});
+
+describe('Q-6 · corrections de la relecture adverse', () => {
+  it('C2 — remplacement d\'un élément dont la rubrique liste le remplacement (vitre, prise, tuyau de gaz) : locataire', () => {
+    for (const k of ['vitre', 'electricite', 'gaz_raccord']) {
+      const v = quiPaie({ element: k, intervention: 'remplacement_complet', cause: 'usage_normal' });
+      expect(v.payeur, k).toBe('locataire');
+      expect(v.confiance, k).toBe(CONFIANCE.EXPLICITE);
+    }
+  });
+  it('C2 — un verdict « bailleur » ne cite jamais une rubrique de l\'annexe (qui désigne le locataire)', () => {
+    const bad = [];
+    ELEMENTS.forEach((e) => INTERVENTIONS.forEach((i) => CAUSES.forEach((c) => NATURES.forEach((na) => {
+      const v = quiPaie({ element: e.k, nature: na.k, intervention: i.k, cause: c.k, contexte: { meuble: false, copro: false } });
+      if (v.payeur === 'bailleur' && v.textes.some((t) => t.id.startsWith('ann-'))) bad.push(`${e.k}/${na.k}/${i.k}/${c.k}`);
+    }))));
+    expect(bad).toEqual([]);
+  });
+  it('I1 — casse d\'un élément hors liste, cause inconnue : à arbitrer (art. 7 c contre 6 c)', () => {
+    const v = quiPaie({ element: 'menuiserie', nature: 'casse', cause: 'inconnue' });
+    expect(v).toMatchObject({ payeur: 'a_arbitrer', regle: 'Z10' });
+    expect(v.lectures.map((l) => l.payeur)).toEqual(['locataire', 'bailleur']);
+  });
+  it('I2 — entretien d\'un équipement hors liste (VMC) : à arbitrer, la VMC cite l\'annexe VI d', () => {
+    const v = quiPaie({ element: 'vmc', nature: 'entretien', intervention: 'entretien' });
+    expect(v).toMatchObject({ payeur: 'a_arbitrer', regle: 'Z2' });
+    expect(v.lectures[0].textes.map((t) => t.id)).toEqual(['a7d', 'ann-VId']);
+  });
+  it('installation ou mise en conformité : bailleur (élément listé, chaudière) ; détecteur défectueux : à arbitrer', () => {
+    expect(quiPaie({ element: 'robinet', intervention: 'installation' }).payeur).toBe('bailleur');
+    expect(quiPaie({ element: 'chaudiere', intervention: 'mise_en_conformite' }).payeur).toBe('bailleur');
+    expect(quiPaie({ element: 'detecteur', intervention: 'remplacement_complet', cause: 'malfacon_vice', contexte: { meuble: false } }).payeur).toBe('a_arbitrer');
+  });
+  it('extrait R142-3 1° complet avec son introduction ; libellé « Non déterminé »', () => {
+    expect(TEXTES['cch-r1423-meuble'].extrait).toMatch(/^Cependant, cette responsabilité d'installation, d'entretien et de renouvellement incombe : 1° au propriétaire/);
+    expect(INTERVENTIONS[0].lbl).toBe('Non déterminé');
   });
 });

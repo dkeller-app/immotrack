@@ -98,8 +98,8 @@ export const TEXTES = Object.freeze({
     extrait: 'L\'entretien des chaudières collectives est effectué à l\'initiative du propriétaire ou du syndicat des copropriétaires de l\'immeuble.' },
   'cch-r1423': { ref: 'Code de la construction et de l\'habitation, art. R142-3', url: U.r1423,
     extrait: 'La responsabilité de l\'installation du détecteur de fumée mentionné à l\'article R. 142-2 incombe au propriétaire et la responsabilité de son entretien, ainsi que, si nécessaire, de son renouvellement incombe à l\'occupant du logement.' },
-  'cch-r1423-meuble': { ref: 'Code de la construction et de l\'habitation, art. R142-3, 1°', url: U.r1423,
-    extrait: 'au propriétaire pour les logements à caractère saisonnier, les logements-foyers mentionnés à l\'article R. 832-20 dont la gestion est assurée par le propriétaire ou par un organisme autres que ceux mentionnés à l\'article L. 365-4, les résidences hôtelières à vocation sociale, les logements attribués ou loués en raison de l\'exercice d\'une fonction ou d\'un emploi et les locations meublées ;' },
+  'cch-r1423-meuble': { ref: 'Code de la construction et de l\'habitation, art. R142-3, al. 2 et 1°', url: U.r1423,
+    extrait: 'Cependant, cette responsabilité d\'installation, d\'entretien et de renouvellement incombe : 1° au propriétaire pour les logements à caractère saisonnier, les logements-foyers mentionnés à l\'article R. 832-20 dont la gestion est assurée par le propriétaire ou par un organisme autres que ceux mentionnés à l\'article L. 365-4, les résidences hôtelières à vocation sociale, les logements attribués ou loués en raison de l\'exercice d\'une fonction ou d\'un emploi et les locations meublées ;' },
   'l6557-14': { ref: 'Loi n° 65-557 du 10 juillet 1965, art. 14', url: U.l6514,
     extrait: 'Il a pour objet la conservation et l\'amélioration de l\'immeuble ainsi que l\'administration des parties communes. Le syndicat est responsable des dommages causés aux copropriétaires ou aux tiers ayant leur origine dans les parties communes, sans préjudice de toutes actions récursoires.' },
   'assur-l1132': { ref: 'Code des assurances, art. L113-2, 4°', url: U.l1132,
@@ -122,7 +122,7 @@ export const ELEMENTS = Object.freeze([
   { k: 'terrasse', lbl: 'Terrasse, auvent, marquise', groupe: 'Extérieurs', ann: 'ann-Ib', metier: 'couverture' },
   { k: 'gouttiere', lbl: 'Gouttière, descente d\'eaux pluviales', groupe: 'Extérieurs', ann: 'ann-Ic', metier: 'couverture' },
   { k: 'porte_fenetre', lbl: 'Porte ou fenêtre (poignée, gonds, crémone)', groupe: 'Ouvertures', ann: 'ann-IIa', metier: 'menuiserie' },
-  { k: 'vitre', lbl: 'Vitre', groupe: 'Ouvertures', ann: 'ann-IIb', metier: 'vitrerie' },
+  { k: 'vitre', lbl: 'Vitre', groupe: 'Ouvertures', ann: 'ann-IIb', metier: 'vitrerie', remplacementListe: true },
   { k: 'volet', lbl: 'Volet roulant, store, jalousie', groupe: 'Ouvertures', ann: 'ann-IIc', metier: 'menuiserie' },
   { k: 'serrure', lbl: 'Serrure, verrou, clés', groupe: 'Ouvertures', ann: 'ann-IId', metier: 'serrurerie' },
   { k: 'grille', lbl: 'Grille', groupe: 'Ouvertures', ann: 'ann-IIe', metier: 'serrurerie' },
@@ -130,14 +130,14 @@ export const ELEMENTS = Object.freeze([
   { k: 'sol', lbl: 'Parquet, moquette, revêtement de sol', groupe: 'Intérieur', ann: 'ann-IIIb', metier: 'sol' },
   { k: 'placard', lbl: 'Placard, plinthes, moulures', groupe: 'Intérieur', ann: 'ann-IIIc', metier: 'menuiserie' },
   { k: 'canalisation', lbl: 'Canalisation d\'eau, évacuation (bouchon, joint)', groupe: 'Plomberie', ann: 'ann-IVa', metier: 'plomberie' },
-  { k: 'gaz_raccord', lbl: 'Robinet ou tuyau souple de gaz', groupe: 'Plomberie', ann: 'ann-IVb', metier: 'plomberie' },
+  { k: 'gaz_raccord', lbl: 'Robinet ou tuyau souple de gaz', groupe: 'Plomberie', ann: 'ann-IVb', metier: 'plomberie', remplacementListe: true },
   { k: 'fosse', lbl: 'Fosse septique, puisard', groupe: 'Plomberie', ann: 'ann-IVc', metier: 'assainissement' },
   { k: 'robinet', lbl: 'Robinetterie', groupe: 'Plomberie', ann: 'ann-IVd-robinet', metier: 'plomberie' },
   { k: 'chasse_eau', lbl: 'Chasse d\'eau, WC', groupe: 'Plomberie', ann: 'ann-IVd-chasse', metier: 'plomberie' },
   { k: 'sanitaire', lbl: 'Évier, lavabo, baignoire, douche', groupe: 'Plomberie', ann: 'ann-IVe', metier: 'plomberie' },
   { k: 'radiateur', lbl: 'Radiateur (corps de chauffe)', groupe: 'Chauffage et eau chaude', ann: 'ann-IVd-chauffe', metier: 'chauffage' },
   { k: 'chaudiere', lbl: 'Chaudière individuelle', groupe: 'Chauffage et eau chaude', ann: 'ann-IVd-gaz', metier: 'chauffage', special: 'chaudiere' },
-  { k: 'electricite', lbl: 'Prise, interrupteur, ampoule, fusible', groupe: 'Électricité', ann: 'ann-V', metier: 'electricite' },
+  { k: 'electricite', lbl: 'Prise, interrupteur, ampoule, fusible', groupe: 'Électricité', ann: 'ann-V', metier: 'electricite', remplacementListe: true },
   { k: 'electromenager', lbl: 'Appareil ménager mentionné au bail', groupe: 'Équipements', ann: 'ann-VIa', metier: 'electromenager', special: 'electromenager' },
   { k: 'pac_clim', lbl: 'Pompe à chaleur, climatisation', groupe: 'Équipements', ann: 'ann-VIa', metier: 'chauffage' },
   { k: 'antenne', lbl: 'Antenne individuelle', groupe: 'Équipements', ann: 'ann-VIa', metier: 'electricite' },
@@ -164,7 +164,7 @@ export const NATURES = Object.freeze([
   { k: 'degat_eaux', lbl: 'Dégât des eaux' }, { k: 'autre', lbl: 'Autre' },
 ]);
 export const INTERVENTIONS = Object.freeze([
-  { k: 'inconnue', lbl: 'Je ne sais pas' }, { k: 'entretien', lbl: 'Entretien' },
+  { k: 'inconnue', lbl: 'Non déterminé' }, { k: 'entretien', lbl: 'Entretien' },
   { k: 'petite_piece', lbl: 'Petite pièce' }, { k: 'quelques_elements', lbl: 'Quelques éléments' },
   { k: 'remplacement_complet', lbl: 'Remplacement complet' }, { k: 'installation', lbl: 'Installation' },
   { k: 'mise_en_conformite', lbl: 'Mise en conformité' },
@@ -281,8 +281,12 @@ function _quiPaieCore(n) {
         txtSyndic, { pieces: ['Photos datées', 'Échanges avec le syndic'] });
     }
     if (contexte.copro === false) {
-      return _v(PAYEURS.BAILLEUR, entretienColl ? 'R8' : 'R14', entretienColl ? CONFIANCE.EXPLICITE : CONFIANCE.PROBABLE,
-        'L\'immeuble n\'est pas en copropriété : les parties et équipements communs relèvent du propriétaire de l\'immeuble.',
+      // R224-41-5 al. 2 dit QUI fait réaliser l'entretien collectif, pas qui en supporte le coût final :
+      // le bailleur l'avance ; il peut être récupérable dans les charges selon le bail (décret 87-713).
+      return _v(PAYEURS.BAILLEUR, entretienColl ? 'R8' : 'R14', CONFIANCE.PROBABLE,
+        entretienColl
+          ? 'L\'immeuble n\'est pas en copropriété : le propriétaire fait réaliser l\'entretien du chauffage collectif. Il en avance le coût, qui peut être récupérable dans les charges selon le bail.'
+          : 'L\'immeuble n\'est pas en copropriété : les parties et équipements communs relèvent du propriétaire de l\'immeuble.',
         txtBailleur);
     }
     return _arb(entretienColl ? 'R8' : 'R14', 'Le régime de l\'immeuble n\'est pas renseigné : la réponse dépend de l\'existence d\'une copropriété.',
@@ -313,6 +317,12 @@ function _quiPaieCore(n) {
     if (contexte.meuble === true) {
       return _v(PAYEURS.BAILLEUR, 'R11', CONFIANCE.EXPLICITE, 'En location meublée, l\'installation, l\'entretien et le renouvellement du détecteur incombent au propriétaire.', ['cch-r1423-meuble']);
     }
+    if (cause === 'malfacon_vice') {
+      return _arb('R11', 'Un détecteur défectueux dès l\'origine n\'est pas une question d\'entretien : la cause décide.',
+        _lect(PAYEURS.BAILLEUR, 'si l\'appareil installé était défectueux ou non conforme', ['cch-r1423']),
+        _lect(PAYEURS.LOCATAIRE, contexte.meuble === true ? 'jamais en location meublée' : 'si seul le renouvellement normal est en cause (location nue)', contexte.meuble === true ? ['cch-r1423-meuble'] : ['cch-r1423']),
+        ['Date d\'installation', 'Facture de l\'appareil']);
+    }
     if (contexte.meuble === false) {
       return _v(PAYEURS.LOCATAIRE, 'R11', CONFIANCE.EXPLICITE, 'L\'entretien et, si nécessaire, le renouvellement du détecteur incombent à l\'occupant.', ['cch-r1423']);
     }
@@ -336,6 +346,9 @@ function _quiPaieCore(n) {
           ['Attestations d\'entretien annuel', 'Rapport du chauffagiste', 'Âge de la chaudière']);
       }
       return _v(PAYEURS.BAILLEUR, 'R7', CONFIANCE.PROBABLE, 'Le remplacement d\'une chaudière n\'est pas une réparation locative : il revient au bailleur, sauf défaut d\'entretien prouvé.', ['a6c', 'c1720'], { pieces: ['Attestations d\'entretien annuel', 'Rapport du chauffagiste'] });
+    }
+    if ((intervention === 'installation' || intervention === 'mise_en_conformite') && cause !== 'faute_locataire') {
+      return _v(PAYEURS.BAILLEUR, 'R7', CONFIANCE.PROBABLE, 'Installer ou mettre en conformité la chaudière n\'est pas une réparation locative : cela revient au bailleur.', ['a6c', 'c1720']);
     }
     // Panne : petite pièce d'usure (IV d) ou remplacement → zone grise si on ne sait pas.
     if (intervention === 'inconnue' || cause === 'inconnue') {
@@ -379,6 +392,10 @@ function _quiPaieCore(n) {
 function _listeDecret(n, el) {
   const { cause, intervention } = n;
   const regleUsage = el.k === 'electromenager' ? 'R12' : (el.k === 'conduit' ? 'R9' : 'R1');
+  // Installer ou mettre en conformité un élément n'est pas une réparation locative (art. 6 a et c).
+  if ((intervention === 'installation' || intervention === 'mise_en_conformite') && cause !== 'faute_locataire') {
+    return _v(PAYEURS.BAILLEUR, 'R4', CONFIANCE.PROBABLE, 'Installer ou mettre en conformité un équipement n\'est pas une réparation locative : cela revient au bailleur.', ['a6c', 'c1720']);
+  }
   // L'entretien courant (ramonage, graissage, détartrage…) ne dépend pas d'une cause.
   if (intervention === 'entretien' && (cause === 'inconnue' || cause === 'usage_normal')) {
     return _v(PAYEURS.LOCATAIRE, regleUsage, CONFIANCE.EXPLICITE, 'L\'entretien courant figure dans la liste des réparations locatives.', [el.ann, 'a7d']);
@@ -401,8 +418,11 @@ function _listeDecret(n, el) {
       ['Dépôt de plainte ou attestation', 'Photos datées']);
   }
   if (cause === 'usage_normal') {
-    if (intervention === 'remplacement_complet' || intervention === 'mise_en_conformite' || intervention === 'installation') {
-      return _v(PAYEURS.BAILLEUR, 'R4', CONFIANCE.PROBABLE, 'Un remplacement complet dépasse les menues réparations : il revient au bailleur. Si seuls quelques éléments sont à remplacer, la réparation reste locative.', ['a6c', 'c1720', el.ann], { pieces: ['Devis détaillé', 'Photos datées'] });
+    if (intervention === 'remplacement_complet') {
+      // La rubrique liste ELLE-MÊME le remplacement (vitres détériorées, prises et interrupteurs, tuyaux
+      // souples de gaz) : il reste locatif, comme toute réparation listée due à l'usage normal.
+      if (el.remplacementListe) return _v(PAYEURS.LOCATAIRE, regleUsage, CONFIANCE.EXPLICITE, 'Le remplacement de cet élément figure lui-même dans la liste des réparations locatives. Il reste à la charge du bailleur seulement s\'il vient de la vétusté, d\'une malfaçon, d\'un vice, d\'un cas fortuit ou d\'une force majeure.', [el.ann, 'a7d']);
+      return _v(PAYEURS.BAILLEUR, 'R4', CONFIANCE.PROBABLE, 'Un remplacement complet dépasse les menues réparations : il revient au bailleur. Si seuls quelques éléments sont à remplacer, la réparation reste locative.', ['a6c', 'c1720'], { pieces: ['Devis détaillé', 'Photos datées'] });
     }
     if (intervention === 'inconnue') {
       return _arb('Z1', 'Tout dépend de l\'ampleur de la réparation : menue réparation (locataire) ou remplacement complet (bailleur).',
@@ -424,7 +444,23 @@ function _listeDecret(n, el) {
 
 /** Élément hors liste du décret (R4, R5) : règle par défaut, le bailleur. */
 function _horsListe(n) {
-  const { cause } = n;
+  const { cause, nature, intervention, element } = n;
+  // Zone grise n° 10 (CDC §3.5) : une CASSE survenue pendant le bail, cause non établie — le locataire
+  // répond des dégradations sauf preuve contraire (art. 7 c) ; ce n'est pourtant pas une réparation locative.
+  if (nature === 'casse' && cause === 'inconnue') {
+    return _arb('Z10', 'Une casse survenue pendant le bail : sans cause établie, la charge de la preuve décide.',
+      _lect(PAYEURS.LOCATAIRE, 'si la casse est survenue pendant le bail et que le locataire ne prouve ni force majeure, ni faute du bailleur, ni fait d\'un tiers non introduit', ['a7c']),
+      _lect(PAYEURS.BAILLEUR, 'si la casse vient de l\'usure, de la vétusté ou d\'un vice de l\'élément', ['a6c', 'c1720']),
+      ['Photos datées', 'État des lieux d\'entrée', 'Diagnostic écrit du professionnel']);
+  }
+  // Entretien courant d'un équipement hors de la liste : l'art. 7 d met l'entretien courant des
+  // équipements mentionnés au contrat à la charge du locataire ; l'entretien normal des locaux reste au bailleur.
+  if (intervention === 'entretien' && (cause === 'inconnue' || cause === 'usage_normal')) {
+    return _arb('Z2', 'L\'entretien courant d\'un équipement relève du locataire ; l\'entretien normal des locaux et les réparations, du bailleur.',
+      _lect(PAYEURS.LOCATAIRE, 'si c\'est l\'entretien courant d\'un équipement mentionné au bail (nettoyage, réglage)', element === 'vmc' ? ['a7d', 'ann-VId'] : ['a7d']),
+      _lect(PAYEURS.BAILLEUR, 'si c\'est l\'entretien normal des locaux ou une réparation de l\'équipement', ['a6c', 'c1720']),
+      ['Contrat d\'entretien éventuel', 'Bail (équipements mentionnés)']);
+  }
   if (cause === 'faute_locataire') {
     return _v(PAYEURS.LOCATAIRE, 'R5', CONFIANCE.PROBABLE, 'Le locataire répond des dégradations survenues pendant le bail, sauf s\'il prouve la force majeure, la faute du bailleur ou le fait d\'un tiers qu\'il n\'a pas introduit.', ['a7c'], { pieces: ['Photos datées', 'État des lieux d\'entrée', 'Échanges avec le locataire'] });
   }
@@ -456,16 +492,32 @@ function _autre(n) {
  * @returns {string|null} null si le payeur suggéré n'est pas le locataire.
  */
 export function messageLocataire(verdict, ctx) {
-  if (!verdict || verdict.payeur !== PAYEURS.LOCATAIRE) return null;
+  if (!verdict) return null;
   const c = ctx || {};
+  // Les textes CITÉS sont toujours ceux qui désignent le locataire : ceux du verdict s'il le désigne, sinon
+  // ceux de la lecture « locataire » d'une zone grise. Jamais les obligations du bailleur (relecture C3).
+  // Le bailleur a retenu « locataire » contre une suggestion « bailleur » (`retenuLocataire`) : aucun texte
+  // ne le dit → message SANS citation et sans « relève de ».
+  let textes = null;
+  if (verdict.payeur === PAYEURS.LOCATAIRE) textes = verdict.textes || [];
+  else {
+    const l = (verdict.lectures || []).find((x) => x.payeur === PAYEURS.LOCATAIRE);
+    if (l) textes = l.textes || [];
+    else if (!c.retenuLocataire) return null;
+  }
   const el = c.element || 'l\'élément signalé';
   const lignes = [];
   lignes.push(`Objet : ${el}${c.bien ? ' — ' + c.bien : ''}`);
   lignes.push('');
   lignes.push('Bonjour,');
   lignes.push('');
-  lignes.push(`${c.dateSignalement ? 'Suite au signalement du ' + c.dateSignalement + ', la' : 'La'} réparation signalée (${el}) relève des réparations à la charge du locataire :`);
-  (verdict.textes || []).forEach((t) => { lignes.push(`- ${t.ref} : « ${t.extrait} »`); });
+  const intro = c.dateSignalement ? 'Suite au signalement du ' + c.dateSignalement + ', la' : 'La';
+  if (textes && textes.length) {
+    lignes.push(`${intro} réparation signalée (${el}) relève des réparations à la charge du locataire :`);
+    textes.forEach((t) => { lignes.push(`- ${t.ref} : « ${t.extrait} »`); });
+  } else {
+    lignes.push(`${intro} réparation signalée (${el}) est, selon le bailleur, à la charge du locataire. Pour toute question, le contacter.`);
+  }
   lignes.push('');
   lignes.push('Si la cause est autre (vétusté, malfaçon, vice), merci de le signaler : la réparation reviendrait alors au bailleur.');
   lignes.push('');
@@ -483,6 +535,10 @@ export const QUALIFS = Object.freeze([
   { k: 'travaux', cat: 'Travaux (entretien, réparation, amélioration)', lbl: 'Entretien, réparation ou amélioration', detail: 'Ligne 224 de la déclaration 2044' },
   { k: 'energie', cat: 'Travaux de rénovation énergétique', lbl: 'Rénovation énergétique', detail: 'Ligne 224 bis' },
   { k: 'construction', cat: 'Travaux de construction / agrandissement (non déductible)', lbl: 'Construction, reconstruction, agrandissement', detail: 'Non déductible : hors 2044, compte dans la trésorerie' },
+  { k: 'recup', cat: 'Charges récupérables (eau, énergie…)', lbl: 'Charge récupérable sur le locataire', detail: 'Entre dans la régularisation des charges (entretien d\'un équipement collectif)', seulementSiSuggere: true },
 ]);
-/** La suggestion par défaut : entretien / réparation. L'utilisateur la change librement. */
-export function qualificationSuggeree() { return 'travaux'; }
+/**
+ * La suggestion : entretien / réparation ; « charge récupérable » pour l'entretien d'un chauffage collectif
+ * avancé par le bailleur (R8). L'utilisateur la change librement (aide au classement, pas un conseil fiscal).
+ */
+export function qualificationSuggeree(verdict) { return (verdict && verdict.regle === 'R8' && verdict.payeur === PAYEURS.BAILLEUR) ? 'recup' : 'travaux'; }

@@ -128,6 +128,19 @@ try {
   const p3 = await asUser(U.carol, 'select id from public.documents where id = any($1)', [[docA, docB]])
   check('Carol voit la pièce de SCI-A, pas celle de SCI-B', p3.ok && p3.rows.length === 1 && p3.rows[0].id === docA, JSON.stringify(p3))
 
+  // (6 bis) relecture Fable I4 : incident à rattachements MÉLANGÉS (SCI A + logement de SCI B), créé par un
+  // membre plein — Carol (scopée A) ne doit voir NI l'incident NI ses pièces ; pièce orpheline : fail-closed.
+  const INC_MIX = randomUUID(), DOC_MIX = randomUUID()
+  await q(INS, [INC_MIX, espace, E.A, null, L.B, 'signale', '{}'])
+  await q(DOC, [DOC_MIX, espace, 'incident', INC_MIX])
+  const x1 = await asUser(U.carol, 'select id from public.incidents where id = $1', [INC_MIX])
+  const x2 = await asUser(U.carol, 'select id from public.documents where id = $1', [DOC_MIX])
+  check("rattachements mélangés : Carol ne voit ni l'incident ni sa pièce", x1.ok && x1.rows.length === 0 && x2.ok && x2.rows.length === 0, JSON.stringify({ x1, x2 }))
+  const x3 = await asUser(U.alice, 'select id from public.documents where id = $1', [DOC_MIX])
+  check('… Alice (pleine) voit la pièce', x3.ok && x3.rows.length === 1, JSON.stringify(x3))
+  const o1 = await asUser(U.carol, DOC, [randomUUID(), espace, 'incident', randomUUID()])
+  check('pièce rattachée à un incident inexistant : refusée pour Carol (fail-closed)', !o1.ok && o1.code === '42501', JSON.stringify(o1))
+
   // (7) non-régression de la contrainte des pièces
   const n1 = await asUser(U.alice, DOC, [randomUUID(), espace, 'candidat', L.A])
   const n2 = await asUser(U.alice, DOC, [randomUUID(), espace, 'equipement', L.A])

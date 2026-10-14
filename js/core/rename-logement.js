@@ -56,6 +56,9 @@ export function renameLogementRef(db, oldRef, newRef, opts = {}) {
   })
   ;(db.documents || []).forEach(d => { if (d && !d._deleted && d.parentType === 'logement' && (d.parentRef === oldRef || d.logRef === oldRef)) { if (d.parentRef === oldRef) d.parentRef = newRef; if (d.logRef === oldRef) d.logRef = newRef; stamp(d); bump('document') } })
   ;(db.candidats || []).forEach(c => { if (c && !c._deleted && c.logRef === oldRef) { c.logRef = newRef; stamp(c); bump('candidat') } })
+  // TRAVAUX : QUI PAIE ? — le registre des incidents et les pièces de leur dossier suivent la ref.
+  ;(db.incidents || []).forEach(i => { if (i && !i._deleted && i.logRef === oldRef) { i.logRef = newRef; stamp(i); bump('incident') } })
+  ;(db.documents || []).forEach(d => { if (d && !d._deleted && d.parentType === 'incident' && d.logRef === oldRef) { d.logRef = newRef; stamp(d); bump('document') } })
 
   // ── Collections du BLOB config (hors tables : persistées par valeur, mais la ref doit suivre sinon
   //    les données du bien deviennent injoignables après renommage). Pas de _stamp (le blob sync en entier).

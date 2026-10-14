@@ -113,13 +113,17 @@ as $$
     when 'quittance'  then public.entite_of_logement(p_espace_id, p_parent_id)
     when 'candidat'   then public.entite_of_logement(p_espace_id, p_parent_id)
     when 'incident' then (
+      -- Garde ALIGNÉE sur la ligne incident (0052) : un droit sur CHAQUE rattachement renseigné. Une garde
+      -- sur la seule entité « coalesce » laissait voir les preuves d'un incident à rattachements mélangés
+      -- (SCI A + logement de SCI B) à un membre scopé de A, qui ne voit pas l'incident (relecture Fable I4).
       select x.ent from (
         select coalesce(inc.entite_id, public.entite_of_logement(p_espace_id, inc.logement_id),
-                        public.entite_of_immeuble(p_espace_id, inc.immeuble_id)) as ent
+                        public.entite_of_immeuble(p_espace_id, inc.immeuble_id)) as ent,
+               inc.entite_id as e, inc.logement_id as l, inc.immeuble_id as i
         from public.incidents inc
         where inc.id = p_parent_id and inc.espace_id = p_espace_id
       ) x
-      where public.has_entite_access(p_espace_id, x.ent)
+      where public.has_entite_access_all(p_espace_id, x.e, x.l, x.i)
     )
     else null
   end;

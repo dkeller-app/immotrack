@@ -7104,13 +7104,13 @@ function _pilCollectFamilles(ctx) {
   try {
     if (window.Incidents && Array.isArray(DB.incidents)) {
       const refs = new Set(scopeLogs.map(l => l.ref));
-      const imms = new Set(scopeLogs.map(l => l.imm).filter(Boolean));
+      const imms = new Set(scopeLogs.filter(l => l.imm).map(l => (l.entity || '') + '|' + l.imm));
       const QP = window.QuiPaie;
       // Le PIRE CAS de la bulle = le bien (court : la bulle ne coupe jamais un texte, M-14) ; le détail
       // (élément) est porté à part et affiché dans la liste ouverte au clic.
       const lbl = (i) => i.logRef || ('Parties communes ' + (i.imm || ''));
       const det = (i) => { const d = QP ? QP.elementDef(i.element) : null; return (i.elementLibre && String(i.elementLibre).trim()) || (d ? d.lbl : 'Incident'); };
-      const enScope = DB.incidents.filter(i => i && !i._deleted && (i.logRef ? refs.has(i.logRef) : imms.has(i.imm)));
+      const enScope = DB.incidents.filter(i => i && !i._deleted && (i.logRef ? refs.has(i.logRef) : imms.has((i.entity || '') + '|' + i.imm)));
       src.incident = window.Incidents.itemsIncidents(enScope, today, lbl).map(it => { const i = enScope.find(x => x.id === it.incId); return Object.assign(it, { detail: i ? det(i) : '' }); });
     }
   } catch (e) {}

@@ -14224,6 +14224,14 @@ function _incNatLbl(inc) {
   const { QP } = _incMods(); const n = QP ? QP.NATURES.find(x => x.k === inc.nature) : null;
   return n ? n.lbl : '';
 }
+// Espace de l'incident (multi-SCI) : son tag d'hydratation, sinon celui de son logement / immeuble.
+function _incEspace(inc) {
+  if (!inc) return null;
+  if (inc._espaceId != null) return inc._espaceId;
+  const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === inc.logRef && (!inc.entity || l.entity === inc.entity));
+  if (log && log._espaceId != null) return log._espaceId;
+  return null;
+}
 function _incPayeur(inc) { return inc ? (inc.payeurRetenu || (inc.verdict && inc.verdict.payeur) || 'a_arbitrer') : 'a_arbitrer'; }
 function _incPayeurLbl(p) { const { QP } = _incMods(); return (QP && QP.PAYEUR_LBL[p]) || p; }
 function _incBienLbl(inc) {
@@ -14231,6 +14239,7 @@ function _incBienLbl(inc) {
   if (log) return (log.imm ? log.imm + ' — ' : '') + log.ref;
   return inc.imm ? 'Parties communes — ' + inc.imm : 'Bien non précisé';
 }
+function _incJour(iso) { const { IN } = _incMods(); return IN && IN.jourLocal ? IN.jourLocal(iso) : String(iso || '').slice(0, 10); }
 function _incDateHeure(iso) {
   if (!iso) return '';
   const d = new Date(iso); if (isNaN(d)) return fd(String(iso).slice(0, 10));
@@ -14278,12 +14287,12 @@ function _renderIncidentsForLog(ref) {
         <span class="inc-card-s">${escHtml(_incNatLbl(i))}${i.description ? ' — ' + escHtml(i.description) : ''}</span>
         <span class="inc-kv"><span>Qui paie</span><b>${_incPayCell(i)}</b></span>
         <span class="inc-kv"><span>Statut</span><b>${_incStatutBadge(i)}</b></span>
-        <span class="inc-kv"><span>Signalé le</span><b>${fd(String(i.creeLe || '').slice(0, 10))}</b></span>
+        <span class="inc-kv"><span>Signalé le</span><b>${fd(_incJour(i.creeLe))}</b></span>
       </button>`).join('')}</div>`;
   }
   return head + `<div class="inc-tbl-wrap"><table class="inc-tbl"><thead><tr><th>Signalé le</th><th>Élément et nature</th><th>Qui paie</th><th>Statut</th><th class="num">Coût bailleur</th><th></th></tr></thead><tbody>
     ${liste.map(i => { const c = _incCoutBailleur(i); return `<tr>
-      <td class="inc-dt">${fd(String(i.creeLe || '').slice(0, 10))}</td>
+      <td class="inc-dt">${fd(_incJour(i.creeLe))}</td>
       <td><div class="inc-el">${escHtml(_incElLbl(i))}</div><div class="inc-sub">${escHtml(_incNatLbl(i))}${i.description ? ' — ' + escHtml(i.description) : ''}${i.contexte && i.contexte.partieCommune ? ' · partie commune' : ''}</div></td>
       <td>${_incPayCell(i)}</td>
       <td>${_incStatutBadge(i)}</td>
@@ -14294,13 +14303,13 @@ function _renderIncidentsForLog(ref) {
 }
 
 // ── Pastille « Incidents des parties communes » de la fiche immeuble ──
-function _incCountImm(im) {
-  return (DB.incidents || []).filter(i => i && !i._deleted && im && i.imm === im.nom && i.contexte && i.contexte.partieCommune && i.statut !== 'resolu').length;
+function _incCountImm(im, ent) {
+  return (DB.incidents || []).filter(i => i && !i._deleted && im && i.imm === im.nom && (!ent || !i.entity || i.entity === ent.nom) && i.contexte && i.contexte.partieCommune && i.statut !== 'resolu').length;
 }
 function _renderIncidentsForImm(ent, im) {
   const { IN } = _incMods();
   if (!IN || !im) return '';
-  const liste = _incAll().filter(i => i && !i._deleted && i.imm === im.nom && i.contexte && i.contexte.partieCommune)
+  const liste = _incAll().filter(i => i && !i._deleted && i.imm === im.nom && (!i.entity || i.entity === ent.nom) && i.contexte && i.contexte.partieCommune)
     .sort((a, b) => String(b.creeLe || '').localeCompare(String(a.creeLe || '')));
   const btn = `<button class="btn bs bb" onclick="openIncident('',null,'saisie','${_lyQ(ent.nom)}','${_lyQ(im.nom)}')">${_uiIcon('plus', 14)} Signaler un incident sur les parties communes</button>`;
   if (!liste.length) return `<div class="inc-note">Aucun incident sur les parties communes.</div><div style="margin-top:8px">${btn}</div>`;
@@ -14488,8 +14497,15 @@ function _incPersister(inc, action, avant) {
 function _incEnregistrer() {
   const { IN } = _incMods();
   const f = _incLireSaisie();
+  // JAMAIS BLOQUER : sans élément ou sans nature, on avertit ; l'incident est noté (« autre ») et le verdict
+  // sera « à arbitrer » jusqu'à ce qu'il soit précisé.
   const manque = [!f.element && 'l\'élément concerné', !f.nature && 'la nature'].filter(Boolean);
-  if (manque.length) { showToast('Préciser ' + manque.join(' et ') + ' pour obtenir le verdict.', 'warn', 4500); return; }
+  if (manque.length) {
+    if (!confirm2('Il manque ' + manque.join(' et ') + ' : le verdict sera « à arbitrer » tant que l\'incident n\'est pas précisé.\n\nEnregistrer quand même ?')) return;
+    if (!f.element) f.element = 'autre';
+    if (!f.nature) f.nature = 'autre';
+  }
+  _incState.message = null;   // un message préparé sur l'ancienne version ne vaut plus
   const existant = _incState.id != null ? _incGet(_incState.id) : null;
   if (existant) {
     const avant = JSON.parse(JSON.stringify(existant));
@@ -14516,6 +14532,8 @@ function _incSupprimer() {
   const inc = _incGet(_incState && _incState.id); if (!inc) return;
   if (!confirm2('Supprimer cet incident du registre ? Les pièces du dossier et la dépense éventuelle dans Finances restent en place.')) return;
   inc._deleted = true; inc._deletedAt = new Date().toISOString();
+  // Les dépenses rattachées restent dans Finances mais redeviennent rattachables à un autre incident.
+  (DB.mouvements || []).forEach(m => { if (m && !m._deleted && m.incidentId != null && String(m.incidentId) === String(inc.id)) { delete m.incidentId; _stamp(m); } });
   _incPersister(inc, 'delete');
   showToast('Incident supprimé', 'ok');
   _incFermer();
@@ -14523,7 +14541,12 @@ function _incSupprimer() {
 
 // ── Vue « fiche » : verdict, décision, statut, étapes, preuves ──
 function _incCite(t) {
-  return `<div class="inc-cite"><span>« ${escHtml(t.extrait)} »</span><span class="inc-src">${_uiIcon('book', 13)} ${escHtml(t.ref)} · <a href="${escHtml(t.url)}" target="_blank" rel="noopener noreferrer">Lire sur Légifrance ${_uiIcon('external', 12)}</a></span></div>`;
+  // Le verdict stocké (legacy_raw, partagé entre membres) ne fait pas foi : la citation est relue dans le
+  // référentiel du module par son id ; à défaut, seule une URL Légifrance https est acceptée.
+  const { QP } = _incMods();
+  const base = (QP && t && QP.TEXTES[t.id]) || t || {};
+  const url = /^https:\/\/www\.legifrance\.gouv\.fr\//.test(String(base.url || '')) ? base.url : '';
+  return `<div class="inc-cite"><span>« ${escHtml(base.extrait || '')} »</span><span class="inc-src">${_uiIcon('book', 13)} ${escHtml(base.ref || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">Lire sur Légifrance ${_uiIcon('external', 12)}</a>` : ''}</span></div>`;
 }
 function _incVerdictHtml(inc) {
   const { QP } = _incMods();
@@ -14579,7 +14602,10 @@ function _incFicheHtml(inc) {
   const etapes = [];
   etapes.push(`<button type="button" class="inc-it" onclick="_incGo('appeler')">${_uiIcon('phone', 16)}<span class="t">Qui appeler<span class="d">${a && a.nom ? 'Artisan noté : ' + escHtml(a.nom) + (a.tel ? ' · ' + escHtml(a.tel) : '') : 'Carnet, annuaire officiel, assistance de l\'assurance'}</span></span>${_uiIcon('chevron-right', 14)}</button>`);
   if (p === 'locataire') etapes.push(`<button type="button" class="inc-it" onclick="_incGo('message')">${_uiIcon('send', 16)}<span class="t">Message au locataire<span class="d">Le texte appliqué et le rappel de l'assurance habitation</span></span>${_uiIcon('chevron-right', 14)}</button>`);
-  if ((p === 'bailleur' || p === 'syndic' || cout != null) && typeof _incFactureHtml === 'function') etapes.push(`<button type="button" class="inc-it" onclick="_incGo('facture')">${_uiIcon('money', 16)}<span class="t">${cout != null ? 'Dépense enregistrée : ' + fmt(cout) : 'Enregistrer la facture'}<span class="d">${cout != null ? 'Visible dans Finances ; ajouter une autre facture' : 'Devient une dépense du bien dans Finances'}</span></span>${_uiIcon('chevron-right', 14)}</button>`);
+  // Pas d'étape « facture » quand le syndic paie : la quote-part du bailleur passe déjà par les appels de
+  // fonds (« Charges de copropriété ») — une seconde dépense la compterait deux fois (relecture C1).
+  if (p === 'syndic') etapes.push(`<div class="inc-note">${_uiIcon('info', 13)} Le syndic fait réaliser les travaux ; la quote-part du bailleur passe par les appels de fonds de copropriété, déjà dans Finances. Aucune dépense à enregistrer ici.</div>`);
+  if ((p === 'bailleur' || cout != null) && typeof _incFactureHtml === 'function') etapes.push(`<button type="button" class="inc-it" onclick="_incGo('facture')">${_uiIcon('money', 16)}<span class="t">${cout != null ? 'Dépense enregistrée : ' + fmt(cout) : 'Enregistrer la facture'}<span class="d">${cout != null ? 'Visible dans Finances ; ajouter une autre facture' : 'Devient une dépense du bien dans Finances'}</span></span>${_uiIcon('chevron-right', 14)}</button>`);
   const infos = [
     ['Élément', _incElLbl(inc)], ['Nature', _incNatLbl(inc)],
     ['Cause déclarée', ((_incMods().QP.CAUSES.find(c => c.k === inc.cause) || {}).lbl) || 'Inconnue'],
@@ -14628,8 +14654,9 @@ function _incStatut(s) {
 }
 function _incCocher(k, on) {
   const inc = _incGet(_incState && _incState.id); if (!inc) return;
+  const avant = JSON.parse(JSON.stringify(inc));
   inc.assurance = inc.assurance || {}; inc.assurance.checklist = Object.assign({}, inc.assurance.checklist || {}, { [k]: !!on });
-  _incPersister(inc, 'update');
+  _incPersister(inc, 'update', avant);
   _incRender();
 }
 function _incRecalculer() {
@@ -14701,28 +14728,32 @@ async function _incChargerAnnuaire() {
   const { IN } = _incMods(); const inc = _incGet(_incState && _incState.id); if (!inc || !IN) return;
   const url = IN.annuaireUrl({ metier: _incState.metier, codePostal: _incCodePostal(inc) });
   if (!url) return;
+  const cle = inc.id + '|' + _incState.metier;
+  const encore = () => _incState && (_incState.id + '|' + _incState.metier) === cle;
   _incState.annuaire = { etat: 'charge', liste: [] }; _incRender();
   try {
     const r = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
-    if (!_incState) return;
+    if (!encore()) return;
     _incState.annuaire = { etat: 'ok', liste: IN.lireAnnuaire(j, _incCodePostal(inc)) };
-  } catch (e) { console.warn('[incident annuaire]', e); if (_incState) _incState.annuaire = { etat: 'erreur', liste: [] }; }
-  if (_incState && _incState.view === 'appeler') _incRender();
+  } catch (e) { console.warn('[incident annuaire]', e); if (encore()) _incState.annuaire = { etat: 'erreur', liste: [] }; }
+  if (encore() && _incState.view === 'appeler') _incRender();
 }
 async function _incChargerRge() {
   const { IN } = _incMods(); const inc = _incGet(_incState && _incState.id); if (!inc || !IN) return;
   const url = IN.rgeUrl({ codePostal: _incCodePostal(inc) }); if (!url) return;
+  const cle = inc.id + '|' + _incState.metier;
+  const encore = () => _incState && (_incState.id + '|' + _incState.metier) === cle;
   _incState.rge = { etat: 'charge', liste: [] }; _incRender();
   try {
     const r = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
-    if (!_incState) return;
-    _incState.rge = { etat: 'ok', liste: IN.lireRge(j, new Date().toISOString().slice(0, 10)) };
-  } catch (e) { console.warn('[incident RGE]', e); if (_incState) _incState.rge = { etat: 'erreur', liste: [] }; }
-  if (_incState && _incState.view === 'appeler') _incRender();
+    if (!encore()) return;
+    _incState.rge = { etat: 'ok', liste: IN.lireRge(j, IN.jourLocal(new Date().toISOString())) };
+  } catch (e) { console.warn('[incident RGE]', e); if (encore()) _incState.rge = { etat: 'erreur', liste: [] }; }
+  if (encore() && _incState.view === 'appeler') _incRender();
 }
 function _incNoterArtisan(a) {
   const inc = _incGet(_incState && _incState.id); if (!inc || !a || !a.nom) return;
@@ -14741,9 +14772,11 @@ function _incNoterArtisanLibre() {
 // ── Vue « message au locataire » ──
 function _incMessageTexte(inc) {
   const { QP } = _incMods();
-  const v = inc.verdict && inc.verdict.payeur === 'locataire' ? inc.verdict : Object.assign({}, inc.verdict || {}, { payeur: 'locataire' });
+  // Textes cités = ceux qui désignent le locataire (verdict, ou lecture « locataire » d'une zone grise) ;
+  // payeur retenu contre la suggestion → message sans citation (qui-paie.js, relecture C3).
+  const v = inc.verdict || _incCalculerVerdict(inc);
   const ent = (DB.entites || []).find(e => e && e.nom === inc.entity);
-  return QP.messageLocataire(v, { element: _incElLbl(inc), dateSignalement: fd(String(inc.creeLe || '').slice(0, 10)), bien: _incBienLbl(inc), signataire: (ent && ent.nom) || inc.entity || '' }) || '';
+  return QP.messageLocataire(v, { element: _incElLbl(inc), dateSignalement: fd(_incJour(inc.creeLe)), bien: _incBienLbl(inc), signataire: (ent && ent.nom) || inc.entity || '', retenuLocataire: inc.payeurRetenu === 'locataire' }) || '';
 }
 function _incMessageHtml(inc) {
   const brouillon = (_incState.message != null) ? _incState.message : _incMessageTexte(inc);
@@ -14773,12 +14806,15 @@ function _incFactureHtml(inc) {
   const p = _incPayeur(inc);
   const avert = p !== 'bailleur' ? `<div class="inc-guard neutre"><b>Le payeur retenu n'est pas le bailleur (${escHtml(_incPayeurLbl(p).toLowerCase())}).</b> Une dépense n'est à enregistrer ici que si le bailleur a réellement payé. Rien n'est bloqué.</div>` : '';
   const dejaIds = (inc.mouvementIds || []).map(String);
-  const cands = IN.mouvementsRattachables(DB.mouvements || [], inc).filter(m => !dejaIds.includes(String(m.id)));
+  const cands = IN.mouvementsRattachables(DB.mouvements || [], inc, { espaceId: _incEspace(inc) }).filter(m => !dejaIds.includes(String(m.id)));
+  // Logement introuvable (renommé, supprimé) et pas d'immeuble : la dépense sortirait du périmètre par bien.
+  const logPerdu = inc.logRef && !_incLogOf(inc.logRef) && !inc.imm;
   const rattach = cands.length ? `<div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('link', 15)} Déjà dans les mouvements ?</h4><span class="inc-sub">Le paiement est peut-être arrivé par l'import bancaire : le rattacher évite de le compter deux fois.</span></div>
     ${cands.slice(0, 6).map(m => `<div class="inc-pro"><span class="n">${fmt(+m.db || 0)} · ${fd(m.date)}</span><span class="m">${escHtml(m.lib || '')}${m.cat ? ' · ' + escHtml(m.cat) : ''}</span><span class="a"><button type="button" class="btn bs bb" onclick="_incRattacherMouvement(${+m.id})">${_uiIcon('link', 13)} Rattacher ce mouvement</button></span></div>`).join('')}</div>` : '';
-  const sugg = QP.qualificationSuggeree();
+  const sugg = QP.qualificationSuggeree(inc.verdict);
   const auj = new Date(); auj.setMinutes(auj.getMinutes() - auj.getTimezoneOffset());
-  return `${avert}${rattach}
+  const perdu = logPerdu ? `<div class="inc-guard"><b>Le bien « ${escHtml(inc.logRef)} » est introuvable</b> (renommé ou supprimé ?). La dépense serait enregistrée sans bien rattaché et n'apparaîtrait pas dans les finances du bien. Modifier l'incident ou vérifier le bien avant d'enregistrer.</div>` : '';
+  return `${avert}${perdu}${rattach}
   <div class="inc-grp"><div class="inc-grp-h"><h4>${_uiIcon('money', 15)} ${cands.length ? 'Sinon, enregistrer une nouvelle dépense' : 'Nouvelle dépense'}</h4></div>
   <div class="inc-g2">
     <div class="inc-f"><label class="inc-lb" for="inc-fac-mt">Montant TTC payé *</label><input class="inp" id="inc-fac-mt" inputmode="decimal" placeholder="0,00"></div>
@@ -14786,10 +14822,10 @@ function _incFactureHtml(inc) {
   </div>
   <div class="inc-g2">
     <div class="inc-f"><label class="inc-lb" for="inc-fac-num">N° de facture <span class="inc-opt">— facultatif</span></label><input class="inp" id="inc-fac-num"></div>
-    <div class="inc-f"><label class="inc-lb" for="inc-fac-file">Facture <span class="inc-opt">— facultatif, rejoint le dossier de preuves</span></label><input class="inp" id="inc-fac-file" type="file" accept="application/pdf,image/*"></div>
+    <div class="inc-f"><label class="inc-lb" for="inc-fac-file">Facture <span class="inc-opt">— facultatif, rangée dans le dossier de preuves</span></label><input class="inp" id="inc-fac-file" type="file" accept="application/pdf,image/*"></div>
   </div>
   <div class="inc-f"><span class="inc-lb">Nature de la dépense <span class="inc-opt">— suggestion, modifiable</span></span>
-    <div class="inc-fac-pick">${QP.QUALIFS.map(q => `<label><input type="radio" name="inc-fac-q" value="${q.k}"${q.k === sugg ? ' checked' : ''}><span>${escHtml(q.lbl)}${q.k === sugg ? '<span class="inc-sugg">Suggestion</span>' : ''}<span class="d">${escHtml(q.detail)}</span></span></label>`).join('')}</div>
+    <div class="inc-fac-pick">${QP.QUALIFS.filter(q => !q.seulementSiSuggere || q.k === sugg).map(q => `<label><input type="radio" name="inc-fac-q" value="${q.k}"${q.k === sugg ? ' checked' : ''}><span>${escHtml(q.lbl)}${q.k === sugg ? '<span class="inc-sugg">Suggestion</span>' : ''}<span class="d">${escHtml(q.detail)}</span></span></label>`).join('')}</div>
     <div class="inc-hint">${_uiIcon('info', 13)} Aide au classement, pas un conseil fiscal. Au micro-foncier, l'abattement couvre déjà toutes les charges.</div></div>
   <div class="inc-finbox">${_uiIcon('money', 15)}<span>La dépense est enregistrée dans <b>Finances</b> pour <b>${escHtml(_incBienLbl(inc))}</b>, comme une saisie manuelle : elle compte dans le résultat du bien et, selon sa nature, dans la déclaration 2044. La régularisation des charges ne la lit pas (travaux non récupérables). L'incident passe à « Résolu ».</span></div>
   </div>`;
@@ -14797,30 +14833,32 @@ function _incFactureHtml(inc) {
 async function _incEnregistrerFacture() {
   const { QP, IN } = _incMods();
   const inc = _incGet(_incState && _incState.id); if (!inc) return;
-  const k = (document.querySelector('#ov-incident input[name="inc-fac-q"]:checked') || {}).value || QP.qualificationSuggeree();
+  const k = (document.querySelector('#ov-incident input[name="inc-fac-q"]:checked') || {}).value || QP.qualificationSuggeree(inc.verdict);
   const q = QP.QUALIFS.find(x => x.k === k) || QP.QUALIFS[0];
   const log = inc.logRef ? _incLogOf(inc.logRef) : null;
   const r = IN.mouvementFacture({ inc, montant: (el('inc-fac-mt') || {}).value, date: (el('inc-fac-dt') || {}).value, numero: (el('inc-fac-num') || {}).value, categorie: q.cat, libelleElement: _incElLbl(inc), immDuLogement: log ? (log.imm || '') : '' });
   if (!r.ok) { showToast(r.erreur, 'warn', 4500); return; }
   const btn = el('inc-fac-ok'); if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
   const mv = Object.assign({ id: nid() }, r.mv);
-  // Facture jointe : elle rejoint le dossier de preuves de l'incident ET devient la pièce du mouvement.
+  // Facture jointe : rangée dans le dossier de preuves de l'INCIDENT (seul propriétaire de la pièce). Elle
+  // n'est PAS posée en pièce du mouvement (pjId) : remplacer ou retirer la pièce d'un mouvement depuis
+  // Finances la mettrait à la corbeille (saveMv) et effacerait la preuve de l'incident (relecture Fable I1).
+  // Le mouvement porte le lien inverse (incidentId) et le n° de facture.
   const f = el('inc-fac-file') && el('inc-fac-file').files && el('inc-fac-file').files[0];
   if (f) {
     try {
       const maxSize = (typeof ATTACHMENT_DEFAULT_MAX_SIZE !== 'undefined') ? ATTACHMENT_DEFAULT_MAX_SIZE : 10 * 1024 * 1024;
       if (f.size > maxSize) throw new Error('fichier trop lourd (' + (f.size / 1024 / 1024).toFixed(1) + ' Mo)');
       const dataB64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = e => res(e.target.result); fr.onerror = () => rej(new Error('lecture impossible')); fr.readAsDataURL(f); });
-      const doc = await _attachmentSaveForEntity({ type: 'incident', id: inc.id, ref: _incElLbl(inc), logRef: inc.logRef || null, category: 'travaux' }, { name: f.name, mime: f.type, size: f.size, dataB64 });
-      _stamp(doc);
-      mv.pjId = doc.id;
+      await _attachmentSaveForEntity({ type: 'incident', id: inc.id, ref: _incElLbl(inc), logRef: inc.logRef || null, category: 'travaux' }, { name: f.name, mime: f.type, size: f.size, dataB64 });
     } catch (e) {
       console.warn('[incident facture PJ]', e);
       showToast('Facture non jointe : ' + (e.message || 'erreur') + '. La dépense est enregistrée sans pièce.', 'warn', 6000);
     }
   }
-  // L'API UNIQUE : horodatage, journal d'audit, push, saveDB, rafraîchissement.
-  _mvCreate(mv);
+  // L'API UNIQUE : horodatage, journal d'audit, push. saveDB et rafraîchissement : UNE fois, par
+  // _incPersister ci-dessous, quand l'incident est déjà passé à « Résolu » (relecture Fable M3).
+  _mvCreate(mv, { save: false, refresh: false });
   const avant = JSON.parse(JSON.stringify(inc));
   inc.mouvementIds = (inc.mouvementIds || []).concat([mv.id]);
   if (inc.statut !== 'resolu') IN.changerStatut(inc, 'resolu', new Date().toISOString());
@@ -14834,6 +14872,14 @@ function _incRattacherMouvement(mvId) {
   const m = (DB.mouvements || []).find(x => x && !x._deleted && +x.id === +mvId); if (!m) return;
   if (m.incidentId != null && String(m.incidentId) !== String(inc.id)) { showToast('Ce mouvement est déjà rattaché à un autre incident.', 'warn'); return; }
   const avantM = JSON.parse(JSON.stringify(m));
+  // Un mouvement « à classer » rattaché resterait hors 2044 : proposer (sans l'imposer) de le reclasser
+  // dans la nature suggérée. Jamais bloquant : refuser garde la catégorie actuelle.
+  const { QP } = _incMods();
+  const cats = QP.QUALIFS.map(q => q.cat);
+  if (!cats.includes(m.cat)) {
+    const q = QP.QUALIFS.find(x => x.k === QP.qualificationSuggeree()) || QP.QUALIFS[0];
+    if (confirm2('Ce mouvement est classé « ' + (m.cat || 'sans catégorie') + ' » : tel quel, il ne compte pas dans les travaux de la déclaration 2044.\n\nLe reclasser en « ' + q.cat + ' » ?')) m.cat = q.cat;
+  }
   m.incidentId = inc.id;
   _stamp(m);
   if (typeof _auditLog === 'function') _auditLog('update', 'mouvement', m.id, m.lib || m.fac || String(m.id), avantM, m);
@@ -18272,7 +18318,7 @@ function rImmFiche() {
       { id: 'bati', label: 'Bâti & parties communes', html: _renderImmBatiPastille(ent, im) },
       { id: 'photos', label: 'Photos', count: _attCount('immeuble', im.id, 'photos'),
         html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'photos', title:'' + _uiIcon('camera') + ' Photos de l\'immeuble', emptyText:'Aucune photo. La première photo sert de vignette — ici et sur la bulle de la fiche bailleur.'}) },
-      { id: 'incidents', label: 'Incidents des parties communes', count: (typeof _incCountImm === 'function' ? _incCountImm(im) : 0),
+      { id: 'incidents', label: 'Incidents des parties communes', count: (typeof _incCountImm === 'function' ? _incCountImm(im, ent) : 0),
         html: (typeof _renderIncidentsForImm === 'function') ? _renderIncidentsForImm(ent, im) : '' },
       { id: 'docs', label: 'Documents', count: _attCount('immeuble', im.id, 'documents'),
         html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'' + _uiIcon('doc') + ' Documents communs', emptyText:'Aucun document. Ajoutez règlement de copropriété, PV d\'AG, diagnostics communs, attestation d\'assurance MRO/PNO…'}) }

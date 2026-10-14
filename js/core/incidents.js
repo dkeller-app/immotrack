@@ -23,6 +23,12 @@ export const CANAUX = Object.freeze([
 ]);
 
 const _s = (v) => (v == null ? '' : String(v));
+/** Jour LOCAL (AAAA-MM-JJ) d'un horodatage ISO — `slice(0,10)` donnerait la veille entre 0 h et 2 h en France. */
+export function jourLocal(iso) {
+  const s = _s(iso); if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const d = new Date(s); if (isNaN(d.getTime())) return s.slice(0, 10)
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
 const _norm = (v) => _s(v).trim().toLowerCase();
 
 /**
@@ -87,7 +93,7 @@ export const estOuvert = (i) => !!i && !i._deleted && i.statut !== 'resolu';
 export function contexteDe({ bail = null, imm = null } = {}) {
   const t = bail && bail.type;
   const meuble = bail ? ['meuble', 'etudiant', 'mobilite'].includes(t) : null;
-  const r = imm && imm.regimeJuridique;
+  const r = (imm && imm.regimeJuridique) || (bail && bail.regimeJuridique);   // repli : régime porté par le bail
   const copro = r === 'Copropriété' ? true : (r === 'Monopropriété' ? false : null);
   return { meuble, copro, partieCommune: false, clauseChaudiereBailleur: false };
 }
@@ -230,7 +236,7 @@ const _jours = (a, b) => Math.floor((Date.parse(_s(b).slice(0, 10)) - Date.parse
 export function itemsIncidents(incidents, aujourdhui, libelle) {
   const lbl = typeof libelle === 'function' ? libelle : (i) => i.elementLibre || i.element;
   return (Array.isArray(incidents) ? incidents : []).filter(estOuvert).map((i) => {
-    const age = Math.max(0, _jours(i.creeLe, aujourdhui) || 0);
+    const age = Math.max(0, _jours(jourLocal(i.creeLe), aujourdhui) || 0);
     const urgent = Array.isArray(i.urgences) && i.urgences.length > 0;
     return { ref: i.logRef || i.imm || '', nom: lbl(i), urgenceJours: age + (urgent ? 10000 : 0), age, urgent, incId: i.id };
   });
@@ -277,11 +283,15 @@ export function mouvementFacture({ inc, montant, date, numero = '', categorie, l
  * datés de 30 jours avant le signalement à 180 jours après. Le plus proche du signalement d'abord.
  * Rattacher plutôt que recréer : une dépense n'est comptée qu'UNE fois (Finances, 2044).
  */
-export function mouvementsRattachables(mouvements, inc) {
+export function mouvementsRattachables(mouvements, inc, { espaceId } = {}) {
   if (!inc) return []
-  const t0 = Date.parse(_s(inc.creeLe).slice(0, 10))
+  const t0 = Date.parse(jourLocal(inc.creeLe))
+  // Même ESPACE (deux SCI partagées peuvent avoir un logement homonyme) : `espaceId` = espace de
+  // l'incident (null = espace propre) ; non fourni → pas de filtre (appelant mono-espace, tests).
+  const memeEspace = (m) => espaceId === undefined || ((m._espaceId == null ? null : String(m._espaceId)) === (espaceId == null ? null : String(espaceId)))
   return (Array.isArray(mouvements) ? mouvements : []).filter((m) => {
     if (!m || m._deleted || !(+m.db > 0) || m.compteurCcId) return false
+    if (!memeEspace(m)) return false
     if (m.incidentId != null && String(m.incidentId) !== String(inc.id)) return false
     if (inc.logRef ? _norm(m.qui) !== _norm(inc.logRef) : !(!m.qui && _norm(m.imm) === _norm(inc.imm))) return false
     const d = Date.parse(_s(m.date).slice(0, 10)); if (!isFinite(d) || !isFinite(t0)) return false

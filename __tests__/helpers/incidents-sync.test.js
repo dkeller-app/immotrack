@@ -19,6 +19,11 @@ import { TABLE_COLLECTIONS } from '../../js/core/store-supabase.js'
 import { COLLECTIONS_TAGUEES } from '../../js/core/offline-boot.js'
 import { inferRattachementOf } from '../../js/core/store-multi.js'
 import { _planErasure } from '../../js/core/rgpd.js'
+import { createSupabaseStore } from '../../js/core/store-supabase.js'
+import { createStoreSync } from '../../js/core/store-sync.js'
+import { mouvementsRattachables } from '../../js/core/incidents.js'
+import { renameLogementRef } from '../../js/core/rename-logement.js'
+import { renameImmeubleRefs } from '../../js/core/rename-immeuble.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const ctx = () => ({
@@ -66,7 +71,7 @@ describe('S · incidents dans la synchro', () => {
   it('S-4 RGPD : le registre est conservé, le locataire anonymisé', () => {
     const db = { logements: [{ ref: 'T2' }], baux: {}, incidents: [{ id: 1, logRef: 'T2', signaleParNom: 'Camille' }, { id: 2, logRef: 'F1' }] }
     const ops = _planErasure(db, 'T2').operations.filter((o) => o.collection === 'incidents')
-    expect(ops).toEqual([expect.objectContaining({ type: 'anonymize', entityId: 1, fields: ['signaleParNom', 'description'] })])
+    expect(ops).toEqual([expect.objectContaining({ type: 'anonymize', entityId: 1, fields: ['signaleParNom', 'description', 'elementLibre'] })])
   })
 })
 
@@ -91,6 +96,71 @@ describe('S-5 · migration 0057 (texte)', () => {
     const br = sql.slice(sql.indexOf("when 'incident'"), sql.indexOf('else null'))
     expect(br).toMatch(/from public\.incidents inc/)
     expect(br).toMatch(/inc\.espace_id = p_espace_id/)
-    expect(br).toMatch(/where public\.has_entite_access\(p_espace_id, x\.ent\)/)
+    // Garde sur CHAQUE rattachement (comme la ligne incident) — relecture Fable I4
+    expect(br).toMatch(/where public\.has_entite_access_all\(p_espace_id, x\.e, x\.l, x\.i\)/)
+  })
+})
+
+describe('S-6 · front déployé AVANT la migration 0057 (relecture Fable C1)', () => {
+  const mkStore = (echec) => {
+    const ecrits = []
+    const store = createSupabaseStore({
+      fetchTable: async (n) => { if (n === echec) throw new Error('relation "public.incidents" does not exist'); return [] },
+      fetchConfig: async () => ({}),
+      writer: { insert: async (table, row) => { ecrits.push(table + ':' + row.parent_type); return 1 }, update: async () => 2, softDelete: async () => 2 },
+      detUuid: (...p) => p.join(':'), espaceId: 'E', ownerId: 'O',
+    })
+    return { store, ecrits }
+  }
+  it('table absente : incidents et pièces « incident » DIFFÉRÉS, les autres écritures passent', async () => {
+    const { store, ecrits } = mkStore('incidents')
+    await store.hydrate()
+    expect(await store.upsert('incidents', { id: 1, logRef: '', imm: '' })).toEqual({ status: 'deferred' })
+    expect(await store.upsert('documents', { id: 2, parentType: 'incident', parentId: 1 })).toEqual({ status: 'deferred' })
+    expect(await store.remove('incidents', { id: 1 })).toEqual({ status: 'deferred' })
+    expect((await store.upsert('documents', { id: 3, parentType: 'mouvement', parentId: 9 })).status).toBe('inserted')
+    expect(ecrits).toEqual(['documents:mouvement'])
+  })
+  it('table présente : rien de différé', async () => {
+    const { store } = mkStore(null)
+    await store.hydrate()
+    expect((await store.upsert('incidents', { id: 1, logRef: '', imm: '' })).status).toBe('inserted')
+  })
+  it("store-sync : un différé n'est ni une erreur ni un réessai (pas de backoff), et repart plus tard", async () => {
+    const plan = []
+    let dispo = false
+    const store = { upsert: async (c) => (c === 'incidents' && !dispo ? { status: 'deferred' } : { status: 'inserted' }), remove: async () => ({ status: 'deleted' }) }
+    const DB = { incidents: [{ id: 1 }], mouvements: [{ id: 5, date: '2026-10-16', qui: 'T2', db: 10 }] }
+    const sync = createStoreSync({ store, getDB: () => DB, schedule: (fn, o) => plan.push(o), sealSigned: false })
+    const s1 = await sync.flush()
+    expect(s1.deferred).toEqual([{ coll: 'incidents', key: '1' }])
+    expect(s1.errors).toEqual([]); expect(s1.skipped).toEqual([])
+    expect(plan.filter((o) => o && o.retryDelayMs != null)).toEqual([])
+    expect(s1.upserts.map((u) => u.coll)).toEqual(['mouvements'])
+    dispo = true
+    const s2 = await sync.flush()
+    expect(s2.upserts.map((u) => u.coll)).toEqual(['incidents'])
+  })
+})
+
+describe('S-7 · rattacher un mouvement : même espace seulement (relecture Fable I2)', () => {
+  it("un logement homonyme d'une autre SCI ne propose pas ses mouvements", () => {
+    const inc = { id: 7, logRef: 'T2', creeLe: '2026-10-13' }
+    const mv = [{ id: 1, qui: 'T2', db: 100, date: '2026-10-14' }, { id: 2, qui: 'T2', db: 100, date: '2026-10-14', _espaceId: 'B' }]
+    expect(mouvementsRattachables(mv, inc, { espaceId: null }).map((m) => m.id)).toEqual([1])
+    expect(mouvementsRattachables(mv, inc, { espaceId: 'B' }).map((m) => m.id)).toEqual([2])
+    expect(mouvementsRattachables(mv, inc).map((m) => m.id).sort()).toEqual([1, 2])
+  })
+})
+
+describe('S-8 · renommer un bien ou un immeuble : le registre suit (relecture I4)', () => {
+  it('logement : incidents (logRef) et pièces de leur dossier ; immeuble : parties communes (imm)', () => {
+    const db = { logements: [{ ref: 'T2', imm: 'Tilleuls' }], baux: {}, incidents: [{ id: 1, logRef: 'T2', imm: 'Tilleuls' }, { id: 2, logRef: '', imm: 'Tilleuls' }],
+      documents: [{ id: 9, parentType: 'incident', parentId: 1, logRef: 'T2' }] }
+    renameLogementRef(db, 'T2', 'T2 bis', { stamp: (x) => x })
+    expect(db.incidents[0].logRef).toBe('T2 bis')
+    expect(db.documents[0].logRef).toBe('T2 bis')
+    renameImmeubleRefs(db, 'Tilleuls', 'Les Tilleuls', { stamp: (x) => x })
+    expect(db.incidents.map((i) => i.imm)).toEqual(['Les Tilleuls', 'Les Tilleuls'])
   })
 })
