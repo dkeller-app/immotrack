@@ -19,6 +19,7 @@ import { registerAiRoutes } from './ai/routes.js';
 import { registerEspaceLocataireRoutes, registerEspaceLocataireProprietaire, entetesEspace } from './espace-locataire.js';
 import { registerEspaceArtisanRoutes, registerEspaceArtisanProprietaire } from './espace-artisan.js';
 import { registerAiPublicRoutes } from './ai/public.js';
+import { registerDeuxDDocRoutes } from './deux-d-doc-confiance.js';
 
 const app = new Hono();
 
@@ -642,6 +643,8 @@ registerEspaceLocataireRoutes(app);
 // ── Lien de l'artisan (circuit d'un incident, migration 0060) : page /a, API /api/ar/* ; IA des liens publics ──
 registerEspaceArtisanRoutes(app);
 registerAiPublicRoutes(app);
+// ── Liste de confiance 2D-Doc (VERIF-DOCUMENTS) : annuaires et révocations publics, transportés sans être crus ──
+registerDeuxDDocRoutes(app);
 app.onError((err, c) => {
   // Comportement par défaut de Hono conservé pour les autres routes ; l'espace locataire répond sans détail interne
   // et garde ses en-têtes de sécurité.
