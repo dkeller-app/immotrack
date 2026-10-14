@@ -49,6 +49,8 @@ const ARRAY_TABLES = {
   baux_evenements: 'baux_evenements',
   // TRAVAUX : QUI PAIE ? — registre des incidents (migration 0057, numéro provisoire), par SCI.
   incidents: 'incidents',
+  // CIRCUIT D'UN INCIDENT — carnet d'artisans (migration 0060, numéro provisoire), par SCI.
+  artisans: 'artisans',
 }
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
@@ -127,6 +129,11 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
       // legacy_raw absente), une erreur ici ferait échouer TOUT le chargement cloud, pour tous les comptes.
       // On le dit en console et on continue sans journal (les baux s'affichent dans leur état signé).
       // Registre des incidents (0057) : même tolérance — le front peut précéder la migration.
+      // Carnet d'artisans (0060) : même tolérance — le front peut précéder la migration (écritures différées).
+      if (table === 'artisans') {
+        return Promise.resolve().then(() => fetchTable(table)).then(rows => { _artisansIndispo = false; return rows })
+          .catch(e => { _artisansIndispo = true; console.warn('[SupabaseStore] carnet des artisans indisponible (migration 0060 appliquée ?) — écritures différées :', e && e.message); return [] })
+      }
       if (table === 'incidents') {
         return Promise.resolve().then(() => fetchTable(table)).then(rows => { _incidentsIndispo = false; return rows })
           .catch(e => { _incidentsIndispo = true; console.warn('[SupabaseStore] registre des incidents indisponible (migration 0057 appliquée ?) — écritures différées :', e && e.message); return [] })
@@ -216,7 +223,9 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   // avancé, aucune erreur ni backoff (le reste de la synchro tourne normalement). Elles partent au premier
   // chargement qui trouve la table. Les dépenses (mouvements) ne dépendent pas de ces lignes.
   let _incidentsIndispo = false
-  const _differe = (legacyColl, rec) => _incidentsIndispo && (legacyColl === 'incidents' || (legacyColl === 'documents' && rec && rec.parentType === 'incident'))
+  let _artisansIndispo = false
+  const _differe = (legacyColl, rec) => (_incidentsIndispo && (legacyColl === 'incidents' || (legacyColl === 'documents' && rec && rec.parentType === 'incident')))
+    || (_artisansIndispo && legacyColl === 'artisans')
 
   // upsert : INSERT si ligne inconnue, sinon UPDATE gardé par la version trackée.
   // Renvoie { status: 'inserted'|'updated'|'revived'|'conflict'|'skipped', id?, version? }.

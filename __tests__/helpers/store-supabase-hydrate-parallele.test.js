@@ -43,7 +43,7 @@ describe('hydrate() — lectures parallèles', () => {
   it('le résultat est identique : mêmes clés dans le même ordre, config et config privée fusionnées', async () => {
     const b = backend({ rows: { entites: [{ id: 1, nom: 'A' }], logements: [{ ref: 'F-1' }], baux: [{ __key: 'F-1', hc: 700 }] } })
     const db = await createSupabaseStore(b).hydrate()
-    expect(Object.keys(db).slice(0, 13)).toEqual(['entites', 'logements', 'baux_historique', 'mouvements', 'quittances', 'edl', 'documents', 'mrh', 'agenda', 'candidats', 'baux_evenements', 'incidents', 'baux'])
+    expect(Object.keys(db).slice(0, 14)).toEqual(['entites', 'logements', 'baux_historique', 'mouvements', 'quittances', 'edl', 'documents', 'mrh', 'agenda', 'candidats', 'baux_evenements', 'incidents', 'artisans', 'baux'])
     expect(db.entites).toEqual([{ id: 1, nom: 'A' }])
     expect(db.baux).toEqual({ 'F-1': { hc: 700 } })
     expect(db.theme).toBe('sobre')
@@ -60,6 +60,14 @@ describe('hydrate() — lectures parallèles', () => {
     const db = await createSupabaseStore(backend({ echec: 'incidents', rows: { entites: [{ id: 1, nom: 'A' }] } })).hydrate()
     expect(db.incidents).toEqual([])
     expect(db.entites).toEqual([{ id: 1, nom: 'A' }])
+  })
+
+  it('le carnet des artisans (0060) est TOLÉRANT : table absente → carnet vide, chargement intact, écritures différées', async () => {
+    const st = createSupabaseStore(backend({ echec: 'artisans', rows: { entites: [{ id: 1, nom: 'A' }] } }))
+    const db = await st.hydrate()
+    expect(db.artisans).toEqual([])
+    expect(db.entites).toEqual([{ id: 1, nom: 'A' }])
+    expect(await st.upsert('artisans', { id: 7, nom: 'Plomberie', entity: 'A' })).toEqual({ status: 'deferred' })
   })
 
   it('le journal des baux reste TOLÉRANT : son échec ne fait pas échouer hydrate()', async () => {

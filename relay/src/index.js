@@ -17,6 +17,8 @@ import {
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
 import { registerAiRoutes } from './ai/routes.js';
 import { registerEspaceLocataireRoutes, registerEspaceLocataireProprietaire, entetesEspace } from './espace-locataire.js';
+import { registerEspaceArtisanRoutes, registerEspaceArtisanProprietaire } from './espace-artisan.js';
+import { registerAiPublicRoutes } from './ai/public.js';
 
 const app = new Hono();
 
@@ -637,11 +639,14 @@ registerAiRoutes(app, { requireSupabaseUser });
 
 // ── Espace locataire (accès par lien, migration 0059) : page /l, API /api/el/*, e-mails /el/notifier ──
 registerEspaceLocataireRoutes(app);
+// ── Lien de l'artisan (circuit d'un incident, migration 0060) : page /a, API /api/ar/* ; IA des liens publics ──
+registerEspaceArtisanRoutes(app);
+registerAiPublicRoutes(app);
 app.onError((err, c) => {
   // Comportement par défaut de Hono conservé pour les autres routes ; l'espace locataire répond sans détail interne
   // et garde ses en-têtes de sécurité.
   const chemin = new URL(c.req.url).pathname;
-  if (!(chemin.startsWith('/api/el/') || chemin === '/l')) {
+  if (!(chemin.startsWith('/api/el/') || chemin === '/l' || chemin.startsWith('/api/ar/') || chemin === '/a')) {
     if (err && typeof err.getResponse === 'function') return err.getResponse();
     console.error(err);
     return c.text('Internal Server Error', 500);
@@ -652,5 +657,6 @@ app.onError((err, c) => {
   return r;
 });
 registerEspaceLocataireProprietaire(app, { requireSupabaseUser });
+registerEspaceArtisanProprietaire(app, { requireSupabaseUser });
 
 export default app;

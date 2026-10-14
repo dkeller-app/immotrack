@@ -27,7 +27,7 @@ const jour = (s) => { const v = String(s == null ? '' : s); if (/^\d{4}-\d{2}-\d
 const db = () => { try { return DB } catch (e) { return null } }   // eslint-disable-line no-undef
 const vivant = (o) => o && !o._deleted
 
-const etat = { acces: [], docs: new Map(), msgs: new Map(), relais: null, charge: false, enCours: false, dernier: 0, echecs: new Set() }
+const etat = { acces: [], docs: new Map(), msgs: new Map(), relais: null, charge: false, enCours: false, dernier: 0, accesLuLe: 0, accesTenteLe: 0, echecs: new Set() }
 
 // ─────────────────────────── Correspondance bail (app) ↔ ligne `baux` (cloud) ───────────────────────────
 function locatairesDuBail(bail, log) {
@@ -74,6 +74,7 @@ async function chargerAcces() {
       for (const l of etat.msgs.values()) l.sort((p, q) => String(p.cree_le).localeCompare(String(q.cree_le)))
     }
     etat.charge = true
+    etat.accesLuLe = Date.now()
   } catch (e) { console.warn('[espace-locataire] accès', e && e.message) }
 }
 async function chargerDocs(bid) {
@@ -91,6 +92,7 @@ async function etatRelais() {
 }
 
 // ─────────────────────────── Bloc « Espace locataire » (fiche logement, onglet Bail) ───────────────────────────
+const DUREE_LECTURE_ACCES = 60_000
 const nonLus = (accesId) => (etat.msgs.get(accesId) || []).filter((m) => m.auteur === 'locataire' && !m.lu_bailleur_le).length
 function accesDe(bid, debut) { return etat.acces.filter((a) => a.bail_id === bid && (a.bail_debut || null) === (debut || null)) }
 const aujourdhui = () => jour(new Date().toISOString())
@@ -166,6 +168,9 @@ function blocHtml(log, bail, ref) {
   try {
     if (!API() || !API().pret()) return ''
     if (!etat.charge && !etat.enCours) setTimeout(() => { rafraichir().then(majBloc) }, 0)
+    // « Dernière visite » : les accès sont relus à l'ouverture de la fiche si la lecture a plus d'une minute (sinon le bloc
+    // montrait la valeur du dernier cycle, jusqu'à 10 minutes plus tôt). majBloc ne relance rien : pas de boucle.
+    else if (etat.charge && !etat.enCours && Date.now() - Math.max(etat.accesLuLe, etat.accesTenteLe) > DUREE_LECTURE_ACCES) { etat.accesTenteLe = Date.now(); setTimeout(() => { rafraichir().then(majBloc) }, 0) }
     const bid = bail ? bailId(ref, bail) : null
     if (bid && !etat.docs.has(bid)) chargerDocs(bid).then(majBloc)
     const html = blocInterieur(log, bail, ref)
@@ -421,7 +426,7 @@ function souhaites(t, emisLe) {
       const mk = EL.moisCle(q.mois); if (!mk) continue
       if (!EL.quittanceDeLaLocation(q, loc)) continue   // identité + mois : jamais la quittance d'un autre locataire
       const reedition = emisLe && q.date && jour(q.date) < jour(emisLe)
-      out.push({ cle: EL.cleDocument('quittance', mk), type_doc: 'quittance', titre: 'Quittance de ' + q.mois + (reedition ? ' (réédition du ' + fdate(new Date().toISOString()) + ')' : ''),
+      out.push({ cle: EL.cleDocument('quittance', mk), type_doc: 'quittance', titre: EL.titreQuittance(q.mois) + (reedition ? ' (réédition du ' + fdate(new Date().toISOString()) + ')' : ''),
         periode: q.mois, date_doc: jour(q.date) || null,
         generer: async () => {
           // Rendu NATIF seulement, appelé directement (le repli texte de secours ne doit jamais être figé comme définitif).
@@ -541,6 +546,23 @@ async function notifier(type, accesId, data) {
 const importsEnCours = () => { try { const v = JSON.parse(localStorage.getItem(_lsKey('imsb-el-imports-en-cours')) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(-200) : [] } catch (e) { return [] } }
 const ecrireImports = (l) => { try { localStorage.setItem(_lsKey('imsb-el-imports-en-cours'), JSON.stringify(l.slice(-200))) } catch (e) { /* stockage indisponible : rien à reprendre */ } }
 
+// L'accueil (bulle « Incidents à traiter ») est rendu au chargement, AVANT cet import asynchrone : sans nouveau rendu, la
+// bulle n'apparaissait qu'au changement d'onglet. _refreshAfterMutation ne connaît pas l'accueil (volontairement : il ne
+// doit pas redessiner l'accueil après chaque mutation) ; ce rendu-ci est limité au cas « l'import a ajouté des incidents ».
+// Réutilise _rPeriodPage (DRY : « rAccueil si on est sur l'accueil »). Sur téléphone, si la liste « À regarder » est ouverte,
+// c'est elle qui est rafraîchie (rAccueil la remplacerait par l'accueil et ferait perdre la position).
+function rafraichirAccueil() {
+  try {
+    if (document.querySelector('#accm-phone .atr') && G('_accmShowAregarder')) {
+      let page = ''
+      try { page = currentPage } catch (e) { return }   // eslint-disable-line no-undef
+      if (page === 'accueil') W._accmShowAregarder()
+      return
+    }
+    if (G('_rPeriodPage')) W._rPeriodPage()
+  } catch (e) { console.warn('[espace-locataire] accueil', e && e.message) }
+}
+
 async function importerSignalements() {
   const D = db(); if (!D || !W.Incidents || typeof W.Incidents.nouvelIncident !== 'function') return 0
   if (!etat.acces.length) return 0
@@ -550,7 +572,7 @@ async function importerSignalements() {
   if (enCours.length) { try { liste = liste.concat(await API().select('locataire_signalements', { id: enCours })) } catch (e) { /* reprise au prochain passage */ } }
   if (!D.incidents) D.incidents = []
   let n = 0
-  const aEnregistrer = []
+  const aEnregistrer = [], crees = []
   for (const s of liste) {
     const x = etat.acces.find((a) => a.id === s.acces_id); const t = x ? locationDe(x) : null
     if (!t) continue
@@ -581,6 +603,7 @@ async function importerSignalements() {
       D.documents.push(doc)
     })
     if (G('_auditLog')) W._auditLog('create', 'incident', inc.id, 'signalé depuis l\'espace locataire')
+    crees.push(inc)
     aEnregistrer.push(s.id)
     n++
   }
@@ -588,7 +611,10 @@ async function importerSignalements() {
   if (aEnregistrer.length) ecrireImports(importsEnCours().filter((id) => !aEnregistrer.includes(id)))
   if (n) {
     if (G('_refreshAfterMutation')) W._refreshAfterMutation()
+    rafraichirAccueil()
     toast(n === 1 ? 'Nouveau signalement reçu depuis l\'espace locataire (registre des incidents).' : n + ' nouveaux signalements reçus depuis l\'espace locataire.', 'info', 6000)
+    // Circuit d'un incident (0060) : l'artisan du carnet qui couvre le métier est prévenu (D6).
+    if (W.IncCircuit && typeof W.IncCircuit.apresImport === 'function') for (const inc of crees) W.IncCircuit.apresImport(inc)
   }
   return n
 }
@@ -642,4 +668,4 @@ export function demarrer() {
 }
 
 // Exposé pour les tests (fonctions sans effet de bord).
-export const _pourTests = { locatairesDuBail }
+export const _pourTests = { locatairesDuBail, importerSignalements, rafraichirAccueil, etat, blocHtml, DUREE_LECTURE_ACCES }

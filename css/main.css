@@ -10519,7 +10519,18 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   .inc-vd-pay{font-size:22px}
   .inc-check{min-height:44px}
   .inc-src a,.inc-lien{min-height:44px}
-}   /* fin @media (max-width:767px) des incidents — accolade manquante depuis l'intégration v15.731-733 :
+  .inc-flow .inc-badge{font-size:11.5px}
+  .inc-det summary{min-height:44px}
+}
+/* CIRCUIT D'UN INCIDENT (0060) : étapes, détails repliables, note positive. Variables du thème seulement. */
+.inc-flow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
+.inc-note.pos{color:var(--pos)}
+.inc-det{margin-top:8px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur2);padding:0 10px}
+.inc-det summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--t2);padding:10px 0;display:flex;align-items:center}
+.inc-det[open]{padding-bottom:10px}
+.inc-det[open] summary{border-bottom:1px solid var(--bor2);margin-bottom:8px}
+.inc-guard ol{margin:6px 0;padding-left:20px}
+/* (accolade plus haut) fin @media (max-width:767px) des incidents — accolade manquante depuis l'intégration v15.731-733 :
        tout le bloc de la dictée (evx) ci-dessous n'était appliqué QUE sur téléphone (tablette et PC sans style) */
 /* ═══════════════════════════════════════════════════════════════════════════
    EDL-VOIX-IA — dicter la pièce (maquette validée le 13/10, mockups/EDL-VOIX-IA).

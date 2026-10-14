@@ -15543,6 +15543,7 @@ function _incStatutBadge(inc) {
     + (urg ? ` <span class="inc-badge acc">${_uiIcon('warn', 13)} Urgent</span>` : '');
 }
 function _incPayCell(inc) {
+  if (!inc.verdict && !inc.payeurRetenu && window.IncCircuit) return `<span class="inc-sub">Établi à la fin, sur constat</span>`;
   const v = inc.verdict || {};
   const p = _incPayeur(inc);
   const { QP } = _incMods();
@@ -15647,6 +15648,11 @@ function _incRender() {
       + `<button type="button" class="btn bp" onclick="_incEnregistrer()">${inc ? 'Enregistrer' : 'Enregistrer et voir qui paie'}</button>`;
   } else if (!inc) {
     _incState.view = 'saisie'; return _incRender();
+  } else if (window.IncCircuit && IncCircuit.vues && IncCircuit.vues[v === 'appeler' ? 'artisan' : v]) {
+    // CIRCUIT D'UN INCIDENT (0060) : vues rendues par js/app/incident-circuit-app.js (artisan et carnet, plafond,
+    // devis, lecture de facture, validation finale). « Qui appeler » ouvre la vue artisan du circuit.
+    const r = IncCircuit.vues[v === 'appeler' ? 'artisan' : v](inc) || {};
+    titre = r.titre || 'Incident'; sub = r.sub || ''; body = r.body || ''; foot = r.foot || '';
   } else if (v === 'appeler') {
     titre = 'Qui appeler'; sub = _incElLbl(inc) + ' · ' + _incBienLbl(inc);
     body = _incAppelerHtml(inc);
@@ -15715,13 +15721,13 @@ function _incSaisieHtml(inc) {
     <input class="inp" id="inc-el-libre" placeholder="Précision (facultatif)" value="${escHtml(d.elementLibre || '')}" style="margin-top:6px">
     <div class="inc-hint" id="inc-el-aide">Équipements du logement en tête, puis les rubriques du décret 87-712, puis « Autre ».</div></div>
   <div class="inc-f"><span class="inc-lb">Nature *</span><div class="inc-chips">${QP.NATURES.map(n => _incChip('inc-nat', n.k, n.lbl, d.nature === n.k)).join('')}</div></div>
-  <div class="inc-f"><span class="inc-lb">Cause déclarée <span class="inc-opt">— facultatif</span></span><div class="inc-chips">${QP.CAUSES.map(c => _incChip('inc-cause', c.k, c.lbl, (d.cause || 'inconnue') === c.k)).join('')}</div></div>
+  ${window.IncCircuit ? `<div class="inc-hint">${_uiIcon('info', 13)} La cause et l'ampleur s'établissent à la fin, sur le constat de l'artisan ou la facture : rien à deviner ici.</div>` : `<div class="inc-f"><span class="inc-lb">Cause déclarée <span class="inc-opt">— facultatif</span></span><div class="inc-chips">${QP.CAUSES.map(c => _incChip('inc-cause', c.k, c.lbl, (d.cause || 'inconnue') === c.k)).join('')}</div></div>
   <div class="inc-g2">
     <div class="inc-f"><label class="inc-lb" for="inc-int">Ce qui semble nécessaire <span class="inc-opt">— facultatif</span></label>
       <select class="inp" id="inc-int">${QP.INTERVENTIONS.map(i => `<option value="${i.k}"${(d.intervention || 'inconnue') === i.k ? ' selected' : ''}>${escHtml(i.lbl)}</option>`).join('')}</select></div>
     <div class="inc-f"><label class="inc-lb" for="inc-age">Âge de l'élément, en années <span class="inc-opt">— facultatif</span></label>
       <input class="inp" id="inc-age" type="number" min="0" step="1" inputmode="numeric" value="${d.ageAns != null ? escHtml(String(d.ageAns)) : ''}"></div>
-  </div>
+  </div>`}
   <div class="inc-f"><label class="inc-lb" for="inc-desc">Description</label><textarea class="inp" id="inc-desc" rows="2">${escHtml(d.description || '')}</textarea></div>
   <div class="inc-g2">
     <div class="inc-f"><label class="inc-lb" for="inc-par">Signalé par</label>
@@ -15757,10 +15763,11 @@ function _incLireSaisie() {
     element: (el('inc-el') || {}).value || '',
     elementLibre: ((el('inc-el-libre') || {}).value || '').trim(),
     nature: vals('inc-nat')[0] || '',
-    cause: vals('inc-cause')[0] || 'inconnue',
+    // Champs absents (circuit d'un incident : cause, ampleur et âge établis à la fin) → null = valeur existante gardée.
+    cause: el('inc-int') ? (vals('inc-cause')[0] || 'inconnue') : null,
     urgences: vals('inc-urg'),
-    intervention: (el('inc-int') || {}).value || 'inconnue',
-    ageAns: (el('inc-age') || {}).value,
+    intervention: el('inc-int') ? ((el('inc-int') || {}).value || 'inconnue') : null,
+    ageAns: el('inc-age') ? (el('inc-age') || {}).value : null,
     description: ((el('inc-desc') || {}).value || '').trim(),
     signalePar: (el('inc-par') || {}).value || 'locataire',
     signaleParNom: ((el('inc-par-nom') || {}).value || '').trim(),
@@ -15771,9 +15778,18 @@ function _incLireSaisie() {
 }
 function _incCalculerVerdict(inc) {
   const { QP } = _incMods();
+  // CIRCUIT D'UN INCIDENT (0060) : la cause n'est établie qu'à la fin, sur le CONSTAT (artisan, facture lue ou
+  // propriétaire) → verdict du constat, règles de qui-paie.js inchangées. Avant le constat : aucun « premier avis ».
+  if (window.IncidentCircuit && inc.constat) { const v0 = IncidentCircuit.verdictDuConstat(inc, inc.constat); if (v0) { delete v0.mention; return v0; } }
+  if (window.IncCircuit && (!inc.cause || inc.cause === 'inconnue')) return null;
   const v = QP.quiPaie({ element: inc.element, nature: inc.nature, intervention: inc.intervention, cause: inc.cause, urgences: inc.urgences, contexte: inc.contexte });
   delete v.mention;   // la mention est affichée en permanence, inutile de la stocker
   return v;
+}
+// Recalcul SANS jamais effacer un verdict existant : avec le circuit (0060), un incident sans constat ni cause n'a pas
+// de verdict calculable (null) ; un ancien verdict reste alors celui de la fiche.
+function _incVerdictRecalcule(inc) {
+  return _incCalculerVerdict(inc) || inc.verdict || null;
 }
 function _incPersister(inc, action, avant) {
   _stamp(inc);
@@ -15797,11 +15813,12 @@ function _incEnregistrer() {
   if (existant) {
     const avant = JSON.parse(JSON.stringify(existant));
     Object.assign(existant, {
-      element: f.element, elementLibre: f.elementLibre, nature: f.nature, cause: f.cause, urgences: f.urgences,
-      intervention: f.intervention, ageAns: (f.ageAns === '' ? null : Number(f.ageAns)), description: f.description,
+      element: f.element, elementLibre: f.elementLibre, nature: f.nature, cause: f.cause == null ? existant.cause : f.cause, urgences: f.urgences,
+      intervention: f.intervention == null ? existant.intervention : f.intervention,
+      ageAns: f.ageAns == null ? (existant.ageAns == null ? null : existant.ageAns) : (f.ageAns === '' ? null : Number(f.ageAns)), description: f.description,
       signalePar: f.signalePar, signaleParNom: f.signaleParNom, canal: f.canal, creeLe: f.creeLe, contexte: f.contexte,
     });
-    existant.verdict = _incCalculerVerdict(existant);
+    existant.verdict = _incVerdictRecalcule(existant);
     _incPersister(existant, 'update', avant);
     showToast('Incident mis à jour', 'ok');
   } else {
@@ -15838,6 +15855,7 @@ function _incCite(t) {
 function _incVerdictHtml(inc) {
   const { QP } = _incMods();
   const v = inc.verdict || _incCalculerVerdict(inc);
+  if (!v) return (window.IncCircuit && IncCircuit.verdictAttenteHtml) ? IncCircuit.verdictAttenteHtml(inc) : '';   // pas encore de constat
   const arb = v.payeur === 'a_arbitrer';
   const conf = arb ? `<span class="inc-badge acc">Zone grise</span>` : `<span class="inc-badge">${_uiIcon('book', 13)} ${escHtml(QP.CONFIANCE_LBL[v.confiance] || '')}</span>`;
   const lectures = arb ? `<div class="inc-reads">${v.lectures.map((l, i) => `<div class="inc-read"><span class="inc-rh">Lecture ${i + 1}</span><span class="inc-rp">${escHtml(_incPayeurLbl(l.payeur))}</span><span class="inc-rs">${escHtml(l.si.charAt(0).toUpperCase() + l.si.slice(1))}.</span>${l.textes.map(_incCite).join('')}</div>`).join('')}</div>` : '';
@@ -15895,15 +15913,17 @@ function _incFicheHtml(inc) {
   if ((p === 'bailleur' || cout != null) && typeof _incFactureHtml === 'function') etapes.push(`<button type="button" class="inc-it" onclick="_incGo('facture')">${_uiIcon('money', 16)}<span class="t">${cout != null ? 'Dépense enregistrée : ' + fmt(cout) : 'Enregistrer la facture'}<span class="d">${cout != null ? 'Visible dans Finances ; ajouter une autre facture' : 'Devient une dépense du bien dans Finances'}</span></span>${_uiIcon('chevron-right', 14)}</button>`);
   const infos = [
     ['Élément', _incElLbl(inc)], ['Nature', _incNatLbl(inc)],
-    ['Cause déclarée', ((_incMods().QP.CAUSES.find(c => c.k === inc.cause) || {}).lbl) || 'Inconnue'],
+    (window.IncCircuit && (!inc.cause || inc.cause === 'inconnue')) ? null   // circuit (0060) : établie à la fin, sur constat
+      : [inc.constat ? 'Cause (constat)' : 'Cause déclarée', (window.IncidentCircuit && inc.constat ? IncidentCircuit.causeAffichee(inc.cause) : ((_incMods().QP.CAUSES.find(c => c.k === inc.cause) || {}).lbl)) || 'Inconnue'],
     inc.ageAns != null ? ['Âge', inc.ageAns + ' an' + (inc.ageAns > 1 ? 's' : '') + ' (déclaré)'] : null,
     ['Signalé', _incDateHeure(inc.creeLe) + ' · ' + (((_incMods().IN.CANAUX.find(c => c.k === inc.canal) || {}).lbl) || '').toLowerCase() + (inc.signaleParNom ? ' · ' + inc.signaleParNom : '')],
     inc.description ? ['Description', inc.description] : null,
   ].filter(Boolean);
   return `<div class="inc-grid"><div class="inc-col">
       ${_incUrgenceHtml(inc)}
-      ${_incVerdictHtml(inc)}
+      ${(!window.IncCircuit || IncCircuit.verdictVisible(inc)) ? _incVerdictHtml(inc) : IncCircuit.verdictAttenteHtml(inc)}
     </div><div class="inc-col">
+      ${window.IncCircuit ? IncCircuit.carteHtml(inc) : ''}
       <div class="inc-card-b"><div class="inc-k">Statut</div>${_incStepper(inc)}</div>
       <div class="inc-card-b"><div class="inc-k">Étapes suivantes</div><div class="inc-next">${etapes.join('')}</div></div>
       <div class="inc-card-b">${_renderAttachmentSection({ parentType: 'incident', parentId: inc.id, parentRef: _incElLbl(inc), logRef: inc.logRef || null, category: 'travaux', title: 'Dossier de preuves', emptyText: 'Aucune pièce. Ajouter photos, devis, facture et échanges : ils datent la demande et prouvent la cause.' })}</div>
@@ -15912,6 +15932,9 @@ function _incFicheHtml(inc) {
     </div></div>`;
 }
 function _incFicheFoot(inc) {
+  // CIRCUIT D'UN INCIDENT (0060) : l'action principale suit le circuit (envoyer la demande, répondre au devis, valider).
+  const pc = window.IncCircuit ? IncCircuit.piedHtml(inc) : null;
+  if (pc != null) return `<button type="button" class="btn bs" onclick="_incFermer()">Fermer</button>${pc}`;
   const p = _incPayeur(inc);
   let prim = '';
   if (inc.statut !== 'resolu') {
@@ -15949,7 +15972,7 @@ function _incCocher(k, on) {
 function _incRecalculer() {
   const inc = _incGet(_incState && _incState.id); if (!inc) return;
   const avant = JSON.parse(JSON.stringify(inc));
-  inc.verdict = _incCalculerVerdict(inc);
+  inc.verdict = _incVerdictRecalcule(inc);
   _incPersister(inc, 'update', avant);
   _incRender(); _incRefreshHost();
 }
@@ -16062,6 +16085,7 @@ function _incMessageTexte(inc) {
   // Textes cités = ceux qui désignent le locataire (verdict, ou lecture « locataire » d'une zone grise) ;
   // payeur retenu contre la suggestion → message sans citation (qui-paie.js, relecture C3).
   const v = inc.verdict || _incCalculerVerdict(inc);
+  if (!v) return '';   // pas encore de constat : rien à expliquer au locataire
   const ent = (DB.entites || []).find(e => e && e.nom === inc.entity);
   return QP.messageLocataire(v, { element: _incElLbl(inc), dateSignalement: fd(_incJour(inc.creeLe)), bien: _incBienLbl(inc), signataire: (ent && ent.nom) || inc.entity || '', retenuLocataire: inc.payeurRetenu === 'locataire' }) || '';
 }
@@ -17021,7 +17045,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.736 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.738 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
