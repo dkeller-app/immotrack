@@ -670,6 +670,12 @@ async function boot() {
     } catch (e) { return { ok: false, code: 'reseau' } }
   }
 
+  // EDL-VIDEO-IA — chemin complet d'un fichier (même règle que l'envoi) : retrouver une vidéo envoyée dont le chemin
+  // n'a pas pu être enregistré (application fermée juste après l'envoi).
+  window.__immoCloudCheminFichier = function (cle, entiteSeg) {
+    try { if (!_cloudEspaceId || !cle) return null; const seg = entiteSeg || '_orphelin'; return _espaceOfEntiteSeg(seg) + '/' + seg + '/files/' + cle } catch (e) { return null }
+  }
+
   // EDL-VIDEO-IA — REGISTRE des médias d'EDL (migration 0058) : une ligne par vidéo à l'abri, rattachée à la
   // ligne `edl` (retrouvée par legacy_id dans l'espace du fichier) et à son logement. La base SCELLE la vidéo
   // à la signature de l'EDL (ni effaçable ni écrasable ensuite). TOLÉRANT : table absente (0058 pas encore

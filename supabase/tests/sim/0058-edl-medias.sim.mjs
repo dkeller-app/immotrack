@@ -144,14 +144,15 @@ try {
   check('scellée : empreinte figée (MEDIA_EDL_SCELLE)', !u1.ok && /MEDIA_EDL_SCELLE/.test(u1.msg), JSON.stringify(u1))
   const u2 = await asUser(U.alice, 'update public.edl_medias set signed_at = null where id = $1', [MA])
   check('scellée : le scellé ne se retire pas', !u2.ok && /MEDIA_EDL_SCELLE/.test(u2.msg), JSON.stringify(u2))
+  await q("update public.edl_medias set purge_apres = purge_apres + 400 where id = $1", [MA])   // échéance reportée (au-dessus du plancher)
   const u3 = await asUser(U.alice, "update public.edl_medias set purge_apres = purge_apres - 10 where id = $1", [MA])
   check('scellée : l\'échéance ne recule pas', !u3.ok, JSON.stringify(u3))
   const u4 = await asUser(U.alice, "update public.edl_medias set purge_apres = purge_apres + 400, gel_jusquau = current_date + 2000, gel_motif = 'litige' where id = $1 returning id", [MA])
   check('scellée : report de l\'échéance et gel (litige) permis', u4.ok && u4.rows.length === 1, JSON.stringify(u4))
   const u5 = await asUser(U.alice, 'update public.edl_medias set purge_apres = null where id = $1 returning id', [MA])
   check('scellée : « conserver » (échéance retirée) permis', u5.ok && u5.rows.length === 1, JSON.stringify(u5))
-  const u6 = await asUser(U.alice, 'update public.edl_medias set purge_apres = current_date + 30 where id = $1', [MA2])
-  check('scellée : échéance avant signature + 3 ans refusée (23514)', !u6.ok && u6.code === '23514', JSON.stringify(u6))
+  const u6 = await asUser(U.alice, "update public.edl_medias set purge_apres = current_date + 30 where id = $1 returning (purge_apres >= (current_date + interval '3 years' - interval '1 day')::date) as plancher", [MA2])
+  check('scellée : échéance demandée avant scellé + 3 ans RELEVÉE au plancher (jamais une erreur à réessayer)', u6.ok && u6.rows.length === 1 && u6.rows[0].plancher === true, JSON.stringify(u6))
 
   // (5) STORAGE
   const OBJ = 'insert into storage.objects (bucket_id, name, owner, metadata) values (\'espace-files\', $1, $2, \'{}\'::jsonb) returning name'

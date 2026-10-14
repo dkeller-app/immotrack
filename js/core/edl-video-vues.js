@@ -16,6 +16,9 @@ const btn = (cls, onclick, contenu, extra = '') => `<button type="button" class=
 const pri = (onclick, contenu, extra) => btn('evx-pri', onclick, contenu, extra);
 const sec = (onclick, contenu, extra) => btn('evx-sec', onclick, contenu, extra);
 const q = (...a) => a.map((x) => `'${jsId(x)}'`).join(',');
+// Seules des images en data URL (tirées de la vidéo sur l'appareil) entrent dans un style ou un src.
+const IMG_SURE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const imgSure = (s) => (IMG_SURE.test(String(s || '')) ? String(s) : '');
 
 /** Barre en tête de pièce quand la vidéo est ouverte : « Filmer la pièce » + « Dicter seulement ». */
 export function barrePieceVideo(pi, { ic }) {
@@ -93,19 +96,20 @@ export function blocEnvoi({ etat = 'attente', envoyes = 0, total = 0, maxMo = 50
 }
 
 /** Vignettes des photos proposées pour un élément (dans sa carte de proposition). */
-export function blocPhotos({ itemId, eid, images, vu = null, ecartees = {}, statut = '', src }, { ic }) {
+export function blocPhotos({ itemId, eid, images, vu = null, ecartees = {}, statut = '', src, personnes = null }, { ic }) {
   if (!images || !images.length) return '';
   const vignettes = images.map((im) => {
     const cle = `${eid}|${im.imageId}`;
     const dr = !!ecartees[cle];
     const action = statut ? '' : `<button type="button" class="btn evx-sec evx-gk" onclick="_edlVideoEcarter(${q(itemId, eid, im.imageId)})">${dr ? `${ic('plus')} Reprendre` : `${ic('close')} Écarter`}</button>`;
-    return `<div class="evx-th${dr ? ' drop' : ' keep'}"><button type="button" class="evx-th-im" style="background-image:url('${esc(src(im.imageId))}')" onclick="_edlVideoPhoto(${q(itemId, eid, im.imageId)})" aria-label="Ouvrir la photo de ${esc(mmss(im.t))}"><span class="evx-tc">${esc(mmss(im.t))}</span></button>${action}</div>`;
+    const pers = personnes && personnes.has(im.imageId) ? '<span class="evx-pers">Personne visible</span>' : '';
+    return `<div class="evx-th${dr ? ' drop' : ' keep'}"><button type="button" class="evx-th-im" style="background-image:url('${esc(imgSure(src(im.imageId)))}')" onclick="_edlVideoPhoto(${q(itemId, eid, im.imageId)})" aria-label="Ouvrir la photo de ${esc(mmss(im.t))}"><span class="evx-tc">${esc(mmss(im.t))}</span></button>${pers}${action}</div>`;
   }).join('');
   return (vu ? `<div class="evx-seen">${ic('eye')}<span><b>Vu à l’image :</b> ${esc(vu)}</span></div>` : '') + `<div class="evx-thumbs">${vignettes}</div>`;
 }
 
 /** Carte « vu à l'image, pas dit » : photos seulement, aucun état proposé. */
-export function carteVu({ itemId, eid, nom, images, vu, ecartees, statut, src }, { ic }) {
+export function carteVu({ itemId, eid, nom, images, vu, ecartees, statut, src, personnes = null }, { ic }) {
   const cle = `v:${eid}`;
   const chip = statut === 'ok' ? '<span class="evx-chip ok">Gardé</span>' : statut === 'ign' ? '<span class="evx-chip ign">Ignoré</span>' : '<span class="evx-chip">À valider</span>';
   const kept = images.filter((im) => !ecartees[`${eid}|${im.imageId}`]).length;
@@ -116,7 +120,7 @@ export function carteVu({ itemId, eid, nom, images, vu, ecartees, statut, src },
       : `<div class="evx-acts"><button type="button" class="btn evx-out" onclick="_edlVideoGarderVu(${q(itemId, cle)})"${kept ? '' : ' disabled'}>${ic('check')} Garder les photos</button><button type="button" class="btn evx-sec" onclick="_edlVideoIgnorerVu(${q(itemId, cle)})">${ic('close')} Ignorer</button></div>`;
   return `<div class="evx-card${statut === 'ign' ? ' ign' : ''}"><div class="evx-hd"><div class="evx-nm">${esc(nom)}</div>${chip}</div>`
     + '<div class="evx-kv"><span class="k">État</span><span class="v"><span class="evx-pas none">Aucun état proposé</span></span><span class="k">Entendu</span><span class="v evx-src">Non dit dans le commentaire</span></div>'
-    + blocPhotos({ itemId, eid, images, vu, ecartees, statut, src }, { ic })
+    + blocPhotos({ itemId, eid, images, vu, ecartees, statut, src, personnes }, { ic })
     + `<div class="evx-iamark">${ic('sparkle')} ${esc(MENTION_PROPOSITION)}</div>${actions}</div>`;
 }
 
@@ -124,7 +128,7 @@ export function carteVu({ itemId, eid, nom, images, vu, ecartees, statut, src },
 export function vuePhoto({ itemId, eid, nom, imageId, t, src, cadre, prec = null, suiv = null, ecartee = false, fige = false }, { ic }) {
   const c = cadre || { x: 0, y: 0, l: 1, h: 1 };
   const pc = (v) => `${Math.round(v * 1000) / 10}%`;
-  const corps = `<div class="evx-frame" id="evx-frame" data-item="${esc(jsId(itemId))}" data-eid="${esc(jsId(eid))}" data-img="${esc(jsId(imageId))}"><img src="${esc(src)}" alt="Image de la vidéo à ${esc(mmss(t))}">`
+  const corps = `<div class="evx-frame" id="evx-frame" data-item="${esc(jsId(itemId))}" data-eid="${esc(jsId(eid))}" data-img="${esc(jsId(imageId))}"><img src="${esc(imgSure(src))}" alt="Image de la vidéo à ${esc(mmss(t))}">`
     + `<div class="evx-crop" id="evx-crop" style="left:${pc(c.x)};top:${pc(c.y)};width:${pc(c.l)};height:${pc(c.h)}"><i class="evx-poignee" aria-hidden="true"></i></div></div>`
     + `<div class="evx-scrub">${prec ? sec(`_edlVideoPhoto(${q(itemId, eid, prec.id)})`, `${ic('chevron-left')} ${esc(mmss(prec.t))}`) : '<span></span>'}<span class="evx-tm">${esc(mmss(t))}</span>${suiv ? sec(`_edlVideoPhoto(${q(itemId, eid, suiv.id)})`, `${esc(mmss(suiv.t))} ${ic('chevron-right')}`) : '<span></span>'}</div>`
     + `<div class="evx-kv"><span class="k">Élément</span><span class="v">${esc(nom)}</span><span class="k">Vidéo</span><span class="v">à ${esc(mmss(t))}</span><span class="k">Cadre</span><span class="v">${fige ? 'Enregistré' : 'Proposé par l’IA : faire glisser le cadre, ou sa poignée pour le redimensionner'}</span></div>`

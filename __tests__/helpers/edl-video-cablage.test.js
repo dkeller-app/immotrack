@@ -58,7 +58,7 @@ describe('envoi et registre', () => {
   it('envoi reprenable (TUS), jamais d’écrasement ; un fichier déjà présent n’est tenu pour envoyé qu’après contrôle de sa taille', () => {
     expect(entry).toContain('window.__immoCloudUploadResumable = async function');
     expect(entry).toContain("if (r.code === 'existe') return { ok: true, path, url: '', existait: true }");
-    const f = bloc.slice(bloc.indexOf('async function _edlVideoEnvoyer('), bloc.indexOf('async function _edlVideoEnregistrer('));
+    const f = bloc.slice(bloc.indexOf('async function _edlVideoEnvoyerUne('), bloc.indexOf('function _edlVideoPoserChemin('));
     expect(f).toMatch(/if \(r\.existait\) \{[\s\S]*?taille !== local\.buf\.byteLength[\s\S]*?return; \}/);
     expect(lire('js/core/tus-client.js')).toContain("'x-upsert': 'false'");
   });
@@ -72,10 +72,27 @@ describe('envoi et registre', () => {
     expect(bloc).toContain('_EVX.video.fichierMaxOctets');
     expect(bloc).toMatch(/controlerFichier\(\{ octets: buf\.byteLength, maxOctets: _edlVideoMaxOctets\(\) \}\)/);
   });
-  it('la copie locale n’est effacée qu’APRÈS l’envoi réussi', () => {
-    const f = bloc.slice(bloc.indexOf('async function _edlVideoEnvoyer('), bloc.indexOf('async function _edlVideoEnregistrer('));
-    expect(f.indexOf('meta.cloudKey = r.path')).toBeGreaterThan(0);
-    expect(f.indexOf('st.del(id)')).toBeGreaterThan(f.indexOf('meta.cloudKey = r.path'));
+  it('relecture C1 : chemin posé sur l’enregistrement VIVANT, copie locale effacée seulement si l’écriture a réussi', () => {
+    const f = bloc.slice(bloc.indexOf('async function _edlVideoEnvoyerUne('), bloc.indexOf('function _edlVideoPoserChemin('));
+    expect(f).toContain('const ecrit = _edlVideoPoserChemin(id, r.path);');
+    expect(f).toContain('if (ecrit) { try { await st.del(id); } catch (_) {} }');
+    const p = bloc.slice(bloc.indexOf('function _edlVideoPoserChemin('), bloc.indexOf('async function _edlVideoRetrouver('));
+    expect(p).toContain('const recV = _edlVideoRecDe(id);');
+    expect(p).toContain("saveDB({ autosave: true, quoi: 'edl-photo' })");
+  });
+  it('relecture I1/I8 : envois en série (un seul à la fois), jamais deux du même objet ; rien tenté hors ligne', () => {
+    const f = bloc.slice(bloc.indexOf('function _edlVideoEnvoyer('), bloc.indexOf('async function _edlVideoEnvoyerUne('));
+    expect(f.indexOf('_EVX.venvoyant.add(id)')).toBeLessThan(f.indexOf('_edlVideoEnvoyerUne(id)'));
+    expect(f).toContain('_EVX.vchaine = (_EVX.vchaine || Promise.resolve()).then(');
+    expect(bloc).toMatch(/function _edlVideoReprendreEnvois\(\) \{[\s\S]*?navigator\.onLine !== false[\s\S]*?if \(!enLigne\) continue;/);
+  });
+  it('relecture I5 : la conservation lit aussi les baux archivés (restitution du dépôt), sans les supprimés', () => {
+    expect(bloc).toContain("[...Object.values(DB.baux || {}), ...(DB.baux_historique || [])].filter((b) => b && typeof b === 'object' && !b._deleted && b.ref === ref)");
+  });
+  it('relecture I4 : « Terminer la relecture » ne jette pas en silence les photos « vu, pas dit »', () => {
+    const f = p2.slice(p2.indexOf('async function _edlVoixFinRelecture('), p2.indexOf('async function _edlVoixFinRelecture(') + 1600);
+    expect(f).toContain('vusRestants');
+    expect(f).toContain('confirm2(');
   });
 });
 

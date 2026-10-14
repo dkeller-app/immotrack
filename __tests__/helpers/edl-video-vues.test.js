@@ -83,6 +83,10 @@ describe('vues vidéo', () => {
     expect(h).toContain('00:41');
     expect(h).toContain('Reprendre');
     expect(h).toContain('Rayures &lt;visibles&gt;');
+    // Seule une image en data URL entre dans le style (jamais une URL ni du CSS injecté).
+    const pi = W.blocPhotos({ itemId: 'x', eid: '1', images: [{ imageId: 'a', t: 1 }], src: () => "x');background:url(https://mal.test/", personnes: new Set(['a']) }, { ic });
+    expect(pi).not.toContain('mal.test');
+    expect(pi).toContain('Personne visible');
     const c = W.carteVu({ itemId: 'x', eid: '4', nom: 'Fenêtre', images, vu: null, ecartees: {}, statut: '', src }, { ic });
     expect(c).toContain('Aucun état proposé');
     expect(c).toContain('_edlVideoGarderVu(');

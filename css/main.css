@@ -10755,6 +10755,7 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .evx-th.drop .evx-th-im{opacity:.4}
 .evx-tc{position:absolute;left:4px;bottom:4px;font:800 12px var(--font);color:var(--vf-texte);background:var(--vf-pastille);border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
 .btn.evx-sec.evx-gk{min-height:44px;font-size:13px;padding:0 4px}
+.evx-pers{font:700 12px var(--font);color:var(--warn);text-align:center}
 .btn.evx-sec.evx-gk svg{width:14px;height:14px}
 
 /* Photo en grand + recadrage */

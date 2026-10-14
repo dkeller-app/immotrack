@@ -217,6 +217,8 @@ describe('conservation (décision 7 : restitution du DG + 3 ans, alerte 30 jours
     expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05' }, [{ ref: 'F101', debut: '2020-01-01', finEffective: '2025-12-31' }])).toBe('2029-02-28');
     expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05', conservationMedias: { gelJusquau: '2031-01-01' } }, baux)).toBe('2031-01-01');
     expect(V.echeanceVideosEDL({ ...edl, videos: [] }, baux)).toBeNull();
+    // Forme réelle : bail en cours (DB.baux) + archives (DB.baux_historique), tombe ignorée.
+    expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05' }, [{ ref: 'F101', debut: '2026-10-12' }, { ref: 'F101', _deleted: true, debut: '2019-01-01', dgRestitueAt: '2019-02-01' }, { ref: 'F101', debut: '2020-01-01', cloture: true, fin: '2025-12-31', dgRestitueAt: '2026-01-20', _archiveId: 'a1' }])).toBe('2029-01-20');
   });
   it('relecture Fable I1 : un bail terminé AVANT l’EDL (nouveau bail pas encore saisi) ne donne jamais d’échéance', () => {
     const edl = { logement: 'F101', date: '2026-06-28', videos: [{ id: 'v' }] };
@@ -298,6 +300,17 @@ describe('envoi reprenable TUS', () => {
     const r = await base(s.f, { url: 'https://p.storage.supabase.co/x/old' }).demarrer();
     expect(r.ok).toBe(true);
     expect(s.etat().creations).toBe(1);
+  });
+  it('relecture I2 : 409 répétés bornés (jamais de boucle sans fin)', async () => {
+    let n = 0;
+    const f = vi.fn(async (url, init) => {
+      if (init.method === 'POST') return new Response(null, { status: 201, headers: { Location: '/x/1' } });
+      if (init.method === 'HEAD') return new Response(null, { status: 200, headers: { 'Upload-Offset': '0' } });
+      n++; return new Response(null, { status: 409 });
+    });
+    const r = await base(f).demarrer();
+    expect(r).toMatchObject({ ok: false, code: 'conflit' });
+    expect(n).toBeLessThanOrEqual(4);
   });
   it('sans session, refus, fichier déjà là, hors ligne : codes nommés, jamais d’exception', async () => {
     expect((await base(vi.fn(), { getToken: async () => '' }).demarrer()).code).toBe('auth');
@@ -398,6 +411,18 @@ describe('file : pièce filmée (étape images, lots de 8)', () => {
     await f.traiter();
     const y = await f.get(x.id);
     expect(y).toMatchObject({ etape: ETAPES.PRET, photosIndisponibles: 'disabled', resultat: RES });
+  });
+  it('relecture I3 : erreur NON réessayable des images (trop lourd, refus, quota) → propositions de la voix gardées, photos partielles', async () => {
+    for (const code of ['too_large', 'invalid', 'refused', 'quota']) {
+      let k = 0;
+      const c = client({ structurer: async (task, input) => (task === 'edl-piece' ? { ok: true, data: RES } : (++k === 1 ? { ok: true, data: photo([input.images[0].id]) } : { ok: false, code })) });
+      const f = creerFileDictees({ store: storeMemoire(), client: c, creerBlob: blob });
+      const x = await f.ajouter({ audio: new Uint8Array(4).buffer, mime: 'audio/webm', entree: ENTREE, images });
+      await f.traiter();
+      const y = await f.get(x.id);
+      expect(y).toMatchObject({ etape: ETAPES.PRET, photosIndisponibles: code, resultat: RES, erreur: null });
+      expect(y.photos.elements).toHaveLength(1);
+    }
   });
   it('rien entendu ou pas de son : les photos sont quand même proposées', async () => {
     const c = client({ transcrire: async () => ({ ok: true, text: '  ', segments: [] }) });

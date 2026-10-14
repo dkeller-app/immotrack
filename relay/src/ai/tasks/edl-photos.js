@@ -29,7 +29,7 @@ export const LIMITES = {
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
 const DATA = /^data:image\/(jpeg|webp|png);base64,([A-Za-z0-9+/]+={0,2})$/;
 // Mots d'état (EDL_ETATS) et de responsabilité : un constat visuel qui les contient est retiré.
-const INTERDITS = [/\bneuf\b|\bneuve\b/, /bon etat/, /etat d.?usage/, /mauvais etat/, /\busure normale\b/, /\bdegradation\b/, /\bvetuste\b/, /\bresponsab/, /\ba la charge\b/, /\bimputable\b/];
+const INTERDITS = [/\bneu(f|ve)s?\b/, /bons? etats?/, /etats? d.?usage/, /mauvais etats?/, /\busures? normales?\b/, /\bdegradations?\b/, /\bvetustes?\b/, /\bresponsab/, /\ba la charge\b/, /\bimputables?\b/];
 
 const nombre = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 

@@ -166,11 +166,11 @@ export function creerFileDictees({ store, client, maintenant = () => new Date(),
         const input = entreePhotos({ piece: e.piece, sortie: e.mode === 'sortie', elements: e.elements || [], images: paquets[faits], citeVers: cites });
         const r = await client.structurer('edl-photos', input);
         if (!r.ok) {
-          // Vidéo éteinte côté relais : les propositions de la voix restent, sans photos (jamais bloquant).
-          if (r.code === 'disabled') {
-            return maj(x.id, (c) => ({ etape: ETAPES.PRET, photos: fusionnerPhotos(c.resultatsPhotos || []), photosIndisponibles: 'disabled', erreur: null, essais: 0, decisions: c.decisions || {} }));
-          }
-          return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
+          // Réseau, service, session : on réessaiera (le lot reprend où il s'est arrêté).
+          if (CODES_REESSAYABLES.has(r.code)) return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
+          // Tout le reste (vidéo éteinte côté relais, trop lourd, refusé, quota d'images…) : les propositions de la
+          // voix restent, avec les photos déjà obtenues — jamais bloquant, rien n'est perdu.
+          return maj(x.id, (c) => ({ etape: ETAPES.PRET, photos: fusionnerPhotos(c.resultatsPhotos || []), photosIndisponibles: r.code || 'erreur', erreur: null, essais: 0, decisions: c.decisions || {} }));
         }
         faits++;
         x = await maj(x.id, (c) => ({ resultatsPhotos: [...(c.resultatsPhotos || []), r.data], lotsFaits: faits, modeleImages: r.modele || c.modeleImages || '', erreur: null, essais: 0 }));

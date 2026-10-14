@@ -270,7 +270,7 @@ export function alerteConservation(dateFin, maintenant = new Date()) {
 export function echeanceVideosEDL(edl, baux) {
   if (!edl || !Array.isArray(edl.videos) || !edl.videos.length) return null;
   const d = String(edl.date || '').slice(0, 10);
-  const liste = (Array.isArray(baux) ? baux : []).filter((b) => b && b.ref === edl.logement)
+  const liste = (Array.isArray(baux) ? baux : []).filter((b) => b && !b._deleted && b.ref === edl.logement)
     .sort((a, b) => String(a.debut || '').localeCompare(String(b.debut || '')));
   if (!liste.length) return null;
   const avant = liste.filter((b) => !d || !b.debut || String(b.debut).slice(0, 10) <= d);

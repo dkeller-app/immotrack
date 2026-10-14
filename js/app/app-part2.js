@@ -5932,10 +5932,14 @@ function _edlVoixTranscription(id) {
 async function _edlVoixFinRelecture(id) {
   const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
   const b = M.EdlDictee.bilanDecisions(x.resultat, x.decisions);
+  // EDL-VIDEO-IA : photos « vu à l'image, pas dit » encore à décider (relecture I4) — jamais perdues en silence.
+  const dits = new Set((((x.resultat || {}).propositions) || []).map((p) => String(p.elementId)));
+  const vusRestants = (((x.photos || {}).elements) || []).filter((e) => !dits.has(String(e.elementId)) && !((x.decisions || {})['v:' + e.elementId] || {}).statut).length;
+  if (b.aValider === 0 && vusRestants && !confirm2(`${vusRestants} élément${vusRestants > 1 ? 's' : ''} vu${vusRestants > 1 ? 's' : ''} à l’image n’${vusRestants > 1 ? 'ont' : 'a'} pas été décidé${vusRestants > 1 ? 's' : ''} : leurs photos ne seront pas gardées. Terminer quand même ?`)) return;
   if (b.aValider === 0) {
     const f = _edlVoixFile(); if (f) await f.supprimer(id);
     _EVX.items = _EVX.items.filter((y) => y.id !== id);
-    showToast('Relecture terminée : la transcription est effacée de l’appareil.', 'ok', 3500);
+    showToast(Array.isArray(x.images) && x.images.length ? 'Relecture terminée : la transcription et les images de travail sont effacées de l’appareil.' : 'Relecture terminée : la transcription est effacée de l’appareil.', 'ok', 3500);
   } else {
     showToast(`${b.aValider} proposition${b.aValider > 1 ? 's' : ''} à valider : le bandeau de la pièce les garde.`, 'info', 4000);
   }
@@ -6047,6 +6051,11 @@ function _edlVideoVueFilmer() {
 }
 async function _edlVideoDemarrer() {
   const M = _evxV(); const c = _EVX.ctx; if (!M || !c) return;
+  if (_EVX.vdemarre || (_EVX.vrec && _EVX.vrec.etat !== 'fini')) return;   // double tap : une seule caméra
+  _EVX.vdemarre = true;
+  try { await _edlVideoDemarrerFaire(M, c); } finally { _EVX.vdemarre = false; }
+}
+async function _edlVideoDemarrerFaire(M, c) {
   // Espace libre : une prise de 3 min occupe ~25 Mo jusqu'à son envoi. Jamais bloquant : on propose la dictée.
   try {
     if (navigator.storage && navigator.storage.estimate) {
@@ -6149,7 +6158,7 @@ async function _edlVideoGarder({ blob, mime, duree, images, audio, ctx, importee
   let x;
   try {
     x = await f.ajouter({ audio: audio ? audio.buf : null, mime: audio ? audio.mime : 'audio/webm', duree, task: 'edl-piece', cible: 'piece', entree, images,
-      video: gardee ? { id: cle, piece: v.piece, prise: v.prise } : { id: '', piece: v.piece, prise: v.prise },
+      video: { id: cle, piece: v.piece, prise: v.prise, ...(gardee ? {} : { nonGardee: true }) },
       contexte: { edlId: _edlVideoEdlId(), session: _EVX.session, cible: 'piece', pi: ctx.pi, pieceNom: ctx.pieceNom, sortie: !!_edlSortie } });
   } catch (e) {
     _edlVideoErreur('Analyse non enregistrée sur l’appareil', 'Le stockage de l’appareil refuse les images (mémoire pleine ou navigation privée). Libérer de la place, puis filmer de nouveau.', 'warn', null);
@@ -6203,7 +6212,10 @@ async function _edlVideoImporterFichier(fi) {
   const charge = attendre('loadeddata');
   v.src = url;
   try { await charge; } catch (e) { retirer(); throw e; }
-  const D = v.duration;
+  let D = v.duration;
+  if (!isFinite(D)) {   // WebM enregistré par Chrome : durée absente de l'en-tête → la lire en allant à la fin
+    try { const vu = attendre('seeked'); v.currentTime = 1e7; await vu; D = v.duration; if (!isFinite(D)) D = v.currentTime; } catch (_) {}
+  }
   if (!isFinite(D) || D > M.EdlVideo.GALERIE_MAX_SEC + 2) { retirer(); _edlVideoErreur('Vidéo trop longue', 'Une prise dure 3 minutes au plus. Couper la vidéo, ou filmer la pièce en plusieurs prises.', 'clock', null); return; }
   const S = M.EdlVideoImages.creerSelecteur();
   const W = v.videoWidth, H = v.videoHeight;
@@ -6226,7 +6238,8 @@ async function _edlVideoImporterFichier(fi) {
   if (fi.size <= 60 * 1024 * 1024) {
     try {
       const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-      const dec = await new (window.AudioContext || window.webkitAudioContext)().decodeAudioData(await fi.arrayBuffer());
+      // Décodage par un contexte HORS LIGNE (aucun AudioContext laissé ouvert : iOS en limite le nombre).
+      const dec = await new AC(1, 16000, 16000).decodeAudioData(await fi.arrayBuffer());
       const off = new AC(1, Math.ceil(dec.duration * 16000), 16000);
       const s = off.createBufferSource(); s.buffer = dec; s.connect(off.destination); s.start();
       const rendu = await off.startRendering();
@@ -6254,19 +6267,21 @@ function _edlVideoRafraichirEnvois() {
   if (b && s) b.innerHTML = M.EdlVideoVues.blocEnvoi({ ...s, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) }, { ic: _evxIc });
 }
 /** Conservation des vidéos d'un EDL enregistré (décision 7) : échéance d'après le bail, alerte à 30 jours. */
-function _edlVideoBauxDe(ref) { return Object.values(DB.baux || {}).filter((b) => b && typeof b === 'object' && b.ref === ref); }
+// Bail en cours ET baux archivés (clôture, relocation : c'est là que vit la restitution du dépôt) — relecture I5.
+function _edlVideoBauxDe(ref) { return [...Object.values(DB.baux || {}), ...(DB.baux_historique || [])].filter((b) => b && typeof b === 'object' && !b._deleted && b.ref === ref); }
 function _edlVideoConservation(rec) {
   const M = _evxV(); if (!M || !rec || !Array.isArray(rec.videos) || !rec.videos.some((v) => v && v.cloudKey)) return null;
   const dateFin = M.EdlVideo.echeanceVideosEDL(rec, _edlVideoBauxDe(rec.logement));
   return { dateFin, alerte: dateFin ? M.EdlVideo.alerteConservation(dateFin) : null };
 }
 async function _edlVideoProlonger() {
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) { showToast('Lecture seule : rien ne peut être modifié.', 'warn', 4000); return; }
   const M = _evxV(); const id = _edlVideoEdlId(); const rec = id ? (DB.edl || []).find((r) => String(r.id) === id) : null; if (!M || !rec) return;
   const c = _edlVideoConservation(rec); if (!c) return;
   const gel = M.EdlVideo.gelLitige(c.dateFin);
   if (!confirm2(`Garder les vidéos de cet état des lieux jusqu’au ${fd(gel)} (litige en cours) ? Le gel pourra être prolongé ; il ne pourra pas être raccourci.`)) return;
   rec.conservationMedias = { ...(rec.conservationMedias || {}), gelJusquau: gel, gelMotif: 'litige' };
-  saveDB({ autosave: true, quoi: 'edl-video' });
+  if (!saveDB({ autosave: true, quoi: 'edl-photo' })) { showToast('Gel non enregistré sur l’appareil : réessayer.', 'warn', 5000); return; }
   if (typeof window.__immoEdlMediaEcheance === 'function') { const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, espace: (((rec.videos || []).find((v) => v && v.cloudKey) || {}).cloudKey || '').split('/')[0], gelJusquau: gel, gelMotif: 'litige' }); if (!r || !r.ok) showToast('Gel noté sur l’appareil ; il sera transmis au prochain passage.', 'info', 4000); }
   showToast(`Vidéos gardées jusqu’au ${fd(gel)}.`, 'ok', 3500);
   _edlVoixRafraichir();
@@ -6285,22 +6300,27 @@ function _edlVideoBannieres(pi) {
     return M.EdlVideoVues.banniereVideo(v, { ...s, total: s.total || v.octets, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) }, { ic: _evxIc });
   }).join('');
 }
-function _edlVideoRecDe(id) { return (DB.edl || []).find((r) => Array.isArray(r.videos) && r.videos.some((v) => v && v.id === id)) || null; }
-async function _edlVideoEnvoyer(id) {
-  const M = _evxV(); if (!M) return;
+function _edlVideoRecDe(id) { return (DB.edl || []).find((r) => r && !r._deleted && Array.isArray(r.videos) && r.videos.some((v) => v && v.id === id)) || null; }
+/** Les envois passent UN à la fois (un seul fichier en mémoire, jamais deux envois du même objet — relecture I1/I8). */
+function _edlVideoEnvoyer(id) {
   if (!_EVX.venvoyant) _EVX.venvoyant = new Set();
-  if (_EVX.venvoyant.has(id)) return;
+  if (_EVX.venvoyant.has(id)) return _EVX.vchaine || Promise.resolve();
+  _EVX.venvoyant.add(id);
+  _EVX.vchaine = (_EVX.vchaine || Promise.resolve()).then(() => _edlVideoEnvoyerUne(id)).catch(() => {}).then(() => { _EVX.venvoyant.delete(id); });
+  return _EVX.vchaine;
+}
+async function _edlVideoEnvoyerUne(id) {
+  const M = _evxV(); if (!M) return;
   const rec = _edlVideoRecDe(id);
   if (!rec) { _edlVideoEtat(id, { etat: 'attente' }); return; }       // EDL pas encore enregistré : au prochain passage
   const meta = rec.videos.find((v) => v.id === id);
-  if (meta.cloudKey) { _edlVideoEnregistrer(rec, meta); return; }
+  if (meta.cloudKey) { await _edlVideoEnregistrer(rec, meta); return; }
   if (typeof window.__immoCloudUploadResumable !== 'function') { _edlVideoEtat(id, { etat: 'attente', total: meta.octets }); return; }
   const st = _edlVideoMagasin();
   let local = null;
   try { local = await st.get(id); } catch (_) { local = null; }
-  if (!local || !local.buf) return;                                      // plus de copie locale : rien à envoyer
+  if (!local || !local.buf) { await _edlVideoRetrouver(rec, meta); return; }   // plus de copie locale : déjà envoyée ?
   if (local.buf.byteLength > _edlVideoMaxOctets()) { _edlVideoEtat(id, { etat: 'trop_lourd', total: local.buf.byteLength }); return; }
-  _EVX.venvoyant.add(id);
   try {
     _edlVideoEtat(id, { etat: 'envoi', envoyes: 0, total: local.buf.byteLength });
     const seg = _cloudEntiteSeg(_cloudEntiteNomForEdl(rec));
@@ -6324,20 +6344,38 @@ async function _edlVideoEnvoyer(id) {
       } catch (_) { taille = -1; }
       if (taille !== local.buf.byteLength) { _edlVideoEtat(id, { etat: 'echec', message: 'Un fichier différent porte déjà ce nom dans le stockage : la vidéo reste sur l’appareil.' }); return; }
     }
-    // À l'abri : chemin posé des deux côtés (enregistrement synchronisé + EDL ouvert), puis copie locale effacée.
-    meta.cloudKey = r.path;
-    const ouvert = _edlVideos.find((v) => v.id === id); if (ouvert) ouvert.cloudKey = r.path;
-    saveDB({ autosave: true, quoi: 'edl-video' });
+    // À l'abri : chemin posé sur l'enregistrement VIVANT (relu : un enregistrement automatique l'a peut-être
+    // remplacé pendant l'envoi) et sur l'EDL ouvert ; copie locale effacée SEULEMENT si l'écriture a réussi.
+    const ecrit = _edlVideoPoserChemin(id, r.path);
     _edlVideoEtat(id, { etat: 'abri', total: local.buf.byteLength });
-    try { await st.del(id); } catch (_) {}
-    await _edlVideoEnregistrer(rec, meta);
+    if (ecrit) { try { await st.del(id); } catch (_) {} }
+    const recV = _edlVideoRecDe(id);
+    if (recV) await _edlVideoEnregistrer(recV, recV.videos.find((v) => v.id === id));
   } catch (e) {
     console.warn('[edl vidéo] envoi :', e && e.name);
     _edlVideoEtat(id, { etat: 'echec' });
   } finally {
-    _EVX.venvoyant.delete(id);
     if (typeof _edlVoixRafraichir === 'function') _edlVoixRafraichir();
   }
+}
+/** Pose le chemin d'une prise à l'abri (enregistrement vivant + EDL ouvert) ; rend vrai si l'écriture a réussi. */
+function _edlVideoPoserChemin(id, chemin) {
+  const recV = _edlVideoRecDe(id);
+  const m = recV && recV.videos.find((v) => v.id === id); if (m) m.cloudKey = chemin;
+  const ouvert = _edlVideos.find((v) => v.id === id); if (ouvert) ouvert.cloudKey = chemin;
+  return !!(m && saveDB({ autosave: true, quoi: 'edl-photo' }));   // « edl-photo » : écriture permise hors ligne, remontée au cloud
+}
+/** Prise sans chemin ni copie locale (application fermée juste après l'envoi, ou chemin perdu) : le fichier est-il
+ *  dans le stockage, à son chemin attendu et à la bonne taille ? Si oui, on retrouve le chemin. */
+async function _edlVideoRetrouver(rec, meta) {
+  try {
+    const M = _evxV(); if (!M || typeof window.__immoCloudCheminFichier !== 'function' || typeof window.__immoCloudFileUrl !== 'function') return;
+    const chemin = window.__immoCloudCheminFichier(meta.id + '.' + M.EdlVideo.extensionVideo(meta.mime), _cloudEntiteSeg(_cloudEntiteNomForEdl(rec)) || '_orphelin');
+    if (!chemin) return;
+    const u = await window.__immoCloudFileUrl(chemin, 60); if (!u) return;
+    const h = await fetch(u, { method: 'HEAD' });
+    if (h.ok && Number(h.headers.get('content-length')) === Number(meta.octets)) { _edlVideoPoserChemin(meta.id, chemin); _edlVideoEtat(meta.id, { etat: 'abri', total: meta.octets }); }
+  } catch (_) { /* rien : réessayé à l'ouverture suivante */ }
 }
 /** Registre des médias (0058) : protège la vidéo une fois l'EDL signé. Tolérant (table absente, EDL pas
  *  encore synchronisé) : réessayé à l'ouverture suivante, la vidéo reste dans le stockage en attendant. */
@@ -6346,21 +6384,36 @@ async function _edlVideoEnregistrer(rec, meta) {
   const r = await window.__immoEdlMediaRegister({ path: meta.cloudKey, edlLocalId: rec.id, mime: meta.mime, octets: meta.octets, duree: meta.duree, sha256: meta.sha256, piece: meta.piece, prise: meta.prise });
   if (r && r.code === 'conflit') console.warn('[edl vidéo] registre : chemin déjà inscrit pour un autre état des lieux');
   if (r && r.ok) {
-    meta.registre = true;
+    const recV = _edlVideoRecDe(meta.id); const m = recV && recV.videos.find((v) => v.id === meta.id);
+    if (m) m.registre = true; meta.registre = true;
     const ouvert = _edlVideos.find((v) => v.id === meta.id); if (ouvert) ouvert.registre = true;
-    saveDB({ autosave: true, quoi: 'edl-video' });
+    saveDB({ autosave: true, quoi: 'edl-photo' });
   }
 }
 /** À l'ouverture d'un EDL et au retour du réseau : ce qui n'est pas à l'abri (ou pas au registre) repart. */
 function _edlVideoReprendreEnvois() {
   if (!_evxV()) return;
+  const enLigne = typeof navigator === 'undefined' || navigator.onLine !== false;
   for (const rec of (DB.edl || [])) {
+    if (!rec || rec._deleted) continue;
     for (const v of (rec.videos || [])) {
-      if (v && v.id && !v.cloudKey) _edlVideoEnvoyer(v.id);
-      else if (v && v.cloudKey && !v.registre) _edlVideoEnregistrer(rec, v);
+      if (!enLigne) continue;                                   // hors ligne : rien à tenter (aucune lecture du fichier)
+      if (v && v.id && (!v.cloudKey || !v.registre)) _edlVideoEnvoyer(v.id);
     }
-    _edlVideoTransmettreEcheance(rec);
+    if (enLigne) _edlVideoTransmettreEcheance(rec);
   }
+  _edlVideoPurgerLocal();
+}
+/** Copies locales orphelines (EDL supprimé ou jamais enregistré) : effacées après 30 jours (RGPD, mémoire pleine). */
+async function _edlVideoPurgerLocal() {
+  if (_EVX.vpurgeFaite) return; _EVX.vpurgeFaite = true;
+  try {
+    const st = _edlVideoMagasin(); if (!st) return;
+    const connus = new Set(); (DB.edl || []).forEach((r) => { if (r && !r._deleted) (r.videos || []).forEach((v) => v && connus.add(v.id)); });
+    (_edlVideos || []).forEach((v) => v && connus.add(v.id));
+    const limite = Date.now() - 30 * 86400000;
+    for (const x of await st.all()) if (!connus.has(x.id) && Date.parse(x.cree || 0) < limite) await st.del(x.id);
+  } catch (_) { /* rien */ }
 }
 async function _edlVideoTransmettreEcheance(rec) {
   const c = _edlVideoConservation(rec);
@@ -6384,18 +6437,22 @@ function _edlVideoExtensionRelecture(x) {
   const M = _evxV(); if (!M || !Array.isArray(x.images) || !x.images.length) return null;
   const ecartees = _edlVideoEcartees(x);
   const src = (imageId) => _edlVideoImageSrc(x, imageId);
+  const personnes = new Set(((x.photos || {}).personnes) || []);
   const photos = (l) => {
     const p = _edlVideoPhotosDe(x, l.prop.elementId);
-    return p ? M.EdlVideoVues.blocPhotos({ itemId: x.id, eid: String(l.prop.elementId), images: p.images, vu: p.vu, ecartees, statut: l.statut, src }, { ic: _evxIc }) : '';
+    return p ? M.EdlVideoVues.blocPhotos({ itemId: x.id, eid: String(l.prop.elementId), images: p.images, vu: p.vu, ecartees, statut: l.statut, src, personnes }, { ic: _evxIc }) : '';
   };
   const dits = new Set((((x.resultat || {}).propositions) || []).map((p) => String(p.elementId)));
   const pi = _edlVoixPieceDe(x);
   const vus = (((x.photos || {}).elements) || []).filter((e) => !dits.has(String(e.elementId))).map((e) => {
     const ei = pi >= 0 ? M.EdlDictee.retrouverElement(_edlP[pi], e.elementId, x.entree) : -1;
     const nom = ei >= 0 ? _edlP[pi].elements[ei].nom : ((((x.entree || {}).elements) || []).find((y) => String(y.id) === String(e.elementId)) || {}).nom || 'Élément';
-    return M.EdlVideoVues.carteVu({ itemId: x.id, eid: String(e.elementId), nom, images: e.images, vu: e.vu, ecartees, statut: ((x.decisions || {})['v:' + e.elementId] || {}).statut || '', src }, { ic: _evxIc });
+    return M.EdlVideoVues.carteVu({ itemId: x.id, eid: String(e.elementId), nom, images: e.images, vu: e.vu, ecartees, statut: ((x.decisions || {})['v:' + e.elementId] || {}).statut || '', src, personnes }, { ic: _evxIc });
   }).join('');
-  if (x.photosIndisponibles === 'disabled') showToast('Photos non proposées : l’analyse des images n’est pas ouverte. Les propositions de la voix restent.', 'info', 4000);
+  if (x.photosIndisponibles) {
+    if (!_EVX.vavertis) _EVX.vavertis = new Set();
+    if (!_EVX.vavertis.has(x.id)) { _EVX.vavertis.add(x.id); showToast('Photos non proposées pour cette prise : les propositions de la voix restent ; des photos peuvent être ajoutées à la main.', 'info', 5000); }
+  }
   return { photos, vus, video: true };
 }
 async function _edlVideoEcarter(itemId, eid, imageId, depuisPhoto) {
@@ -7356,7 +7413,7 @@ async function generateEDLPdfNative(edl) {
         columnStyles: { 3: { font: 'courier', fontSize: 6.5, cellWidth: 62 } }
       });
       if (_lv.length) y = pdf.lastAutoTable.finalY + 4;
-      const _quand = a => `le ${fd(String(a.at || '').slice(0, 10))} à ${String(a.at || '').slice(11, 16)}`;
+      const _quand = a => { const d = new Date(a.at); return isNaN(d) ? '' : `le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`; };
       const _acc = (edl.videoAccords || []).map(a => a.accord === true
         ? `${a.nom}${a.representant ? ' (représenté par ' + a.representant + ')' : ''} : accord ${_quand(a)}`
         : `${a.nom} : absent ${_quand(a)}`).join(' ; ');

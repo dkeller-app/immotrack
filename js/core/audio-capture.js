@@ -178,8 +178,11 @@ export function creerEnregistreur(o) {
           couperFlux();
           resolve({ morceaux: morceaux.slice(), mime: typeVideoNu(mime), duree, audio: recA && morceauxA.length ? { morceaux: morceauxA.slice(), mime: typeNu(mimeA) } : null });
         };
-        try { rec.onstop = fin; rec.stop(); } catch (_) { fin(); }
-        if (recA) { try { recA.onstop = fin; recA.stop(); } catch (_) { fin(); } }
+        // Garde-fou : un enregistreur déjà inactif n'appelle jamais onstop → on rend ce qu'on a après 4 s.
+        const plan = setTimeout(() => { restants = 1; fin(); }, 4000);
+        const finUne = () => { if (restants === 1) clearTimeout(plan); fin(); };
+        try { rec.onstop = finUne; rec.stop(); } catch (_) { finUne(); }
+        if (recA) { try { recA.onstop = finUne; recA.stop(); } catch (_) { finUne(); } }
       });
     },
     /** Abandon : rien n'est gardé. */

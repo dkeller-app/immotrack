@@ -128,6 +128,10 @@ begin
       new.purge_apres := greatest(new.purge_apres, ((now() at time zone 'UTC') + interval '3 years')::date);
     end if;
   end if;
+  -- Échéance demandée sous le plancher (scellé + 3 ans) : relevée, jamais refusée (l'app ne réessaie pas sans fin).
+  if new.signed_at is not null and new.purge_apres is not null then
+    new.purge_apres := greatest(new.purge_apres, ((coalesce(new.scelle_le, now()) at time zone 'UTC') + interval '3 years')::date);
+  end if;
   if old.signed_at is not null then
     if new.signed_at is distinct from old.signed_at or new.scelle_le is distinct from old.scelle_le
        or new.storage_path is distinct from old.storage_path or new.sha256 is distinct from old.sha256

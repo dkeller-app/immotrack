@@ -83,7 +83,7 @@ describe('edl-photos — sortie', () => {
     expect(r.rejets).toBeGreaterThanOrEqual(7);
   });
   it('JAMAIS d\'état ni de responsabilité dans le constat visuel (retiré, la photo reste)', () => {
-    for (const vu of ['Bon état apparent', "État d'usage", 'mauvais etat', 'Neuf', 'Usure normale du sol', 'Dégradation imputable au locataire', 'À la charge du bailleur']) {
+    for (const vu of ['Bon état apparent', "État d'usage", 'mauvais etat', 'Neuf', 'Usure normale du sol', 'Dégradation imputable au locataire', 'À la charge du bailleur', 'Placards neufs', 'Peintures neuves', 'Dégradations visibles']) {
       const r = sortie({ elements: [{ elementId: '0', images: [{ imageId: 't0270', x: 0, y: 0, l: 1, h: 1 }], vu }], personnes: [] });
       expect(r.data.elements[0].vu).toBeNull();
       expect(r.rejets).toBe(1);

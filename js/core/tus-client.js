@@ -114,6 +114,7 @@ export function creerEnvoiTus(o) {
     async demarrer() {
       let offset = 0;
       let essais = 0;
+      let conflits = 0;
       let recree = false;
       if (url) {
         const p = await position();
@@ -126,7 +127,14 @@ export function creerEnvoiTus(o) {
       while (offset < o.taille) {
         if (arrete) return { ok: false, code: 'arrete', url };
         const r = await envoyer(offset);
-        if (r.code === 'conflit') { const p = await position(); if (p.code) return { ok: false, code: p.code, url }; offset = p.offset; continue; }
+        if (r.code === 'conflit') {
+          // 409 répétés (objet terminé ailleurs, verrou) : au plus 3, avec attente ; position inchangée = arrêt.
+          if (++conflits > 3) return { ok: false, code: 'conflit', url };
+          await attendre(500 * conflits);
+          const p = await position(); if (p.code) return { ok: false, code: p.code, url };
+          if (p.offset === offset && conflits > 1) return { ok: false, code: 'conflit', url };
+          offset = p.offset; continue;
+        }
         if (r.code === 'expire') {
           if (recree) return { ok: false, code: 'expire', url: '' };
           recree = true; url = '';
