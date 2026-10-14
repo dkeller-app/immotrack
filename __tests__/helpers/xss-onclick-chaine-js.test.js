@@ -5,7 +5,8 @@
  * _lyQ échappe d'abord pour le JS (\\ et \') puis pour le HTML.
  *
  * 1. Geste réel : le bouton « + Mouvement » de la fiche logement (Compta), logement nommé  a'b);alert(1);//
- *    → l'attribut décodé puis exécuté n'appelle jamais alert et le toast reçoit le nom intact.
+ *    → l'attribut décodé puis exécuté n'appelle jamais alert et _openNewMvPourLot (Bail en cours) reçoit la
+ *    référence intacte ; son toast (texte, ton neutre) aussi.
  * 2. Garde-fou : plus aucun escHtml/esc collé à une chaîne JS ouverte dans un attribut on…= de js/.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -44,22 +45,26 @@ describe('bouton « + Mouvement » de la fiche logement — nom de logement pié
   for (const nom of ["a'b);alert(1);//", "x\\');alert(1);//", 'q"><img src=x onerror=alert(1)>', "l'Atelier « 2 »"]) {
     it('aucune exécution, chaîne intacte : ' + nom, () => {
       const out = rendreCompta(nom);
-      const m = /onclick="(openNewMv\(\);showToast\([^"]*)"/.exec(out);
+      const m = /onclick="(_openNewMvPourLot\([^"]*\))">\+ Mouvement</.exec(out);
       expect(m, 'bouton + Mouvement introuvable').toBeTruthy();
       const code = decodeAttr(m[1]);
-      const appels = { alert: 0, toast: [], open: 0 };
+      const appels = { alert: 0, refs: [] };
       // eslint-disable-next-line no-new-func
-      new Function('openNewMv', 'showToast', 'alert', code)(
-        () => { appels.open++; },
-        (...a) => { appels.toast.push(a); },
+      new Function('_openNewMvPourLot', 'alert', code)(
+        (r) => { appels.refs.push(r); },
         () => { appels.alert++; }
       );
       expect(appels.alert).toBe(0);
-      expect(appels.open).toBe(1);
-      expect(appels.toast).toHaveLength(1);
-      expect(appels.toast[0][0]).toBe('Penser à sélectionner « ' + nom + ' » dans le champ Logement');
+      expect(appels.refs).toEqual([nom]);
     });
   }
+  it('le toast de _openNewMvPourLot (texte, pas d\'HTML) porte le nom intact, au ton neutre', () => {
+    const toasts = []; let ouvert = 0;
+    const f = new Function('openNewMv', 'showToast', '_logLabelRef', corpsDe('_openNewMvPourLot') + '\nreturn _openNewMvPourLot;');
+    f(() => { ouvert++; }, (...a) => { toasts.push(a); }, (r) => 'Nom · ' + r)("a'b);alert(1);//");
+    expect(ouvert).toBe(1);
+    expect(toasts[0][0]).toBe('Penser à sélectionner « Nom · a\'b);alert(1);// » dans le champ Logement');
+  });
 });
 
 describe('garde-fou : pas d\'escHtml seul dans une chaîne JS d\'attribut on…=', () => {

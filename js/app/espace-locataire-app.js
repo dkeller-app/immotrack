@@ -621,7 +621,7 @@ async function importerSignalements() {
 
 // ─────────────────────────── Fins de bail → accès (D4) ───────────────────────────
 async function reporterFins() {
-  const maj = EL.majFinsAcces(etat.acces, (a) => locationDe(a), finOcc)
+  const maj = EL.majFinsAcces(etat.acces, (a) => locationDe(a), finOcc, G('_dgVerseMontant'))   // LA définition du dépôt versé (case B4)
   for (const u of maj) { try { await API().update('locataire_acces', u.id, u.patch); Object.assign(etat.acces.find((a) => a.id === u.id) || {}, u.patch) } catch (e) { /* droit insuffisant : un autre membre le fera */ } }
   return maj.length
 }

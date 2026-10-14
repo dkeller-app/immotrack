@@ -77,10 +77,10 @@ function monter(sc, noms) {
     _isChargeRecupCategory: (c) => c === RECUP || c === 'Charges de copropriété',
     _catLigne2044: (c) => (c === 'Charges de copropriété' ? '229' : null),
     CC_REPARTITION_LABELS: {}, fd: (s) => s, fmtN: String, _ccType: () => ({}), _ccConsoLogPeriod: () => 0,
-    fmt: (n) => (Math.round(n * 100) / 100).toFixed(2) + ' €', escHtml: (s) => String(s == null ? '' : s), _uiIcon: () => '', _lyQ: (s) => s,
+    fmt: (n) => (Math.round(n * 100) / 100).toFixed(2) + ' €', escHtml: (s) => String(s == null ? '' : s), _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), _uiIcon: () => '', _lyQ: (s) => s,
     td: () => AUJ, showToast: () => {}, openM: () => {}, closeM: () => {}, confirm2: () => true, saveDB: () => {}, _stamp: () => {},
     _auditLog: () => {}, _refreshAfterMutation: () => {}, _rPeriodPage: () => {}, setTimeout: () => {},
-    _calculerSoldeDG: DG._calculerSoldeDG, _dgStatut: DG._dgStatut, _calculerDelaiRestitution: DG._calculerDelaiRestitution,
+    _calculerSoldeDG: DG._calculerSoldeDG, _dgStatut: DG._dgStatut, _dgVerseMontant: DG._dgVerseMontant, _calculerDelaiRestitution: DG._calculerDelaiRestitution,
     _dgVgEntreeDate: () => '', _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
     _dgVgCtx: null, _dgVgRows: [], _dgAutresRetenues: 0, DG_STATUS: { MANQUANT: 'manquant', PARTIEL: 'partiel', COMPLET: 'complet', A_RESTITUER: 'a_restituer', RESTITUE: 'restitue', EN_RETARD: 'en_retard' }, _dgRestitCible: null,   // variable de script (app-part2) : bail ouvert dans la fenêtre de restitution
     _rgClotureImpayes: W._rgClotureImpayes, _DEPART_ACOMPTE_CAT: 'Acompte de charges (départ)',

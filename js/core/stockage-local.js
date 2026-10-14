@@ -90,6 +90,9 @@ export const REGISTRE = [
   { motif: deuxNs('imsb-cand-purge-attente'), classe: 'etat', note: 'fichiers en ligne de candidats à effacer (reprise hors ligne)', exemples: ['imsb-cand-purge-attente', '_test_imsb-cand-purge-attente'] },
   // ESPACE LOCATAIRE (0059) : signalements réservés par cet appareil, pas encore enregistrés au registre (reprise).
   { motif: deuxNs('imsb-el-imports-en-cours'), classe: 'etat', note: 'signalements de l’espace locataire en cours d’import (reprise)', exemples: ['imsb-el-imports-en-cours', '_test_imsb-el-imports-en-cours'] },
+  // Audit d'intégration v15.728 🟠2 — purges de sessions de signature à retenter : CET appareil seulement (le jeton du relais ne
+  // part jamais dans les archives synchronisées du bail). Donnée vivante : jamais évinçable.
+  { motif: deuxNs('immotrack_rs_purges'), classe: 'etat', note: 'sessions de signature archivées à supprimer du relais (nouvel essai)', exemples: ['immotrack_rs_purges', '_test_immotrack_rs_purges'] },
   { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (30 min)', exemples: ['imsb-doc-express'] },
 
   // ── session

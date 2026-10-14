@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://recherche-entreprises.api.gouv.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.739</title>
+<title>Propryo v15.741</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -59,7 +59,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.739">
+<link rel="stylesheet" href="css/main.css?v=15.741">
 <link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7bb6198f">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
@@ -98,6 +98,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/pilotage-familles.js">
 <link rel="modulepreload" href="js/core/loyer-bareme.js">
 <link rel="modulepreload" href="js/core/bail-historique.js">
+<link rel="modulepreload" href="js/core/bail-signature-etat.js">
 <link rel="modulepreload" href="js/core/bail-modifications.js">
 <link rel="modulepreload" href="js/core/bail-modif.js">
 <link rel="modulepreload" href="js/core/irl-revision.js">
@@ -181,6 +182,8 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <!-- modulepreload:end -->
 <!-- PARAPHE-UNIQUE (v15.710) : une image de paraphe par signataire + lecteur des deux formes (window.BailParaphes, source js/core/bail-paraphes.js). -->
 <script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
+<!-- BAIL-EN-COURS-SIGNE-HORS-PROPRYO : etat de signature d'un bail (non / partiel / electronique / externe), window.BailSignatureEtat, source js/core/bail-signature-etat.js. -->
+<script src="js/helpers/bail-signature-etat.global.js?v=e58cc36c" defer></script>
 <!-- PARAPHE-UNIQUE : contr�le � onglet p�rim� � avant de signer / r�g�n�rer le PDF d'un bail sign� (window.VersionApp, source js/core/version-app.js). -->
 <script src="js/helpers/version-app.global.js?v=97798663" defer></script>
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
@@ -296,7 +299,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.739</em>
+      <em>v15.741</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -1816,7 +1819,8 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg2">
         <div class="fg"><label>Dépôt de garantie (€)</label><input class="inp" type="number" id="b-dg" min="0" step="0.01"></div>
         <!-- v15.249 B6 (D-B5) — champ « Régime fiscal » (b-fiscal) retiré : info bailleur, jamais dans le PDF. -->
-        <div class="fg"></div>
+        <div class="fg" style="align-self:end"><label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin:0;font-size:13px;border:1px solid var(--bor);border-radius:var(--r);padding:10px 12px;background:var(--sur2)">
+          <input type="checkbox" id="b-dgVerse" style="margin-top:2px"><span><b>Dépôt de garantie versé</b><span class="mu sm" style="display:block;font-size:11.5px;margin-top:2px">Versé à la signature, ou reçu de l'ancien bailleur (bail repris). Aucun mouvement bancaire demandé.</span></span></label></div>
       </div>
       <div class="fg2">
         <div class="fg"><label>Date début bail *</label><input class="inp" type="date" id="b-debut" oninput="onBailDebutChange()"></div>
@@ -1891,6 +1895,35 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
           <div id="b-dateSign-locked" style="display:none">
             <label>Date de signature du bail</label>
             <div class="inp" id="b-dateSign-locked-val" style="background:var(--bg2,#f3f4f6);color:var(--t2,#6b7280);display:flex;align-items:center;gap:6px"><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>Signé le —</div>
+          </div>
+        </div>
+      </div>
+      <!-- BAIL-EN-COURS-SIGNE-HORS-PROPRYO : bail signé sur papier, chez un notaire ou par le vendeur (bail repris).
+           Aucune signature électronique n'est créée : la date de signature ci-dessus est conservée (déclaration
+           figée, trace d'archive au retrait). Masquée sur un bail signé électroniquement dans Propryo. -->
+      <div class="fg" id="b-externe-rs" style="display:none;margin-top:10px">
+        <div class="mu sm" style="border:1px solid var(--bor);border-radius:var(--r);padding:10px 12px;background:var(--sur2);font-size:12.5px;line-height:1.5">Une signature à distance est en cours (ou expirée) pour ce bail. Pour le déclarer signé hors Propryo, utiliser « Signé hors Propryo » sur la session de signature du bail : Propryo vérifie d'abord, au relais, qu'aucune signature n'a déjà été recueillie.</div>
+      </div>
+      <div class="fg" id="b-externe-fg" style="display:none;margin-top:10px">
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin:0;font-size:13px;border:1px solid var(--bor);border-radius:var(--r);padding:10px 12px;background:var(--sur2)">
+          <input type="checkbox" id="b-externe" onchange="_bailExterneToggle()" style="margin-top:2px">
+          <span><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg> <b>Bail signé en dehors de Propryo</b>
+            <span class="mu sm" style="display:block;font-size:11.5px;margin-top:2px">Signé sur papier, chez un notaire ou par le vendeur (bail repris). Aucune signature électronique n'est créée : la date de signature ci-dessus est conservée.</span>
+          </span>
+        </label>
+        <div id="b-externe-detail" style="display:none;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="btn bs" type="button" onclick="_bailExterneDateDebut()" title="Date de signature inconnue : reprendre la date de début du bail, notée « approximative »">Prendre la date de début</button>
+            <span class="mu sm" id="b-externe-approx" style="display:none">Date approximative (date de début du bail)</span>
+          </div>
+          <div style="margin-top:12px">
+            <label class="mu sm" style="display:block;margin-bottom:4px"><b>Pièce jointe</b> (facultatif — ajoutable plus tard depuis la fiche du bail ou l'onglet Documents)</label>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div class="inp" id="b-externe-pj-nom" style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Aucun fichier</div>
+              <button class="btn bs" type="button" id="b-externe-pj-choisir" onclick="_bailExterneChoisirPj()">Choisir un PDF</button>
+              <button class="btn bs" type="button" id="b-externe-pj-retirer" onclick="_bailExterneRetirerPj()" style="display:none">Retirer</button>
+            </div>
+            <input type="file" id="b-externe-file" accept="application/pdf" style="display:none" onchange="_bailExterneFichierPris(this)">
           </div>
         </div>
       </div>
@@ -2545,7 +2578,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- ── Tab IDENTITÉ ───────────────────────────────────────────────── -->
     <div class="logmod-pane act" id="logmod-ident" role="tabpanel">
       <div class="fg2">
-        <div class="fg"><label>Référence *</label><div class="flex-c" style="gap:8px"><input class="inp" id="log-ref" placeholder="ex: F-001" style="flex:1"><span id="log-ref-rename-wrap" style="display:none"></span></div></div>
+        <div class="fg"><label>Référence * <span class="mu sm">(clé technique, ne change jamais)</span></label><div class="flex-c" style="gap:8px"><input class="inp" id="log-ref" placeholder="ex: F-001" style="flex:1"><span id="log-ref-rename-wrap" style="display:none"></span></div></div>
         <div class="fg">
           <label>Type d'usage *</label>
           <select class="inp" id="log-typeUsage" onchange="_logModalSyncMobilierVisibility()">
@@ -2558,6 +2591,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
             <option value="autre">⋯ Autre</option>
           </select>
         </div>
+      </div>
+      <!-- B3 (RETOURS-2026-10-05) — nom d'affichage : texte d'écran uniquement, la référence reste la clé -->
+      <div class="fg" id="log-libelle-wrap">
+        <label for="log-libelle">Nom affiché <span class="mu sm">(modifiable à tout moment — vide : la référence est affichée)</span></label>
+        <input class="inp" id="log-libelle" maxlength="60" autocomplete="off" placeholder="ex : Studio rez-de-chaussée gauche">
+        <div class="mu sm" style="margin-top:4px;font-size:11.5px">Libellé d'écran uniquement. Les documents (bail, quittances, lettres) gardent la référence et l'adresse.</div>
       </div>
       <div class="fg2">
         <div class="fg"><label>Entité *</label><select class="inp" id="log-entity" onchange="refreshLogImmSelect(); _logRefreshInherited(); _logPiecesRefreshClauses()"></select></div>
@@ -4498,6 +4537,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/adresse-parser.global.js?v=5dbda94d" defer></script>
 <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 Commit 2 — résolveur bien hérite imm (window.LogImmResolver) -->
 <script src="js/helpers/log-immeuble-resolver.global.js?v=96c42fbe" defer></script>
+<script src="js/helpers/log-label.global.js?v=c5e9de76" defer></script>
 <!-- v15.252 FEAT-GEORISQUES-ERP — détecteur ERP/IAL depuis l'adresse (window.GeorisquesErpDetector) -->
 <script src="js/helpers/georisques-erp-detector.global.js?v=a327e583" defer></script>
 <script src="js/helpers/bail-sign-coords.global.js?v=36e93334" defer></script>
@@ -4532,7 +4572,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
      reconduction, une par type (window.BailEcheance) : pastille, agenda, frise, préavis, alerte « arrivé à terme ».
      BailDuree AVANT BailEcheance (sa dépendance). -->
 <script src="js/helpers/bail-duree.global.js?v=0a241f82" defer></script>
-<script src="js/helpers/bail-echeance.global.js?v=678cfb72" defer></script>
+<script src="js/helpers/bail-echeance.global.js?v=5acd0f28" defer></script>
 <!-- BAUX-ECHUS — clauses de durée, congé et fin du bail, version de clauses 5 (window.BailClausesFin). -->
 <script src="js/helpers/bail-clauses-fin.global.js?v=fee035f1" defer></script>
 <!-- v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (window.DashCtx) :
@@ -4552,8 +4592,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=a913c6f0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=de40835b" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=40baaf56" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=49ae0425" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=a9753314" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

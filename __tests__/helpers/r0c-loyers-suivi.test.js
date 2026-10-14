@@ -225,7 +225,7 @@ describe('C1 — un versement d\'avant la date d\'achat est SIGNALÉ (onglet Loy
     const toasts = [], apercus = [];
     const deps = {
       window: { ymToMoisFr: (ym) => ym, lignesRelance, retardLot, niveauRelance: () => 'rappel-impaye-1', _loyerTodayLocal: () => TODAY, _loyerToleranceActive: () => false },
-      _loyerEtatLot: () => etat, fmt: (n) => n.toFixed(2).replace('.', ',') + ' €', _uiIcon: () => '<svg class="uic"></svg>',
+      _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), _loyerEtatLot: () => etat, fmt: (n) => n.toFixed(2).replace('.', ',') + ' €', _uiIcon: () => '<svg class="uic"></svg>',
       showToast: (msg, type) => toasts.push({ msg, type }), _findBailByRefTolerant: () => ({}), DB: { entites: [], logements: [] },
       _buildRelanceHtml: () => ({ html: 'relance' }), _lyPreviewEphemere: () => apercus.push('relance')
     };

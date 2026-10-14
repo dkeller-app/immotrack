@@ -119,6 +119,7 @@ import {
 } from './core/loyer-bareme.js';
 // HISTORIQUE-BAIL-ONGLET (17/07) - chapitres/rail de l'historique du bail (onglet Bail inline)
 import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
+import * as BailSignatureEtatMod from './core/bail-signature-etat.js';
 import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, modificationsDuBail, valeurLisible as bailModifValeur } from './core/bail-modifications.js';
 // HISTORIQUE-BAIL-ONGLET - popup de validation des modifications financieres du bail
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
@@ -290,6 +291,7 @@ import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
+  _dgVerseMontant, _dgVerseCoche,
   _planApurementStatut, _procedureJudiciaireEtat,
   DG_STATUS, PROCEDURE_ETAT
 } from './core/gestion-dg-impayes.js';
@@ -603,6 +605,8 @@ window._premierDuMoisSuivant = _premierDuMoisSuivant;
 window.reconstruireBaremeLot = reconstruireBaremeLot;   // étape 3 — migration de l'existant
 window._bailHistoConstruire = construireHistoriqueBail;   // HISTORIQUE-BAIL-ONGLET
 // Modifications d'un bail signé hors avenant (journal DB.baux_evenements, migration 0054)
+// BAIL-EN-COURS-SIGNE-HORS-PROPRYO : source unique js/core/bail-signature-etat.js ; le miroir IIFE (js/helpers/bail-signature-etat.global.js) pose déjà window.BailSignatureEtat avant les app-part.
+window.BailSignatureEtat = Object.assign({}, window.BailSignatureEtat || {}, BailSignatureEtatMod);
 window.BailModifs = { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journalDuBail, modificationsDuBail, valeurLisible: bailModifValeur };
 // Course possible (audit 28/09) : le chargement cloud (hors ligne notamment) peut injecter le DB AVANT que
 // ce module soit exécuté → la réapplication de _applyDataDefaults n'a pas eu lieu. On la rejoue ici
@@ -726,6 +730,8 @@ window.migrerIdsMenuLoyers = migrerIdsMenuLoyers;
 
 // GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
 window._dgStatut = _dgStatut;
+window._dgVerseMontant = _dgVerseMontant;   // dépôt VERSÉ : définition unique (R-0, audit d'intégration 🟠3)
+window._dgVerseCoche = _dgVerseCoche;
 window._calculerDelaiRestitution = _calculerDelaiRestitution;
 window._calculerSoldeDG = _calculerSoldeDG;
 window._penaliteRetardDG = _penaliteRetardDG;
