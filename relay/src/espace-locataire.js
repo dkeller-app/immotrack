@@ -178,7 +178,9 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
     const buf = new Uint8Array(total); { let o = 0; for (const m of morceaux) { buf.set(m, o); o += m.length; } }
     try { await deposerObjet(c.env, r.v.path, buf, MIME_DE[ext]); } catch (e) { return jsonErreur(c, e.statut || 502, e.code || 'stockage'); }
     const empreinte = await sha256hex(buf);
-    await appel(c, 'el_depot_fin', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_path: r.v.path, p_sha256: empreinte, p_taille: buf.length });
+    const fin = await appel(c, 'el_depot_fin', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_path: r.v.path, p_sha256: empreinte, p_taille: buf.length });
+    if (!fin.ok) return fin.reponse;
+    if (fin.v !== true) return jsonErreur(c, 502, 'depot');   // empreinte non enregistrée : la pièce serait refusée plus tard
     let brut = ''; try { brut = decodeURIComponent(String(c.req.header('X-El-Nom') || '').slice(0, 300)); } catch { brut = ''; }
     return c.json({ path: r.v.path, nom: nomSur(brut), mime: MIME_DE[ext], taille: buf.length });
   });
@@ -271,7 +273,8 @@ export function registerEspaceLocataireProprietaire(app, { requireSupabaseUser, 
       lien = new URL(c.req.url).origin + '/l#' + b.jeton;
     }
     const jwt = (c.req.header('Authorization') || '').replace(/^Bearer\s+/i, '');
-    const contact = c.env.SUPABASE_ANON_KEY ? await contactProprietaire(c.env, jwt, b.acces_id) : null;
+    const empreinteInvitation = b.type === 'invitation' ? await empreinteJeton(b.jeton) : null;
+    const contact = c.env.SUPABASE_ANON_KEY ? await contactProprietaire(c.env, jwt, b.acces_id, empreinteInvitation) : null;
     if (!contact) return jsonErreur(c, 403, 'interdit');
     if (!contact.email) return jsonErreur(c, 409, 'sans_email');
     const m = modeleEmail(b.type, { bailleur: String(contact.bailleur || '').slice(0, 120), lien, titre: String(b.titre || '').replace(/[\r\n]/g, ' ').slice(0, 200), statut: String(b.statut || '').replace(/[\r\n]/g, ' ').slice(0, 40) });

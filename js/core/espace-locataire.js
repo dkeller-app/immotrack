@@ -247,7 +247,7 @@ export function dansLaLocation(date, debut, fin) {
 }
 
 // Identité d'un colocataire : son NOM normalisé (même règle que public._el_cle_nom en base).
-export const cleNom = (s) => String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase()
+export const cleNom = (s) => String(s == null ? '' : s).replace(/[\s\u00a0]+/g, ' ').trim().toLowerCase()
 
 /**
  * Une quittance appartient-elle à CETTE location ? Le registre n'a qu'une quittance par (logement, mois) et ne porte pas
@@ -273,9 +273,11 @@ export function quittanceDeLaLocation(q, loc) {
 export function edlDeLaLocation(edl, loc) {
   if (!edl || !loc) return false
   const d = String(edl.date || '').slice(0, 10); if (!dIso(d)) return false
-  const texte = cleNom(edl.locataire)
-  const noms = (loc.noms || []).map(cleNom).filter(Boolean)
-  if (!texte || !noms.some((n) => texte.includes(n))) return false
+  // Noms comparés par mots entiers (« jean martin » ne correspond pas à « jean martinez »).
+  const mots = (t) => ' ' + cleNom(t).replace(/[^\p{L}\p{N}]+/gu, ' ').trim() + ' '
+  const texte = mots(edl.locataire)
+  const noms = (loc.noms || []).map(mots).filter((n) => n.trim())
+  if (!texte.trim() || !noms.some((n) => texte.includes(n))) return false
   const debut = dIso(loc.debut) ? String(loc.debut).slice(0, 10) : null
   const fin = dIso(loc.fin) ? String(loc.fin).slice(0, 10) : null
   const decale = (iso, j) => { const x = dIso(iso); x.setUTCDate(x.getUTCDate() + j); return iso && x.toISOString().slice(0, 10) }

@@ -100,13 +100,13 @@ export async function deposerObjet(env, path, bytes, mime, fetchImpl = fetch) {
  * d'écriture sur la SCI exigé, accès non révoqué ni terminé). Jamais fournis par le client : pas de relais d'e-mails
  * ouvert. Renvoie { email, bailleur } ou null (refus, accès inactif, erreur).
  */
-export async function contactProprietaire(env, jwtProprietaire, accesId, fetchImpl = fetch) {
+export async function contactProprietaire(env, jwtProprietaire, accesId, jetonSha256 = null, fetchImpl = fetch) {
   if (!/^[0-9a-f-]{36}$/.test(String(accesId || ''))) return null;
   try {
     const r = await fetchImpl(`${base(env)}/rest/v1/rpc/el_acces_contact`, {
       method: 'POST',
       headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${jwtProprietaire}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ p_acces_id: accesId }),
+      body: JSON.stringify(jetonSha256 ? { p_acces_id: accesId, p_jeton_sha256: jetonSha256 } : { p_acces_id: accesId }),
     });
     if (!r.ok) return null;
     const v = await r.json().catch(() => null);

@@ -130,7 +130,8 @@ function blocInterieur(log, bail, ref) {
   const anciennes = new Map()
   for (const x of etat.acces) {
     if (bail && x.bail_id === bid && (x.bail_debut || null) === debut) continue
-    const t = locationDe(x); if (!t || t.ref !== r) continue
+    const t = locationDe(x) || (x.logement_id && x.logement_id === a.uuid('logement', EL.cleNom(r), entNomDe(bail, log)) ? { ref: r, id: x.bail_id, debut: x.bail_debut || null } : null)
+    if (!t || t.ref !== r) continue
     const k = x.bail_id + '|' + (x.bail_debut || '')
     if (!anciennes.has(k)) anciennes.set(k, { t, acces: [] })
     anciennes.get(k).acces.push(x)
@@ -175,7 +176,7 @@ function blocHtml(log, bail, ref) {
 function majBloc() {
   const n = document.getElementById('el-bloc'); if (!n) return
   const ref = n.getAttribute('data-ref'); const D = db() || {}
-  const bail = (D.baux && D.baux[ref] && vivant(D.baux[ref])) ? D.baux[ref] : null
+  const bail = G('_bienActiveBail') ? W._bienActiveBail(ref) : ((D.baux && D.baux[ref] && vivant(D.baux[ref]) && !D.baux[ref].cloture && !D.baux[ref].finEffective) ? D.baux[ref] : null)
   const html = blocInterieur(logDe(String(ref).split('@@')[0]), bail, ref)
   n.innerHTML = html
   n.style.display = html ? '' : 'none'
@@ -216,13 +217,14 @@ async function creer(ref, rang) {
   const D = db() || {}; const bail = D.baux && D.baux[ref]; const log = logDe(String(ref).split('@@')[0])
   if (!bail) return
   const loc = locatairesDuBail(bail, log)[rang]; if (!loc) return
+  if (!(bail.locataires || []).length && !(bail.nom || (log && log.locataire))) { toast('Saisir d\'abord le nom du locataire dans le bail.', 'warn', 5000); return }
   try {
     const jeton = EL.nouveauJeton(); const h = await EL.empreinteJeton(jeton)
     const id = await API().rpc('el_acces_emettre', { p_bail_id: bailId(ref, bail), p_rang: rang, p_nom: loc.nom, p_jeton_sha256: h })
     await rafraichir(); majBloc()
     await partagerLien(jeton, loc.nom, loc.email, (log && (log.adr || log.ref)) || ref, id)
     publierBientot()
-  } catch (e) { toast('Lien non créé : bail pas encore enregistré dans le cloud (réessayer dans un instant), droit insuffisant ou connexion perdue.', 'err', 6000) }
+  } catch (e) { toast(/el:nom-ambigu/.test(e.message) ? 'Lien non créé : deux colocataires portent le même nom dans le bail ; les distinguer d\'abord.' : 'Lien non créé : bail pas encore enregistré dans le cloud (réessayer dans un instant), droit insuffisant ou connexion perdue.', 'err', 6000) }
 }
 async function renouveler(accesId) {
   const x = etat.acces.find((a) => a.id === accesId); if (!x) return
@@ -422,11 +424,11 @@ function souhaites(t, emisLe) {
       out.push({ cle: EL.cleDocument('quittance', mk), type_doc: 'quittance', titre: 'Quittance de ' + q.mois + (reedition ? ' (réédition du ' + fdate(new Date().toISOString()) + ')' : ''),
         periode: q.mois, date_doc: jour(q.date) || null,
         generer: async () => {
-          // Rendu NATIF seulement (le repli texte de secours ne doit jamais être figé comme document définitif).
-          if (!G('_emailGenPdfAttachment') || !G('_buildQuittanceHtml') || !W.DocNative) return null
+          // Rendu NATIF seulement, appelé directement (le repli texte de secours ne doit jamais être figé comme définitif).
+          if (!G('_buildQuittanceHtml') || !G('_docHtmlToNativeBlob') || !W.DocNative) return null
           const ent = (D.entites || []).find((e) => e.nom === (q.entity || entNom)) || {}
-          const r = await W._emailGenPdfAttachment('quittance', { locataire: (t.bail.locataires || [])[0] || {}, bail: t.bail, logement: log || { ref: t.ref }, entite: ent, quittance: { ...q, total: (q.hc || 0) + (q.ch || 0) } })
-          return r && !r.error ? base64EnBlob(r) : null
+          try { const built = W._buildQuittanceHtml({ ...q, total: (q.hc || 0) + (q.ch || 0) }, log || { ref: t.ref }, ent, t.bail); return built && built.html ? await W._docHtmlToNativeBlob(built.html, ent) : null }
+          catch (e) { return null }
         } })
     }
   }
@@ -441,10 +443,10 @@ function souhaites(t, emisLe) {
       const annee = from.slice(0, 4), cle = EL.cleDocument('decompte', from + '_' + to)
       out.push({ cle, type_doc: 'decompte', titre: 'Décompte de régularisation des charges ' + annee, periode: fdate(from) + ' au ' + fdate(to), date_doc: jour(v.at),
         generer: async () => {
-          if (!G('_emailGenPdfAttachment')) return null
+          if (!G('_buildDecompteHtml') || !G('_docHtmlToNativeBlob') || !W.DocNative) return null
           const ent = (D.entites || []).find((x) => x.nom === entNom) || {}
-          const r = await W._emailGenPdfAttachment('decompte-regul-annuel', { bail: e.bail, logement: log, entite: ent, annee, from, to, entryKey, regulEntry: e })
-          return r && !r.error ? base64EnBlob(r) : null
+          try { const built = W._buildDecompteHtml(entryKey, from, to); return built && !built.error && built.html ? await W._docHtmlToNativeBlob(built.html, ent) : null }
+          catch (e2) { return null }
         } })
       const vu = new Set()
       for (const ligne of e.details || []) {
@@ -465,8 +467,9 @@ function souhaites(t, emisLe) {
 const MAX_GENERES_PAR_CYCLE = 12   // les PDF à générer sont étalés sur plusieurs passages (long bail repris)
 async function peutPublier(bid) {
   if (!etat.droits) etat.droits = new Map()
-  if (!etat.droits.has(bid)) { let ok = false; try { ok = (await API().rpc('el_peut_publier', { p_bail_id: bid })) === true } catch (e) { ok = false } etat.droits.set(bid, ok) }
-  return etat.droits.get(bid)
+  if (etat.droits.has(bid)) return etat.droits.get(bid)
+  try { const ok = (await API().rpc('el_peut_publier', { p_bail_id: bid })) === true; etat.droits.set(bid, ok); return ok }
+  catch (e) { return false }   // erreur passagère : pas mémorisée, nouvel essai au prochain passage
 }
 async function publierLocation(t, accesLoc) {
   if (!(await peutPublier(t.id))) return 0   // associé en lecture seule : rien n'est généré
@@ -532,25 +535,35 @@ async function notifier(type, accesId, data) {
 }
 
 // ─────────────────────────── Import des signalements (D11) ───────────────────────────
+// Réservations faites par CET appareil et pas encore enregistrées localement (onglet fermé entre les deux) : seules
+// celles-ci sont reprises — un incident supprimé ensuite par le propriétaire n'est jamais recréé.
+// Clé de stockage local 'imsb-el-imports-en-cours' (espace de test séparé par _lsKey en ?sandbox=1).
+const importsEnCours = () => { try { const v = JSON.parse(localStorage.getItem(_lsKey('imsb-el-imports-en-cours')) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(-200) : [] } catch (e) { return [] } }
+const ecrireImports = (l) => { try { localStorage.setItem(_lsKey('imsb-el-imports-en-cours'), JSON.stringify(l.slice(-200))) } catch (e) { /* stockage indisponible : rien à reprendre */ } }
+
 async function importerSignalements() {
   const D = db(); if (!D || !W.Incidents || typeof W.Incidents.nouvelIncident !== 'function') return 0
-  const ids = etat.acces.map((a) => a.id); if (!ids.length) return 0
+  if (!etat.acces.length) return 0
   let liste = []
-  try { liste = await API().select('locataire_signalements', { acces_id: ids }) } catch (e) { return 0 }
+  try { liste = await API().select('locataire_signalements', { importe_le: null }) } catch (e) { return 0 }
+  const enCours = importsEnCours()
+  if (enCours.length) { try { liste = liste.concat(await API().select('locataire_signalements', { id: enCours })) } catch (e) { /* reprise au prochain passage */ } }
   if (!D.incidents) D.incidents = []
   let n = 0
+  const aEnregistrer = []
   for (const s of liste) {
     const x = etat.acces.find((a) => a.id === s.acces_id); const t = x ? locationDe(x) : null
     if (!t) continue
     const legacy = EL.idIncidentDuSignalement(s.id); if (!legacy) continue
-    if (D.incidents.some((i) => String(i.id) === legacy)) continue   // déjà au registre (cet appareil ou un autre)
+    if (D.incidents.some((i) => String(i.id) === legacy)) { if (enCours.includes(s.id)) aEnregistrer.push(s.id); continue }
     if (!s.importe_le) {
       // Réservation CONDITIONNELLE (importe_le encore vide) et droit d'écriture exigés : un associé en lecture seule
       // n'importe rien, deux membres n'importent pas deux fois.
+      ecrireImports(importsEnCours().concat(s.id))
       let reserve = []
       try { reserve = await API().update('locataire_signalements', s.id, { incident_legacy_id: legacy, importe_le: new Date().toISOString() }, { importe_le: null }) } catch (e) { reserve = [] }
-      if (!reserve.length) continue
-    } else if (!(await peutPublier(t.id))) continue   // marqué importé mais absent du registre (import interrompu) : un membre en écriture le recrée
+      if (!reserve.length) { ecrireImports(importsEnCours().filter((id) => id !== s.id)); continue }
+    } else if (!enCours.includes(s.id)) continue
     const log = logDe(t.ref)
     const inc = W.Incidents.nouvelIncident(EL.champsIncident(s, { logRef: t.ref, imm: (log && log.imm) || '', entity: entNomDe(t.bail, log) || '', nom: x.locataire_nom }), new Date().toISOString())
     inc.espaceSignalementId = s.id; inc.espaceAccesId = s.acces_id; inc.vu = false
@@ -568,10 +581,12 @@ async function importerSignalements() {
       D.documents.push(doc)
     })
     if (G('_auditLog')) W._auditLog('create', 'incident', inc.id, 'signalé depuis l\'espace locataire')
+    aEnregistrer.push(s.id)
     n++
   }
+  if (n && G('saveDB')) W.saveDB()
+  if (aEnregistrer.length) ecrireImports(importsEnCours().filter((id) => !aEnregistrer.includes(id)))
   if (n) {
-    if (G('saveDB')) W.saveDB()
     if (G('_refreshAfterMutation')) W._refreshAfterMutation()
     toast(n === 1 ? 'Nouveau signalement reçu depuis l\'espace locataire (registre des incidents).' : n + ' nouveaux signalements reçus depuis l\'espace locataire.', 'info', 6000)
   }

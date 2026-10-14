@@ -88,6 +88,8 @@ export const REGISTRE = [
   { motif: deuxNs('propryo_ia_video'), classe: 'etat', note: 'état des lieux filmé ouvert (dernier statut connu)', exemples: ['propryo_ia_video', '_test_propryo_ia_video'] },
   // CANDIDATURES-CONFORMITE : chemins en ligne de pièces de candidats supprimées hors ligne, à effacer au retour (RGPD).
   { motif: deuxNs('imsb-cand-purge-attente'), classe: 'etat', note: 'fichiers en ligne de candidats à effacer (reprise hors ligne)', exemples: ['imsb-cand-purge-attente', '_test_imsb-cand-purge-attente'] },
+  // ESPACE LOCATAIRE (0059) : signalements réservés par cet appareil, pas encore enregistrés au registre (reprise).
+  { motif: deuxNs('imsb-el-imports-en-cours'), classe: 'etat', note: 'signalements de l’espace locataire en cours d’import (reprise)', exemples: ['imsb-el-imports-en-cours', '_test_imsb-el-imports-en-cours'] },
   { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (30 min)', exemples: ['imsb-doc-express'] },
 
   // ── session

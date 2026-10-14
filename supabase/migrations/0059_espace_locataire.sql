@@ -111,8 +111,11 @@ returns text
 language sql
 immutable
 set search_path = ''
-as $$ select lower(regexp_replace(btrim(coalesce(p_nom, '')), '\s+', ' ', 'g')); $$;
-revoke all on function public._el_cle_nom(text) from public, anon, authenticated;
+as $$ select lower(btrim(regexp_replace(coalesce(p_nom, ''), '[\s\u00a0]+', ' ', 'g'))); $$;
+revoke all on function public._el_cle_nom(text) from public, anon;
+-- Fonction PURE (aucune donnée) utilisée par l'index unique : un connecté qui met à jour fin_bail / comptes_clos_le
+-- doit pouvoir la calculer quand Postgres reconstruit l'entrée d'index (mise à jour hors de la page, « non-HOT »).
+grant execute on function public._el_cle_nom(text) to authenticated;
 create unique index locataire_acces_un_par_locataire on public.locataire_acces (bail_id, coalesce(bail_debut, '0001-01-01'::date), public._el_cle_nom(locataire_nom));
 create index locataire_acces_by_espace_logement on public.locataire_acces (espace_id, logement_id);
 
@@ -410,6 +413,11 @@ begin
   if not public.has_entite_write_all(b.espace_id, v_ent, b.logement_id, null) then
     raise exception 'el:interdit' using errcode = '42501';
   end if;
+  -- Deux colocataires du même nom dans ce bail : identité ambiguë → refus (corriger les noms dans le bail).
+  if (select count(*) from public.baux x2, jsonb_array_elements(case when jsonb_typeof(x2.locataires) = 'array' then x2.locataires else '[]'::jsonb end) e
+       where x2.id = b.id and public._el_cle_nom(e->>'nom') = public._el_cle_nom(p_nom)) > 1 then
+    raise exception 'el:nom-ambigu' using errcode = '22023';
+  end if;
   v_h := decode(p_jeton_sha256, 'hex');
   select a.id into v_id from public.locataire_acces a
    where a.bail_id = b.id and a.bail_debut is not distinct from b.date_debut and public._el_cle_nom(a.locataire_nom) = public._el_cle_nom(p_nom);
@@ -420,7 +428,12 @@ begin
   else
     update public.locataire_acces
        set locataire_nom = btrim(p_nom), locataire_rang = p_rang, emis_le = now(), emis_par = (select auth.uid()),
-           revoque_le = null, revoque_par = null, entite_id = v_ent
+           revoque_le = null, revoque_par = null, entite_id = v_ent,
+           -- Accès révoqué puis rouvert : l'accord ne se transmet pas (il peut s'agir d'une autre personne du même nom).
+           accord_quittance_le = case when revoque_le is null then accord_quittance_le end,
+           accord_quittance_version = case when revoque_le is null then accord_quittance_version end,
+           accord_quittance_code = case when revoque_le is null then accord_quittance_code else false end,
+           accord_retire_le = case when revoque_le is null then accord_retire_le end
      where id = v_id;
     delete from public.locataire_acces_jeton where acces_id = v_id;
   end if;
@@ -474,7 +487,7 @@ $$;
 
 -- Destinataire et signataire d'un e-mail envoyé par le relais à la demande d'un membre EN ÉCRITURE : jamais fournis par
 -- le client (pas de relais d'e-mails ouvert). Accès révoqué ou période terminée → NULL.
-create or replace function public.el_acces_contact(p_acces_id uuid)
+create or replace function public.el_acces_contact(p_acces_id uuid, p_jeton_sha256 text default null)
 returns jsonb
 language plpgsql
 stable
@@ -488,6 +501,11 @@ begin
     raise exception 'el:interdit' using errcode = '42501';
   end if;
   if a.revoque_le is not null or public._el_phase(a.fin_bail, a.comptes_clos_le, current_date) = 'fini' then return null; end if;
+  -- Invitation : le jeton envoyé doit être CELUI de cet accès (empreinte comparée en base).
+  if p_jeton_sha256 is not null and not exists (select 1 from public.locataire_acces_jeton j
+       where j.acces_id = a.id and p_jeton_sha256 ~ '^[0-9a-f]{64}$' and j.jeton_sha256 = decode(p_jeton_sha256, 'hex')) then
+    return null;
+  end if;
   v_mail := lower(btrim(coalesce(public._el_email_du_locataire(a), '')));
   if v_mail !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(v_mail) > 254 then v_mail := null; end if;
   select e.nom into v_nom from public.entites e where e.id = a.entite_id and e.espace_id = a.espace_id;
@@ -514,8 +532,8 @@ grant execute on function public.el_acces_emettre(uuid, int, text, text) to auth
 grant execute on function public.el_acces_revoquer(uuid) to authenticated;
 revoke all on function public.el_acces_renouveler(uuid, text) from public, anon;
 grant execute on function public.el_acces_renouveler(uuid, text) to authenticated;
-revoke all on function public.el_acces_contact(uuid) from public, anon;
-grant execute on function public.el_acces_contact(uuid) to authenticated;
+revoke all on function public.el_acces_contact(uuid, text) from public, anon;
+grant execute on function public.el_acces_contact(uuid, text) to authenticated;
 revoke all on function public.el_peut_publier(uuid) from public, anon;
 grant execute on function public.el_peut_publier(uuid) to authenticated;
 
@@ -600,7 +618,8 @@ begin
                      where d.bail_id = a.bail_id and d.bail_debut is not distinct from a.bail_debut and d.retire_le is null
                        and (d.visible_jusqu_au is null or d.visible_jusqu_au > now())),
       'signalements_ouverts', (select count(*) from public.locataire_signalements s
-                     left join lateral (select x.statut from public.incidents x where x.espace_id = s.espace_id and x.logement_id = s.logement_id
+                     left join lateral (select x.statut from public.incidents x where x.espace_id = s.espace_id
+                                         and (x.logement_id = s.logement_id or (x.logement_id is null and x.entite_id is not distinct from s.entite_id))
                                          and x.legacy_id = s.incident_legacy_id and x.deleted_at is null limit 1) i on true
                      where s.acces_id = a.id and coalesce(i.statut, 'signale') <> 'resolu'),
       'messages_non_lus', (select count(*) from public.locataire_messages m
@@ -719,9 +738,10 @@ set search_path = ''
 as $$
 declare x jsonb; o record; out jsonb := '[]'::jsonb;
 begin
-  for x in select * from jsonb_array_elements(coalesce(p_pieces, '[]'::jsonb)) loop
+  for x in select distinct on (e->>'path') e from jsonb_array_elements(coalesce(p_pieces, '[]'::jsonb)) e loop
     select oo.storage_path, oo.sha256, oo.taille into o from public.locataire_ouvertures oo
      where oo.acces_id = p_acces and oo.storage_path = x->>'path' and oo.mode = 'depot' and oo.cree_le > now() - interval '24 hours'
+       and oo.sha256 is not null
      order by oo.cree_le desc limit 1;
     if not found then raise exception 'el:piece-invalide' using errcode = '23514'; end if;
     out := out || jsonb_build_array(jsonb_build_object(
@@ -822,7 +842,8 @@ begin
                'resolu',   i.legacy_raw->'statutDates'->>'resolu'))
            order by s.cree_le desc)
     from public.locataire_signalements s
-    left join lateral (select x.statut, x.legacy_raw from public.incidents x where x.espace_id = s.espace_id and x.logement_id = s.logement_id
+    left join lateral (select x.statut, x.legacy_raw from public.incidents x where x.espace_id = s.espace_id
+                        and (x.logement_id = s.logement_id or (x.logement_id is null and x.entite_id is not distinct from s.entite_id))
                         and x.legacy_id = s.incident_legacy_id and x.deleted_at is null limit 1) i on true
     where s.acces_id = a.id), '[]'::jsonb);
 end;
