@@ -11,7 +11,7 @@ import {
   erreurSignalement, erreurMessage, typeReel, MIME_DE, DEPOT_MAX_OCTETS, modeleEmail, TYPES_EMAIL,
 } from '../../js/core/espace-locataire.js';
 import { URGENCES as CONSIGNES_URGENCE, CONSIGNE_DANGER } from '../../js/core/qui-paie.js';
-import { elConfigure, rpc, lireObjet, deposerObjet, proprietaireVoitAcces, ElErreur } from './el-supabase.js';
+import { elConfigure, rpc, lireObjet, deposerObjet, contactProprietaire, ElErreur } from './el-supabase.js';
 import { sha256hex } from './crypto-utils.js';
 import { generateCode, hashCode, verifyCode, OTP_TTL_MS, OTP_MAX_ATTEMPTS } from './otp.js';
 import { makeSender } from './email-sender.js';
@@ -21,16 +21,13 @@ export const EL_ASSET_VERSION = '1';
 // En-têtes de TOUTE réponse de l'espace locataire (page et API) — exigence pilotage : CSP, Referrer-Policy, no-store.
 export const EL_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; "
   + "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'";
-function entetes(c) {
-  c.header('Content-Security-Policy', EL_CSP);
-  c.header('Referrer-Policy', 'no-referrer');
-  c.header('Cache-Control', 'no-store');
-  c.header('X-Content-Type-Options', 'nosniff');
-  c.header('X-Frame-Options', 'DENY');
-  c.header('X-Robots-Tag', 'noindex, nofollow, noarchive');
-  c.header('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
-  c.header('Cross-Origin-Opener-Policy', 'same-origin');
-}
+const ENTETES = {
+  'Content-Security-Policy': EL_CSP, 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'X-Robots-Tag': 'noindex, nofollow, noarchive',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=()', 'Cross-Origin-Opener-Policy': 'same-origin',
+};
+export function entetesEspace(headers) { for (const [k, v] of Object.entries(ENTETES)) headers.set(k, v); }
+function entetes(c) { for (const [k, v] of Object.entries(ENTETES)) c.header(k, v); }
 
 export function renderEspacePage() {
   return `<!doctype html>
@@ -63,7 +60,7 @@ export const REFERENTIEL = Object.freeze({
 async function ipHash(c) {
   const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'local';
   const jour = new Date().toISOString().slice(0, 10);
-  const h = await sha256hex(new TextEncoder().encode(`${ip}|${jour}|${c.env.SIGNING_SECRET || 'el'}`));
+  const h = await sha256hex(new TextEncoder().encode(`${ip}|${jour}|${c.env.SIGNING_SECRET}`));
   return h.slice(0, 32);
 }
 
@@ -79,7 +76,7 @@ const inactif = (c) => c.json({ actif: false }, 410);
 
 // Contexte commun d'un appel locataire : configuration, débit, jeton → empreinte, condensat d'IP.
 async function ctx(c) {
-  if (!elConfigure(c.env)) return { reponse: jsonErreur(c, 503, 'el_inactif') };
+  if (!elConfigure(c.env) || !c.env.SIGNING_SECRET) return { reponse: jsonErreur(c, 503, 'el_inactif') };
   const ip = await ipHash(c);
   if (!(await limiteDebit(c, 'el:' + ip))) return { reponse: jsonErreur(c, 429, 'limite') };
   const jeton = c.req.header('X-El-Jeton') || '';
@@ -134,7 +131,8 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
     const index = Number.isInteger(b.index) && b.index >= 0 && b.index < 10 ? b.index : null;
     const r = await appel(c, 'el_fichier', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_source: b.source, p_id: b.id, p_index: index });
     if (!r.ok) return r.reponse;
-    if (!r.v || !r.v.path) return inactif(c);
+    if (!r.v) return inactif(c);
+    if (r.v.absent || !r.v.path) return jsonErreur(c, 404, 'introuvable');
     let obj;
     try { obj = await lireObjet(c.env, r.v.path); } catch (e) { return jsonErreur(c, e.statut || 502, e.code || 'stockage'); }
     const mime = ['application/pdf', 'image/jpeg', 'image/png'].includes(r.v.mime) ? r.v.mime : 'application/octet-stream';
@@ -150,18 +148,39 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
   // Déposer une photo ou une pièce (corps binaire). Type RÉEL vérifié par octets magiques, 10 Mo au plus.
   app.post('/api/el/depot', async (c) => {
     const x = await ctx(c); if (x.reponse) return x.reponse;
+    if (!x.h) return inactif(c);                                     // jeton mal formé : rien n'est lu
     const len = Number(c.req.header('Content-Length') || 0);
     if (len > DEPOT_MAX_OCTETS) return jsonErreur(c, 413, 'trop_gros');
-    const buf = new Uint8Array(await c.req.arrayBuffer());
-    if (!buf.length) return jsonErreur(c, 400, 'vide');
-    if (buf.length > DEPOT_MAX_OCTETS) return jsonErreur(c, 413, 'trop_gros');
-    const ext = typeReel(buf.subarray(0, 16));
-    if (!ext) return jsonErreur(c, 415, 'type');
-    const r = await appel(c, 'el_depot', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_ext: ext }); if (!r.ok) return r.reponse;
-    if (!r.v || !r.v.path) return inactif(c);
+    const body = c.req.raw.body;
+    if (!body) return jsonErreur(c, 400, 'vide');
+    // Lecture en flux, bornée : les premiers octets donnent le type réel ; le ticket (qui vérifie le jeton) est pris
+    // AVANT de lire la suite ; au-delà de 10 Mo, arrêt immédiat.
+    const lecteur = body.getReader();
+    const morceaux = []; let total = 0;
+    const lire = async (jusqua) => {
+      while (total < jusqua) {
+        const { done, value } = await lecteur.read();
+        if (done) return true;
+        morceaux.push(value); total += value.length;
+        if (total > DEPOT_MAX_OCTETS) { try { await lecteur.cancel(); } catch { /* ignoré */ } return false; }
+      }
+      return true;
+    };
+    if (!(await lire(16))) return jsonErreur(c, 413, 'trop_gros');
+    if (!total) return jsonErreur(c, 400, 'vide');
+    const tete = new Uint8Array(Math.min(total, 16)); { let o = 0; for (const m of morceaux) { const n = Math.min(m.length, 16 - o); tete.set(m.subarray(0, n), o); o += n; if (o >= 16) break; } }
+    const ext = typeReel(tete);
+    if (!ext) { try { await lecteur.cancel(); } catch { /* ignoré */ } return jsonErreur(c, 415, 'type'); }
+    const r = await appel(c, 'el_depot', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_ext: ext });
+    if (!r.ok) { try { await lecteur.cancel(); } catch { /* ignoré */ } return r.reponse; }
+    if (!r.v || !r.v.path) { try { await lecteur.cancel(); } catch { /* ignoré */ } return inactif(c); }
+    if (!(await lire(DEPOT_MAX_OCTETS + 1))) return jsonErreur(c, 413, 'trop_gros');
+    const buf = new Uint8Array(total); { let o = 0; for (const m of morceaux) { buf.set(m, o); o += m.length; } }
     try { await deposerObjet(c.env, r.v.path, buf, MIME_DE[ext]); } catch (e) { return jsonErreur(c, e.statut || 502, e.code || 'stockage'); }
-    const nom = nomSur(decodeURIComponent(String(c.req.header('X-El-Nom') || '').slice(0, 300)));
-    return c.json({ path: r.v.path, nom, mime: MIME_DE[ext], taille: buf.length });
+    const empreinte = await sha256hex(buf);
+    await appel(c, 'el_depot_fin', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_path: r.v.path, p_sha256: empreinte, p_taille: buf.length });
+    let brut = ''; try { brut = decodeURIComponent(String(c.req.header('X-El-Nom') || '').slice(0, 300)); } catch { brut = ''; }
+    return c.json({ path: r.v.path, nom: nomSur(brut), mime: MIME_DE[ext], taille: buf.length });
   });
 
   app.post('/api/el/signaler', async (c) => {
@@ -243,16 +262,22 @@ export function registerEspaceLocataireProprietaire(app, { requireSupabaseUser, 
     const auth = await requireSupabaseUser(c);
     if (auth.error) return auth.error;
     if (!(await limiteDebit(c, 'eln:' + auth.userId))) return jsonErreur(c, 429, 'limite');
-    const b = await lireJson(c, 8192);
-    if (!b || !TYPES_EMAIL.includes(b.type) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(b.to || '')) || String(b.to).length > 254) return jsonErreur(c, 400, 'invalide');
-    const lien = b.type === 'invitation' ? String(b.lien || '') : '';
-    if (b.type === 'invitation' && !/^https:\/\/[^\s#]+\/l#[A-Za-z0-9_-]{43}$/.test(lien)) return jsonErreur(c, 400, 'invalide');
+    const b = await lireJson(c, 4096);
+    if (!b || !TYPES_EMAIL.includes(b.type)) return jsonErreur(c, 400, 'invalide');
+    // Lien d'invitation reconstruit sur l'ORIGINE DU RELAIS (jamais un hôte fourni par le client).
+    let lien = '';
+    if (b.type === 'invitation') {
+      if (!JETON_RE.test(String(b.jeton || ''))) return jsonErreur(c, 400, 'invalide');
+      lien = new URL(c.req.url).origin + '/l#' + b.jeton;
+    }
     const jwt = (c.req.header('Authorization') || '').replace(/^Bearer\s+/i, '');
-    if (!c.env.SUPABASE_ANON_KEY || !(await proprietaireVoitAcces(c.env, jwt, b.acces_id))) return jsonErreur(c, 403, 'interdit');
-    const m = modeleEmail(b.type, { bailleur: String(b.bailleur || '').slice(0, 120), lien, titre: String(b.titre || '').slice(0, 200), statut: String(b.statut || '').slice(0, 40) });
+    const contact = c.env.SUPABASE_ANON_KEY ? await contactProprietaire(c.env, jwt, b.acces_id) : null;
+    if (!contact) return jsonErreur(c, 403, 'interdit');
+    if (!contact.email) return jsonErreur(c, 409, 'sans_email');
+    const m = modeleEmail(b.type, { bailleur: String(contact.bailleur || '').slice(0, 120), lien, titre: String(b.titre || '').replace(/[\r\n]/g, ' ').slice(0, 200), statut: String(b.statut || '').replace(/[\r\n]/g, ' ').slice(0, 40) });
     if (!m) return jsonErreur(c, 400, 'invalide');
     const s = sender || makeSender(c.env);
-    const out = await s.sendModele({ to: String(b.to).trim(), objet: m.objet, texte: m.texte, type: b.type });
+    const out = await s.sendModele({ to: contact.email, objet: m.objet, texte: m.texte, type: b.type });
     return c.json({ envoye: !!out.sent, mode: out.dev ? 'dev' : 'resend' }, 200);
   });
 }

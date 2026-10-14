@@ -45,7 +45,8 @@ describe('page /l', () => {
 
 describe('API /api/el — configuration, jeton, frontière', () => {
   it('sans identité technique configurée : 503 el_inactif (et en-têtes posés)', async () => {
-    const r = await post('/api/el/ouvrir', {}, {}, env);
+    const sansIdentite = { ...env }; delete sansIdentite.EL_RELAIS_EMAIL; delete sansIdentite.EL_RELAIS_MOT_DE_PASSE;   // indépendant d'un .dev.vars local
+    const r = await post('/api/el/ouvrir', {}, {}, sansIdentite);
     expect(r.status).toBe(503);
     expect((await r.json()).erreur).toBe('el_inactif');
     expect(r.headers.get('Cache-Control')).toBe('no-store');
@@ -108,9 +109,15 @@ describe('fichiers', () => {
     const r = await app.request('/api/el/depot', { method: 'POST', headers: { 'X-El-Jeton': JETON, 'Content-Length': String(11 * 1024 * 1024) }, body: JPG }, E);
     expect(r.status).toBe(413);
   });
-  it('dépôt JPEG : ticket el_depot puis écriture sans écrasement au chemin imposé', async () => {
+  it('dépôt : jeton mal formé → 410 sans lire le corps ni appeler la base', async () => {
+    const r = await app.request('/api/el/depot', { method: 'POST', headers: { 'X-El-Jeton': 'court' }, body: JPG }, E);
+    expect(r.status).toBe(410);
+    expect(appels.length).toBe(0);
+  });
+  it('dépôt JPEG : ticket el_depot puis écriture sans écrasement au chemin imposé, empreinte relevée (el_depot_fin)', async () => {
     monterIdentite();
     rpcRepond('el_depot', { path: PATH });
+    rpcRepond('el_depot_fin', true);
     let stockage = null;
     fetchMock.get(ORIGIN).intercept({ path: '/storage/v1/object/espace-files/' + PATH, method: 'POST' })
       .reply((o) => { stockage = o.headers; return { statusCode: 200, data: '{}' }; });
@@ -121,6 +128,18 @@ describe('fichiers', () => {
     expect(appels[0].corps.p_ext).toBe('jpg');
     expect(stockage['x-upsert']).toBe('false');
     expect(stockage['content-type']).toBe('image/jpeg');
+    const fin = appels.find((a) => a.fn === 'el_depot_fin');
+    expect(fin.corps).toMatchObject({ p_path: PATH, p_taille: JPG.length });
+    expect(fin.corps.p_sha256).toBe(await (async () => [...new Uint8Array(await crypto.subtle.digest('SHA-256', JPG))].map((b) => b.toString(16).padStart(2, '0')).join(''))());
+  });
+  it('dépôt : nom mal encodé → aucun plantage', async () => {
+    monterIdentite();
+    rpcRepond('el_depot', { path: PATH });
+    rpcRepond('el_depot_fin', true);
+    fetchMock.get(ORIGIN).intercept({ path: '/storage/v1/object/espace-files/' + PATH, method: 'POST' }).reply(200, '{}');
+    const r = await app.request('/api/el/depot', { method: 'POST', headers: { 'X-El-Jeton': JETON, 'X-El-Nom': '%E9%' }, body: JPG }, E);
+    expect(r.status).toBe(200);
+    expect((await r.json()).nom).toBe('document');
   });
   it('ouvrir : la base autorise le chemin, le relais renvoie le fichier en pièce jointe, sans cache', async () => {
     monterIdentite();
@@ -134,6 +153,12 @@ describe('fichiers', () => {
     expect(r.headers.get('Cache-Control')).toBe('no-store');
     expect(r.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(await r.text()).toBe('%PDF-1.7 test');
+  });
+  it('ouvrir : fichier absent pour un accès valide → 404 (la page ne se ferme pas)', async () => {
+    monterIdentite();
+    rpcRepond('el_fichier', { absent: true });
+    const r = await post('/api/el/fichier', { source: 'document', id: '11111111-2222-4333-8444-555555555555' });
+    expect(r.status).toBe(404);
   });
   it('ouvrir : source ou identifiant invalide → 400 sans appel', async () => {
     expect((await post('/api/el/fichier', { source: 'baux', id: 'x' })).status).toBe(400);
@@ -182,24 +207,53 @@ describe('écritures du locataire', () => {
 });
 
 describe('e-mails à la demande du propriétaire (/el/notifier)', () => {
+  const contact = (corps, statut = 200) => fetchMock.get(ORIGIN).intercept({ path: '/rest/v1/rpc/el_acces_contact', method: 'POST' })
+    .reply((o) => { appels.push({ fn: 'el_acces_contact', corps: JSON.parse(o.body), headers: o.headers }); return { statusCode: statut, data: JSON.stringify(corps), responseOptions: { headers: { 'content-type': 'application/json' } } }; });
+  const notifier = async (body) => app.request('/el/notifier', { method: 'POST', headers: { ...(await appAuth()), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, E);
   it('401 sans connexion', async () => {
     const r = await app.request('/el/notifier', { method: 'POST', body: '{}' }, E);
     expect(r.status).toBe(401);
   });
-  it('403 si le propriétaire ne voit pas l\'accès (RLS par SCI)', async () => {
-    fetchMock.get(ORIGIN).intercept({ path: /\/rest\/v1\/locataire_acces\?/, method: 'GET' }).reply(200, '[]', { headers: { 'content-type': 'application/json' } });
-    const r = await app.request('/el/notifier', { method: 'POST', headers: { ...(await appAuth()), 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'document', to: 'loc@example.test', acces_id: '11111111-2222-4333-8444-555555555555' }) }, E);
+  it('403 si la base refuse (pas le droit d\'écriture sur la SCI de l\'accès)', async () => {
+    contact({ code: '42501', message: 'el:interdit' }, 403);
+    const r = await notifier({ type: 'document', acces_id: '11111111-2222-4333-8444-555555555555' });
     expect(r.status).toBe(403);
   });
-  it('mode dev : rien ne part, réponse honnête', async () => {
-    fetchMock.get(ORIGIN).intercept({ path: /\/rest\/v1\/locataire_acces\?/, method: 'GET' }).reply(200, '[{"id":"11111111-2222-4333-8444-555555555555"}]', { headers: { 'content-type': 'application/json' } });
-    const r = await app.request('/el/notifier', { method: 'POST', headers: { ...(await appAuth()), 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'document', to: 'loc@example.test', acces_id: '11111111-2222-4333-8444-555555555555', titre: 'Quittance' }) }, E);
+  it('destinataire et bailleur lus EN BASE avec le jeton du propriétaire ; « to » et « bailleur » du client ignorés ; mode dev : rien ne part', async () => {
+    contact({ email: 'loc@example.test', bailleur: 'SCI Dupont' });
+    let envoye = null;
+    const sender = { sendModele: async (m) => { envoye = m; return { sent: false, dev: true }; } };
+    const { Hono } = await import('hono');
+    const { registerEspaceLocataireProprietaire } = await import('../src/espace-locataire.js');
+    const mini = new Hono();
+    registerEspaceLocataireProprietaire(mini, { requireSupabaseUser: async () => ({ userId: 'u' }), sender });
+    const r = await mini.request('/el/notifier', { method: 'POST', headers: { Authorization: 'Bearer jwt-proprio', 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'document', acces_id: '11111111-2222-4333-8444-555555555555', to: 'pirate@evil.test', bailleur: 'Banque X', titre: 'Quittance\nde septembre' }) }, E);
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ envoye: false, mode: 'dev' });
+    expect(envoye.to).toBe('loc@example.test');
+    expect(envoye.texte).toMatch(/SCI Dupont/); expect(envoye.texte).not.toMatch(/Banque X/);
+    expect(envoye.texte).toMatch(/Quittance de septembre/);
+    expect(appels.find((a) => a.fn === 'el_acces_contact').headers.authorization).toBe('Bearer jwt-proprio');
   });
-  it('invitation : lien exigé au bon format', async () => {
-    const r = await app.request('/el/notifier', { method: 'POST', headers: { ...(await appAuth()), 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'invitation', to: 'loc@example.test', acces_id: '11111111-2222-4333-8444-555555555555', lien: 'https://evil.example/autre' }) }, E);
-    expect([400, 403]).toContain(r.status);
+  it('invitation : le lien est reconstruit sur l\'origine du relais à partir du seul jeton', async () => {
+    contact({ email: 'loc@example.test', bailleur: 'SCI Dupont' });
+    let envoye = null;
+    const sender = { sendModele: async (m) => { envoye = m; return { sent: false, dev: true }; } };
+    const { Hono } = await import('hono');
+    const { registerEspaceLocataireProprietaire } = await import('../src/espace-locataire.js');
+    const mini = new Hono();
+    registerEspaceLocataireProprietaire(mini, { requireSupabaseUser: async () => ({ userId: 'u' }), sender });
+    const bad = await mini.request('https://relais.example/el/notifier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'invitation', acces_id: '11111111-2222-4333-8444-555555555555', lien: 'https://evil.example/l#' + 'A'.repeat(43) }) }, E);
+    expect(bad.status).toBe(400);
+    const ok = await mini.request('https://relais.example/el/notifier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'invitation', acces_id: '11111111-2222-4333-8444-555555555555', jeton: 'B'.repeat(43), lien: 'https://evil.example/x' }) }, E);
+    expect(ok.status).toBe(200);
+    expect(envoye.texte).toMatch(/https:\/\/relais\.example\/l#B{43}/);
+    expect(envoye.texte).not.toMatch(/evil/);
+  });
+  it('accès sans e-mail connu : 409', async () => {
+    contact({ email: null, bailleur: 'SCI Dupont' });
+    const r = await notifier({ type: 'message', acces_id: '11111111-2222-4333-8444-555555555555' });
+    expect(r.status).toBe(409);
   });
 });
 void EMPREINTE;

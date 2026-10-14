@@ -104,7 +104,16 @@ create table public.locataire_acces (
   constraint locataire_acces_entite_fk   foreign key (entite_id, espace_id)   references public.entites (id, espace_id)
 );
 -- Un seul accès par (location, rang de colocataire) : renouveler = remplacer l'empreinte sur la MÊME ligne (D3).
-create unique index locataire_acces_un_par_locataire on public.locataire_acces (bail_id, coalesce(bail_debut, '0001-01-01'::date), locataire_rang);
+-- Identité d'un colocataire = son NOM normalisé (le rang dans bail.locataires bouge quand un colocataire part) ;
+-- locataire_rang n'est que le rang au moment de l'émission (information).
+create or replace function public._el_cle_nom(p_nom text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$ select lower(regexp_replace(btrim(coalesce(p_nom, '')), '\s+', ' ', 'g')); $$;
+revoke all on function public._el_cle_nom(text) from public, anon, authenticated;
+create unique index locataire_acces_un_par_locataire on public.locataire_acces (bail_id, coalesce(bail_debut, '0001-01-01'::date), public._el_cle_nom(locataire_nom));
 create index locataire_acces_by_espace_logement on public.locataire_acces (espace_id, logement_id);
 
 create table public.locataire_acces_jeton (
@@ -195,6 +204,8 @@ create table public.locataire_ouvertures (
   storage_path  text not null,
   mode          text not null check (mode in ('lecture', 'depot')),
   jusqu_au      timestamptz not null,
+  sha256        text check (sha256 is null or sha256 ~ '^[0-9a-f]{64}$'),   -- dépôt : relevée par le relais (el_depot_fin)
+  taille        bigint check (taille is null or taille between 1 and 10485760),
   cree_le       timestamptz not null default now()
 );
 create index locataire_ouvertures_by_path on public.locataire_ouvertures (storage_path, mode, jusqu_au);
@@ -225,7 +236,7 @@ begin
   select b.logement_id, coalesce(b.entite_id, l.entite_id) into v_log, v_ent
   from public.baux b join public.logements l on l.id = b.logement_id and l.espace_id = b.espace_id
   where b.id = new.bail_id and b.espace_id = new.espace_id;
-  if v_log is null then raise exception 'el:bail-introuvable' using errcode = '23503'; end if;
+  if v_log is null then raise exception 'el:interdit' using errcode = '42501'; end if;
   new.logement_id := v_log;
   new.entite_id := v_ent;
   if new.parent_id is not null and not exists (
@@ -256,7 +267,7 @@ as $$
          ), true)
   from jsonb_array_elements(coalesce(p_pieces, '[]'::jsonb)) x;
 $$;
-revoke all on function public._el_pieces_valides(jsonb, text) from public, anon;
+revoke all on function public._el_pieces_valides(jsonb, text) from public, anon, authenticated;
 
 create or replace function public._el_prefixe(a public.locataire_acces)
 returns text
@@ -266,7 +277,7 @@ set search_path = ''
 as $$
   select a.espace_id::text || '/' || coalesce(a.entite_id::text, '_orphelin') || '/files/el-' || a.id::text || '-';
 $$;
-revoke all on function public._el_prefixe(public.locataire_acces) from public, anon;
+revoke all on function public._el_prefixe(public.locataire_acces) from public, anon, authenticated;
 
 create or replace function public._el_fil_coherence()
 returns trigger
@@ -284,7 +295,7 @@ begin
     return new;
   end if;
   select * into a from public.locataire_acces where id = new.acces_id;
-  if not found then raise exception 'el:acces-introuvable' using errcode = '23503'; end if;
+  if not found then raise exception 'el:interdit' using errcode = '42501'; end if;
   new.espace_id := a.espace_id; new.entite_id := a.entite_id; new.logement_id := a.logement_id;
   new.bail_id := a.bail_id; new.bail_debut := a.bail_debut;
   if tg_table_name = 'locataire_messages' then
@@ -394,21 +405,21 @@ begin
   select x.id, x.espace_id, x.logement_id, x.date_debut, x.entite_id, l.entite_id as log_ent into b
   from public.baux x join public.logements l on l.id = x.logement_id and l.espace_id = x.espace_id
   where x.id = p_bail_id and x.deleted_at is null and x.archived = false;
-  if not found then raise exception 'el:bail-introuvable' using errcode = '42501'; end if;
+  if not found then raise exception 'el:interdit' using errcode = '42501'; end if;
   v_ent := coalesce(b.entite_id, b.log_ent);
   if not public.has_entite_write_all(b.espace_id, v_ent, b.logement_id, null) then
     raise exception 'el:interdit' using errcode = '42501';
   end if;
   v_h := decode(p_jeton_sha256, 'hex');
   select a.id into v_id from public.locataire_acces a
-   where a.bail_id = b.id and a.bail_debut is not distinct from b.date_debut and a.locataire_rang = p_rang;
+   where a.bail_id = b.id and a.bail_debut is not distinct from b.date_debut and public._el_cle_nom(a.locataire_nom) = public._el_cle_nom(p_nom);
   if v_id is null then
     insert into public.locataire_acces (espace_id, entite_id, logement_id, bail_id, bail_debut, locataire_rang, locataire_nom)
     values (b.espace_id, v_ent, b.logement_id, b.id, b.date_debut, p_rang, btrim(p_nom))
     returning id into v_id;
   else
     update public.locataire_acces
-       set locataire_nom = btrim(p_nom), emis_le = now(), emis_par = (select auth.uid()),
+       set locataire_nom = btrim(p_nom), locataire_rang = p_rang, emis_le = now(), emis_par = (select auth.uid()),
            revoque_le = null, revoque_par = null, entite_id = v_ent
      where id = v_id;
     delete from public.locataire_acces_jeton where acces_id = v_id;
@@ -461,12 +472,52 @@ begin
 end;
 $$;
 
+-- Destinataire et signataire d'un e-mail envoyé par le relais à la demande d'un membre EN ÉCRITURE : jamais fournis par
+-- le client (pas de relais d'e-mails ouvert). Accès révoqué ou période terminée → NULL.
+create or replace function public.el_acces_contact(p_acces_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare a public.locataire_acces%rowtype; v_mail text; v_nom text;
+begin
+  select * into a from public.locataire_acces where id = p_acces_id;
+  if not found or not public.has_entite_write_all(a.espace_id, a.entite_id, a.logement_id, null) then
+    raise exception 'el:interdit' using errcode = '42501';
+  end if;
+  if a.revoque_le is not null or public._el_phase(a.fin_bail, a.comptes_clos_le, current_date) = 'fini' then return null; end if;
+  v_mail := lower(btrim(coalesce(public._el_email_du_locataire(a), '')));
+  if v_mail !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(v_mail) > 254 then v_mail := null; end if;
+  select e.nom into v_nom from public.entites e where e.id = a.entite_id and e.espace_id = a.espace_id;
+  return jsonb_build_object('email', v_mail, 'bailleur', coalesce(v_nom, ''));
+end;
+$$;
+
+-- Le membre connecté peut-il publier pour ce bail ? (évite de générer des PDF qu'il ne pourrait pas enregistrer)
+create or replace function public.el_peut_publier(p_bail_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select public.has_entite_write_all(b.espace_id, coalesce(b.entite_id, l.entite_id), b.logement_id, null)
+                   from public.baux b join public.logements l on l.id = b.logement_id and l.espace_id = b.espace_id
+                   where b.id = p_bail_id), false);
+$$;
+
 revoke all on function public.el_acces_emettre(uuid, int, text, text) from public, anon;
 revoke all on function public.el_acces_revoquer(uuid) from public, anon;
 grant execute on function public.el_acces_emettre(uuid, int, text, text) to authenticated;
 grant execute on function public.el_acces_revoquer(uuid) to authenticated;
 revoke all on function public.el_acces_renouveler(uuid, text) from public, anon;
 grant execute on function public.el_acces_renouveler(uuid, text) to authenticated;
+revoke all on function public.el_acces_contact(uuid) from public, anon;
+grant execute on function public.el_acces_contact(uuid) to authenticated;
+revoke all on function public.el_peut_publier(uuid) from public, anon;
+grant execute on function public.el_peut_publier(uuid) to authenticated;
 
 -- ═══════════════════════════════════════════ 6. Fonctions côté locataire (identité du relais SEULEMENT) ══════════════
 -- Résolution UNIQUE d'un accès. NULL = « lien inactif ». Trace les jetons invalides par IP (limite 20 / heure).
@@ -477,39 +528,38 @@ security definer
 set search_path = ''
 as $$
 declare
-  a public.locataire_acces%rowtype; v_h bytea; v_ph text; v_ip text;
+  a public.locataire_acces%rowtype; v_h bytea; v_ip text; v_ok boolean;
   b record;
 begin
   if not public._el_relais_ok() then raise exception 'el:interdit' using errcode = '42501'; end if;
   v_ip := case when p_ip_hash ~ '^[0-9a-f]{16,64}$' then p_ip_hash else null end;
-  if v_ip is not null and (select count(*) from public.locataire_tentatives t
-                           where t.ip_hash = v_ip and t.at > now() - interval '1 hour') >= 20 then
-    raise exception 'el:limite' using errcode = 'P0001';
-  end if;
-  if p_jeton_sha256 is null or p_jeton_sha256 !~ '^[0-9a-f]{64}$' then
-    if v_ip is not null then insert into public.locataire_tentatives (ip_hash) values (v_ip); end if;
-    return null;
-  end if;
-  v_h := decode(p_jeton_sha256, 'hex');
-  select x.* into a from public.locataire_acces x
-    join public.locataire_acces_jeton j on j.acces_id = x.id
-   where j.jeton_sha256 = v_h and x.revoque_le is null;
-  if not found then
-    if v_ip is not null then
-      insert into public.locataire_tentatives (ip_hash) values (v_ip);
-      delete from public.locataire_tentatives where at < now() - interval '1 day';
+  if p_jeton_sha256 ~ '^[0-9a-f]{64}$' then
+    v_h := decode(p_jeton_sha256, 'hex');
+    select x.* into a from public.locataire_acces x
+      join public.locataire_acces_jeton j on j.acces_id = x.id
+     where j.jeton_sha256 = v_h and x.revoque_le is null;
+    if found then
+      v_ok := true;
+      -- Ligne de bail réutilisée par une AUTRE location (bail non signé remplacé) ou supprimée, sans fin posée par
+      -- l'app : prudence → inactif (l'app pose fin_bail à la fin d'occupation, ce qui ouvre la phase « départ »).
+      if a.fin_bail is null then
+        select x.date_debut, x.deleted_at into b from public.baux x where x.id = a.bail_id;
+        if not found or b.deleted_at is not null or b.date_debut is distinct from a.bail_debut then v_ok := false; end if;
+      end if;
+      if v_ok and public._el_phase(a.fin_bail, a.comptes_clos_le, current_date) = 'fini' then v_ok := false; end if;
+      if v_ok then return a; end if;
     end if;
-    return null;
   end if;
-  -- Ligne de bail réutilisée par une AUTRE location (bail non signé remplacé) ou supprimée, sans fin posée par
-  -- l'app : prudence → inactif (l'app pose fin_bail à la fin d'occupation, ce qui ouvre la phase « départ »).
-  if a.fin_bail is null then
-    select x.date_debut, x.deleted_at into b from public.baux x where x.id = a.bail_id;
-    if not found or b.deleted_at is not null or b.date_debut is distinct from a.bail_debut then return null; end if;
+  -- Échec (jeton mal formé, inconnu, révoqué, expiré) : même réponse, compté par IP. Un jeton valide n'est jamais
+  -- bloqué par les essais de ses voisins de réseau.
+  if v_ip is not null then
+    if (select count(*) from public.locataire_tentatives t where t.ip_hash = v_ip and t.at > now() - interval '1 hour') >= 20 then
+      raise exception 'el:limite' using errcode = 'P0001';
+    end if;
+    insert into public.locataire_tentatives (ip_hash) values (v_ip);
+    delete from public.locataire_tentatives where at < now() - interval '1 day';
   end if;
-  v_ph := public._el_phase(a.fin_bail, a.comptes_clos_le, current_date);
-  if v_ph = 'fini' then return null; end if;
-  return a;
+  return null;
 end;
 $$;
 revoke all on function public._el_acces(text, text) from public, anon, authenticated;
@@ -550,7 +600,8 @@ begin
                      where d.bail_id = a.bail_id and d.bail_debut is not distinct from a.bail_debut and d.retire_le is null
                        and (d.visible_jusqu_au is null or d.visible_jusqu_au > now())),
       'signalements_ouverts', (select count(*) from public.locataire_signalements s
-                     left join public.incidents i on i.espace_id = s.espace_id and i.legacy_id = s.incident_legacy_id and i.deleted_at is null
+                     left join lateral (select x.statut from public.incidents x where x.espace_id = s.espace_id and x.logement_id = s.logement_id
+                                         and x.legacy_id = s.incident_legacy_id and x.deleted_at is null limit 1) i on true
                      where s.acces_id = a.id and coalesce(i.statut, 'signale') <> 'resolu'),
       'messages_non_lus', (select count(*) from public.locataire_messages m
                      where m.acces_id = a.id and m.auteur = 'bailleur' and m.lu_locataire_le is null))
@@ -600,13 +651,15 @@ begin
      where d.id = p_id and d.bail_id = a.bail_id and d.bail_debut is not distinct from a.bail_debut and d.retire_le is null
        and (d.visible_jusqu_au is null or d.visible_jusqu_au > now());
   elsif p_source = 'message' then
-    select m.pieces -> coalesce(p_index, -1) into x from public.locataire_messages m where m.id = p_id and m.acces_id = a.id;
+    if p_index is null or public._el_phase(a.fin_bail, a.comptes_clos_le, current_date) = 'documents' then return jsonb_build_object('absent', true); end if;
+    select m.pieces -> p_index into x from public.locataire_messages m where m.id = p_id and m.acces_id = a.id;
     v_path := x->>'path'; v_nom := x->>'nom'; v_mime := x->>'mime';
   elsif p_source = 'signalement' then
-    select s.photos -> coalesce(p_index, -1) into x from public.locataire_signalements s where s.id = p_id and s.acces_id = a.id;
+    if p_index is null or public._el_phase(a.fin_bail, a.comptes_clos_le, current_date) = 'documents' then return jsonb_build_object('absent', true); end if;
+    select s.photos -> p_index into x from public.locataire_signalements s where s.id = p_id and s.acces_id = a.id;
     v_path := x->>'path'; v_nom := x->>'nom'; v_mime := x->>'mime';
   end if;
-  if v_path is null then return null; end if;
+  if v_path is null then return jsonb_build_object('absent', true); end if;
   insert into public.locataire_ouvertures (acces_id, storage_path, mode, jusqu_au) values (a.id, v_path, 'lecture', now() + interval '60 seconds');
   delete from public.locataire_ouvertures where jusqu_au < now() - interval '1 day';
   return jsonb_build_object('path', v_path, 'nom', coalesce(v_nom, 'document'),
@@ -637,6 +690,49 @@ begin
   return jsonb_build_object('path', v_path);
 end;
 $$;
+
+-- Fin de dépôt : le relais enregistre l'empreinte SHA-256 et la taille du fichier qu'il vient d'écrire.
+create or replace function public.el_depot_fin(p_jeton_sha256 text, p_ip_hash text, p_path text, p_sha256 text, p_taille bigint)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare a public.locataire_acces%rowtype;
+begin
+  a := public._el_acces(p_jeton_sha256, p_ip_hash);
+  if a.id is null then return null; end if;
+  update public.locataire_ouvertures set sha256 = p_sha256, taille = p_taille
+   where acces_id = a.id and storage_path = p_path and mode = 'depot' and sha256 is null and cree_le > now() - interval '1 hour';
+  return found;
+end;
+$$;
+
+-- Pièces / photos telles que la BASE les enregistre : chemin déposé sous ticket par CET accès (24 h), type déduit de
+-- l'extension imposée, empreinte et taille relevées par le relais ; seul le nom vient du client (120 caractères au plus).
+create or replace function public._el_pieces_serveur(p_acces uuid, p_pieces jsonb)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare x jsonb; o record; out jsonb := '[]'::jsonb;
+begin
+  for x in select * from jsonb_array_elements(coalesce(p_pieces, '[]'::jsonb)) loop
+    select oo.storage_path, oo.sha256, oo.taille into o from public.locataire_ouvertures oo
+     where oo.acces_id = p_acces and oo.storage_path = x->>'path' and oo.mode = 'depot' and oo.cree_le > now() - interval '24 hours'
+     order by oo.cree_le desc limit 1;
+    if not found then raise exception 'el:piece-invalide' using errcode = '23514'; end if;
+    out := out || jsonb_build_array(jsonb_build_object(
+      'path', o.storage_path, 'nom', left(coalesce(x->>'nom', 'piece'), 120),
+      'mime', case when o.storage_path like '%.pdf' then 'application/pdf' when o.storage_path like '%.png' then 'image/png' else 'image/jpeg' end,
+      'sha256', o.sha256, 'taille', o.taille));
+  end loop;
+  return out;
+end;
+$$;
+revoke all on function public._el_pieces_serveur(uuid, jsonb) from public, anon, authenticated;
 
 -- Un fichier déposé sous ticket par CET accès (dans les 24 h).
 create or replace function public._el_depose_par(p_acces uuid, p_path text)
@@ -695,11 +791,8 @@ begin
   if (select count(*) from public.locataire_signalements s where s.acces_id = a.id and s.cree_le > now() - interval '24 hours') >= 10 then
     raise exception 'el:limite' using errcode = 'P0001';
   end if;
-  for x in select * from jsonb_array_elements(coalesce(p_photos, '[]'::jsonb)) loop
-    if not public._el_depose_par(a.id, x->>'path') then raise exception 'el:photo-invalide' using errcode = '23514'; end if;
-  end loop;
   insert into public.locataire_signalements (acces_id, piece, element, urgence, description, photos)
-  values (a.id, p_piece, p_element, p_urgence, btrim(p_description), coalesce(p_photos, '[]'::jsonb))
+  values (a.id, p_piece, p_element, p_urgence, btrim(p_description), public._el_pieces_serveur(a.id, p_photos))
   returning id into v_id;
   return v_id;
 end;
@@ -717,6 +810,7 @@ declare a public.locataire_acces%rowtype;
 begin
   a := public._el_acces(p_jeton_sha256, p_ip_hash);
   if a.id is null then return null; end if;
+  if public._el_phase(a.fin_bail, a.comptes_clos_le, current_date) = 'documents' then return '[]'::jsonb; end if;
   return coalesce((
     select jsonb_agg(jsonb_build_object(
              'id', s.id, 'cree_le', s.cree_le, 'piece', s.piece, 'element', s.element, 'urgence', s.urgence,
@@ -728,7 +822,8 @@ begin
                'resolu',   i.legacy_raw->'statutDates'->>'resolu'))
            order by s.cree_le desc)
     from public.locataire_signalements s
-    left join public.incidents i on i.espace_id = s.espace_id and i.legacy_id = s.incident_legacy_id and i.deleted_at is null
+    left join lateral (select x.statut, x.legacy_raw from public.incidents x where x.espace_id = s.espace_id and x.logement_id = s.logement_id
+                        and x.legacy_id = s.incident_legacy_id and x.deleted_at is null limit 1) i on true
     where s.acces_id = a.id), '[]'::jsonb);
 end;
 $$;
@@ -743,6 +838,7 @@ declare a public.locataire_acces%rowtype; r jsonb;
 begin
   a := public._el_acces(p_jeton_sha256, p_ip_hash);
   if a.id is null then return null; end if;
+  if public._el_phase(a.fin_bail, a.comptes_clos_le, current_date) = 'documents' then return '[]'::jsonb; end if;
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', m.id, 'auteur', m.auteur, 'corps', m.corps, 'cree_le', m.cree_le, 'signalement_id', m.signalement_id,
            'lu', case when m.auteur = 'locataire' then m.lu_bailleur_le is not null else m.lu_locataire_le is not null end,
@@ -773,15 +869,30 @@ begin
         and m.cree_le > now() - interval '24 hours') >= 50 then
     raise exception 'el:limite' using errcode = 'P0001';
   end if;
-  for x in select * from jsonb_array_elements(coalesce(p_pieces, '[]'::jsonb)) loop
-    if not public._el_depose_par(a.id, x->>'path') then raise exception 'el:piece-invalide' using errcode = '23514'; end if;
-  end loop;
   insert into public.locataire_messages (acces_id, auteur, auteur_uid, corps, pieces, signalement_id)
-  values (a.id, 'locataire', null, btrim(p_corps), coalesce(p_pieces, '[]'::jsonb), p_signalement_id)
+  values (a.id, 'locataire', null, btrim(p_corps), public._el_pieces_serveur(a.id, p_pieces), p_signalement_id)
   returning id into v_id;
   return v_id;
 end;
 $$;
+
+-- E-mail d'un colocataire, cherché par son NOM dans le bail de la location (repli : bail mono-locataire ancien).
+create or replace function public._el_email_du_locataire(a public.locataire_acces)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    (select e->>'email' from public.baux b, jsonb_array_elements(case when jsonb_typeof(b.locataires) = 'array' then b.locataires else '[]'::jsonb end) e
+      where b.id = a.bail_id and b.date_debut is not distinct from a.bail_debut
+        and public._el_cle_nom(e->>'nom') = public._el_cle_nom(a.locataire_nom) limit 1),
+    (select b.legacy_raw->>'email' from public.baux b
+      where b.id = a.bail_id and b.date_debut is not distinct from a.bail_debut
+        and jsonb_array_length(case when jsonb_typeof(b.locataires) = 'array' then b.locataires else '[]'::jsonb end) = 0));
+$$;
+revoke all on function public._el_email_du_locataire(public.locataire_acces) from public, anon, authenticated;
 
 -- Adresse e-mail du locataire de CET accès (code à usage unique pour l'accord, D10 — seulement quand l'envoi d'e-mails
 -- sera actif). Lue dans le bail de la location ; jamais renvoyée au navigateur par le relais (il n'en montre qu'un masque).
@@ -795,9 +906,7 @@ declare a public.locataire_acces%rowtype; v_mail text;
 begin
   a := public._el_acces(p_jeton_sha256, p_ip_hash);
   if a.id is null then return null; end if;
-  select coalesce(b.locataires -> a.locataire_rang ->> 'email',
-                  case when a.locataire_rang = 0 then b.legacy_raw ->> 'email' end) into v_mail
-  from public.baux b where b.id = a.bail_id and b.date_debut is not distinct from a.bail_debut;
+  v_mail := public._el_email_du_locataire(a);
   v_mail := lower(btrim(coalesce(v_mail, '')));
   if v_mail !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(v_mail) > 254 then return jsonb_build_object('email', null); end if;
   return jsonb_build_object('email', v_mail);
@@ -808,7 +917,7 @@ do $g$
 declare f text;
 begin
   foreach f in array array[
-    'el_contact(text, text)', 'el_ouvrir(text, text)', 'el_documents(text, text)', 'el_fichier(text, text, text, uuid, int)', 'el_depot(text, text, text)',
+    'el_contact(text, text)', 'el_depot_fin(text, text, text, text, bigint)', 'el_ouvrir(text, text)', 'el_documents(text, text)', 'el_fichier(text, text, text, uuid, int)', 'el_depot(text, text, text)',
     'el_accord(text, text, boolean, text, boolean)', 'el_signaler(text, text, text, text, text, text, jsonb)',
     'el_signalements(text, text)', 'el_messages(text, text)', 'el_message_envoyer(text, text, text, jsonb, uuid)'] loop
     execute format('revoke all on function public.%s from public, anon', f);

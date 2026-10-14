@@ -15045,7 +15045,7 @@ function _incSaisieHtml(inc) {
       <input class="inp" id="inc-par-nom" placeholder="Nom (facultatif)" value="${escHtml(inc ? (inc.signaleParNom || '') : locNom)}" style="margin-top:6px"></div>
     <div class="inc-f"><label class="inc-lb" for="inc-dt">Le</label>
       <input class="inp" id="inc-dt" type="datetime-local" value="${dtLocal}">
-      <select class="inp" id="inc-canal" style="margin-top:6px">${IN.CANAUX.map(s => `<option value="${s.k}"${d.canal === s.k ? ' selected' : ''}>${escHtml(s.lbl)}</option>`).join('')}</select></div>
+      <select class="inp" id="inc-canal" style="margin-top:6px">${IN.CANAUX.filter(s => s.k !== 'espace' || d.canal === 'espace').map(s => `<option value="${s.k}"${d.canal === s.k ? ' selected' : ''}>${escHtml(s.lbl)}</option>`).join('')}</select></div>
   </div>
   <div class="inc-f"><span class="inc-lb">Contexte <span class="inc-opt">— lu sur le bail et l'immeuble, modifiable</span></span>
     <div class="inc-g2">
@@ -18647,7 +18647,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
         <div class="logf-value" style="font-style:italic;font-weight:400;text-align:left;white-space:pre-wrap">${escHtml(log.notes)}</div>
       </div>` : '';
   // ESPACE LOCATAIRE (0059) : bloc rendu par js/app/espace-locataire-app.js (mode cloud seulement ; vide sinon).
-  const elBloc = (bail && typeof window._elBlocHtml === 'function') ? window._elBlocHtml(log, bail, ref) : '';
+  const elBloc = (typeof window._elBlocHtml === 'function') ? window._elBlocHtml(log, bail || null, ref) : '';   // aussi sans bail : anciens locataires encore en accès
   return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${elBloc}${bail?_renderAvenantsBail(ref):''}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}${notesSection}</div>`;
 }
 

@@ -36,7 +36,9 @@ export async function empreinteJeton(jeton) {
 /** Lien du locataire : le jeton dans le FRAGMENT (#), jamais envoyé au serveur dans l'URL (D2). */
 export function lienEspace(base, jeton) {
   const b = String(base || '').trim().replace(/\/+$/, '')
-  if (!/^https?:\/\/[^\s/#?]+/i.test(b) || !JETON_RE.test(String(jeton || ''))) return null
+  // https obligatoire (le lien est un secret durable) ; http seulement pour un relais local de développement.
+  const ok = /^https:\/\/[^\s/#?]+$/i.test(b) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/i.test(b)
+  if (!ok || !JETON_RE.test(String(jeton || ''))) return null
   return b + '/l#' + jeton
 }
 
@@ -205,7 +207,7 @@ export function champsIncident(sig, ctx) {
   return {
     id: Number(idIncidentDuSignalement(sig.id)),
     logRef: c.logRef || '',
-    imm: c.imm || '',
+    imm: sig.piece === 'parties_communes' ? (c.imm || '') : '',
     entity: c.entity || '',
     creeLe: sig.cree_le,
     signalePar: 'locataire',
@@ -244,6 +246,43 @@ export function dansLaLocation(date, debut, fin) {
   return true
 }
 
+// Identité d'un colocataire : son NOM normalisé (même règle que public._el_cle_nom en base).
+export const cleNom = (s) => String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase()
+
+/**
+ * Une quittance appartient-elle à CETTE location ? Le registre n'a qu'une quittance par (logement, mois) et ne porte pas
+ * de lien vers le bail : le mois de passage d'un locataire à l'autre est commun aux deux locations. On exige donc
+ * l'IDENTITÉ (au moins un nom de la quittance parmi les colocataires de la location) ET le mois dans la location.
+ * loc : { debut, fin, noms:[…] }.
+ */
+export function quittanceDeLaLocation(q, loc) {
+  const mk = moisCle(q && q.mois); if (!mk || !loc) return false
+  const debutMois = mk + '-01', finMois = plusMois(debutMois, 1)
+  if (dIso(loc.fin) && debutMois > String(loc.fin).slice(0, 10)) return false
+  if (dIso(loc.debut) && finMois <= String(loc.debut).slice(0, 10)) return false
+  const noms = new Set((loc.noms || []).map(cleNom).filter(Boolean))
+  const deLaQuittance = String((q && q.locataire) || '').split(/\s*,\s*/).map(cleNom).filter(Boolean)
+  return deLaQuittance.some((n) => noms.has(n))
+}
+
+/**
+ * Un état des lieux appartient-il à CETTE location ? Identité exigée (un nom de colocataire dans le champ « locataire »
+ * de l'EDL) ; entrée datée au plus 30 jours avant le début et pas après la fin ; sortie entre le début et la fin + 60 jours.
+ * Le jour d'un passage de relais (sortie le matin, entrée l'après-midi) ne mélange donc jamais deux locations.
+ */
+export function edlDeLaLocation(edl, loc) {
+  if (!edl || !loc) return false
+  const d = String(edl.date || '').slice(0, 10); if (!dIso(d)) return false
+  const texte = cleNom(edl.locataire)
+  const noms = (loc.noms || []).map(cleNom).filter(Boolean)
+  if (!texte || !noms.some((n) => texte.includes(n))) return false
+  const debut = dIso(loc.debut) ? String(loc.debut).slice(0, 10) : null
+  const fin = dIso(loc.fin) ? String(loc.fin).slice(0, 10) : null
+  const decale = (iso, j) => { const x = dIso(iso); x.setUTCDate(x.getUTCDate() + j); return iso && x.toISOString().slice(0, 10) }
+  if (/sortie/i.test(String(edl.type || ''))) return (!debut || d >= debut) && (!fin || d <= decale(fin, 60))
+  return (!debut || d >= decale(debut, -30)) && (!fin || d <= fin)
+}
+
 /** Fenêtre légale des justificatifs : envoi du décompte + 6 mois (art. 23). */
 export const visibleJusquauJustificatifs = (envoiIso) => { const f = plusMois(envoiIso, 6); return f ? f + 'T23:59:59Z' : null }
 
@@ -252,6 +291,16 @@ export const visibleJusquauJustificatifs = (envoiIso) => { const f = plusMois(en
  * publiées. Renvoie { creer:[], maj:[] } — jamais de suppression (retrait = geste du propriétaire, D6).
  * `souhaites` : [{ cle, type_doc, titre, periode?, date_doc?, storage_path, sha256?, taille?, parentCle?, visible_jusqu_au? }]
  */
+// Comparaison tolérante aux formats renvoyés par la base (« …T23:59:59Z » envoyé, « …T23:59:59+00:00 » relu).
+function memeValeur(k, a, b) {
+  const x = a || null, y = b || null
+  if (x === y) return true
+  if (x && y && (k === 'visible_jusqu_au' || k === 'date_doc')) {
+    const tx = Date.parse(x), ty = Date.parse(y)
+    if (!isNaN(tx) && !isNaN(ty)) return k === 'date_doc' ? String(x).slice(0, 10) === String(y).slice(0, 10) : tx === ty
+  }
+  return false
+}
 export function planPublication(souhaites, publies) {
   const parCle = new Map((publies || []).map((p) => [p.cle, p]))
   const creer = [], maj = []
@@ -263,7 +312,7 @@ export function planPublication(souhaites, publies) {
     const diff = {}
     // Le titre n'est jamais réécrit après publication (il peut porter une date de réédition, D8).
     for (const k of ['periode', 'date_doc', 'storage_path', 'sha256', 'visible_jusqu_au'])
-      if (s[k] !== undefined && (s[k] || null) !== (p[k] || null)) diff[k] = s[k] || null
+      if (s[k] !== undefined && !memeValeur(k, s[k], p[k])) diff[k] = s[k] || null
     if (Object.keys(diff).length) maj.push({ id: p.id, patch: diff })
   }
   return { creer, maj }

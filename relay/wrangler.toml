@@ -57,4 +57,4 @@ EL_CODE_ACCORD = "false"
 name = "EL_RATE"
 type = "ratelimit"
 namespace_id = "1059"
-simple = { limit = 120, period = 60 }
+simple = { limit = 300, period = 60 }

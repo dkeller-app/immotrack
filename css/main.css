@@ -10708,6 +10708,8 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .el-bloc .el-locrow-h b{font-size:15px;color:var(--t1)}
 .el-bloc .logf-bail-actions .btn,.el-bloc .el-locrow-h .btn{min-height:44px}
 .el-bloc .logf-value{overflow-wrap:anywhere;white-space:normal}
+/* Sous-titre « Ancienne location » dans le bloc */
+.el-bloc .el-sous-titre{font-size:13px;font-weight:800;color:var(--t2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.05em}
 #ov-el-docs .el-docrow{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:10px 0;border-top:1px solid var(--bor2)}
 #ov-el-docs .el-docrow b{color:var(--t1);overflow-wrap:anywhere}
 #ov-el-docs .el-doc-s{font-size:12.5px;color:var(--t2);margin-top:2px}

@@ -5,7 +5,7 @@
 //   • qu'appeler les fonctions el_* (qui exigent un jeton de locataire valide et filtrent par bail et par accès) ;
 //   • lire dans le seau QUE les chemins ouverts depuis moins de 60 s par ces fonctions, et déposer QUE sous ticket.
 // L'identité du relais ne fait JAMAIS de requête de table : seulement /rpc/el_* et /storage/v1/object (test « frontière »).
-// Seule exception, SOUS LE JETON DU PROPRIÉTAIRE (RLS par SCI) : proprietaireVoitAcces, avant un e-mail.
+// Seule exception, SOUS LE JETON DU PROPRIÉTAIRE (RLS par SCI) : contactProprietaire (el_acces_contact), avant un e-mail.
 //
 // Secrets : EL_RELAIS_EMAIL, EL_RELAIS_MOT_DE_PASSE (wrangler secret put). Variables : SUPABASE_URL,
 // SUPABASE_ANON_KEY (clé publique, la même que l'app).
@@ -95,15 +95,21 @@ export async function deposerObjet(env, path, bytes, mime, fetchImpl = fetch) {
   return true;
 }
 
-/** Vérifie, AVEC LE JETON DU PROPRIÉTAIRE (RLS par SCI), qu'il voit bien cet accès — pour l'envoi d'e-mails. */
-export async function proprietaireVoitAcces(env, jwtProprietaire, accesId, fetchImpl = fetch) {
-  if (!/^[0-9a-f-]{36}$/.test(String(accesId || ''))) return false;
+/**
+ * Destinataire et signataire d'un e-mail, lus EN BASE avec le jeton du propriétaire (fonction el_acces_contact : droit
+ * d'écriture sur la SCI exigé, accès non révoqué ni terminé). Jamais fournis par le client : pas de relais d'e-mails
+ * ouvert. Renvoie { email, bailleur } ou null (refus, accès inactif, erreur).
+ */
+export async function contactProprietaire(env, jwtProprietaire, accesId, fetchImpl = fetch) {
+  if (!/^[0-9a-f-]{36}$/.test(String(accesId || ''))) return null;
   try {
-    const r = await fetchImpl(`${base(env)}/rest/v1/locataire_acces?select=id&id=eq.${accesId}`, {
-      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${jwtProprietaire}`, Accept: 'application/json' },
+    const r = await fetchImpl(`${base(env)}/rest/v1/rpc/el_acces_contact`, {
+      method: 'POST',
+      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${jwtProprietaire}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ p_acces_id: accesId }),
     });
-    if (!r.ok) return false;
-    const rows = await r.json().catch(() => []);
-    return Array.isArray(rows) && rows.length === 1;
-  } catch { return false; }
+    if (!r.ok) return null;
+    const v = await r.json().catch(() => null);
+    return v && typeof v === 'object' ? v : null;
+  } catch { return null; }
 }

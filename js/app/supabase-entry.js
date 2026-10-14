@@ -789,7 +789,7 @@ async function boot() {
   // fonctions el_acces_* seulement. Toute la logique vit dans js/app/espace-locataire-app.js (+ module pur
   // js/core/espace-locataire.js). Le jeton du locataire n'arrive jamais ici : seule son empreinte (el_acces_*).
   const _EL_TABLES = ['locataire_acces', 'locataire_documents', 'locataire_messages', 'locataire_signalements']
-  const _EL_RPC = ['el_acces_emettre', 'el_acces_renouveler', 'el_acces_revoquer']
+  const _EL_RPC = ['el_acces_emettre', 'el_acces_renouveler', 'el_acces_revoquer', 'el_peut_publier']
   const _elT = t => { if (!_EL_TABLES.includes(t)) throw new Error('table hors espace locataire') ; return client.from(t) }
   window.__immoEspaceLoc = {
     pret: () => !!(_cloudEspaceId && _makeDetUuid),
@@ -806,7 +806,12 @@ async function boot() {
       return data || []
     },
     insert: async (t, row) => { const { data, error } = await _elT(t).insert(row).select().single(); if (error) throw Object.assign(new Error(error.message), { code: error.code }); return data },
-    update: async (t, id, patch) => { const { data, error } = await _elT(t).update(patch).eq('id', id).select(); if (error) throw new Error(error.message); return data || [] },
+    // garde : colonnes qui doivent encore être vides (mise à jour CONDITIONNELLE, ex. réservation d'un signalement).
+    update: async (t, id, patch, garde) => {
+      let q = _elT(t).update(patch).eq('id', id)
+      for (const k of Object.keys(garde || {})) q = q.is(k, null)
+      const { data, error } = await q.select(); if (error) throw new Error(error.message); return data || []
+    },
     rpc: async (fn, args) => { if (!_EL_RPC.includes(fn)) throw new Error('fonction hors espace locataire'); const { data, error } = await client.rpc(fn, args); if (error) throw Object.assign(new Error(error.message), { code: error.code }); return data },
     // Fichier déposé PAR LE PROPRIÉTAIRE (pièce d'un message, PDF publié) : sans écrasement. Chemin complet imposé par l'appelant.
     upload: async (path, blob, mime) => { const { error } = await client.storage.from('espace-files').upload(path, blob, { contentType: mime || 'application/pdf', upsert: false }); if (error && !/exists|duplicate/i.test(error.message || '')) throw new Error(error.message); return path },

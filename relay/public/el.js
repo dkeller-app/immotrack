@@ -61,7 +61,7 @@ function marque() {
   for (const [k, v] of Object.entries({ cx: 21.34, cy: 21.34, r: 4.1, fill: 'var(--acc)' })) c.setAttribute(k, v);
   svg.append(r, c); return svg;
 }
-const fd = (s) => { if (!s) return ''; const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s)); if (m && String(s).length <= 10) return `${m[3]}/${m[2]}/${m[1]}`; const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); };
+const fd = (s) => { if (!s) return ''; const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s)); if (m && (String(s).length <= 10 || /T23:59:59/.test(String(s)))) return `${m[3]}/${m[2]}/${m[1]}`; const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); };
 const fdh = (s) => { const d = new Date(s); if (isNaN(d)) return ''; return fd(s) + ' à ' + String(d.getHours()).padStart(2, '0') + ' h ' + String(d.getMinutes()).padStart(2, '0'); };
 const taille = (n) => !n ? '' : n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' Ko' : (n / 1024 / 1024).toFixed(1).replace('.', ',') + ' Mo';
 let _toastT = null;
@@ -294,7 +294,10 @@ async function toutTelecharger(bouton) {
   const vus = new Set(), fichiers = [];
   try {
     for (const d of S.docs || []) {
-      const b = await api('fichier', { source: 'document', id: d.id }, { blob: true });
+      if (fichiers.length) await new Promise((r) => setTimeout(r, 250));   // débit modéré (limite du relais)
+      let b;
+      try { b = await api('fichier', { source: 'document', id: d.id }, { blob: true }); }
+      catch (e) { if (e.statut === 404) continue; throw e; }   // document retiré entre-temps : on continue sans lui
       let nom = (d.titre || 'document').replace(/[\\/:*?"<>|]/g, '_') + (d.mime === 'image/jpeg' ? '.jpg' : d.mime === 'image/png' ? '.png' : '.pdf');
       let k = 2; while (vus.has(nom)) nom = nom.replace(/(\.\w+)$/, ` (${k++})$1`); vus.add(nom);
       fichiers.push({ nom, bytes: new Uint8Array(await b.arrayBuffer()) });
@@ -488,7 +491,7 @@ function vueMessages() {
   if (!peut('message')) return { contenu: contenu.concat(h('p', { class: 'small', style: 'text-align:center' }, 'Les messages sont fermés depuis la clôture des comptes.')) };
   const m = S.msg;
   const bas = h('div', { class: 'composer' },
-    m.pieces.length ? h('div', { class: 'jointes' }, m.pieces.map((p) => h('span', { class: 'chip' }, p.charge ? 'Envoi…' : p.nom, p.charge ? null : h('button', { class: 'btn g', style: 'min-height:32px;padding:0 6px', onclick: () => { m.pieces.splice(m.pieces.indexOf(p), 1); render(); } }, 'Retirer')))) : null,
+    m.pieces.length ? h('div', { class: 'jointes' }, m.pieces.map((p) => h('span', { class: 'chip' }, p.charge ? 'Envoi…' : p.nom, p.charge ? null : h('button', { class: 'btn g', style: 'padding:0 8px', onclick: () => { m.pieces.splice(m.pieces.indexOf(p), 1); render(); } }, 'Retirer')))) : null,
     h('textarea', { 'aria-label': 'Message', placeholder: 'Écrire un message', maxlength: 4000, oninput: (e) => { m.texte = e.target.value; } }, m.texte),
     h('button', { class: 'btn s', disabled: m.pieces.length >= 4 || null, onclick: () => choisirFichiers('image/*,application/pdf', false, ajouterPiece) }, I('clip'), 'Joindre'),
     h('button', { class: 'btn p', onclick: (e) => envoyerMessage(e.currentTarget) }, I('send'), 'Envoyer'));

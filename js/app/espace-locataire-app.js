@@ -22,7 +22,8 @@ const ico = (n, s) => (G('_uiIcon') ? W._uiIcon(n, s) : '')
 const toast = (m, t, d) => { if (G('showToast')) W.showToast(m, t || 'ok', d) }
 const fdate = (s) => (G('fd') ? W.fd(String(s || '').slice(0, 10)) : String(s || '').slice(0, 10))
 const fdh = (s) => { const d = new Date(s); if (isNaN(d)) return ''; return fdate(d.toISOString()) + ' à ' + String(d.getHours()).padStart(2, '0') + ' h ' + String(d.getMinutes()).padStart(2, '0') }
-const jour = (s) => String(s || '').slice(0, 10)
+// Même lecture de date que store-mapping (dateOnly) : « AAAA-MM-JJ… » tel quel, sinon date UTC.
+const jour = (s) => { const v = String(s == null ? '' : s); if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10); const d = new Date(v); return v && !isNaN(d) ? d.toISOString().slice(0, 10) : '' }
 const db = () => { try { return DB } catch (e) { return null } }   // eslint-disable-line no-undef
 const vivant = (o) => o && !o._deleted
 
@@ -92,58 +93,92 @@ async function etatRelais() {
 // ─────────────────────────── Bloc « Espace locataire » (fiche logement, onglet Bail) ───────────────────────────
 const nonLus = (accesId) => (etat.msgs.get(accesId) || []).filter((m) => m.auteur === 'locataire' && !m.lu_bailleur_le).length
 function accesDe(bid, debut) { return etat.acces.filter((a) => a.bail_id === bid && (a.bail_debut || null) === (debut || null)) }
+const aujourdhui = () => jour(new Date().toISOString())
+// Le colocataire d'un accès est identifié par son NOM (le rang dans bail.locataires bouge quand un colocataire part).
+const accesDuLocataire = (liste, nom) => liste.find((y) => EL.cleNom(y.locataire_nom) === EL.cleNom(nom)) || null
+const emailDe = (t, nom) => { if (!t) return ''; const l = locatairesDuBail(t.bail, logDe(t.ref)).find((x) => EL.cleNom(x.nom) === EL.cleNom(nom)); return (l && l.email) || '' }
+
+function ligneAcces(x, note) {
+  const ph = EL.phaseAcces(x.fin_bail, x.comptes_clos_le, aujourdhui())
+  const lien = x.revoque_le ? 'Révoqué le ' + fdate(x.revoque_le)
+    : ph === 'fini' ? 'Période de consultation terminée'
+    : x.derniere_visite ? 'Actif · dernière visite le ' + fdh(x.derniere_visite) : 'Jamais ouvert · émis le ' + fdate(x.emis_le)
+  const acc = EL.etatAccord(x, fdh)
+  const fin = EL.finAcces(x.fin_bail, x.comptes_clos_le)
+  const nm = (etat.msgs.get(x.id) || []).length, nl = nonLus(x.id)
+  const actions = (ph === 'fini' ? '' : `<button type="button" class="btn bs bb" onclick="EspaceLoc.renouveler('${x.id}')">${ico('refresh', 14)} ${x.revoque_le ? 'Réactiver et envoyer' : 'Renouveler et envoyer'}</button>`)
+    + (x.revoque_le || ph === 'fini' ? '' : `<button type="button" class="btn bs bb" onclick="EspaceLoc.revoquer('${x.id}')">${ico('close', 14)} Révoquer</button>`)
+    + `<button type="button" class="btn bs bb" onclick="EspaceLoc.messages('${x.id}')">${ico('send', 14)} Messages${nl ? ' · ' + nl + ' non lu' + (nl > 1 ? 's' : '') : ''}</button>`
+  return `<div class="el-locrow"><div class="el-locrow-h"><b>${esc(x.locataire_nom)}</b></div>
+    ${note ? `<p class="el-note">${esc(note)}</p>` : ''}
+    <div class="logf-bail-grid">
+      <div class="logf-row"><span class="logf-label">Lien</span><span class="logf-value">${esc(lien)}</span></div>
+      <div class="logf-row"><span class="logf-label">Quittance électronique</span><span class="logf-value">${esc(acc.texte)}</span></div>
+      <div class="logf-row"><span class="logf-label">Fin d'accès</span><span class="logf-value">${fin ? esc(fdate(fin)) : 'À la clôture des comptes + 6 mois'}</span></div>
+      <div class="logf-row"><span class="logf-label">Messages</span><span class="logf-value">${nm} message${nm > 1 ? 's' : ''}${nl ? ' · ' + nl + ' non lu' + (nl > 1 ? 's' : '') : ''}</span></div>
+    </div>
+    <div class="logf-bail-actions">${actions}</div></div>`
+}
 
 function blocInterieur(log, bail, ref) {
   const a = API()
   if (!a || !a.pret()) return ''
-  const bid = bailId(ref, bail), debut = jour(bail.debut) || null
-  const locs = locatairesDuBail(bail, log)
-  const liste = accesDe(bid, debut)
+  const r = String(ref).split('@@')[0]
+  const bid = bail ? bailId(ref, bail) : null, debut = bail ? (jour(bail.debut) || null) : null
+  const liste = bail ? accesDe(bid, debut) : []
+  // Anciennes locations du logement qui ont encore un accès (départ, documents seuls) : visibles et pilotables.
+  const anciennes = new Map()
+  for (const x of etat.acces) {
+    if (bail && x.bail_id === bid && (x.bail_debut || null) === debut) continue
+    const t = locationDe(x); if (!t || t.ref !== r) continue
+    const k = x.bail_id + '|' + (x.bail_debut || '')
+    if (!anciennes.has(k)) anciennes.set(k, { t, acces: [] })
+    anciennes.get(k).acces.push(x)
+  }
+  if (!bail && !anciennes.size) return ''
   const actifs = liste.filter((x) => !x.revoque_le).length
   const chip = !etat.charge ? '<span class="logf-badge b-mute">Chargement…</span>'
-    : actifs ? `<span class="logf-badge b-ok">${actifs} lien${actifs > 1 ? 's' : ''} actif${actifs > 1 ? 's' : ''}</span>` : '<span class="logf-badge b-mute">Pas encore ouvert</span>'
+    : actifs ? `<span class="logf-badge b-ok">${actifs} lien${actifs > 1 ? 's' : ''} actif${actifs > 1 ? 's' : ''}</span>` : '<span class="logf-badge b-mute">' + (bail ? 'Pas encore ouvert' : 'Ancienne location') + '</span>'
   const jsRef = esc(JSON.stringify(String(ref)))
-  const lignes = locs.map((l, rang) => {
-    const x = liste.find((y) => y.locataire_rang === rang)
-    if (!x) return `<div class="el-locrow"><div class="el-locrow-h"><b>${esc(l.nom)}</b><button type="button" class="btn bs bb" onclick='EspaceLoc.creer(${jsRef},${rang})'>${ico('link', 14)} Créer le lien</button></div></div>`
-    const ph = EL.phaseAcces(x.fin_bail, x.comptes_clos_le, jour(new Date().toISOString()))
-    const lien = x.revoque_le ? 'Révoqué le ' + fdate(x.revoque_le)
-      : ph === 'fini' ? 'Période de consultation terminée'
-      : x.derniere_visite ? 'Actif · dernière visite le ' + fdh(x.derniere_visite) : 'Jamais ouvert · émis le ' + fdate(x.emis_le)
-    const acc = EL.etatAccord(x, fdh)
-    const fin = EL.finAcces(x.fin_bail, x.comptes_clos_le)
-    const nl = nonLus(x.id)
-    const actions = ph === 'fini' ? '' : `<button type="button" class="btn bs bb" onclick="EspaceLoc.renouveler('${x.id}')">${ico('refresh', 14)} ${x.revoque_le ? 'Réactiver et envoyer' : 'Renouveler et envoyer'}</button>`
-      + (x.revoque_le ? '' : `<button type="button" class="btn bs bb" onclick="EspaceLoc.revoquer('${x.id}')">${ico('close', 14)} Révoquer</button>`)
-    return `<div class="el-locrow"><div class="el-locrow-h"><b>${esc(x.locataire_nom)}</b></div>
-      <div class="logf-bail-grid">
-        <div class="logf-row"><span class="logf-label">Lien</span><span class="logf-value">${esc(lien)}</span></div>
-        <div class="logf-row"><span class="logf-label">Quittance électronique</span><span class="logf-value">${esc(acc.texte)}</span></div>
-        <div class="logf-row"><span class="logf-label">Fin d'accès</span><span class="logf-value">${fin ? esc(fdate(fin)) : 'À la clôture des comptes + 6 mois'}</span></div>
-        <div class="logf-row"><span class="logf-label">Messages</span><span class="logf-value">${(etat.msgs.get(x.id) || []).length} message${(etat.msgs.get(x.id) || []).length > 1 ? 's' : ''}${nl ? ' · ' + nl + ' non lu' + (nl > 1 ? 's' : '') : ''}</span></div>
-      </div>
-      <div class="logf-bail-actions">${actions}<button type="button" class="btn bs bb" onclick="EspaceLoc.messages('${x.id}')">${ico('send', 14)} Messages${nl ? ' · ' + nl + ' non lu' + (nl > 1 ? 's' : '') : ''}</button></div></div>`
-  }).join('')
-  const nDocs = (etat.docs.get(bid) || []).filter((d) => !d.retire_le).length
+  let corps = ''
+  if (bail) {
+    const locs = locatairesDuBail(bail, log)
+    corps += locs.map((l, rang) => {
+      const x = accesDuLocataire(liste, l.nom)
+      if (!x) return `<div class="el-locrow"><div class="el-locrow-h"><b>${esc(l.nom)}</b><button type="button" class="btn bs bb" onclick='EspaceLoc.creer(${jsRef},${rang})'>${ico('link', 14)} Créer le lien</button></div></div>`
+      return ligneAcces(x)
+    }).join('')
+    // Accès d'un colocataire qui n'est plus au bail (départ, nom corrigé) : jamais invisible, toujours révocable.
+    for (const x of liste) if (!locs.some((l) => EL.cleNom(l.nom) === EL.cleNom(x.locataire_nom))) corps += ligneAcces(x, 'N\'est plus colocataire de ce bail : révoquer le lien si le départ est réglé.')
+    const nDocs = (etat.docs.get(bid) || []).filter((d) => !d.retire_le && (d.bail_debut || null) === debut).length
+    corps += `<div class="logf-bail-actions"><button type="button" class="btn bs bb" onclick='EspaceLoc.documents(${esc(JSON.stringify(bid))},${esc(JSON.stringify(debut))})'>${ico('doc', 14)} Documents visibles${etat.docs.has(bid) ? ' · ' + nDocs : ''}</button></div>`
+  }
+  for (const { t, acces } of anciennes.values()) {
+    corps += `<h4 class="el-sous-titre">Ancienne location${t.debut ? ' du ' + esc(fdate(t.debut)) : ''}</h4>` + acces.map((x) => ligneAcces(x)).join('')
+      + `<div class="logf-bail-actions"><button type="button" class="btn bs bb" onclick='EspaceLoc.documents(${esc(JSON.stringify(t.id))},${esc(JSON.stringify(t.debut))})'>${ico('doc', 14)} Documents visibles</button></div>`
+  }
   return `<div class="flex-b" style="margin-bottom:10px;flex-wrap:wrap;gap:10px"><h3 class="logf-panel-title" style="margin:0">${ico('link')} Espace locataire</h3>${chip}</div>
     <p class="logf-panel-empty" style="margin:0 0 10px;text-align:left">Un lien personnel par locataire, sans mot de passe. Les documents définitifs de ce bail y sont publiés automatiquement.</p>
-    ${lignes}
-    <div class="logf-bail-actions"><button type="button" class="btn bs bb" onclick='EspaceLoc.documents(${jsRef})'>${ico('doc', 14)} Documents visibles${etat.docs.has(bid) ? ' · ' + nDocs : ''}</button></div>`
+    ${corps}`
 }
 function blocHtml(log, bail, ref) {
   try {
-    if (!bail || !API() || !API().pret()) return ''
+    if (!API() || !API().pret()) return ''
     if (!etat.charge && !etat.enCours) setTimeout(() => { rafraichir().then(majBloc) }, 0)
-    const bid = bailId(ref, bail)
+    const bid = bail ? bailId(ref, bail) : null
     if (bid && !etat.docs.has(bid)) chargerDocs(bid).then(majBloc)
-    return `<div class="logf-panel el-bloc" style="grid-column:1/-1" id="el-bloc" data-ref="${esc(ref)}">${blocInterieur(log, bail, ref)}</div>`
+    const html = blocInterieur(log, bail, ref)
+    // Logement sans bail ni ancien accès : conteneur vide, rempli si des accès arrivent au chargement.
+    return `<div class="logf-panel el-bloc" style="grid-column:1/-1${html ? '' : ';display:none'}" id="el-bloc" data-ref="${esc(ref)}">${html}</div>`
   } catch (e) { console.warn('[espace-locataire] bloc', e); return '' }
 }
 function majBloc() {
   const n = document.getElementById('el-bloc'); if (!n) return
   const ref = n.getAttribute('data-ref'); const D = db() || {}
-  const bail = D.baux && D.baux[ref]; if (!bail) return
-  n.innerHTML = blocInterieur(logDe(ref), bail, ref)
+  const bail = (D.baux && D.baux[ref] && vivant(D.baux[ref])) ? D.baux[ref] : null
+  const html = blocInterieur(logDe(String(ref).split('@@')[0]), bail, ref)
+  n.innerHTML = html
+  n.style.display = html ? '' : 'none'
 }
 
 // ─────────────────────────── Couches (composant .ov / .modal de l'app) ───────────────────────────
@@ -160,12 +195,12 @@ const fermer = (id) => { if (G('closeM')) W.closeM(id) }
 async function partagerLien(jeton, nom, email, bienLabel, accesId) {
   const cfg = G('_relayCfg') ? W._relayCfg() : null
   const lien = cfg ? EL.lienEspace(cfg.base, jeton) : null
-  if (!lien) { toast("Adresse du relais introuvable : lien non créé.", 'err', 5000); return }
+  if (!lien) { toast("Adresse du relais introuvable ou non sécurisée (https exigé) : lien non transmis.", 'err', 6000); return }
   const r = await etatRelais()
   let info = '<b>Lien affiché une seule fois.</b> Seule son empreinte est enregistrée : pour le transmettre à nouveau plus tard, le renouveler (l\'ancien cessera de fonctionner).'
-  if (r.emails && email && accesId) {
-    const ok = await notifier('invitation', accesId, email, { lien })
-    if (ok) info = 'Invitation envoyée par e-mail à ' + esc(email) + '. ' + info
+  if (r.emails && accesId) {
+    const ok = await notifier('invitation', accesId, { jeton })
+    if (ok) info = 'Invitation envoyée par e-mail à l\'adresse du bail. ' + info
   }
   if (G('_openShareModal')) {
     W._openShareModal({
@@ -187,7 +222,7 @@ async function creer(ref, rang) {
     await rafraichir(); majBloc()
     await partagerLien(jeton, loc.nom, loc.email, (log && (log.adr || log.ref)) || ref, id)
     publierBientot()
-  } catch (e) { toast('Lien non créé : ' + (/el:bail-introuvable/.test(e.message) ? 'le bail n\'est pas encore enregistré dans le cloud, réessayer dans un instant.' : 'droit insuffisant ou connexion perdue.'), 'err', 6000) }
+  } catch (e) { toast('Lien non créé : bail pas encore enregistré dans le cloud (réessayer dans un instant), droit insuffisant ou connexion perdue.', 'err', 6000) }
 }
 async function renouveler(accesId) {
   const x = etat.acces.find((a) => a.id === accesId); if (!x) return
@@ -196,8 +231,7 @@ async function renouveler(accesId) {
     await API().rpc('el_acces_renouveler', { p_acces_id: accesId, p_jeton_sha256: h })
     await rafraichir(); majBloc()
     const t = locationDe(x); const log = t ? logDe(t.ref) : null
-    const email = t ? (locatairesDuBail(t.bail, log)[x.locataire_rang] || {}).email : ''
-    await partagerLien(jeton, x.locataire_nom, email, (log && (log.adr || log.ref)) || '', accesId)
+    await partagerLien(jeton, x.locataire_nom, emailDe(t, x.locataire_nom), (log && (log.adr || log.ref)) || '', accesId)
   } catch (e) { toast('Renouvellement impossible : ' + (/periode-terminee/.test(e.message) ? 'la période de consultation est terminée.' : 'droit insuffisant ou connexion perdue.'), 'err', 6000) }
 }
 async function revoquer(accesId) {
@@ -210,21 +244,21 @@ async function revoquer(accesId) {
 
 // ─────────────────────────── Documents visibles (D6 : retrait possible) ───────────────────────────
 const LIB_TYPE = { bail: 'Bail', avenant: 'Avenant', edl: 'État des lieux', quittance: 'Quittance', decompte: 'Décompte de charges', justificatif: 'Justificatif' }
-async function documents(ref) {
-  const D = db() || {}; const bail = D.baux && D.baux[ref]; if (!bail) return
-  const bid = bailId(ref, bail)
-  const liste = (await chargerDocs(bid)).filter((d) => (d.bail_debut || null) === (jour(bail.debut) || null))
+async function documents(bid, debut) {
+  if (!bid) return
+  const ref = bid
+  const liste = (await chargerDocs(bid)).filter((d) => (d.bail_debut || null) === (debut || null))
     .sort((a, b) => String(b.date_doc || b.publie_le).localeCompare(String(a.date_doc || a.publie_le)))
   const ligne = (d) => `<div class="el-docrow"><div><b>${esc(d.titre)}</b><div class="el-doc-s">${esc(LIB_TYPE[d.type_doc] || '')}${d.date_doc ? ' · ' + esc(fdate(d.date_doc)) : ''}${d.visible_jusqu_au ? ' · visible jusqu\'au ' + esc(fdate(d.visible_jusqu_au)) : ''}${d.retire_le ? ' · retiré le ' + esc(fdate(d.retire_le)) : ''}</div></div>`
-    + (d.retire_le ? '' : `<button type="button" class="btn bs bb" onclick="EspaceLoc.retirer('${d.id}','${esc(String(ref).replace(/'/g, ''))}')">Retirer</button>`) + '</div>'
+    + (d.retire_le ? '' : `<button type="button" class="btn bs bb" onclick='EspaceLoc.retirer(${esc(JSON.stringify(d.id))},${esc(JSON.stringify(ref))},${esc(JSON.stringify(debut))})'>Retirer</button>`) + '</div>'
   couche('ov-el-docs', 'Documents visibles', `<p class="el-note">Publiés automatiquement dès qu'ils sont définitifs (bail et avenants signés, états des lieux signés, quittances, décomptes de charges et justificatifs). Retirer un document le masque dans l'espace ; le fichier reste conservé.</p>`
     + (liste.length ? liste.map(ligne).join('') : '<p class="logf-panel-empty">Aucun document publié pour le moment.</p>'),
   `<button class="btn bs" onclick="EspaceLoc.publierMaintenant()">${ico('refresh', 14)} Publier maintenant</button><button class="btn bp" onclick="closeM('ov-el-docs')">Terminé</button>`)
 }
-async function retirer(docId, ref) {
+async function retirer(docId, bid, debut) {
   const ok = G('confirm2') ? W.confirm2('Retirer ce document de l\'espace locataire ?\n\nIl ne sera plus visible du locataire. Le fichier reste conservé et le document ne sera pas republié automatiquement.') : true
   if (!ok) return
-  try { await API().update('locataire_documents', docId, { retire_le: new Date().toISOString() }); toast('Document retiré.'); documents(ref) }
+  try { await API().update('locataire_documents', docId, { retire_le: new Date().toISOString() }); toast('Document retiré.'); documents(bid, debut) }
   catch (e) { toast('Retrait impossible : droit insuffisant ou connexion perdue.', 'err', 5000) }
 }
 
@@ -289,8 +323,7 @@ async function repondre(accesId, texteImpose, signalementId) {
     etat.msgs.get(accesId).push(m)
     if (texteImpose == null) brouillons.delete(accesId)
     toast('Message déposé dans l\'espace locataire.')
-    const t = locationDe(x); const email = t ? (locatairesDuBail(t.bail, logDe(t.ref))[x.locataire_rang] || {}).email : ''
-    if (email) notifier('message', accesId, email, {})
+    notifier('message', accesId, {})
     if (texteImpose == null) messages(accesId)
     majBloc()
     return true
@@ -308,13 +341,14 @@ async function ouvrirPiece(messageId, index) {
 
 // Incident → message au locataire (règle du chantier Travaux : le texte part seulement par geste explicite, après
 // relecture). Appelé depuis la vue « Message au locataire » de l'incident.
+const ouvertAuxMessages = (x) => x && !x.revoque_le && EL.peut(EL.phaseAcces(x.fin_bail, x.comptes_clos_le, aujourdhui()), 'message')
 function accesPourIncident(inc) {
   if (!inc) return null
-  if (inc.espaceAccesId) { const a = etat.acces.find((x) => x.id === inc.espaceAccesId && !x.revoque_le); if (a) return a }
+  if (inc.espaceAccesId) { const a = etat.acces.find((x) => x.id === inc.espaceAccesId && ouvertAuxMessages(x)); if (a) return a }
   const D = db() || {}; const bail = inc.logRef && D.baux && D.baux[inc.logRef]
   if (!bail) return null
   const bid = bailId(inc.logRef, bail)
-  return accesDe(bid, jour(bail.debut) || null).filter((x) => !x.revoque_le).sort((a, b) => a.locataire_rang - b.locataire_rang)[0] || null
+  return accesDe(bid, jour(bail.debut) || null).filter(ouvertAuxMessages).sort((a, b) => a.locataire_rang - b.locataire_rang)[0] || null
 }
 function disponiblePourIncident(inc) { return !!accesPourIncident(inc) }
 async function envoyerTexteIncident(incId) {
@@ -324,7 +358,7 @@ async function envoyerTexteIncident(incId) {
   const corps = String(t).split('\n').filter((l, i) => !(i === 0 && /^Objet\s*:/.test(l))).join('\n').trim()
   const ok = G('confirm2') ? W.confirm2('Déposer ce message dans l\'espace locataire de ' + a.locataire_nom + ' ?\n\nLe texte part tel qu\'il est affiché.') : true
   if (!ok) return
-  await repondre(a.id, corps, inc.espaceSignalementId || null)
+  await repondre(a.id, corps, (inc.espaceAccesId === a.id && inc.espaceSignalementId) || null)
 }
 
 // ─────────────────────────── Publication automatique (D6, D8) ───────────────────────────
@@ -371,9 +405,10 @@ function souhaites(t, emisLe) {
     const p = doc ? doc.cloudKey : (typeof av.pdfKey === 'string' ? av.pdfKey : null)
     if (p) out.push({ cle: EL.cleDocument('avenant', av.id), type_doc: 'avenant', titre: 'Avenant n° ' + (av.no || ''), date_doc: jour(av.signeLe || av.date), storage_path: cheminComplet(p, entNom) })
   }
+  const loc = { debut: t.debut, fin, noms: locatairesDuBail(t.bail, log).map((l) => l.nom) }
   for (const edl of D.edl || []) {
     if (!vivant(edl) || edl.logement !== t.ref || !(edl.signatures && edl.signatures.signedAt)) continue
-    if (!EL.dansLaLocation(edl.date, t.debut, fin)) continue
+    if (!EL.edlDeLaLocation(edl, loc)) continue   // identité + bornes : jamais l'EDL d'un autre locataire
     const sortie = /sortie/i.test(edl.type || '')
     out.push({ cle: EL.cleDocument('edl', edl.id), type_doc: 'edl', titre: sortie ? 'État des lieux de sortie' : 'État des lieux d\'entrée', date_doc: jour(edl.date),
       generer: async () => (G('generateEDLPdfNative') ? W.generateEDLPdfNative(edl) : null) })
@@ -382,12 +417,13 @@ function souhaites(t, emisLe) {
     for (const q of D.quittances || []) {
       if (!vivant(q) || q.logement !== t.ref) continue
       const mk = EL.moisCle(q.mois); if (!mk) continue
-      if (!EL.dansLaLocation(mk + '-28', t.debut, fin) && !EL.dansLaLocation(mk + '-01', t.debut, fin)) continue
+      if (!EL.quittanceDeLaLocation(q, loc)) continue   // identité + mois : jamais la quittance d'un autre locataire
       const reedition = emisLe && q.date && jour(q.date) < jour(emisLe)
       out.push({ cle: EL.cleDocument('quittance', mk), type_doc: 'quittance', titre: 'Quittance de ' + q.mois + (reedition ? ' (réédition du ' + fdate(new Date().toISOString()) + ')' : ''),
         periode: q.mois, date_doc: jour(q.date) || null,
         generer: async () => {
-          if (!G('_emailGenPdfAttachment')) return null
+          // Rendu NATIF seulement (le repli texte de secours ne doit jamais être figé comme document définitif).
+          if (!G('_emailGenPdfAttachment') || !G('_buildQuittanceHtml') || !W.DocNative) return null
           const ent = (D.entites || []).find((e) => e.nom === (q.entity || entNom)) || {}
           const r = await W._emailGenPdfAttachment('quittance', { locataire: (t.bail.locataires || [])[0] || {}, bail: t.bail, logement: log || { ref: t.ref }, entite: ent, quittance: { ...q, total: (q.hc || 0) + (q.ch || 0) } })
           return r && !r.error ? base64EnBlob(r) : null
@@ -426,7 +462,14 @@ function souhaites(t, emisLe) {
   return out.filter((d) => d.cle)
 }
 
+const MAX_GENERES_PAR_CYCLE = 12   // les PDF à générer sont étalés sur plusieurs passages (long bail repris)
+async function peutPublier(bid) {
+  if (!etat.droits) etat.droits = new Map()
+  if (!etat.droits.has(bid)) { let ok = false; try { ok = (await API().rpc('el_peut_publier', { p_bail_id: bid })) === true } catch (e) { ok = false } etat.droits.set(bid, ok) }
+  return etat.droits.get(bid)
+}
 async function publierLocation(t, accesLoc) {
+  if (!(await peutPublier(t.id))) return 0   // associé en lecture seule : rien n'est généré
   const espaceId = accesLoc[0].espace_id
   const emisLe = accesLoc.map((a) => a.emis_le).sort()[0]
   const voulus = souhaites(t, emisLe)
@@ -434,14 +477,20 @@ async function publierLocation(t, accesLoc) {
   const publies = (await chargerDocs(t.id)).filter((d) => (d.bail_debut || null) === t.debut)
   const parCle = new Map(publies.map((d) => [d.cle, d]))
   const plan = EL.planPublication(voulus.filter((d) => d.storage_path), publies)
-  let n = 0
+  let n = 0, generes = 0
   for (const u of plan.maj) { try { await API().update('locataire_documents', u.id, u.patch) } catch (e) { /* retenté au prochain cycle */ } }
   // Parents (décomptes) avant les justificatifs.
   const ordre = voulus.filter((d) => !parCle.has(d.cle) && !etat.echecs.has(t.id + '|' + d.cle)).sort((a, b) => (a.parentCle ? 1 : 0) - (b.parentCle ? 1 : 0))
   for (const d of ordre) {
     try {
       let fichier = d.storage_path ? { storage_path: d.storage_path } : null
-      if (!fichier && d.generer) { const blob = await d.generer(); if (!blob) continue; fichier = await televerserGenere(blob, t, d.cle) }
+      if (!fichier && d.generer) {
+        if (generes >= MAX_GENERES_PAR_CYCLE) continue
+        generes++
+        const blob = await d.generer()
+        if (!blob) { etat.echecs.add(t.id + '|' + d.cle); continue }   // rendu impossible : pas de nouvel essai pendant la session
+        fichier = await televerserGenere(blob, t, d.cle)
+      }
       if (!fichier || !fichier.storage_path) continue
       const parent = d.parentCle ? parCle.get(d.parentCle) : null
       if (d.parentCle && !parent) continue
@@ -451,7 +500,7 @@ async function publierLocation(t, accesLoc) {
         taille: fichier.taille || null, sha256: fichier.sha256 || null, parent_id: parent ? parent.id : null, visible_jusqu_au: d.visible_jusqu_au || null,
       })
       parCle.set(d.cle, row); n++
-      await avisDocument(row, accesLoc, t)
+      await avisDocument(row, accesLoc)
     } catch (e) {
       // Échec (droit d'écriture absent, fichier refusé…) : pas de nouvel essai pendant la session — rien n'est régénéré en boucle.
       etat.echecs.add(t.id + '|' + d.cle)
@@ -461,24 +510,23 @@ async function publierLocation(t, accesLoc) {
   if (n) chargerDocs(t.id)
   return n
 }
-async function avisDocument(row, accesLoc, t) {
+async function avisDocument(row, accesLoc) {
   const r = await etatRelais(); if (!r.emails) return
-  const locs = locatairesDuBail(t.bail, logDe(t.ref))
   for (const a of accesLoc) {
     if (a.revoque_le) continue
     if (row.type_doc === 'quittance' && !(a.accord_quittance_le && !a.accord_retire_le)) continue   // quittance par e-mail : seulement avec l'accord (art. 21)
-    const email = (locs[a.locataire_rang] || {}).email
-    if (email) await notifier('document', a.id, email, { titre: row.titre })
+    await notifier('document', a.id, { titre: row.titre })
   }
 }
-async function notifier(type, accesId, to, data) {
+// E-mail par le relais : le destinataire et le nom du bailleur sont lus EN BASE par le relais (el_acces_contact),
+// jamais envoyés d'ici ; l'invitation transmet le seul jeton (le relais reconstruit le lien sur son origine).
+async function notifier(type, accesId, data) {
   try {
+    const r0 = await etatRelais(); if (!r0.emails) return false
     const cfg = G('_relayCfg') ? W._relayCfg() : null; if (!cfg) return false
     const jwt = await cfg.getToken(); if (!jwt) return false
-    const D = db() || {}; const x = etat.acces.find((a) => a.id === accesId); const t = x ? locationDe(x) : null
     const r = await fetch(cfg.base + '/el/notifier', { method: 'POST', headers: { Authorization: 'Bearer ' + jwt, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, acces_id: accesId, to, bailleur: (t && entNomDe(t.bail, logDe(t.ref))) || '', ...data }) })
-    void D
+      body: JSON.stringify({ type, acces_id: accesId, ...(data || {}) }) })
     return r.ok && (await r.json()).envoye === true
   } catch (e) { return false }
 }
@@ -486,38 +534,41 @@ async function notifier(type, accesId, to, data) {
 // ─────────────────────────── Import des signalements (D11) ───────────────────────────
 async function importerSignalements() {
   const D = db(); if (!D || !W.Incidents || typeof W.Incidents.nouvelIncident !== 'function') return 0
+  const ids = etat.acces.map((a) => a.id); if (!ids.length) return 0
   let liste = []
-  try { liste = await API().select('locataire_signalements', { importe_le: null }) } catch (e) { return 0 }
+  try { liste = await API().select('locataire_signalements', { acces_id: ids }) } catch (e) { return 0 }
+  if (!D.incidents) D.incidents = []
   let n = 0
   for (const s of liste) {
     const x = etat.acces.find((a) => a.id === s.acces_id); const t = x ? locationDe(x) : null
     if (!t) continue
     const legacy = EL.idIncidentDuSignalement(s.id); if (!legacy) continue
-    // Réserver d'abord (droit d'écriture de la SCI exigé par la RLS) : un associé en lecture seule n'importe rien,
-    // sinon son app créerait un incident qu'elle ne pourrait jamais envoyer au cloud.
-    let reserve = []
-    try { reserve = await API().update('locataire_signalements', s.id, { incident_legacy_id: legacy, importe_le: new Date().toISOString() }) } catch (e) { reserve = [] }
-    if (!reserve.length) continue
-    if (!D.incidents) D.incidents = []
-    let inc = D.incidents.find((i) => String(i.id) === legacy)
-    if (!inc) {
-      const log = logDe(t.ref)
-      inc = W.Incidents.nouvelIncident(EL.champsIncident(s, { logRef: t.ref, entity: entNomDe(t.bail, log) || '', nom: x.locataire_nom }), new Date().toISOString())
-      inc.espaceSignalementId = s.id; inc.espaceAccesId = s.acces_id; inc.vu = false
-      if (G('_stamp')) W._stamp(inc)
-      D.incidents.push(inc)
-      if (!D.documents) D.documents = []
-      for (const p of s.photos || []) {
-        if (!p || !p.path) continue
-        const doc = { id: G('nid') ? W.nid() : Date.now() + Math.floor(Math.random() * 9999), parentType: 'incident', parentId: inc.id, parentRef: String(inc.id), logRef: t.ref,
-          category: 'incident', idbKey: null, cloudKey: p.path, name: p.nom || 'photo.jpg', originalName: p.nom || 'photo.jpg', mime: p.mime || 'image/jpeg', size: 0,
-          uploadedAt: s.cree_le, source: 'espace-locataire' }
-        if (G('_stamp')) W._stamp(doc)
-        D.documents.push(doc)
-      }
-      if (G('_auditLog')) W._auditLog('create', 'incident', inc.id, 'signalé depuis l\'espace locataire')
-      n++
-    }
+    if (D.incidents.some((i) => String(i.id) === legacy)) continue   // déjà au registre (cet appareil ou un autre)
+    if (!s.importe_le) {
+      // Réservation CONDITIONNELLE (importe_le encore vide) et droit d'écriture exigés : un associé en lecture seule
+      // n'importe rien, deux membres n'importent pas deux fois.
+      let reserve = []
+      try { reserve = await API().update('locataire_signalements', s.id, { incident_legacy_id: legacy, importe_le: new Date().toISOString() }, { importe_le: null }) } catch (e) { reserve = [] }
+      if (!reserve.length) continue
+    } else if (!(await peutPublier(t.id))) continue   // marqué importé mais absent du registre (import interrompu) : un membre en écriture le recrée
+    const log = logDe(t.ref)
+    const inc = W.Incidents.nouvelIncident(EL.champsIncident(s, { logRef: t.ref, imm: (log && log.imm) || '', entity: entNomDe(t.bail, log) || '', nom: x.locataire_nom }), new Date().toISOString())
+    inc.espaceSignalementId = s.id; inc.espaceAccesId = s.acces_id; inc.vu = false
+    if (G('_stamp')) W._stamp(inc)
+    D.incidents.push(inc)
+    if (!D.documents) D.documents = []
+    ;(s.photos || []).forEach((p, k) => {
+      if (!p || !p.path) return
+      const docId = Number(legacy) + 1 + k   // déterministe : pas de pièce en double si deux membres importent
+      if (D.documents.some((d) => d && d.id === docId)) return
+      const doc = { id: docId, parentType: 'incident', parentId: inc.id, parentRef: String(inc.id), logRef: t.ref,
+        category: 'incident', idbKey: null, cloudKey: p.path, name: p.nom || 'photo.jpg', originalName: p.nom || 'photo.jpg', mime: p.mime || 'image/jpeg', size: Number(p.taille) || 0,
+        sha256: p.sha256 || null, uploadedAt: s.cree_le, source: 'espace-locataire' }
+      if (G('_stamp')) W._stamp(doc)
+      D.documents.push(doc)
+    })
+    if (G('_auditLog')) W._auditLog('create', 'incident', inc.id, 'signalé depuis l\'espace locataire')
+    n++
   }
   if (n) {
     if (G('saveDB')) W.saveDB()
@@ -561,8 +612,11 @@ async function cycle(force) {
   try { await _cycle } finally { _cycle = null }
 }
 
+let _demarre = false
 export function demarrer() {
   if (!API() || !API().pret()) return
+  if (_demarre) { cycle(true); return }
+  _demarre = true
   W._elBlocHtml = blocHtml
   W.EspaceLoc = { creer, renouveler, revoquer, documents, retirer, messages, joindre, repondre: (id) => repondre(id), ouvrirPiece,
     disponiblePourIncident, envoyerTexteIncident, publierMaintenant: async () => { toast('Publication en cours…', 'info'); await cycle(true); toast('Documents à jour.') } }

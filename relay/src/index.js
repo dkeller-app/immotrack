@@ -16,7 +16,7 @@ import {
 } from './candidatures.js';
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
 import { registerAiRoutes } from './ai/routes.js';
-import { registerEspaceLocataireRoutes, registerEspaceLocataireProprietaire } from './espace-locataire.js';
+import { registerEspaceLocataireRoutes, registerEspaceLocataireProprietaire, entetesEspace } from './espace-locataire.js';
 
 const app = new Hono();
 
@@ -637,6 +637,20 @@ registerAiRoutes(app, { requireSupabaseUser });
 
 // ── Espace locataire (accès par lien, migration 0059) : page /l, API /api/el/*, e-mails /el/notifier ──
 registerEspaceLocataireRoutes(app);
+app.onError((err, c) => {
+  // Comportement par défaut de Hono conservé pour les autres routes ; l'espace locataire répond sans détail interne
+  // et garde ses en-têtes de sécurité.
+  const chemin = new URL(c.req.url).pathname;
+  if (!(chemin.startsWith('/api/el/') || chemin === '/l')) {
+    if (err && typeof err.getResponse === 'function') return err.getResponse();
+    console.error(err);
+    return c.text('Internal Server Error', 500);
+  }
+  console.warn('[relais] espace locataire : erreur', err && err.message ? String(err.message).slice(0, 120) : 'inconnue');
+  const r = c.json({ erreur: 'interne' }, 500);
+  entetesEspace(r.headers);
+  return r;
+});
 registerEspaceLocataireProprietaire(app, { requireSupabaseUser });
 
 export default app;

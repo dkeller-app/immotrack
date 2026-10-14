@@ -202,3 +202,39 @@ describe('E-7 · fichiers, messages, e-mails', () => {
     expect(sans.texte).toMatch(/lien personnel reçu du bailleur/)
   })
 })
+
+describe('E-8 · attribution à la location (relecture adverse : jamais les documents d\'un autre locataire)', () => {
+  const B = { debut: '2026-03-15', fin: null, noms: ['Léo Martin'] }
+  it('quittance du mois de passage : celle de l\'ancien locataire n\'est JAMAIS publiée au nouveau', () => {
+    expect(EL.quittanceDeLaLocation({ mois: 'mars 2026', locataire: 'Camille Durand' }, B)).toBe(false)
+    expect(EL.quittanceDeLaLocation({ mois: 'mars 2026', locataire: 'Léo Martin' }, B)).toBe(true)
+    expect(EL.quittanceDeLaLocation({ mois: 'mars 2026', locataire: 'Zoé, léo  martin' }, B)).toBe(true)
+  })
+  it('quittance hors de la location ou sans nom : non publiée', () => {
+    expect(EL.quittanceDeLaLocation({ mois: 'février 2026', locataire: 'Léo Martin' }, B)).toBe(false)
+    expect(EL.quittanceDeLaLocation({ mois: 'avril 2026', locataire: '' }, B)).toBe(false)
+    expect(EL.quittanceDeLaLocation({ mois: 'septembre 2026', locataire: 'Léo Martin' }, { ...B, fin: '2026-08-31' })).toBe(false)
+  })
+  it('EDL le jour du passage de relais : la sortie de l\'ancien n\'est pas publiée au nouveau ; l\'entrée de la veille l\'est', () => {
+    expect(EL.edlDeLaLocation({ date: '2026-03-15', type: 'Sortie', locataire: 'Camille Durand' }, B)).toBe(false)
+    expect(EL.edlDeLaLocation({ date: '2026-03-14', type: 'Entrée', locataire: 'M. Léo Martin' }, B)).toBe(true)
+    expect(EL.edlDeLaLocation({ date: '2026-01-01', type: 'Entrée', locataire: 'Léo Martin' }, B)).toBe(false)
+    expect(EL.edlDeLaLocation({ date: '2026-10-20', type: 'Sortie', locataire: 'Léo Martin' }, { ...B, fin: '2026-09-30' })).toBe(true)
+    expect(EL.edlDeLaLocation({ date: '2026-03-20', type: 'Entrée', locataire: '' }, B)).toBe(false)
+  })
+  it('plan : date relue au format de la base (+00:00) → aucune mise à jour en boucle', () => {
+    const p = EL.planPublication([{ cle: 'justif:x', type_doc: 'justificatif', titre: 'J', storage_path: 'p', visible_jusqu_au: '2026-11-15T23:59:59Z', date_doc: '2026-03-20' }],
+      [{ id: 'd', cle: 'justif:x', storage_path: 'p', visible_jusqu_au: '2026-11-15T23:59:59+00:00', date_doc: '2026-03-20' }])
+    expect(p.maj).toEqual([])
+  })
+  it('lien : https exigé (http seulement pour un relais local)', () => {
+    const j = EL.nouveauJeton()
+    expect(EL.lienEspace('http://relais.example', j)).toBeNull()
+    expect(EL.lienEspace('http://localhost:8787', j)).toBe('http://localhost:8787/l#' + j)
+  })
+  it('partie commune : l\'immeuble est rattaché à l\'incident importé', () => {
+    const f = EL.champsIncident({ id: '3f2a9c10-4b5e-4d6f-8a7b-1c2d3e4f5a6b', piece: 'parties_communes', element: 'autre', urgence: 'faible', description: 'Porte du hall' }, { logRef: 'L', imm: 'Immeuble Demo' })
+    expect(f.imm).toBe('Immeuble Demo')
+    expect(EL.champsIncident({ id: '3f2a9c10-4b5e-4d6f-8a7b-1c2d3e4f5a6b', piece: 'cuisine', element: 'autre', urgence: 'faible', description: 'x x x' }, { logRef: 'L', imm: 'Immeuble Demo' }).imm).toBe('')
+  })
+})
