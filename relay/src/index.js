@@ -16,6 +16,7 @@ import {
 } from './candidatures.js';
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
 import { registerAiRoutes } from './ai/routes.js';
+import { registerEspaceLocataireRoutes, registerEspaceLocataireProprietaire } from './espace-locataire.js';
 
 const app = new Hono();
 
@@ -633,5 +634,9 @@ app.delete('/api/candidatures/:linkId', async (c) => {
 
 // ── Socle IA (dictée EDL, puis dossiers / travaux) : routes authentifiées, cf. src/ai/routes.js ──
 registerAiRoutes(app, { requireSupabaseUser });
+
+// ── Espace locataire (accès par lien, migration 0059) : page /l, API /api/el/*, e-mails /el/notifier ──
+registerEspaceLocataireRoutes(app);
+registerEspaceLocataireProprietaire(app, { requireSupabaseUser });
 
 export default app;

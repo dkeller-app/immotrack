@@ -11,8 +11,8 @@
 --     par une location suivante quand le bail n'était pas signé), messages et signalements DE CET ACCÈS (D5).
 --   • Un utilisateur connecté ordinaire qui appelle une fonction el_* « locataire » reçoit 42501 (_el_relais_ok).
 --   • Fichiers : la politique de seau n'autorise l'identité du relais à lire QUE les chemins « ouverts » depuis moins
---     de 60 s par une fonction el_* (table locataire_ouvertures), et à déposer QUE sous ticket (5 min) dans
---     <espace>/<sci>/locataire/<accès>/.
+--     de 60 s par une fonction el_* (table locataire_ouvertures), et à déposer QUE sous ticket (5 min) sous
+--     <espace>/<sci>/files/el-<accès>-<uuid>.<ext>.
 --   • L'empreinte du jeton vit dans locataire_acces_jeton, SANS AUCUNE politique de lecture : personne ne la lit.
 --
 -- CÔTÉ PROPRIÉTAIRE (connecté, RLS par SCI existante, modèle 0052 has_entite_*_all) :
@@ -239,14 +239,15 @@ $$;
 create trigger trg_el_doc_coherence before insert or update on public.locataire_documents
   for each row execute function public._el_doc_coherence();
 
--- Pièces jointes d'un message : chemin imposé <espace>/<seg>/locataire/<accès>/<fichier>. Rattachements déduits de l'accès.
+-- Pièces jointes et photos : chemin imposé <espace>/<sci>/files/el-<accès>-<uuid>.<ext> (le dossier files/ de l'app :
+-- lisible par les membres de la SCI avec la politique 0031 et par le code existant de l'app). Rattachements déduits de l'accès.
 create or replace function public._el_pieces_valides(p_pieces jsonb, p_prefixe text)
 returns boolean
 language sql
 immutable
 set search_path = ''
 as $$
-  -- p_prefixe = <espace>/<sci|_orphelin>/locataire/<accès>/ (caractères hexadécimaux, tirets, '_orphelin' : sûrs en regex).
+  -- p_prefixe = <espace>/<sci|_orphelin>/files/el-<accès>- (hexadécimal, tirets, '_orphelin', 'files', 'el' : sûrs en regex).
   select coalesce(bool_and(
            jsonb_typeof(x) = 'object'
            and (x->>'path') ~ ('^' || p_prefixe || '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|pdf)$')
@@ -263,7 +264,7 @@ language sql
 immutable
 set search_path = ''
 as $$
-  select a.espace_id::text || '/' || coalesce(a.entite_id::text, '_orphelin') || '/locataire/' || a.id::text || '/';
+  select a.espace_id::text || '/' || coalesce(a.entite_id::text, '_orphelin') || '/files/el-' || a.id::text || '-';
 $$;
 revoke all on function public._el_prefixe(public.locataire_acces) from public, anon;
 
@@ -782,11 +783,32 @@ begin
 end;
 $$;
 
+-- Adresse e-mail du locataire de CET accès (code à usage unique pour l'accord, D10 — seulement quand l'envoi d'e-mails
+-- sera actif). Lue dans le bail de la location ; jamais renvoyée au navigateur par le relais (il n'en montre qu'un masque).
+create or replace function public.el_contact(p_jeton_sha256 text, p_ip_hash text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare a public.locataire_acces%rowtype; v_mail text;
+begin
+  a := public._el_acces(p_jeton_sha256, p_ip_hash);
+  if a.id is null then return null; end if;
+  select coalesce(b.locataires -> a.locataire_rang ->> 'email',
+                  case when a.locataire_rang = 0 then b.legacy_raw ->> 'email' end) into v_mail
+  from public.baux b where b.id = a.bail_id and b.date_debut is not distinct from a.bail_debut;
+  v_mail := lower(btrim(coalesce(v_mail, '')));
+  if v_mail !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(v_mail) > 254 then return jsonb_build_object('email', null); end if;
+  return jsonb_build_object('email', v_mail);
+end;
+$$;
+
 do $g$
 declare f text;
 begin
   foreach f in array array[
-    'el_ouvrir(text, text)', 'el_documents(text, text)', 'el_fichier(text, text, text, uuid, int)', 'el_depot(text, text, text)',
+    'el_contact(text, text)', 'el_ouvrir(text, text)', 'el_documents(text, text)', 'el_fichier(text, text, text, uuid, int)', 'el_depot(text, text, text)',
     'el_accord(text, text, boolean, text, boolean)', 'el_signaler(text, text, text, text, text, text, jsonb)',
     'el_signalements(text, text)', 'el_messages(text, text)', 'el_message_envoyer(text, text, text, jsonb, uuid)'] loop
     execute format('revoke all on function public.%s from public, anon', f);

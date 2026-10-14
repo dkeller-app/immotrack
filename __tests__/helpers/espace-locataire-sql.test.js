@@ -7,7 +7,7 @@ const SQL = readFileSync(new URL('../../supabase/migrations/0059_espace_locatair
 const sansCommentaires = SQL.split(/\r?\n/).map((l) => l.replace(/--.*$/, '')).join('\n')
 const fonctions = [...sansCommentaires.matchAll(/create or replace function public\.([a-z_]+)\(([\s\S]*?)\$\$;/g)]
   .map((m) => ({ nom: m[1], corps: m[0] }))
-const LOCATAIRE = ['el_ouvrir', 'el_documents', 'el_fichier', 'el_depot', 'el_accord', 'el_signaler', 'el_signalements', 'el_messages', 'el_message_envoyer']
+const LOCATAIRE = ['el_contact', 'el_ouvrir', 'el_documents', 'el_fichier', 'el_depot', 'el_accord', 'el_signaler', 'el_signalements', 'el_messages', 'el_message_envoyer']
 
 describe('0059 — frontière d\'accès (statique)', () => {
   it('L-1 · transaction unique, aucun COMMIT intermédiaire', () => {

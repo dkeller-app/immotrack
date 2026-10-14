@@ -95,7 +95,7 @@ try {
   await q('insert into public.logements (id, espace_id, entite_id, ref) values ($1,$2,$3,$4)', [L.B, espace, E.B, 'SIM59-B-' + RUN])
   await q("insert into public.entite_membre (espace_id, entite_id, user_id, role) values ($1,$2,$3,'gestionnaire')", [espace, E.A, U.carol])
   const BAIL = "insert into public.baux (id, espace_id, logement_id, entite_id, date_debut, locataires) values ($1,$2,$3,$4,'2025-09-01',$5::jsonb)"
-  await q(BAIL, [B.A, espace, L.A1, E.A, '[{"nom":"Camille"},{"nom":"Léo"}]'])
+  await q(BAIL, [B.A, espace, L.A1, E.A, '[{"nom":"Camille","email":"Camille@Example.test"},{"nom":"Léo"}]'])
   await q(BAIL, [B.A2, espace, L.A2, E.A, '[{"nom":"Zoé"}]'])
   await q(BAIL, [B.B, espace, L.B, E.B, '[{"nom":"Yann"}]'])
 
@@ -149,6 +149,8 @@ try {
   const al = await asUser(U.alice, 'select public.el_documents($1,$2)', [H.A0, IP])
   check('Alice (propriétaire) appelle une fonction locataire : refus (42501)', !al.ok && al.code === '42501', JSON.stringify(al))
 
+  const ct0 = val(await R('el_contact', [H.A0, IP])), ct1 = val(await R('el_contact', [H.A1, IP]))
+  check("el_contact : l'e-mail du colocataire de CET accès seulement (Léo n'en a pas)", ct0 && ct0.email === 'camille@example.test' && ct1 && ct1.email === null, JSON.stringify({ ct0, ct1 }))
   // ── Documents ──
   const pA = espace + '/' + E.A + '/files/qt_sim_a.pdf', pA2 = espace + '/' + E.A + '/files/qt_sim_a2.pdf', pB = espace + '/' + E.B + '/files/qt_sim_b.pdf'
   const dA = await asUserKeep(U.alice, DOC, [espace, B.A, '2025-09-01', 'quittance:2026-09', 'quittance', 'Quittance de septembre 2026', pA])
@@ -200,7 +202,7 @@ try {
 
   // ── Signalements ──
   const dep = val(await RK('el_depot', [H.A0, IP, 'jpg']))
-  const prefA0 = espace + '/' + E.A + '/locataire/' + A.A0 + '/'
+  const prefA0 = espace + '/' + E.A + '/files/el-' + A.A0 + '-'
   check('ticket de dépôt : chemin imposé sous le préfixe de Camille', dep && dep.path.startsWith(prefA0) && dep.path.endsWith('.jpg'), JSON.stringify(dep))
   const stD = await asUser(U.relais, 'select public.el_objet_ouvert($1, $2) as r', [dep.path, 'depot'])
   check('stockage : dépôt autorisé sous ticket', val(stD) === true, JSON.stringify(stD))
@@ -242,7 +244,7 @@ try {
   check('Carol ne peut PAS écrire dans un fil de SCI-B (42501)', !m4.ok && m4.code === '42501', JSON.stringify(m4))
   const lmA1 = val(await R('el_messages', [H.A1, IP])), lmA0 = val(await R('el_messages', [H.A0, IP]))
   check('fil privé : Léo ne voit rien, Camille voit ses 2 messages', lmA1.length === 0 && lmA0.length === 2, JSON.stringify({ lmA0, lmA1 }))
-  const piecesB = JSON.stringify([{ path: espace + '/' + E.B + '/locataire/' + A.B + '/' + randomUUID() + '.pdf', nom: 'x.pdf' }])
+  const piecesB = JSON.stringify([{ path: espace + '/' + E.B + '/files/el-' + A.B + '-' + randomUUID() + '.pdf', nom: 'x.pdf' }])
   const m5 = await R('el_message_envoyer', [H.A0, IP, 'pièce volée', piecesB, null])
   check("pièce jointe d'un autre accès refusée (23514)", !m5.ok && m5.code === '23514', JSON.stringify(m5))
   const m6 = await R('el_message_envoyer', [H.A1, IP, 'lien', '[]', SG])

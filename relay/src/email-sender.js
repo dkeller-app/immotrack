@@ -22,5 +22,21 @@ export function makeSender(env, fetchImpl = fetch) {
       if (!res.ok) { console.warn('[otp][resend] échec', res.status); return { sent: false, error: res.status }; }
       return { sent: true };
     },
+    // ESPACE LOCATAIRE (0059) : e-mail générique à partir d'un modèle NEUTRE (js/core/espace-locataire.js, modeleEmail).
+    // Mode dev : RIEN n'est envoyé et RIEN de personnel n'est journalisé (ni adresse, ni lien, ni texte : le type seul).
+    async sendModele({ to, objet, texte, type }) {
+      if (mode !== 'resend') {
+        console.log(`[email][dev] modele=${String(type || '').replace(/[^a-z_]/g, '')} (non envoye)`);
+        return { sent: false, dev: true };
+      }
+      const from = env.EMAIL_FROM || 'onboarding@resend.dev';
+      const res = await fetchImpl('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: `Propryo <${from}>`, to: [to], subject: objet, text: texte }),
+      });
+      if (!res.ok) { console.warn('[email][resend] echec', res.status); return { sent: false, error: res.status }; }
+      return { sent: true };
+    },
   };
 }

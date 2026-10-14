@@ -191,4 +191,11 @@ describe('E-7 · fichiers, messages, e-mails', () => {
     }
     expect(EL.modeleEmail('autre', {})).toBeNull()
   })
+  it('invitation : seul e-mail qui porte le lien ; les avis suivants renvoient au lien déjà reçu (D3)', () => {
+    expect(EL.modeleEmail('invitation', {})).toBeNull()
+    expect(EL.modeleEmail('invitation', { lien: 'https://r/l#x' }).texte).toMatch(/https:\/\/r\/l#x/)
+    const sans = EL.modeleEmail('document', { titre: 'Quittance' })
+    expect(sans.texte).not.toMatch(/https?:/)
+    expect(sans.texte).toMatch(/lien personnel reçu du bailleur/)
+  })
 })

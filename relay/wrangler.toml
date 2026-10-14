@@ -40,3 +40,21 @@ OTP_REQUIRED = "false"
 AI_QUOTA_AUDIO_SEC = "3600"
 AI_QUOTA_CALLS = "200"
 AI_AUDIO_MAX_BYTES = "10485760"
+
+# ── ESPACE LOCATAIRE (migration 0059 ; CDC mockups/ESPACE-LOCATAIRE) — src/espace-locataire.js, src/el-supabase.js ──
+# Clé PUBLIQUE du projet (la même que l'app, js/app/supabase-config.js) : en-tête apikey des appels de l'identité technique.
+SUPABASE_ANON_KEY = "sb_publishable_mu8HNkruDoElJY7QGAHW2w_5nPvfxZO"
+# Identité technique du relais (compte Supabase dédié, sans espace ni SCI, inscrit dans public.el_relais) :
+#   npx wrangler secret put EL_RELAIS_EMAIL
+#   npx wrangler secret put EL_RELAIS_MOT_DE_PASSE
+# Sans ces deux secrets, /api/el/* répond 503 el_inactif. AUCUNE clé de service (service_role) ici.
+# Code à usage unique pour donner / retirer l'accord (D10) : seulement quand l'e-mail est actif (EMAIL_MODE=resend).
+EL_CODE_ACCORD = "false"
+
+# Limite de débit de l'espace locataire (par IP) — binding Workers « ratelimit ». Si l'offre du compte le refuse au
+# déploiement, retirer ce bloc : la limite des jetons invalides (20 / heure / IP) et les plafonds d'écriture restent en base.
+[[unsafe.bindings]]
+name = "EL_RATE"
+type = "ratelimit"
+namespace_id = "1059"
+simple = { limit = 120, period = 60 }

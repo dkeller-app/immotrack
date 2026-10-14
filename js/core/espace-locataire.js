@@ -291,16 +291,24 @@ export const MIME_DE = Object.freeze({ jpg: 'image/jpeg', png: 'image/png', pdf:
 
 // ─────────────────────────── E-mails (mode dev tant que le domaine n'est pas actif) ───────────────────────────
 /**
- * Modèles NEUTRES (ni « tu » ni « vous ») : aucune donnée personnelle ni montant dans l'objet ; le lien dans le corps.
- * type : 'document' | 'message' | 'signalement'. data : { bailleur, lien, titre? , statut? }.
+ * Modèles NEUTRES (ni « tu » ni « vous ») : aucune donnée personnelle ni montant dans l'objet.
+ * type : 'invitation' (porte le lien personnel, envoyé une fois à l'émission) | 'document' | 'message' | 'signalement'.
+ * Le lien n'étant conservé nulle part en clair (D3), les avis suivants ne le portent pas : ils renvoient au lien
+ * personnel déjà reçu. data : { bailleur, lien?, titre?, statut? }.
  * La quittance « disponible » ne part par e-mail que si l'accord électronique est donné (appelant).
  */
+export const TYPES_EMAIL = Object.freeze(['invitation', 'document', 'message', 'signalement'])
 export function modeleEmail(type, data) {
   const d = data || {}
   const lien = String(d.lien || '')
+  const acces = lien ? 'Lien : ' + lien : "Ouvrir l'espace locataire avec le lien personnel reçu du bailleur (le garder en favori). Lien perdu : en demander un nouveau au bailleur."
   const signe = '\n\n— Propryo, pour ' + (d.bailleur || 'le bailleur') + '\nMessage automatique : ne pas répondre à cet e-mail. Le lien est personnel : ne pas le transférer.'
-  if (type === 'document') return { objet: 'Un document est disponible dans l\'espace locataire', texte: 'Bonjour,\n\nUn nouveau document est disponible : ' + (d.titre || 'document') + '.\n\nPour le consulter : ' + lien + signe }
-  if (type === 'message') return { objet: 'Nouveau message dans l\'espace locataire', texte: 'Bonjour,\n\nLe bailleur a répondu dans l\'espace locataire.\n\nPour lire le message : ' + lien + signe }
-  if (type === 'signalement') return { objet: 'Avancement d\'un signalement', texte: 'Bonjour,\n\nUn signalement a avancé' + (d.statut ? ' : ' + d.statut : '') + '.\n\nPour suivre : ' + lien + signe }
+  if (type === 'invitation') {
+    if (!lien) return null
+    return { objet: "Accès à l'espace locataire", texte: "Bonjour,\n\nLe bailleur ouvre un espace locataire personnel, sans mot de passe : documents du bail, quittances, signalement d'un problème, messages.\n\nLien personnel, à conserver : " + lien + signe }
+  }
+  if (type === 'document') return { objet: "Un document est disponible dans l'espace locataire", texte: 'Bonjour,\n\nUn nouveau document est disponible : ' + (d.titre || 'document') + '.\n\n' + acces + signe }
+  if (type === 'message') return { objet: "Nouveau message dans l'espace locataire", texte: "Bonjour,\n\nLe bailleur a répondu dans l'espace locataire.\n\n" + acces + signe }
+  if (type === 'signalement') return { objet: "Avancement d'un signalement", texte: 'Bonjour,\n\nUn signalement a avancé' + (d.statut ? ' : ' + d.statut : '') + '.\n\n' + acces + signe }
   return null
 }
