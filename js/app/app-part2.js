@@ -14974,7 +14974,9 @@ function _incRender() {
   } else if (v === 'message') {
     titre = 'Message au locataire'; sub = 'À relire avant envoi';
     body = _incMessageHtml(inc);
-    foot = `<button type="button" class="btn bs" onclick="_incGo('fiche')">Retour</button><button type="button" class="btn bs" onclick="_incCopierMessage()">${_uiIcon('doc', 14)} Copier</button><button type="button" class="btn bp" onclick="_incEnvoyerMessage()">${_uiIcon('send', 14)} Envoyer le message</button>`;
+    // ESPACE LOCATAIRE : dépôt dans le fil du locataire, par geste explicite après relecture (secondaire, M-4).
+    const elDepot = (window.EspaceLoc && window.EspaceLoc.disponiblePourIncident(inc)) ? `<button type="button" class="btn bs" onclick="EspaceLoc.envoyerTexteIncident('${escHtml(String(inc.id))}')">${_uiIcon('send', 14)} Déposer dans l'espace locataire</button>` : '';
+    foot = `<button type="button" class="btn bs" onclick="_incGo('fiche')">Retour</button><button type="button" class="btn bs" onclick="_incCopierMessage()">${_uiIcon('doc', 14)} Copier</button>${elDepot}<button type="button" class="btn bp" onclick="_incEnvoyerMessage()">${_uiIcon('send', 14)} Envoyer le message</button>`;
   } else {
     titre = _incElLbl(inc) + (inc.nature ? ' — ' + _incNatLbl(inc).toLowerCase() : '');
     sub = _incBienLbl(inc) + ' · signalé le ' + _incDateHeure(inc.creeLe);
@@ -16335,7 +16337,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.734 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.736 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -18644,7 +18646,9 @@ function _renderLogFichePanelBail(log, bail, ref) {
         <h3 class="logf-panel-title">${_uiIcon('edit')} Notes sur le bien</h3>
         <div class="logf-value" style="font-style:italic;font-weight:400;text-align:left;white-space:pre-wrap">${escHtml(log.notes)}</div>
       </div>` : '';
-  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${bail?_renderAvenantsBail(ref):''}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}${notesSection}</div>`;
+  // ESPACE LOCATAIRE (0059) : bloc rendu par js/app/espace-locataire-app.js (mode cloud seulement ; vide sinon).
+  const elBloc = (bail && typeof window._elBlocHtml === 'function') ? window._elBlocHtml(log, bail, ref) : '';
+  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${elBloc}${bail?_renderAvenantsBail(ref):''}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}${notesSection}</div>`;
 }
 
 // HISTORIQUE-BAIL-ONGLET (17/07) : _renderBailTimeline (timeline horizontale) et

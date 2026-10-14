@@ -785,6 +785,33 @@ async function boot() {
     return { ok: true }
   }
 
+  // ESPACE LOCATAIRE (migration 0059) — accès BORNÉS du client connecté (RLS par SCI) : tables locataire_* et
+  // fonctions el_acces_* seulement. Toute la logique vit dans js/app/espace-locataire-app.js (+ module pur
+  // js/core/espace-locataire.js). Le jeton du locataire n'arrive jamais ici : seule son empreinte (el_acces_*).
+  const _EL_TABLES = ['locataire_acces', 'locataire_documents', 'locataire_messages', 'locataire_signalements']
+  const _EL_RPC = ['el_acces_emettre', 'el_acces_renouveler', 'el_acces_revoquer']
+  const _elT = t => { if (!_EL_TABLES.includes(t)) throw new Error('table hors espace locataire') ; return client.from(t) }
+  window.__immoEspaceLoc = {
+    pret: () => !!(_cloudEspaceId && _makeDetUuid),
+    // Identifiant déterministe d'une ligne (même dérivation que store-mapping) dans l'espace du propriétaire de la SCI.
+    uuid: (collection, cle, entiteNom) => { try { return _makeDetUuid(_entiteOwner(entiteNom))(collection, cle) } catch (e) { return null } },
+    entiteUuid: nom => window.__immoEntiteUuid(nom),
+    espaceDeSeg: seg => _espaceOfEntiteSeg(seg),
+    espacePropre: () => _cloudEspaceId,
+    select: async (t, filtres, colonnes) => {
+      let q = _elT(t).select(colonnes || '*')
+      for (const [k, v] of Object.entries(filtres || {})) q = Array.isArray(v) ? q.in(k, v) : (v === null ? q.is(k, null) : q.eq(k, v))
+      const { data, error } = await q
+      if (error) throw new Error(error.message)
+      return data || []
+    },
+    insert: async (t, row) => { const { data, error } = await _elT(t).insert(row).select().single(); if (error) throw Object.assign(new Error(error.message), { code: error.code }); return data },
+    update: async (t, id, patch) => { const { data, error } = await _elT(t).update(patch).eq('id', id).select(); if (error) throw new Error(error.message); return data || [] },
+    rpc: async (fn, args) => { if (!_EL_RPC.includes(fn)) throw new Error('fonction hors espace locataire'); const { data, error } = await client.rpc(fn, args); if (error) throw Object.assign(new Error(error.message), { code: error.code }); return data },
+    // Fichier déposé PAR LE PROPRIÉTAIRE (pièce d'un message, PDF publié) : sans écrasement. Chemin complet imposé par l'appelant.
+    upload: async (path, blob, mime) => { const { error } = await client.storage.from('espace-files').upload(path, blob, { contentType: mime || 'application/pdf', upsert: false }); if (error && !/exists|duplicate/i.test(error.message || '')) throw new Error(error.message); return path },
+  }
+
   window.__immoPartage = {
     listMembers: _listMembers,
     listEntites: _listEntites,
@@ -1789,6 +1816,7 @@ async function onLoggedIn(api, overlay, user) {
       _perfMark('app')
       _prechargerLibsPdf()
       _docExpressApresConnexion()
+      _espaceLocataireApresConnexion()
       return
     }
     renderProof(overlay, api, user, esp, db)
@@ -1853,6 +1881,11 @@ function _perfMark(nom) {
 }
 
 // Document express venu de propryo.fr : généré et téléchargé une fois l'app affichée (jamais bloquant).
+// ESPACE LOCATAIRE (0059) : bloc de la fiche, publication des documents, import des signalements — chargé après l'app.
+function _espaceLocataireApresConnexion() {
+  try { setTimeout(() => { import('./espace-locataire-app.js').then(m => m.demarrer()).catch(e => console.warn('[espace-locataire]', e)) }, 1500) } catch (e) {}
+}
+
 function _docExpressApresConnexion() {
   try {
     setTimeout(() => { import('./doc-express.js').then(m => m.consommerDocExpress()).catch(() => {}) }, 800)

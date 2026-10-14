@@ -10700,3 +10700,25 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 @media (min-width:1024px){
   .evx-acts .btn{flex:0 1 auto;min-width:130px}
 }
+
+/* ════════ ESPACE LOCATAIRE (0059) — bloc de la fiche logement + couches (js/app/espace-locataire-app.js) ════════
+   Jetons du thème uniquement (sobre / dark), aucune couleur en dur ; cibles ≥ 44 px ; jamais de troncature (M-14). */
+.el-bloc .el-locrow{border:1px solid var(--bor);border-radius:var(--rl);padding:12px;background:var(--sur2);margin-bottom:10px}
+.el-bloc .el-locrow-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.el-bloc .el-locrow-h b{font-size:15px;color:var(--t1)}
+.el-bloc .logf-bail-actions .btn,.el-bloc .el-locrow-h .btn{min-height:44px}
+.el-bloc .logf-value{overflow-wrap:anywhere;white-space:normal}
+#ov-el-docs .el-docrow{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:10px 0;border-top:1px solid var(--bor2)}
+#ov-el-docs .el-docrow b{color:var(--t1);overflow-wrap:anywhere}
+#ov-el-docs .el-doc-s{font-size:12.5px;color:var(--t2);margin-top:2px}
+#ov-el-docs .btn,#ov-el-msg .btn{min-height:44px}
+.el-note{font-size:13px;color:var(--t2);margin:0 0 10px;line-height:1.45}
+#ov-el-msg .el-fil{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+#ov-el-msg .el-bub{max-width:86%;padding:9px 12px;border-radius:14px;border:1px solid var(--bor);background:var(--sur);font-size:14px;line-height:1.45}
+#ov-el-msg .el-bub.me{align-self:flex-end;background:var(--acc-soft);border-color:transparent}
+#ov-el-msg .el-bub.them{align-self:flex-start}
+#ov-el-msg .el-bub-t{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--t1)}
+#ov-el-msg .el-bub-m{font-size:11.5px;color:var(--t3);margin-top:4px}
+#ov-el-msg .el-att{margin-top:6px}
+#ov-el-msg textarea.inp{width:100%;font-size:16px}
+#ov-el-msg .el-pj{display:inline-block;font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:var(--rp);background:var(--sur3);color:var(--t2);margin:6px 6px 0 0}

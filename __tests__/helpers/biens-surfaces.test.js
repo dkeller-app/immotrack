@@ -381,7 +381,8 @@ describe('fiche logement — étape 8', () => {
     // À l'intérieur du `if(bail)`, un logement vacant perdrait ses EDL passés et son template —
     // exactement le moment où l'on consulte l'EDL de sortie.
     // AVENANT-REFONTE lot 2 : le bloc Avenants s'insère entre « Bail en cours » et l'historique (bail actif seulement).
-    expect(html).toContain("${currentSection}${bail?_renderAvenantsBail(ref):''}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}");
+    // ESPACE LOCATAIRE (0059) : le bloc « Espace locataire » suit « Bail en cours » (vide hors mode cloud).
+    expect(html).toContain("${currentSection}${elBloc}${bail?_renderAvenantsBail(ref):''}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}");
   });
 
   it('les photos sont rendues dans l\'onglet Documents', () => {
