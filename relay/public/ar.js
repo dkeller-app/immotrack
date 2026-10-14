@@ -2,7 +2,7 @@
 // Le jeton est lu dans le FRAGMENT de l'URL (#…) et envoyé dans l'en-tête X-Ar-Jeton ; il n'est jamais mis dans une URL
 // de requête, ni stocké. Toute donnée affichée passe par textContent. Maquette validée : mockups/INCIDENT-CIRCUIT
 // (écrans « Artisan ») ; ton neutre (infinitif, ni « tu » ni « vous ») ; téléphone d'abord (charte M-1 → M-17).
-import { h, I, marque, fd, fdh, plage, euros, creerToast, choisirFichiers, preparerImage, creerDictee, mmss } from './lien-commun.js';
+import { h, I, marque, fd, fdh, plage, euros, creerToast, choisirFichiers, preparerImage, creerDictee, mmss } from './lien-commun.js?v=1';   // version : changer avec EL_ASSET_VERSION / AR_ASSET_VERSION
 
 const JETON_RE = /^[A-Za-z0-9_-]{43}$/;
 const root = document.getElementById('app');

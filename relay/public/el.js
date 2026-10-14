@@ -3,7 +3,7 @@
 // une URL de requête, ni stocké. Toute donnée affichée passe par textContent (aucun innerHTML de donnée).
 // Écrans : maquette validée mockups/ESPACE-LOCATAIRE/maquette.html ; ton neutre (infinitif, ni « tu » ni « vous »).
 
-import { h, I, marque, fd, fdh, taille, plage, euros, creerToast, choisirFichiers, preparerImage, imagePourIA, creerDictee, mmss } from './lien-commun.js';
+import { h, I, marque, fd, fdh, taille, plage, euros, creerToast, choisirFichiers, preparerImage, imagePourIA, creerDictee, mmss } from './lien-commun.js?v=1';   // version : changer avec EL_ASSET_VERSION / AR_ASSET_VERSION
 
 const JETON_RE = /^[A-Za-z0-9_-]{43}$/;
 const root = document.getElementById('app');

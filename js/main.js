@@ -147,6 +147,8 @@ import * as QuiPaie from './core/qui-paie.js';
 import * as MvCreate from './core/mv-create.js';
 // Registre des incidents (pur, testé) : statuts, contexte, carnet dérivé, annuaire, RGE, famille.
 import * as Incidents from './core/incidents.js';
+// Circuit d'un incident (pur, testé) : constat → moteur, plafond, carnet, suggestions, accord exprès, résultat (0060).
+import * as IncidentCircuit from './core/incident-circuit.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv,
@@ -904,6 +906,9 @@ window.Visale = Visale;
 window.QuiPaie = QuiPaie;
 window.MvCreate = MvCreate;
 window.Incidents = Incidents;
+window.IncidentCircuit = IncidentCircuit;
+// Circuit d'un incident côté propriétaire (carte de la fiche, carnet, plafond, artisan, validation) : tous les modes.
+try { import('./app/incident-circuit-app.js').then((m) => m.demarrer()).catch((e) => console.warn('[circuit]', e)) } catch (e) { /* jamais bloquant */ }
 window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration
