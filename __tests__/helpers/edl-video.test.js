@@ -193,6 +193,20 @@ describe('conservation (décision 7 : restitution du DG + 3 ans, alerte 30 jours
     expect(V.dateFinConservation({ restitutionDG: '2023-11-15', prolongeJusquau: '2028-01-01' })).toBe('2028-01-01');
     expect(V.dateFinConservation({ restitutionDG: '2023-11-15', prolongeJusquau: '2024-01-01' })).toBe('2026-11-15');
   });
+  it('échéance d’un EDL d’après le bail qui le couvre ; bail en cours = conserver ; gel = report', () => {
+    const edl = { logement: 'F101', date: '2026-10-12', videos: [{ id: 'v' }] };
+    const baux = [{ ref: 'F101', debut: '2020-01-01', cloture: true, fin: '2025-12-31', dgRestitueAt: '2026-01-20' }, { ref: 'F101', debut: '2026-10-12' }, { ref: 'AUTRE', debut: '2000-01-01', dgRestitueAt: '2001-01-01' }];
+    expect(V.echeanceVideosEDL(edl, baux)).toBeNull();                                   // bail en cours
+    expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05' }, baux)).toBe('2029-01-20'); // ancien bail : DG + 3 ans
+    expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05' }, [{ ref: 'F101', debut: '2020-01-01', finEffective: '2025-12-31' }])).toBe('2029-02-28');
+    expect(V.echeanceVideosEDL({ ...edl, date: '2020-01-05', conservationMedias: { gelJusquau: '2031-01-01' } }, baux)).toBe('2031-01-01');
+    expect(V.echeanceVideosEDL({ ...edl, videos: [] }, baux)).toBeNull();
+  });
+  it('gel pour litige : un an après la plus tardive d’aujourd’hui et de l’échéance', () => {
+    const auj = new Date('2026-10-16T09:00:00Z');
+    expect(V.gelLitige('2026-11-15', auj)).toBe('2027-11-15');
+    expect(V.gelLitige('2020-01-01', auj)).toBe('2027-10-16');
+  });
   it('alerte à 30 jours, échue le jour même ; rien au-delà', () => {
     const auj = new Date('2026-10-16T09:00:00Z');
     expect(V.alerteConservation('2026-11-15', auj)).toEqual({ jours: 30, dateFin: '2026-11-15', echue: false });

@@ -7194,6 +7194,20 @@ function _pilCollectFamilles(ctx) {
     src.entretien = _dedupLot(src.entretien, true);
   } catch (e) {}
 
+  // ── EDL-VIDEO-IA (décision 7) : vidéos d'état des lieux supprimées dans 30 jours ou moins (restitution du
+  //    dépôt + 3 ans) — l'occasion de les garder en cas de litige. Lues sur l'EDL, aucun calcul ici. ──
+  try {
+    if (typeof _edlVideoConservation === 'function') {
+      const refs = new Set(scopeLogs.map(l => l.ref));
+      (DB.edl || []).forEach(rec => {
+        if (!rec || rec._deleted || !refs.has(rec.logement)) return;
+        const c = _edlVideoConservation(rec);
+        if (!c || !c.alerte || src.document.some(x => x.ref === rec.logement)) return;
+        src.document.push({ ref: rec.logement, nom: rec.logement, detail: 'Vidéos d’état des lieux : suppression le ' + (typeof fd === 'function' ? fd(c.alerte.dateFin) : c.alerte.dateFin), urgenceJours: c.alerte.jours });
+      });
+    }
+  } catch (e) {}
+
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
   try {
     if (typeof AR.bauxEcheance === 'function') {

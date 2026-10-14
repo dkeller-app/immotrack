@@ -200,7 +200,12 @@ export function lignesVideosPdf(edl, { duree } = {}) {
 
 // ── Conservation (décision 7) ───────────────────────────────────────────────────────────────────────
 const iso = (d) => d.toISOString().slice(0, 10);
-function plusMois(d, n) { const r = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate())); return r; }
+// Ajout de mois SANS débordement (31/12 + 2 mois = 28 ou 29/02, jamais 3/03).
+function plusMois(d, n) {
+  const a = d.getUTCFullYear(), m = d.getUTCMonth() + n;
+  const fin = new Date(Date.UTC(a, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(a, m, Math.min(d.getUTCDate(), fin)));
+}
 function dateUTC(s) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null; }
 
 /**
@@ -230,4 +235,31 @@ export function alerteConservation(dateFin, maintenant = new Date()) {
   const jours = Math.round((f.getTime() - auj) / 86400000);
   if (jours > ALERTE_JOURS) return null;
   return { jours: Math.max(0, jours), dateFin: iso(f), echue: jours <= 0 };
+}
+
+/**
+ * Échéance de conservation des vidéos d'UN état des lieux, d'après le bail du logement qui le couvre
+ * (le dernier bail commencé à la date de l'EDL) : restitution du dépôt de garantie (dgRestitueAt) + 3 ans ;
+ * à défaut, bail terminé (clôturé ou fin effective) : fin + 2 mois + 3 ans ; bail en cours : null (conserver).
+ * Un gel pour litige (edl.conservationMedias.gelJusquau) repousse l'échéance.
+ */
+export function echeanceVideosEDL(edl, baux) {
+  if (!edl || !Array.isArray(edl.videos) || !edl.videos.length) return null;
+  const d = String(edl.date || '').slice(0, 10);
+  const liste = (Array.isArray(baux) ? baux : []).filter((b) => b && b.ref === edl.logement)
+    .sort((a, b) => String(a.debut || '').localeCompare(String(b.debut || '')));
+  if (!liste.length) return null;
+  const avant = liste.filter((b) => !d || !b.debut || String(b.debut).slice(0, 10) <= d);
+  const bail = avant.length ? avant[avant.length - 1] : liste[0];
+  const fini = !!(bail.cloture || bail.finEffective);
+  const gel = edl.conservationMedias && edl.conservationMedias.gelJusquau;
+  return dateFinConservation({ restitutionDG: bail.dgRestitueAt || null, finBail: fini ? (bail.finEffective || bail.fin || null) : null, prolongeJusquau: gel || null });
+}
+
+/** Gel pour litige : au moins un an après aujourd'hui ou après l'échéance (la plus tardive). */
+export function gelLitige(dateFin, maintenant = new Date()) {
+  const base = dateUTC(dateFin);
+  const auj = new Date(Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth(), maintenant.getUTCDate()));
+  const depart = base && base > auj ? base : auj;
+  return iso(plusMois(depart, 12));
 }

@@ -6243,10 +6243,34 @@ function _edlVideoRafraichirEnvois() {
   const id = b && b.getAttribute('data-video'); const s = id && (_EVX.venvoi || {})[id];
   if (b && s) b.innerHTML = M.EdlVideoVues.blocEnvoi({ ...s, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) }, { ic: _evxIc });
 }
-/** Bandeaux « envoi de la vidéo » d'une pièce (prises pas encore à l'abri). */
+/** Conservation des vidéos d'un EDL enregistré (décision 7) : échéance d'après le bail, alerte à 30 jours. */
+function _edlVideoBauxDe(ref) { return Object.values(DB.baux || {}).filter((b) => b && typeof b === 'object' && b.ref === ref); }
+function _edlVideoConservation(rec) {
+  const M = _evxV(); if (!M || !rec || !Array.isArray(rec.videos) || !rec.videos.some((v) => v && v.cloudKey)) return null;
+  const dateFin = M.EdlVideo.echeanceVideosEDL(rec, _edlVideoBauxDe(rec.logement));
+  return { dateFin, alerte: dateFin ? M.EdlVideo.alerteConservation(dateFin) : null };
+}
+async function _edlVideoProlonger() {
+  const M = _evxV(); const id = _edlVideoEdlId(); const rec = id ? (DB.edl || []).find((r) => String(r.id) === id) : null; if (!M || !rec) return;
+  const c = _edlVideoConservation(rec); if (!c) return;
+  const gel = M.EdlVideo.gelLitige(c.dateFin);
+  if (!confirm2(`Garder les vidéos de cet état des lieux jusqu’au ${fd(gel)} (litige en cours) ? Le gel pourra être prolongé ; il ne pourra pas être raccourci.`)) return;
+  rec.conservationMedias = { ...(rec.conservationMedias || {}), gelJusquau: gel, gelMotif: 'litige' };
+  saveDB({ autosave: true, quoi: 'edl-video' });
+  if (typeof window.__immoEdlMediaEcheance === 'function') { const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, gelJusquau: gel, gelMotif: 'litige' }); if (!r || !r.ok) showToast('Gel noté sur l’appareil ; il sera transmis au prochain passage.', 'info', 4000); }
+  showToast(`Vidéos gardées jusqu’au ${fd(gel)}.`, 'ok', 3500);
+  _edlVoixRafraichir();
+}
+/** Bandeaux « envoi de la vidéo » d'une pièce (prises pas encore à l'abri) ; conservation sur la 1re pièce. */
 function _edlVideoBannieres(pi) {
   const M = _evxV(); if (!M) return '';
-  return _edlVideos.filter((v) => Number(v.pieceIdx) === Number(pi) && !v.cloudKey).map((v) => {
+  let cons = '';
+  if (Number(pi) === 0) {
+    const id = _edlVideoEdlId(); const rec = id ? (DB.edl || []).find((r) => String(r.id) === id) : null;
+    const c = _edlVideoConservation(rec);
+    if (c && c.alerte) cons = `<div class="evx-ban ready">${_evxIc('clock')}<div><b>Vidéos de cet état des lieux : suppression ${c.alerte.echue ? 'à la prochaine purge' : 'le ' + escHtml(fd(c.alerte.dateFin))}</b>Fin de la 3e année qui suit la restitution du dépôt de garantie (art. 7-1 de la loi du 6 juillet 1989).<div class="evx-bx"><button type="button" class="btn evx-out" onclick="_edlVideoProlonger()">${_evxIc('lock')} Garder : litige en cours</button></div></div></div>`;
+  }
+  return cons + _edlVideos.filter((v) => Number(v.pieceIdx) === Number(pi) && !v.cloudKey).map((v) => {
     const s = (_EVX.venvoi || {})[v.id] || { etat: 'attente', total: v.octets };
     return M.EdlVideoVues.banniereVideo(v, { ...s, total: s.total || v.octets, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) }, { ic: _evxIc });
   }).join('');
@@ -6309,10 +6333,24 @@ async function _edlVideoEnregistrer(rec, meta) {
 /** À l'ouverture d'un EDL et au retour du réseau : ce qui n'est pas à l'abri (ou pas au registre) repart. */
 function _edlVideoReprendreEnvois() {
   if (!_evxV()) return;
-  for (const rec of (DB.edl || [])) for (const v of (rec.videos || [])) {
-    if (v && v.id && !v.cloudKey) _edlVideoEnvoyer(v.id);
-    else if (v && v.cloudKey && !v.registre) _edlVideoEnregistrer(rec, v);
+  for (const rec of (DB.edl || [])) {
+    for (const v of (rec.videos || [])) {
+      if (v && v.id && !v.cloudKey) _edlVideoEnvoyer(v.id);
+      else if (v && v.cloudKey && !v.registre) _edlVideoEnregistrer(rec, v);
+    }
+    _edlVideoTransmettreEcheance(rec);
   }
+}
+async function _edlVideoTransmettreEcheance(rec) {
+  const c = _edlVideoConservation(rec);
+  if (!c || !c.dateFin || typeof window.__immoEdlMediaEcheance !== 'function') return;
+  if (!_EVX.echeances) _EVX.echeances = {};
+  const cle = rec.id + '|' + c.dateFin;
+  if (_EVX.echeances[cle]) return;
+  _EVX.echeances[cle] = 1;
+  const g = rec.conservationMedias || {};
+  const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, purgeApres: c.dateFin, ...(g.gelJusquau ? { gelJusquau: g.gelJusquau, gelMotif: g.gelMotif || 'litige' } : {}) });
+  if (!r || !r.ok) delete _EVX.echeances[cle];
 }
 
 // ── Relecture : vignettes dans les cartes, « vu, pas dit », photo en grand, recadrage ──
@@ -8962,6 +9000,7 @@ function saveEDL(opts){
       // Dans l'instantané signé : la preuve de quelle vidéo a été filmée, intacte (empreinte SHA-256).
       videos: (window.EdlVideo ? _edlVideos.map(window.EdlVideo.metaVideo) : JSON.parse(JSON.stringify(_edlVideos || []))),
       videoAccords: JSON.parse(JSON.stringify(_edlVideoAccords || [])),
+      ...((_existingEdl && _existingEdl.conservationMedias) ? { conservationMedias: JSON.parse(JSON.stringify(_existingEdl.conservationMedias)) } : {}),
       garage: _edlGarageMode, // CHANTIER EDL-GARAGE — EDL réduit (droit commun) : pas de compteurs/DAAF/mobilier
       daaf: _daafRecord, // v15.08 Sprint 9 : sécurité incendie (EDL entrée surtout)
       // v15.202 : inventaire mobilier (null si toggle off, sinon { literie, ..., details })
