@@ -47,6 +47,8 @@ const ARRAY_TABLES = {
   // Journal des baux SIGNÉS (migration 0054) : modifications hors avenant, à côté de la ligne
   // verrouillée du bail (js/core/bail-modifications.js). Même nom côté table et côté app.
   baux_evenements: 'baux_evenements',
+  // TRAVAUX : QUI PAIE ? — registre des incidents (migration 0057, numéro provisoire), par SCI.
+  incidents: 'incidents',
 }
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
@@ -124,6 +126,11 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
       // Journal des baux signés : TOLÉRANT. Si le client est en ligne avant la migration 0054 (colonne
       // legacy_raw absente), une erreur ici ferait échouer TOUT le chargement cloud, pour tous les comptes.
       // On le dit en console et on continue sans journal (les baux s'affichent dans leur état signé).
+      // Registre des incidents (0057) : même tolérance — le front peut précéder la migration.
+      if (table === 'incidents') {
+        return Promise.resolve().then(() => fetchTable(table)).then(rows => { _incidentsIndispo = false; return rows })
+          .catch(e => { _incidentsIndispo = true; console.warn('[SupabaseStore] registre des incidents indisponible (migration 0057 appliquée ?) — écritures différées :', e && e.message); return [] })
+      }
       if (table === 'baux_evenements') {
         return Promise.resolve().then(() => fetchTable(table)).catch(e => { console.warn('[SupabaseStore] journal des baux indisponible (migration 0054 appliquée ?) :', e && e.message); return [] })
       }
@@ -203,6 +210,14 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   }
   const ctx = () => ({ espaceId, ownerId, detUuid, ...buildResolvers() })
 
+  // TRAVAUX : QUI PAIE ? — ORDRE DE DÉPLOIEMENT. Si le registre `incidents` (migration 0057) n'existe pas
+  // encore au cloud (lecture échouée à l'hydratation), ses écritures — incidents ET pièces de type
+  // 'incident' (contrainte documents_parent_type_check) — sont DIFFÉRÉES : statut 'deferred', baseline non
+  // avancé, aucune erreur ni backoff (le reste de la synchro tourne normalement). Elles partent au premier
+  // chargement qui trouve la table. Les dépenses (mouvements) ne dépendent pas de ces lignes.
+  let _incidentsIndispo = false
+  const _differe = (legacyColl, rec) => _incidentsIndispo && (legacyColl === 'incidents' || (legacyColl === 'documents' && rec && rec.parentType === 'incident'))
+
   // upsert : INSERT si ligne inconnue, sinon UPDATE gardé par la version trackée.
   // Renvoie { status: 'inserted'|'updated'|'revived'|'conflict'|'skipped', id?, version? }.
   //
@@ -214,6 +229,7 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   // IS NOT NULL) et NON verrouillé. Une ligne vivante ou un signé locked → null → retombe en conflit
   // (fail-closed) : l'anti-résurrection reste entière hors du chemin d'ajout-frais, verrou légal intact.
   async function upsert(legacyColl, rec, opts = {}) {
+    if (_differe(legacyColl, rec)) return { status: 'deferred' }
     const table = tableOf(legacyColl)
     const row = mapToRow(table, rec, ctx())
     if (!row) return { status: 'skipped' }
@@ -245,6 +261,7 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   // remove : soft-delete gardé par version (jamais de DELETE physique). Opération DESTRUCTIVE
   // → on REFUSE si la version est inconnue (ligne non hydratée) plutôt que de deviner.
   async function remove(legacyColl, rec) {
+    if (_differe(legacyColl, rec)) return { status: 'deferred' }
     const table = tableOf(legacyColl)
     const row = mapToRow(table, rec, ctx())
     if (!row) return { status: 'skipped' }

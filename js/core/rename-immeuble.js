@@ -61,6 +61,8 @@ export function renameImmeubleRefs(db, oldNom, newNom, opts = {}) {
   ;(db.logements || []).forEach(l => { if (l && !l._deleted && belongs(l) && norm(l.imm) === on) { l.imm = newNom; stamp(l); bump('logement') } })
   ;(db.mouvements || []).forEach(m => { if (m && !m._deleted && belongs(m) && norm(m.imm) === on) { m.imm = newNom; stamp(m); bump('mouvement') } })
   ;(db.agenda || []).forEach(ev => { if (ev && !ev._deleted && belongs(ev) && norm(ev.immeuble) === on) { ev.immeuble = newNom; stamp(ev); bump('agenda') } })
+  // TRAVAUX : QUI PAIE ? — registre des incidents (parties communes rattachées par le nom d'immeuble).
+  ;(db.incidents || []).forEach(i => { if (i && !i._deleted && belongs(i) && norm(i.imm) === on) { i.imm = newNom; stamp(i); bump('incident') } })
   ;(db.documents || []).forEach(d => { if (d && !d._deleted && belongs(d) && d.parentType === 'immeuble' && norm(d.parentRef) === on) { d.parentRef = newNom; stamp(d); bump('document') } })
   // assurances BAILLEUR au niveau immeuble (PNO d'ensemble) : liées par NOM via `a.immeuble` (portee
   // 'immeuble'). delImm cascade déjà ce lien → le renommage doit suivre. Config own-only → belongs gère.

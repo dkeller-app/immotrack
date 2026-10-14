@@ -23,9 +23,13 @@
  *   - category : sous-dossier Drive (DRIVE-ARBORESCENCE Phase A) — défaut 'documents'
  */
 
+// ALIGNÉ sur la contrainte de la base documents_parent_type_check (0026 + 0040 + 0057) : un type absent
+// de la base (anciens 'travaux', 'charge', 'edl', jamais émis) ferait échouer la synchro (23514).
+// Anti-dérive : attachments.test.js relit la contrainte dans supabase/migrations.
 const PARENT_TYPES = [
-  'mouvement', 'travaux', 'logement', 'bail', 'edl',
-  'assurance', 'mrh', 'quittance', 'charge', 'entite'
+  'mouvement', 'immeuble', 'logement', 'entite', 'bail',
+  'assurance', 'mrh', 'equipement', 'quittance', 'candidat',
+  'incident'
 ];
 
 const DRIVE_CATEGORIES = [

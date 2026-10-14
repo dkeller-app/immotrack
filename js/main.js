@@ -109,7 +109,7 @@ import { bailHistCle, nouvelIdArchive } from './core/store-mapping.js';
 import { duMois, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
-import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES } from './core/pilotage-familles.js';
+import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES, FAMILLES_SI_NON_VIDES as _PIL_SI_NON_VIDES } from './core/pilotage-familles.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, impactCloture,
@@ -141,6 +141,12 @@ import * as Visale from './core/visale.js';
 // R0-C · Q1 révisé — point de départ des loyers suivis (date d'achat / antériorité / provisoire).
 import * as Anteriorite from './core/anteriorite.js';
 import * as DeclarationOccupation from './core/declaration-occupation.js';
+// TRAVAUX : QUI PAIE ? — moteur de règles sourcé (pur, testé) : verdict, textes verbatim, message locataire.
+import * as QuiPaie from './core/qui-paie.js';
+// _mvCreate — API unique « ajouter un mouvement » (pur, testé ; shadow inline dans app-part1).
+import * as MvCreate from './core/mv-create.js';
+// Registre des incidents (pur, testé) : statuts, contexte, carnet dérivé, annuaire, RGE, famille.
+import * as Incidents from './core/incidents.js';
 
 import {
   _buildMvtRows, _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv,
@@ -494,6 +500,7 @@ window.computeEntretienStatut = computeEntretienStatut;   // KPI Lot 0 — statu
 window.computePilotageFamilles = computePilotageFamilles; // KPI Lot 1 — agrégateur des 8 familles
 window.pilotagePay = pilotagePay;                         // KPI audit §1 — pastille paiement == bulle Impayés
 window._PIL_FAMILLES = _PIL_FAMILLES;
+window._PIL_SI_NON_VIDES = _PIL_SI_NON_VIDES;   // TRAVAUX : QUI PAIE ? — bulle « Incidents » seulement si non vide
 window._PIL_ZONES = _PIL_ZONES;
 window.tauxPleinMois = tauxPleinMois;                     // P-4 — taux plein du mois (potentiel)
 window.tauxPleinMoisFromRaw = tauxPleinMoisFromRaw;
@@ -869,6 +876,9 @@ window.EdlRelecture = EdlRelecture;
 window.PwaInstall = PwaInstall;
 // VISALE-GMBI (docs/CDC-VISALE-GMBI.md)
 window.Visale = Visale;
+window.QuiPaie = QuiPaie;
+window.MvCreate = MvCreate;
+window.Incidents = Incidents;
 window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration

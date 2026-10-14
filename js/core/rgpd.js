@@ -46,11 +46,13 @@ export function _findPersonalDataForRef(db, logRef) {
   const mrh = (db.mrh || []).filter(m => isAlive(m) && m.logement === logRef);
   const irlHistorique = (db.irlHistorique || []).filter(h => isAlive(h) && h.ref === logRef);
   const journalBail = (db.baux_evenements || []).filter(e => isAlive(e) && String(e.ref || '').split('@@')[0] === logRef);
+  // Registre des incidents : historique du BIEN (conservé), mais il peut nommer le locataire.
+  const incidents = (db.incidents || []).filter(i => isAlive(i) && i.logRef === logRef);
 
   // Compte total
   const totalRecords = (logement ? 1 : 0) + (bailCourant ? 1 : 0) +
                        bauxHistoriques.length + mouvements.length + quittances.length +
-                       edls.length + assurances.length + mrh.length + irlHistorique.length + journalBail.length;
+                       edls.length + assurances.length + mrh.length + irlHistorique.length + journalBail.length + incidents.length;
 
   return {
     logRef,
@@ -64,6 +66,7 @@ export function _findPersonalDataForRef(db, logRef) {
     mrh,
     irlHistorique,
     journalBail,
+    incidents,
     totalRecords,
     collectedAt: new Date().toISOString()
   };
@@ -206,6 +209,18 @@ export function _planErasure(db, logRef) {
       entityId: e.id,
       entityRef: logRef,
       reason: 'Journal du bail : effacement (valeurs personnelles avant/après)'
+    });
+  });
+
+  // Incidents : le registre reste (historique du bien, preuves des travaux), le nom et la description sont anonymisés.
+  (data.incidents || []).forEach(i => {
+    operations.push({
+      type: 'anonymize',
+      collection: 'incidents',
+      entityId: i.id,
+      entityRef: logRef,
+      fields: ['signaleParNom', 'description', 'elementLibre'],
+      reason: 'Incident : conservation du registre du bien + anonymisation du locataire'
     });
   });
 

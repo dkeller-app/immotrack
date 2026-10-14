@@ -98,6 +98,9 @@ const MAPPERS = {
     else if (o.parentType === 'immeuble') pid = ctx.immeubleByNom.get(norm(o.parentRef)) || null
     else if (o.parentType === 'entite') pid = ctx.entiteByNom.get(norm(o.parentRef)) || null
     else if (o.parentType === 'mouvement') pid = o.parentId != null ? ctx.detUuid('mouvement', String(o.parentId)) : null
+    // TRAVAUX : QUI PAIE ? — pièce du dossier de preuves d'un incident : parent_id = ligne incident ; le résolveur
+    // RLS (entite_of_document, 0057) lit l'entité sur cette ligne (logement, sinon immeuble, sinon SCI).
+    else if (o.parentType === 'incident') pid = o.parentId != null ? ctx.detUuid('incident', String(o.parentId)) : null
     // D3 — ÉCRITURE MEMBRE SCOPÉ : parent_id des types réellement émis par l'app mais laissés NULL avant
     // (→ entité NULL dans entite_of_document → has_entite_write faux → 42501 → sync du gestionnaire scopé
     // empoisonnée, réserve consignée de l'audit 0040). parent_id est PUREMENT une clé de résolution RLS :
@@ -173,6 +176,13 @@ const MAPPERS = {
   // (candidat.logRef) ; sinon NULL → membres pleins seulement (RLS fail-closed). Garant dans legacy_raw.
   candidats(o, ctx) {
     return { id: ctx.detUuid('candidat', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, logement_id: ctx.logementByRef.get(norm(o.logRef)) || null, ...base(o, ctx) }
+  },
+  // TRAVAUX : QUI PAIE ? — incident (migration 0057). Rattachements : logement (logRef), immeuble (imm, partie
+  // commune), SCI (entity). RLS 0052 : un droit sur CHAQUE rattachement renseigné ; aucun → membres pleins.
+  // Statut et date de signalement en colonnes (requêtes futures) ; l'app relit legacy_raw seulement.
+  incidents(o, ctx) {
+    const st = ['signale', 'en_cours', 'resolu'].includes(o.statut) ? o.statut : null
+    return { id: ctx.detUuid('incident', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, immeuble_id: o.imm ? (ctx.immeubleByNom.get(norm(o.imm)) || null) : null, logement_id: o.logRef ? (ctx.logementByRef.get(norm(o.logRef)) || null) : null, statut: st, date_signalement: dateOnly(o.creeLe), ...base(o, ctx) }
   },
   // Journal des baux signés (migration 0054, table baux_evenements de 0017). Rattaché au bail par la
   // ref du logement : bail_id = même id déterministe que la ligne `baux` (detUuid('bail', ref)) ;

@@ -200,6 +200,7 @@ export function inferRattachementOf(coll, rec, db) {
     case 'quittances': return first(L(rec.logement), E(rec.entity))
     case 'edl': case 'mrh': return first(L(rec.logement))
     case 'candidats': return first(L(rec.logRef), E(rec.entity))
+    case 'incidents': return first(L(rec.logRef), I(rec.imm), E(rec.entity))
     case 'agenda': return first(L(rec.logement), I(rec.immeuble), E(rec.entite))
     case 'mouvements': {
       const q = String(rec.qui == null ? '' : rec.qui)
@@ -209,6 +210,7 @@ export function inferRattachementOf(coll, rec, db) {
       const t = rec.parentType
       if (t === 'mouvement') return first(parent('mouvements', rec.parentId))
       if (t === 'candidat') return first(parent('candidats', rec.parentId), L(rec.logRef))
+      if (t === 'incident') return first(parent('incidents', rec.parentId), L(rec.logRef))
       if (t === 'immeuble') return first(I(rec.parentRef))
       if (t === 'entite') return first(E(rec.parentRef))
       if (t === 'logement' || t === 'bail') return first(L(ref(rec.parentRef)), L(rec.logRef))

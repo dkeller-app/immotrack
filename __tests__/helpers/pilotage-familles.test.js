@@ -10,7 +10,7 @@
  *   F-6  count et total exacts.
  */
 import { describe, it, expect } from 'vitest';
-import { computePilotageFamilles, FAMILLES, ordreFamille, pilotagePay } from '../../js/core/pilotage-familles.js';
+import { computePilotageFamilles, FAMILLES, ordreFamille, pilotagePay, FAMILLES_SI_NON_VIDES } from '../../js/core/pilotage-familles.js';
 
 // Chaque famille à 2 items met VOLONTAIREMENT le pire cas en 2ᵉ position : le tri doit le
 // remonter. Un tri neutralisé (comparateur → 0) laisserait le mauvais item en tête et
@@ -100,11 +100,23 @@ describe('computePilotageFamilles', () => {
     expect(imp.pire.ref).toBe('B');                   // A (sans urgenceJours) est relégué
   });
 
-  it('les 8 familles sont définies et ordreFamille les classe', () => {
-    expect(FAMILLES).toHaveLength(8);
+  it('les 9 familles sont définies et ordreFamille les classe (Incidents à traiter : 13/10/2026)', () => {
+    expect(FAMILLES).toHaveLength(9);
     expect(ordreFamille('depot')).toBe(0);
-    expect(ordreFamille('vacant')).toBe(7);
+    expect(ordreFamille('incident')).toBe(6);
+    expect(ordreFamille('vacant')).toBe(8);
     expect(ordreFamille('inconnue')).toBe(-1);
+    expect(FAMILLES_SI_NON_VIDES).toEqual(['incident']);
+  });
+  it('Incidents à traiter : zone gestion, sans euros, urgences et ancienneté en tête (grand = urgent)', () => {
+    const r = computePilotageFamilles({ incident: [
+      { ref: 'T2', nom: 'T2 · plafond', urgenceJours: 15 },
+      { ref: 'T2', nom: 'T2 · ballon', urgenceJours: 10000, urgent: true },
+    ] });
+    const f = r.familles.find((x) => x.id === 'incident');
+    expect(f).toMatchObject({ zone: 'gestion', count: 2, montant: null, lbl: 'Incidents à traiter' });
+    expect(f.pire.nom).toBe('T2 · ballon');
+    expect(computePilotageFamilles({ incident: [] }).familles.find((x) => x.id === 'incident')).toBeUndefined();
   });
 });
 

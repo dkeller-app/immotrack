@@ -83,6 +83,9 @@ const COLLECTIONS = [
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
   // document doit exister avant l'insert d'un mouvement qui la référence). documents.parent_id est
   // polymorphe SANS FK dure → peut précéder ses parents sans violation. (Aligné sur l'ETL import.mjs.)
+  // Incidents (0057) AVANT documents : le contrôle RLS d'une pièce du dossier de preuves (entite_of_document,
+  // branche 'incident') lit la ligne incident — elle doit exister quand la pièce est insérée.
+  { coll: 'incidents',       enumerate: db => db.incidents || [],                       key: r => String(r.id) + espTag(r), sources: db => db.incidents || [] },
   { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) + espTag(r), sources: db => db.documents || [] },
   { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) + espTag(r), sources: db => db.mouvements || [] },
   { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) + espTag(r), sources: db => db.quittances || [] },
@@ -511,7 +514,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   // hors isolation À DESSEIN (fail-closed légal : ne jamais pousser un bail signé non scellé).
   const _errMsg = e => (e && e.message) || String(e)
   async function _doFlush(db) {
-    const summary = { upserts: [], revives: [], removes: [], archives: [], journalises: [], conflicts: [], skipped: [], errors: [] }
+    const summary = { upserts: [], revives: [], removes: [], archives: [], journalises: [], conflicts: [], skipped: [], errors: [], deferred: [] }
     if (sealSigned) await sealSignedBaux(db)            // VERROU (pièce 2) — gouverné par l'option sealSigned (false en phase test)
     const suspended = _adoptAll(db)                     // D1b : réadoption des tags AVANT le snapshot (+ clés ambiguës → removes suspendus)
     // B2 : identités (baux, archives en collision), journal rattaché à sa ligne, vie des baux verrouillés
@@ -588,6 +591,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked, sAt: curSAt }); if (coll === 'baux' && rec._bailUid) _uidsEnAttente.delete(rec._bailUid);   // sAt : la signature suit le baseline (sinon un bail tout juste scellé passerait pour un successeur)
           (st === 'revived' ? summary.revives : summary.upserts).push({ coll, key: k }) }
         else if (st === 'conflict') summary.conflicts.push({ coll, key: k })   // baseline inchangé → retry
+        else if (st === 'deferred') summary.deferred.push({ coll, key: k })    // table pas encore au cloud (0057) : baseline inchangé, SANS réessai
         else summary.skipped.push({ coll, key: k })                            // skipped (FK non résolue) → retry
       }
     }
@@ -610,6 +614,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         const st = res && res.status
         if (st === 'deleted') { base.delete(k); _removeConflicts.delete(_rcKey(coll, k)); summary.removes.push({ coll, key: k }) }
         else if (st === 'conflict') { _removeConflicts.add(_rcKey(coll, k)); summary.conflicts.push({ coll, key: k }) }   // M2 : mémorisé → plus de flush immédiat pour cette clé
+        else if (st === 'deferred') summary.deferred.push({ coll, key: k })     // idem upsert : différé sans réessai
         else summary.skipped.push({ coll, key: k })
       }
     }

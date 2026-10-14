@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.731';
+const IMMOTRACK_VERSION = '15.732';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -107,7 +107,10 @@ function _uiIcon(name, size) {
     counter:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4M12 10v4M17 10v4"/>',
     play:'<path d="M7 5l12 7-12 7z"/>',
     car:'<path d="M5 11l1.6-4.2A2 2 0 018.5 5.5h7a2 2 0 011.9 1.3L19 11M4 11h16v5H4z"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/>',
-    pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
+    pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+    phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 005 5L15 12l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/>',
+    'chevron-right':'<path d="M9 6l6 6-6 6"/>',
+    'chevron-left':'<path d="M15 6l-6 6 6 6"/>'
   };
   var p = P[name] || P.doc;
   var sz = size || 16;
@@ -3441,6 +3444,39 @@ function _renderSidebarFiltered() {
 function _stamp(obj) {
   if(obj && typeof obj==='object') obj._modifiedAt = new Date().toISOString();
   return obj;
+}
+
+// ── _mvCreate : L'API UNIQUE « ajouter un mouvement » (TRAVAUX : QUI PAIE ?) ─────────────────
+// Séquence horodatage → audit → push → saveDB → rafraîchissement, portée par js/core/mv-create.js
+// (pur, testé, window.MvCreate). Appelants : saveMv (création), import bancaire, migration des
+// factures de compteurs, facture d'un incident. Chacun garde la FORME de son mouvement et déclare
+// ses variantes par options : enregistrements identiques à avant (mv-create-identite.test.js).
+// Shadow inline IDENTIQUE au module : la migration des compteurs tourne au démarrage, avant
+// js/main.js (un module ES ne s'exécute qu'après les scripts classiques). Parité : mv-create.test.js.
+function _mvCreateShadow(m, deps, opts) {
+  var o = opts || {};
+  var d = deps || {};
+  var doStamp = o.stamp !== false;
+  var audit = (o.audit === undefined) ? 'before' : o.audit;
+  var label = (o.auditLabel != null) ? o.auditLabel : (m.lib || m.fac || String(m.id));
+  if (doStamp && typeof d.stamp === 'function') d.stamp(m);
+  if (audit === 'before' && typeof d.auditLog === 'function') d.auditLog('create', 'mouvement', m.id, label);
+  d.mouvements.push(m);
+  if (audit === 'after' && typeof d.auditLog === 'function') d.auditLog('create', 'mouvement', m.id, label);
+  if (o.save !== false && typeof d.saveDB === 'function') d.saveDB();
+  if (o.refresh !== false && typeof d.refresh === 'function') d.refresh();
+  return m;
+}
+function _mvCreate(m, opts) {
+  if (!DB.mouvements) DB.mouvements = [];
+  var impl = (typeof window !== 'undefined' && window.MvCreate && typeof window.MvCreate.mvCreate === 'function') ? window.MvCreate.mvCreate : _mvCreateShadow;
+  return impl(m, {
+    mouvements: DB.mouvements,
+    stamp: (typeof _stamp === 'function') ? _stamp : null,
+    auditLog: (typeof _auditLog === 'function') ? _auditLog : null,
+    saveDB: (typeof saveDB === 'function') ? saveDB : null,
+    refresh: (typeof _refreshAfterMutation === 'function') ? _refreshAfterMutation : null
+  }, opts);
 }
 
 // NORMALISATION-LOYERS (01/10) — LE point d'appel unique de js/core/normalisation-loyers.js (pur, testé),
@@ -7061,7 +7097,23 @@ function _pilCollectFamilles(ctx) {
   const joursDepuis = (iso) => { if (!iso) return null; const d = new Date(String(iso).slice(0, 10) + 'T00:00:00'); return isNaN(d) ? null : Math.floor((todayD - d) / 86400000); };
   const AR = window.AlertRules || {};
   const isLoyer = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  const src = { depot: [], irl: [], impaye: [], regul: [], finbail: [], document: [], entretien: [], vacant: [] };
+  const src = { depot: [], irl: [], impaye: [], regul: [], finbail: [], document: [], incident: [], entretien: [], vacant: [] };
+
+  // ── INCIDENTS non résolus (TRAVAUX : QUI PAIE ?) : registre DB.incidents, périmètre = lots visibles
+  //    (ou immeubles de ces lots pour une partie commune). Urgences en tête, puis ancienneté. ──
+  try {
+    if (window.Incidents && Array.isArray(DB.incidents)) {
+      const refs = new Set(scopeLogs.map(l => l.ref));
+      const imms = new Set(scopeLogs.filter(l => l.imm).map(l => (l.entity || '') + '|' + l.imm));
+      const QP = window.QuiPaie;
+      // Le PIRE CAS de la bulle = le bien (court : la bulle ne coupe jamais un texte, M-14) ; le détail
+      // (élément) est porté à part et affiché dans la liste ouverte au clic.
+      const lbl = (i) => i.logRef || ('Parties communes ' + (i.imm || ''));
+      const det = (i) => { const d = QP ? QP.elementDef(i.element) : null; return (i.elementLibre && String(i.elementLibre).trim()) || (d ? d.lbl : 'Incident'); };
+      const enScope = DB.incidents.filter(i => i && !i._deleted && (i.logRef ? refs.has(i.logRef) : imms.has((i.entity || '') + '|' + i.imm)));
+      src.incident = window.Incidents.itemsIncidents(enScope, today, lbl).map(it => { const i = enScope.find(x => x.id === it.incId); return Object.assign(it, { detail: i ? det(i) : '' }); });
+    }
+  } catch (e) {}
 
   // ── IMPAYÉS (byLot / suivi — R-0) : montant dû, ancienneté = plus vieux mois impayé ──
   try {
@@ -7279,6 +7331,8 @@ function _accmGoto(id, ref, count){
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('equipements'); break;
       case 'regul':    // régularisation de charges → onglet Charges
         go('regul'); break;
+      case 'incident': // incident(s) d'un lot → onglet Entretien de sa fiche (registre)
+        if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
       default: go('loyers');
     }
   }catch(e){ console.warn('[accmGoto]', e); try{ go('loyers'); }catch(e2){} }
@@ -7374,6 +7428,7 @@ function _renderAccueilPhone(ctx){
   var bits=[];
   if(famBy.impaye) bits.push(famBy.impaye.count+' impayé'+(famBy.impaye.count>1?'s':''));
   if(famBy.finbail) bits.push(famBy.finbail.count+' départ'+(famBy.finbail.count>1?'s':'')+' proche'+(famBy.finbail.count>1?'s':''));
+  if(famBy.incident){ var _iu=(famBy.incident.items||[]).filter(function(x){return x.urgent;}).length; if(_iu) bits.push(_iu+' incident'+(_iu>1?'s':'')+' urgent'+(_iu>1?'s':'')); }
   if(!bits.length && famBy.vacant) bits.push(famBy.vacant.count+' vacant'+(famBy.vacant.count>1?'s':''));
   var sub = bits.length ? ('dont '+bits.join(' · ')) : 'tout est à jour';
   var nom = '';
@@ -7483,6 +7538,7 @@ const _PIL_ICONS = {
   document:'<path d="M4 4h9l7 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M13 4v7h7"/>',
   entretien:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   vacant:  '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5h4v5"/>',
+  incident:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
   ok:      '<path d="M20 6 9 17l-5-5"/>'
 };
 
@@ -7512,6 +7568,7 @@ function _pilChiffre(f) {
   if (j == null) return (f.id === 'vacant') ? (f.count + (f.count > 1 ? ' logements' : ' logement')) : (f.count + ' à traiter');
   // Familles « ancienneté » (grand j = plus urgent) : le retard / la durée de vacance.
   if (f.id === 'entretien') return (j >= 60) ? (Math.round(j / 30) + ' mois de retard') : (j + ' j de retard');
+  if (f.id === 'incident') return (window.Incidents && window.Incidents.chiffreIncidents) ? window.Incidents.chiffreIncidents(f.items) : (f.count + ' à traiter');
   if (f.id === 'vacant')    return 'vide ' + j + ' j';
   if (f.id === 'impaye')    return j + ' j de retard';
   // Familles « échéance » (petit j = plus urgent) : dépôt, IRL, fin de bail, document, régul.
@@ -7711,6 +7768,8 @@ function _renderPilotage(ctx) {
           + (nz ? (nz + ' à traiter') : 'à jour') + '</em></div>'
           + '<div class="pil-bub">' + defs.map(d => {
               const f = _famById[d.id];
+              // TRAVAUX : QUI PAIE ? — « Incidents à traiter » n'a pas de bulle « à jour » (décision 13/10).
+              if (!f && ((window._PIL_SI_NON_VIDES || []).indexOf(d.id) >= 0)) return '';
               return f ? _pilBulleHtml(f, f.id === premierId) : _pilBulleOkHtml(d);
             }).join('') + '</div></div>';
       }).join('');
@@ -7848,6 +7907,7 @@ let _pilMtxFamActive = null;
 const _PIL_HORS = {
   depot:   { onglet: 'Locataires', go: () => go('baux') },
   finbail: { onglet: 'Locataires', go: () => go('baux') },
+  incident:{ onglet: 'Biens', go: () => go('biens') },
   regul:   { onglet: 'Charges', go: () => go('regul') }
 };
 function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
@@ -7876,8 +7936,10 @@ function _pilOpenListe(famId) {
     if (f) items = f.items;
   } catch (e) {}
   const rows = items.length ? items.map(i =>
-    '<div class="ck"><span class="kn"><b>' + esc(i.nom || i.ref || '') + '</b></span>'
-    + '<button type="button" class="go hot" data-pilgo="' + esc(i.ref || '') + '">Ouvrir ›</button></div>'
+    '<div class="ck"><span class="kn"><b>' + esc(i.nom || i.ref || '') + '</b>' + (i.detail ? '<s>' + esc(i.detail) + (i.urgent ? ' · urgent' : '') + '</s>' : '') + '</span>'
+    + (famId === 'incident' && i.incId != null
+      ? '<button type="button" class="go hot" data-pilinc="' + esc(String(i.incId)) + '">Ouvrir ›</button></div>'
+      : '<button type="button" class="go hot" data-pilgo="' + esc(i.ref || '') + '">Ouvrir ›</button></div>')
   ).join('') : '<div class="ck"><span class="kn"><s>Aucun élément.</s></span></div>';
   L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
     + '<div class="sh-h"><span class="ttl"><b>' + esc(def.lbl) + '</b><s>ce geste se fait dans l’onglet <b>' + esc(H.onglet) + '</b></s></span>'
@@ -7945,6 +8007,7 @@ function _pilWireClicks() {
     const close = ev.target.closest('[data-pilclose]'); if (close) { _pilCloseLayer(); return; }
     const onglet = ev.target.closest('[data-pilonglet]'); if (onglet) { const h = _PIL_HORS[onglet.dataset.pilonglet]; _pilCloseLayer(); if (h) h.go(); return; }
     const goItem = ev.target.closest('[data-pilgo]'); if (goItem) { _pilCloseLayer(); _pilOpenFiche(goItem.dataset.pilgo); return; }
+    const incItem = ev.target.closest('[data-pilinc]'); if (incItem) { _pilCloseLayer(); const _i = (DB.incidents || []).find(x => x && String(x.id) === incItem.dataset.pilinc); if (_i && typeof openIncident === 'function') openIncident(_i.logRef || '', _i.id, null, _i.entity, _i.imm); return; }
     const act = ev.target.closest('[data-pilact]'); if (act) { const L = el('pil-layer'); _pilActionGeste(L ? L.dataset.lot : '', act.dataset.pilact); return; }
     const clearFam = ev.target.closest('[data-pilclearfam]'); if (clearFam) { _pilMtxFamActive = null; rAccueil(); return; }
     const fl = ev.target.closest('[data-pilfl]'); if (fl) { _pilMtxFilter = fl.dataset.pilfl; _renderPilMatrice(_pilCtxCourant()); return; }
@@ -10890,9 +10953,9 @@ async function saveMv() {
     delete m.pj;
     delete m.pjId;
   }
-  _stamp(m); // v13.18
   // v14.89 AUDIT-TRAIL : log la mutation avant écriture
   if(eid) {
+    _stamp(m); // v13.18
     const i=DB.mouvements.findIndex(x=>x.id===parseInt(eid));
     if(i>=0) {
       // FAMILLE « écritures destructrices » — le mouvement est RECONSTRUIT depuis le formulaire
@@ -10908,8 +10971,9 @@ async function saveMv() {
       DB.mouvements[i]=m;
     }
   } else {
-    _auditLog('create', 'mouvement', m.id, m.lib||m.fac||String(m.id));
-    DB.mouvements.push(m);
+    // TRAVAUX : QUI PAIE ? — création par l'API unique (horodatage, audit AVANT le push, push).
+    // saveDB / rafraîchissement restent ci-dessous, dans l'ordre d'origine (fermeture, liste).
+    _mvCreate(m, { save: false, refresh: false });
     // CDC-QUITTANCES-IRL I6/I13 — l'association automatique « ce paiement = cette quittance »
     // est SUPPRIMÉE : elle rattachait un mouvement au mois calendaire de sa date (7ᵉ moteur, C3)
     // et faisait exister un lien que rien ne lisait. Le rattachement vit dans la cascade.
@@ -21759,6 +21823,7 @@ function openAss(id, prefLog, prefScope, prefImm) {
     el('ass-type').value = a.type||'PNO';
     el('ass-comp').value = a.compagnie||'';
     el('ass-num').value = a.numContrat||'';
+    if (el('ass-tel')) el('ass-tel').value = a.telAssistance||'';
     el('ass-prime').value = a.prime||'';
     el('ass-ech').value = a.echeance||'';
     el('ass-notes').value = a.notes||'';
@@ -21769,6 +21834,7 @@ function openAss(id, prefLog, prefScope, prefImm) {
     el('ass-type').value = 'PNO';
     el('ass-comp').value = '';
     el('ass-num').value = '';
+    if (el('ass-tel')) el('ass-tel').value = '';
     el('ass-prime').value = '';
     el('ass-ech').value = '';
     el('ass-notes').value = '';
@@ -21797,7 +21863,7 @@ function saveAss() {
   const id = el('ass-edit-id').value;
   const scope = v('ass-scope') || 'logement';
   // v15.240 V3-REFONTE-ASSURANCES : portée immeuble (PNO d'ensemble) ou logement (lot copro, GLI).
-  const a = { id:id?parseInt(id):nid(), portee:scope, type:v('ass-type'), compagnie:v('ass-comp'), numContrat:v('ass-num'), prime:pf('ass-prime'), echeance:v('ass-ech'), notes:v('ass-notes') };
+  const a = { id:id?parseInt(id):nid(), portee:scope, type:v('ass-type'), compagnie:v('ass-comp'), numContrat:v('ass-num'), telAssistance:(v('ass-tel')||'').trim(), prime:pf('ass-prime'), echeance:v('ass-ech'), notes:v('ass-notes') };
   if(scope === 'immeuble') {
     a.immeuble = v('ass-imm'); a.logement = '';
     if(!a.immeuble) { showToast('Immeuble requis','err'); return; }
@@ -21855,7 +21921,7 @@ function openMrh(id, prefLog) {
   el('mrh-edit-id').value = id||'';
   fillSel('mrh-log', DB.logements, l=>l.ref, l=>`${l.ref} – ${l.locataire||'Vacant'}`);
   // v15.245 fix : mrh-prime supprimé de la modale en v15.239 → ne plus y accéder (null.value plantait openMrh).
-  if(m) { el('mrh-log').value=m.logement||''; el('mrh-loc').value=m.locataire||''; el('mrh-comp').value=m.compagnie||''; el('mrh-num').value=m.numContrat||''; el('mrh-ech').value=m.echeance||''; el('mrh-notes').value=m.notes||''; }
+  if(m) { el('mrh-log').value=m.logement||''; el('mrh-loc').value=m.locataire||''; el('mrh-comp').value=m.compagnie||''; el('mrh-num').value=m.numContrat||''; if(el('mrh-tel')) el('mrh-tel').value=m.telAssistance||''; el('mrh-ech').value=m.echeance||''; el('mrh-notes').value=m.notes||''; }
   // v15.237 V3-REFONTE-ASSURANCES : pré-remplir le logement + locataire si appelé depuis la fiche bien.
   if(!id && prefLog) {
     el('mrh-log').value = prefLog;
@@ -21875,7 +21941,7 @@ function saveMrh() {
   // v15.239 V3-REFONTE-ASSURANCES : locataire déduit du logement (plus de saisie), prime retirée.
   const _logRef = v('mrh-log');
   const _loc = ((DB.logements||[]).find(l=>l.ref===_logRef)?.locataire) || v('mrh-loc') || '';
-  const m = { id:id?parseInt(id):nid(), logement:_logRef, locataire:_loc, compagnie:v('mrh-comp'), numContrat:v('mrh-num'), echeance:v('mrh-ech'), notes:v('mrh-notes') };
+  const m = { id:id?parseInt(id):nid(), logement:_logRef, locataire:_loc, compagnie:v('mrh-comp'), numContrat:v('mrh-num'), telAssistance:(v('mrh-tel')||'').trim(), echeance:v('mrh-ech'), notes:v('mrh-notes') };
   _stamp(m); // v13.18
   // v14.97 AUDIT-TRAIL (audit complétude) : MRH = PII locataire (RGPD)
   if(id) {
