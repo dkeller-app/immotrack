@@ -120,9 +120,17 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
       return (cur && cur.archived === true && cur.deleted_at == null) ? cur.version : null
     },
     // Soft-delete gardé par version + deleted_at IS NULL (idempotent, jamais de DELETE physique).
-    async softDelete(table, id, expectedVersion) {
+    // `extra` (CANDIDATURES-CONFORMITE) : colonnes réécrites dans le MÊME UPDATE — legacy_raw réduit à
+    // l'identifiant (+ name null pour une pièce) pour un candidat ou une pièce de candidat, afin que la
+    // ligne supprimée ne garde aucune donnée personnelle. Seules legacy_raw et name sont acceptées.
+    async softDelete(table, id, expectedVersion, extra) {
+      const set = { deleted_at: new Date().toISOString() }
+      if (extra && typeof extra === 'object') {
+        if ('legacy_raw' in extra) set.legacy_raw = extra.legacy_raw
+        if ('name' in extra) set.name = extra.name
+      }
       const { data, error } = await client.from(table)
-        .update({ deleted_at: new Date().toISOString() })
+        .update(set)
         .eq('id', id).eq('version', expectedVersion).is('deleted_at', null).select('version')
       if (error) throw new Error('softDelete ' + table + ': ' + error.message)
       return data && data.length ? data[0].version : null

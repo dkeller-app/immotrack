@@ -287,13 +287,20 @@ import {
 
 // LOG-CANDIDATS (Phase 2) - helpers purs candidature locataire
 import {
-  _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
-  _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
+  _candidatVersLocataire, _candidatVersGarant,
+  _nouveauCandidat, _migrerDocsCandidatVersBail,
   buildComplementShareMessage, shouldAutoPull, countUnreadCandidats, nouveauDossierToast,
   majDossierToast, repullDecision, loyerAttenduForLog,
-  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie,
+  PIECES_REQUISES, candHasGarantie, categoriesManquantes, libelleGarantie,
   candidatLinkExpire, partitionCandidatLinks
 } from './core/candidature.js';
+// CANDIDATURES-CONFORMITE (12/10/2026) — purge RGPD des candidats non retenus (date du refus, périmètre
+// exact, chemins Storage contrôlés). Aucun score : _calculConfiance / piecesScoreFromCategories retirés.
+import * as CandPurge from './core/candidature-purge.js';
+// CANDIDATURES-CONFORMITE lot 2 — liste fermée des pièces (décret 2015-1437) + bouclier « pièce hors liste »,
+// et employeur vérifié dans l'Annuaire des entreprises (constat daté, sans jugement).
+import * as PiecesCand from './core/pieces-candidature.js';
+import * as Employeur from './core/employeur.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
 import {
@@ -782,15 +789,17 @@ window.DG_STATUS = DG_STATUS;
 window.PROCEDURE_ETAT = PROCEDURE_ETAT;
 
 // LOG-CANDIDATS (Phase 2) - helpers purs candidature locataire
-window._calculConfiance = _calculConfiance;
 window.PIECES_REQUISES = PIECES_REQUISES;
-window.piecesScoreFromCategories = piecesScoreFromCategories;
 window.candHasGarantie = candHasGarantie;
+window.categoriesManquantes = categoriesManquantes;
+window.libelleGarantie = libelleGarantie;
+window.CandPurge = CandPurge;
+window.PiecesCand = PiecesCand;
+window.Employeur = Employeur;
 window._candidatVersLocataire = _candidatVersLocataire;
 window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;
 window._migrerDocsCandidatVersBail = _migrerDocsCandidatVersBail;
-window._purgeCandidatsRefuses = _purgeCandidatsRefuses;
 window.buildComplementShareMessage = buildComplementShareMessage;
 window.shouldAutoPull = shouldAutoPull;
 window.countUnreadCandidats = countUnreadCandidats;

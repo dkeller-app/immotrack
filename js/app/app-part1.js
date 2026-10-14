@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.730';
+const IMMOTRACK_VERSION = '15.731';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -5846,7 +5846,7 @@ function go(page, elNav) {
     import:()=>{}, mouvements:()=>{initFilters();rMv();},
     agenda:()=>{initAgendaFilters();rAgenda();},
     equipements:()=>{initFilters();rEquipements();},
-    baux:()=>{initFilters();const bauxActifTab=document.querySelector('#p-baux .tab.act');if(!bauxActifTab){const t=document.querySelector('#p-baux .tab');if(t)t.classList.add('act');}el('baux-tab-actifs').style.display='';el('baux-tab-historique').style.display='none';rBaux();}, candidats:()=>{ _candidatsTab = _candidatsTab || 'actifs'; rCandidats(); _autoPullCandidatures('open'); },
+    baux:()=>{initFilters();const bauxActifTab=document.querySelector('#p-baux .tab.act');if(!bauxActifTab){const t=document.querySelector('#p-baux .tab');if(t)t.classList.add('act');}el('baux-tab-actifs').style.display='';el('baux-tab-historique').style.display='none';rBaux();}, candidats:()=>{ _candidatsTab = _candidatsTab || 'actifs'; rCandidats(); _autoPullCandidatures('open'); try{ _purgeCandidatsRefusesProd({ throttle:true }).catch(()=>{}); }catch(e){} },
 
     regul:()=>{initFilters();rRegulInit();},
     finances:()=>{ if (typeof rFinances === 'function') rFinances(); }, // v15.265 REPORTING-BAILLEUR
@@ -10047,6 +10047,15 @@ function _drvUploadAttachmentBackground(doc, dataB64) {
   (async () => {
     try {
       if (await _drvUploadAttachmentNow(doc, dataB64)) {
+        // CANDIDATURES-CONFORMITE (relecture Opus #6) : pièce de candidat supprimée pendant l'envoi → le fichier
+        // qui vient d'arriver en ligne est effacé aussitôt (échec → file d'attente de la purge).
+        if (doc.parentType === 'candidat' && !(DB.documents || []).some(x => x === doc && !x._deleted)) {
+          if (typeof _candCloudEffacer === 'function') {
+            const r = await _candCloudEffacer([doc.cloudKey]);
+            if (r.echecs.length && window.CandPurge) _candPurgeAttenteEcrire(window.CandPurge.ajouterEnAttente(_candPurgeAttenteLire(), r.echecs));
+          }
+          return;
+        }
         try { saveDB(); } catch(e) {}
         console.info('[attachment cloud] uploadé', doc.id, '→', doc.cloudKey);
       }
@@ -12219,9 +12228,10 @@ function _applyLocImmBlocksCollapsedState() {
 }
 
 // ═══════════════════ LOG-CANDIDATS — Onglet Candidats (variante B) ═══════════════════
-// Pipeline de candidatures locataires. Le score "Confiance" est une AIDE À LA DÉCISION
-// (critères de solvabilité légaux uniquement), jamais un verdict. Helpers purs de scoring
-// dans js/core/candidature.js (window._calculConfiance / _nouveauCandidat / …).
+// Pipeline de candidatures locataires. CANDIDATURES-CONFORMITE (12/10/2026) : AUCUN score, aucun
+// classement, aucun refus automatique (art. 22 RGPD, CJUE SCHUFA C-634/21) — l'écran montre l'état
+// factuel des pièces. Helpers purs dans js/core/candidature.js (_nouveauCandidat, categoriesManquantes…)
+// et js/core/candidature-purge.js (window.CandPurge : purge RGPD des non retenus).
 // ── Shadow inline (file:// + robustesse SW/cache) ────────────────────────────
 // Réplique idempotente de js/core/candidature.js : garantit que les helpers
 // existent même si le module ES6 (js/main.js) n'est pas chargé (ouverture
@@ -12232,34 +12242,21 @@ function _applyLocImmBlocksCollapsedState() {
 (function(){
   if (typeof window._nouveauCandidat === 'function') return;
   var PIECES_REQUISES = ['identite', 'domicile', 'situation', 'ressources'];
-  function piecesScoreFromCategories(categoriesPresentes) {
+  function categoriesManquantes(categoriesPresentes) {
     var set = new Set((Array.isArray(categoriesPresentes) ? categoriesPresentes : []).map(function(s){ return String(s || ''); }));
-    var n = PIECES_REQUISES.filter(function(k){ return set.has(k); }).length;
-    return n * 5;
+    return PIECES_REQUISES.filter(function(k){ return !set.has(k); });
+  }
+  function libelleGarantie(cand) {
+    if (!cand || typeof cand !== 'object') return 'Aucune';
+    if (cand.visale && String(cand.visale.visaId || '').trim()) return 'Visale';
+    if (cand.garant && String(cand.garant.nom || '').trim()) return 'Garant';
+    return 'Aucune';
   }
   function candHasGarantie(cand) {
     if (!cand || typeof cand !== 'object') return false;
     var garant = !!(cand.garant && String(cand.garant.nom || '').trim());
     var visale = !!(cand.visale && String(cand.visale.visaId || '').trim());
     return garant || visale;
-  }
-  function _calculConfiance(cand, loyerHC = 0, piecesPts) {
-    if (!cand || typeof cand !== 'object') return 0;
-    let score = 0;
-    const revenus = Number(cand.revenus) || 0;
-    const loyer = Number(loyerHC) || 0;
-    if (loyer > 0 && revenus > 0) {
-      const ratio = revenus / loyer;
-      if (ratio >= 3) score += 35;
-      else if (ratio >= 2.5) score += 20;
-      else if (ratio >= 2) score += 10;
-    }
-    if (cand.contrat === 'CDI') score += 25;
-    else if (cand.contrat === 'CDD') score += 10;
-    if (candHasGarantie(cand)) score += 20;
-    if (Number.isFinite(piecesPts)) score += Math.max(0, Math.min(20, piecesPts));
-    else if (cand.piecesCompletes) score += 20;
-    return Math.min(100, score);
   }
   function _candidatVersLocataire(cand) {
     const empty = { civilite: '', nom: '', ddn: '', lieuNaiss: '', tel: '', email: '', adressePrecedente: '' };
@@ -12287,11 +12284,11 @@ function _applyLocImmBlocksCollapsedState() {
       tel: partial.tel || '', email: partial.email || '',
       adressePrecedente: partial.adressePrecedente || '',
       dateDebutSouhaitee: partial.dateDebutSouhaitee || '',
-      revenus: Number(partial.revenus) || 0, employeur: partial.employeur || '',
+      revenus: Number(partial.revenus) || 0, employeur: partial.employeur || '', employeurSiren: partial.employeurSiren || '',
       contrat: partial.contrat || '', garant: partial.garant || null,
       visale: partial.visale || null,
       piecesCompletes: partial.piecesCompletes || false,
-      statut: partial.statut || 'recu', confianceScore: Number(partial.confianceScore) || 0,
+      statut: partial.statut || 'recu',
       piecesVerifiees: partial.piecesVerifiees || false, notes: partial.notes || '',
       bailRef: partial.bailRef || '', dateCreation: partial.dateCreation || now,
       _modifiedAt: now, _archived: partial._archived || false
@@ -12308,67 +12305,180 @@ function _applyLocImmBlocksCollapsedState() {
       return d;
     });
   }
-  function _purgeCandidatsRefuses(candidats, nowMs, joursRetention = 30) {
-    if (!Array.isArray(candidats)) return [];
-    const seuil = joursRetention * 24 * 60 * 60 * 1000;
-    return candidats.filter(c => {
-      if (!c || c.statut !== 'refuse') return true;
-      const ts = c._modifiedAt ? Date.parse(c._modifiedAt) : 0;
-      return (nowMs - ts) < seuil;
-    });
-  }
-  window._calculConfiance = _calculConfiance;
   window.candHasGarantie = candHasGarantie;
   window.PIECES_REQUISES = PIECES_REQUISES;
-  window.piecesScoreFromCategories = piecesScoreFromCategories;
+  window.categoriesManquantes = categoriesManquantes;
+  window.libelleGarantie = libelleGarantie;
   window._candidatVersLocataire = _candidatVersLocataire;
   window._candidatVersGarant = _candidatVersGarant;
   window._nouveauCandidat = _nouveauCandidat;
   window._migrerDocsCandidatVersBail = _migrerDocsCandidatVersBail;
-  window._purgeCandidatsRefuses = _purgeCandidatsRefuses;
 })();
 
-/* LOG-CANDIDATS Phase 7 — purge RGPD : au démarrage, les candidats « refusé »
-   dont _modifiedAt dépasse 30 j (D11) sont remplacés par un tombstone (et non
-   supprimés crûment) pour que la suppression se propage proprement à la sync
-   Drive cross-device. Le filtrage métier vit dans le helper pur testé
-   _purgeCandidatsRefuses ; ici on n'ajoute que l'effet de bord tombstone+save.
-   Base légale RGPD : conservation limitée à la durée nécessaire (mesures
-   précontractuelles), refus = 30 j puis effacement. Idempotent. */
-function _purgeCandidatsRefusesProd(){
-  if(!Array.isArray(DB.candidats) || !DB.candidats.length) return;
-  const now = Date.now();
-  const kept = _purgeCandidatsRefuses(DB.candidats, now, 30); // helper pur (durée 30 j)
-  if(kept.length === DB.candidats.length) return;             // rien à purger
-  const keptIds = new Set(kept.map(c=>c.id));
-  let changed = false;
-  DB.candidats = DB.candidats.map(c=>{
-    if(c && !c._deleted && c.statut==='refuse' && !keptIds.has(c.id)){
-      changed = true;
-      return _tombstoneObj({ id:c.id, entity:c.entity }); // tombstone pour sync Drive
-    }
-    return c;
-  });
-  if(changed){
-    if(typeof _auditLog==='function') _auditLog('delete','candidat',null,'purge RGPD refusés > 30 j');
-    saveDB();
+/* ═══ CANDIDATURES-CONFORMITE lot 1 (12/10/2026) — PURGE RGPD RÉELLE des candidats non retenus ═══
+   Promesse faite au candidat : dossier non retenu supprimé 30 jours après la décision. L'ancienne purge
+   ne supprimait que la fiche, avec une horloge sur _modifiedAt (toute édition la repoussait).
+   Désormais (règles et périmètre dans le module PUR testé js/core/candidature-purge.js = window.CandPurge) :
+   - horloge = date du refus (`refuseLe`, posée par refuserCandidat / la signature du bail) ;
+   - à J+30 : fichiers du bucket espace-files (window.__immoCloudRemoveCandidatFiles, seule suppression
+     Storage de l'app, réservée aux pièces de candidats), pièces DB.documents (tombstone sans donnée
+     personnelle) + binaires IndexedDB, copie du relais, puis fiche (tombstone) ; la ligne cloud est
+     réécrite sans données personnelles (store-supabase → effacementLigneCloud) ;
+   - un candidat converti en bail n'est JAMAIS purgé ; idempotent ;
+   - fichier en ligne non effacé (réseau, refus) → le candidat reste entier et la purge repasse plus tard
+     (boot + ouverture de l'onglet Candidats) ; hors ligne / lecture seule → rien (reprise au retour).
+   La règle « preuve légale » des AUTRES pièces (_attachmentDelete garde le fichier en ligne) est inchangée. */
+// Clé de stockage local 'imsb-cand-purge-attente' : chemins en ligne à effacer (suppression manuelle hors ligne).
+// Clé préfixée par _lsKey (_test_ en sandbox) : une suppression faite en sandbox ne peut JAMAIS mettre en
+// attente des chemins que la prod effacerait ensuite (relecture Fable, I-3).
+function _candPurgeAttenteLire(){
+  try{ const v = JSON.parse(localStorage.getItem(_lsKey('imsb-cand-purge-attente')) || '[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; }
+}
+function _candPurgeAttenteEcrire(liste){
+  try{ if(Array.isArray(liste) && liste.length) localStorage.setItem(_lsKey('imsb-cand-purge-attente'), JSON.stringify(liste)); else localStorage.removeItem(_lsKey('imsb-cand-purge-attente')); }catch(e){}
+}
+// Efface des fichiers EN LIGNE de candidats. Chemins filtrés par la garde testée (CandPurge). Fonction cloud
+// absente (sandbox, module non chargé) ou hors ligne → tout en échec (l'appelant garde ou met en attente).
+async function _candCloudEffacer(paths){
+  const P = window.CandPurge;
+  const liste = (Array.isArray(paths) ? paths : []).filter(p => P && P.cheminFichierCandidatValide(p));
+  if(!liste.length) return { effaces: [], echecs: [] };
+  if(typeof window.__immoCloudRemoveCandidatFiles !== 'function' || window.__immoHorsLigne) return { effaces: [], echecs: liste };
+  try{
+    const r = await window.__immoCloudRemoveCandidatFiles(liste);
+    const effaces = (r && Array.isArray(r.effaces)) ? r.effaces.filter(p => liste.includes(p)) : [];
+    return { effaces, echecs: liste.filter(p => !effaces.includes(p)) };   // non confirmé = échec (relecture Opus #7)
+  }catch(e){ return { effaces: [], echecs: liste }; }
+}
+// Efface LOCALEMENT des pièces de candidat : binaire IndexedDB + tombstone qui ne garde AUCUNE donnée
+// personnelle (ni nom de fichier, ni clé). Refuse toute pièce qui n'est pas parentType 'candidat'.
+// Les tombstones sont posés de façon SYNCHRONE (avant le premier await) : un saveDB() de l'appelant juste
+// après l'appel les voit tous ; seuls les effacements IndexedDB sont attendus ensuite.
+// Tombstone SYNCHRONE des pièces de candidat : l'objet est REMPLACÉ dans DB.documents (jamais vidé en place :
+// le baseline de la sync garde l'ancien objet, dont _espaceId/logRef routent le soft-delete cloud — relecture
+// Opus #1). Renvoie les clés IndexedDB à effacer ensuite.
+function _candTombstonerPieces(docIds){
+  const ids = new Set((docIds || []).map(String));
+  const cles = [];
+  const docs = DB.documents || [];
+  for(let i = 0; i < docs.length; i++){
+    const d = docs[i];
+    if(!d || d._deleted || d.parentType !== 'candidat' || !ids.has(String(d.id))) continue;
+    if(d.idbKey) cles.push(d.idbKey);
+    const garde = { id: d.id, parentType: 'candidat', parentId: d.parentId };
+    if(d._espaceId) garde._espaceId = d._espaceId;
+    docs[i] = _tombstoneObj(garde);
   }
+  return cles;
+}
+async function _candEffacerPiecesLocales(docIds){
+  const cles = _candTombstonerPieces(docIds);
+  for(const k of cles){ try{ await _idbDel(k); }catch(e){} }
+}
+// Suppression MANUELLE (décision Didier 12/10, Q2) : pièces d'un candidat effacées tout de suite en local,
+// fichiers en ligne effacés dans la foulée ; un échec (hors ligne) part en file d'attente locale, reprise à
+// la prochaine purge. Renvoie la promesse de l'effacement en ligne (l'appelant n'a pas à l'attendre).
+async function _candEffacerPieces(docs){
+  const P = window.CandPurge;
+  const liste = (docs || []).filter(d => d && !d._deleted && d.parentType === 'candidat');
+  const chemins = liste.map(d => d.cloudKey).filter(p => P && P.cheminFichierCandidatValide(p));
+  await _candEffacerPiecesLocales(liste.map(d => d.id));
+  if(!chemins.length) return;
+  // Page sans stockage en ligne (sandbox, module cloud absent) : rien ne pourra jamais effacer ces chemins
+  // ici → on ne les met PAS en attente (relecture Fable, I-3).
+  if((typeof _isTestMode !== 'undefined' && _isTestMode) || typeof window.__immoCloudRemoveCandidatFiles !== 'function') return;
+  const r = await _candCloudEffacer(chemins);
+  if(r.echecs.length && P) _candPurgeAttenteEcrire(P.ajouterEnAttente(_candPurgeAttenteLire(), r.echecs));
+}
+let _candPurgeEnCours = false, _candPurgeDernier = 0;
+async function _purgeCandidatsRefusesProd(opts){
+  opts = opts || {};
+  const P = window.CandPurge;
+  if(!P || !Array.isArray(DB.candidats)) return { purges: 0 };
+  if(window.__immoHorsLigne || (typeof _appReadOnly !== 'undefined' && _appReadOnly)) return { purges: 0 };
+  if(_candPurgeEnCours) return { purges: 0 };
+  if(opts.throttle && (Date.now() - _candPurgeDernier) < 60000) return { purges: 0 };
+  _candPurgeEnCours = true; _candPurgeDernier = Date.now();
+  let changed = false, purges = 0, reportes = 0;
+  try{
+    // 1. Migration de donnée : date du refus posée une fois sur les refusés existants.
+    for(const p of P.refuseLeAPoser(DB.candidats, new Date().toISOString())){
+      const c = DB.candidats.find(x => x && x.id === p.id);
+      if(c){ c.refuseLe = p.refuseLe; _stamp(c); changed = true; }
+    }
+    // 2. Migration de donnée (décision Didier 12/10, Q1) : effacement de l'ancien score stocké.
+    for(const id of P.idsAvecScoreStocke(DB.candidats)){
+      const c = DB.candidats.find(x => x && x.id === id);
+      if(c){ delete c.confianceScore; _stamp(c); changed = true; }
+    }
+    // 3. Reprise des fichiers en ligne restés en attente (suppression manuelle hors ligne).
+    const attente = _candPurgeAttenteLire();
+    if(attente.length){ const r = await _candCloudEffacer(attente); _candPurgeAttenteEcrire(P.retirerDeAttente(attente, r.effaces)); }
+    // 4. Purge à J+30 du refus. En ligne d'abord : si un fichier résiste, le candidat reste entier.
+    const plan = P.planPurge(DB.candidats, DB.documents || [], P.candidatsAPurger(DB.candidats, Date.now(), P.JOURS_CONSERVATION_REFUS));
+    // Revalidation sur la base VIVANTE (un pull cloud peut remplacer DB pendant un await : candidat repassé
+    // « En cours », converti, pièce ajoutée) avant l'appel Storage ET avant les tombstones (Fable, I-1).
+    const _encorePurgeable = id => {
+      const cv = DB.candidats.find(x => x && x.id === id);
+      return !!cv && P.candidatsAPurger([cv], Date.now(), P.JOURS_CONSERVATION_REFUS).length === 1;
+    };
+    for(const it0 of plan){
+      if(!_encorePurgeable(it0.candId)) continue;
+      const it = P.planPurge(DB.candidats, DB.documents || [], [it0.candId])[0];
+      if(!it) continue;
+      if(it.cheminsInconnus){ reportes++; console.warn('[purge candidats] fichier en ligne de forme inconnue : candidat conservé', it.candId); continue; }
+      const r = await _candCloudEffacer(it.cloudPaths);
+      if(r.echecs.length){ reportes++; console.warn('[purge candidats] fichiers en ligne non effacés, nouvel essai plus tard', it.candId, r.echecs.length); continue; }
+      if(!_encorePurgeable(it.candId)) continue;
+      const it2 = P.planPurge(DB.candidats, DB.documents || [], [it.candId])[0];
+      if(!it2 || it2.cheminsInconnus || it2.cloudPaths.some(p => !it.cloudPaths.includes(p))) continue;   // pièce en ligne arrivée entre-temps : prochain passage
+      // Tombstones posés de façon SYNCHRONE puis sauvés AUSSITÔT (relecture Opus #2) : un pull cloud pendant
+      // les awaits suivants (IndexedDB, relais) ne peut plus ressusciter des pièces dont le fichier est effacé.
+      const cAvant = DB.candidats.find(x => x && x.id === it.candId && !x._deleted);
+      const cles = _candTombstonerPieces(it2.docIds);
+      const ci = DB.candidats.findIndex(x => x && x.id === it.candId);
+      if(ci >= 0 && !DB.candidats[ci]._deleted) DB.candidats[ci] = _tombstoneObj({ id: it.candId, entity: it.entity });
+      purges++; changed = true;
+      saveDB();
+      for(const k of cles){ try{ await _idbDel(k); }catch(e){} }
+      if(cAvant){ try{ await _relayPurgeForCandidat(cAvant); }catch(e){} }
+      try{ if(typeof _ficheCandidatOuverte !== 'undefined' && _ficheCandidatOuverte === it.candId) closeM('ov-fiche-candidat'); }catch(e){}   // #12
+    }
+    if(purges){ try{ if(typeof _auditLog === 'function') _auditLog('delete', 'candidat', null, 'purge RGPD : ' + purges + ' dossier(s) non retenu(s) effacé(s), 30 jours après le refus'); }catch(e){} }
+    if(changed) saveDB();
+    if(purges){ try{ if(typeof rCandidats === 'function') rCandidats(); }catch(e){} try{ _renderInboxSurfaces(); }catch(e){} }
+  }catch(e){ console.warn('[purge candidats]', e); }
+  finally{ _candPurgeEnCours = false; }
+  return { purges, reportes };
 }
 
 let _candidatsTab = 'actifs';
 const _CAND_ST_LABEL = { recu:'Reçu', enCours:'En cours', valide:'Validé', refuse:'Refusé', converti:'Converti' };
-const _CAND_ST_BADGE = { recu:'gry', enCours:'blu', valide:'grn', refuse:'red', converti:'pur' };
+// CANDIDATURES-CONFORMITE : un statut n'est pas un jugement → badge neutre pour tous (charte M-15).
+const _CAND_ST_BADGE = { recu:'gry', enCours:'gry', valide:'gry', refuse:'gry', converti:'gry' };
 function setCandidatsTab(tab, elTab){
   _candidatsTab = tab;
   document.querySelectorAll('#candidats-tabs .tab').forEach(t=>t.classList.remove('act'));
   if(elTab) elTab.classList.add('act');
   rCandidats();
 }
-// Classe couleur du voyant/score : ≥70 vert · ≥40 orange · sinon rouge.
-function _confClass(score){ return score>=70 ? 'grn' : score>=40 ? 'ora' : 'red'; }
 function _candInitials(c){
   const a=String(c.prenom||'').trim(), b=String(c.nom||'').trim();
   return ((a?a[0]:'')+(b?b[0]:'') || '?').toUpperCase();
+}
+// CANDIDATURES-CONFORMITE : libellés des catégories de pièces (décret 2015-1437) pour l'état factuel.
+const _CAND_CAT_COURT = { identite:'Identité', domicile:'Domicile', situation:'Situation professionnelle', ressources:'Ressources' };
+function _candGarantieLabel(c){
+  return (typeof window.libelleGarantie === 'function') ? window.libelleGarantie(c) : ((c && c.garant && String(c.garant.nom||'').trim()) ? 'Garant' : 'Aucune');
+}
+// Cellule « Pièces » : Complètes (vert, positif) ou la liste des catégories manquantes (encre neutre).
+// Candidat saisi à la main sans aucune pièce mais déclaré complet → « Déclarées complètes » (neutre).
+function _candPiecesCellHtml(c){
+  const fournies = _candCategoriesFournies(c.id);
+  const manque = (typeof window.categoriesManquantes === 'function') ? window.categoriesManquantes(fournies) : [];
+  if(!manque.length) return `<span class="cand-pz ok">${_uiIcon('check-circle',14)} Complètes</span>`;
+  if(!fournies.length && c.piecesCompletes) return '<span class="cand-pz">Déclarées complètes</span>';
+  return `<span class="cand-pz">Manque : ${escHtml(manque.map(k=>_CAND_CAT_COURT[k]||k).join(' · '))}</span>`;
 }
 function _candContratLabel(c){
   return [c.contrat||'', c.employeur||''].map(s=>String(s||'').trim()).filter(Boolean).join(' · ');
@@ -12408,30 +12518,28 @@ function rCandidats(){
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t3)">Aucun candidat ${wantArchived?'archivé':'actif'}${filtered?' pour ces filtres':''}.</td></tr>`;
     return;
   }
-  // Tri : score décroissant, puis nom
-  list.sort((a,b)=>(Number(b.confianceScore)||0)-(Number(a.confianceScore)||0) || _natCmp(a.nom, b.nom));
+  // Tri NEUTRE (CANDIDATURES-CONFORMITE) : date de réception, plus récent d'abord — aucun ordre de mérite.
+  list.sort((a,b)=>String(b.dateCreation||'').localeCompare(String(a.dateCreation||'')) || _natCmp(a.nom, b.nom));
   tbody.innerHTML = list.map(c=>{
     const log = (DB.logements||[]).find(l=>l && l.ref===c.logRef);
     const bien = log ? (log.ref+(log.imm?(' — '+log.imm):'')) : (c.logRef||'—');
-    const score = Number(c.confianceScore)||0;
-    const cls = _confClass(score);
     const stL = _CAND_ST_LABEL[c.statut]||c.statut||'—';
     const stB = _CAND_ST_BADGE[c.statut]||'gry';
-    const hasGarant = !!(c.garant && String(c.garant.nom||'').trim());
+    const _supp = (window.CandPurge && c.statut==='refuse') ? window.CandPurge.dateSuppressionPrevue(c) : '';
+    const recu = c.dateCreation ? fd(String(c.dateCreation).slice(0,10)) : '—';
     const civ = c.civilite ? c.civilite+' ' : '';
     const nomComplet = (civ+((c.prenom||'')+' '+(c.nom||'')).trim()).trim()||'—';
     const sub = _candContratLabel(c);
-    const decl = c.piecesVerifiees ? '' : '<span class="conf-decl" title="Données auto-déclarées, non encore vérifiées">déclaratif</span>';
     const lien = c.source==='lien' ? '<span class="note-lien">lien</span>' : '';
     const dateDeb = c.dateDebutSouhaitee ? fd(c.dateDebutSouhaitee) : '—';
     return `<tr class="${c.vu===false?'cand-row-new':''}" onclick="if(typeof openFicheCandidat==='function')openFicheCandidat('${c.id}')" style="cursor:pointer">
       <td data-label="Candidat"><div class="cand-b-name"><div class="avatar">${escHtml(_candInitials(c))}</div><div><div class="nm">${escHtml(nomComplet)}${lien}${c.vu===false?' <span class="cand-new-pill">● Nouveau</span>':''}</div>${sub?`<div class="sub">${escHtml(sub)}</div>`:''}</div></div></td>
-      <td data-label="Bien">${escHtml(bien)}</td>
-      <td data-label="Date début">${escHtml(dateDeb)}</td>
-      <td data-label="Statut"><span class="badge ${stB}">${escHtml(stL)}</span></td>
-      <td class="num" data-label="Revenus">${(Number(c.revenus)||0).toLocaleString('fr-FR')} €</td>
-      <td data-label="Garant"><span class="badge ${hasGarant?'grn':'ora'}">${hasGarant?'Oui':'Non'}</span></td>
-      <td data-label="Confiance"><span class="conf-cell"><span class="voyant ${cls}"></span><span class="conf-num ${cls}">${score}</span>${decl}</span></td>
+      <td data-label="Bien">${escHtml(bien)}${c.dateDebutSouhaitee?`<div class="cand-supp">Début souhaité ${escHtml(dateDeb)}</div>`:''}</td>
+      <td data-label="Reçu le">${escHtml(recu)}</td>
+      <td data-label="Statut"><span class="badge ${stB}">${escHtml(stL)}</span>${_supp?`<div class="cand-supp">Suppression le ${escHtml(fd(_supp))}</div>`:''}</td>
+      <td class="num" data-label="Revenus déclarés">${(Number(c.revenus)||0).toLocaleString('fr-FR')} €</td>
+      <td data-label="Garantie"><span class="badge gry">${escHtml(_candGarantieLabel(c))}</span></td>
+      <td data-label="Pièces">${_candPiecesCellHtml(c)}</td>
     </tr>`;
   }).join('');
 }
@@ -12467,7 +12575,7 @@ function openAddCandidat(){
   if(el('m-cand-title')) el('m-cand-title').textContent='Nouveau candidat';
   el('cand-edit-id').value='';
   _fillCandLogSelect('');
-  ['cand-civ','cand-nom','cand-prenom','cand-ddn','cand-lieu','cand-datedeb','cand-tel','cand-email','cand-adrprec','cand-revenus','cand-employeur','cand-contrat','cand-contrat-autre','cand-gnom','cand-gddn','cand-gadr','cand-glieu','cand-visa'].forEach(id=>{ if(el(id)) el(id).value=''; });
+  ['cand-civ','cand-nom','cand-prenom','cand-ddn','cand-lieu','cand-datedeb','cand-tel','cand-email','cand-adrprec','cand-revenus','cand-employeur','cand-siren','cand-contrat','cand-contrat-autre','cand-gnom','cand-gddn','cand-gadr','cand-glieu','cand-visa'].forEach(id=>{ if(el(id)) el(id).value=''; });
   ['cand-pieces'].forEach(id=>{ if(el(id)) el(id).checked=false; });
   _candContratToggle();
   _visaleEcrire('cand', null); _garSetMode('cand', 'aucune'); // VISALE-GMBI
@@ -12487,14 +12595,13 @@ function saveCandidat(){
     civilite:v('cand-civ'), nom:v('cand-nom').trim(), prenom:v('cand-prenom').trim(),
     ddn:v('cand-ddn'), lieuNaiss:v('cand-lieu'), dateDebutSouhaitee:v('cand-datedeb'),
     tel:v('cand-tel'), email:v('cand-email'), adressePrecedente:v('cand-adrprec'),
-    revenus:pf('cand-revenus'), employeur:v('cand-employeur'), contrat,
+    revenus:pf('cand-revenus'), employeur:v('cand-employeur'), employeurSiren:(v('cand-siren')||'').trim(), contrat,
     // VISALE-GMBI : seules les données de la garantie retenue sont enregistrées.
     garant: (garantNom && _garMode('cand') !== 'aucune' && _garMode('cand') !== 'visale') ? { nom:garantNom, adresse:v('cand-gadr'), ddn:v('cand-gddn'), lieu:v('cand-glieu') } : null,
     visale: (_garMode('cand') === null || _garMode('cand') === 'visale') ? _visaleLire('cand') : null,
     piecesCompletes: el('cand-pieces')?.checked||false
   });
   if(!cand.nom){ showToast('Nom requis','err'); return; }
-  cand.confianceScore = _calculConfiance(cand, log ? (Number(log.hc)||0) : 0, _candPiecesPts(cand));
   if(!DB.candidats) DB.candidats=[];
   if(editId){
     const i=DB.candidats.findIndex(c=>c && c.id===editId);
@@ -12511,12 +12618,14 @@ function saveCandidat(){
       // pas suffisantes : énumérer laisse repasser le bug au prochain champ ajouté ailleurs.
       // Filet générique pour tout le reste (pièces jointes, tags multi-espace, tombstones…).
       _preserverChampsExistants(cand, DB.candidats[i]);
+      delete cand.confianceScore;   // CANDIDATURES-CONFORMITE : jamais réécrit, même par préservation (relecture Opus #13)
       DB.candidats[i] = cand;
     } else DB.candidats.push(cand);
   } else DB.candidats.push(cand);
   _stamp(cand);
   try { if(typeof _auditLog==='function') _auditLog(editId?'update':'create','candidat',cand.id,cand.nom); } catch(e){}
   saveDB(); closeM('ov-candidat'); rCandidats();
+  _candVerifierEmployeur(cand.id).catch(()=>{});   // CANDIDATURES-CONFORMITE : constat Annuaire des entreprises (réseau, non bloquant)
   showToast('Candidat enregistré','ok');
 }
 // ═══════════════════ INVITER UN CANDIDAT — lien en ligne (relais) ═══════════════════
@@ -12551,7 +12660,7 @@ function _invDefaultMessage(bienLabel, signature) {
     + 'Merci de l\'intérêt que vous portez à ' + bien + '.\n\n'
     + 'Pour étudier votre candidature, je vous invite à déposer votre dossier de location en ligne via le lien sécurisé ci-dessous : pièce d\'identité, justificatif de domicile, situation professionnelle et justificatif de ressources.\n\n'
     + 'Aucun compte n\'est nécessaire. Vous pouvez interrompre puis reprendre votre dépôt à tout moment avec le même lien. Vos documents sont chiffrés et transmis à moi seul.\n\n'
-    + 'Conformément au RGPD, vos données ne sont utilisées que pour l\'étude de votre candidature, ne sont communiquées qu\'au propriétaire, et sont supprimées sous 30 jours si votre dossier n\'est pas retenu (droits d\'accès, de rectification et de suppression sur simple demande).\n\n'
+    + 'Conformément au RGPD, vos données ne sont utilisées que pour l\'étude de votre candidature, ne sont communiquées qu\'au propriétaire, et sont supprimées 30 jours après la décision si votre dossier n\'est pas retenu (droits d\'accès, de rectification et de suppression sur simple demande).\n\n'
     + 'Bien cordialement,' + sig;
 }
 
@@ -12603,7 +12712,7 @@ function _invRenderStep1() {
     + _invSegHtml()
     + '<div class="fg"><label>Message au candidat <span class="mu sm" style="font-weight:400">— pré-rempli, modifiable</span></label>'
     + '<textarea class="inp" id="inv-msg" rows="8" style="resize:vertical" oninput="this.dataset.touched=\'1\'">' + escHtml(_invState.message) + '</textarea></div>'
-    + '<div class="info-box" style="background:var(--sur2);border-color:var(--bor)">' + _uiIcon('shield') + ' <b>RGPD</b> — les pièces transitent par le relais (sous-traitant Cloudflare) puis sont rapatriées dans votre coffre et <b>supprimées du relais</b> dès réception. Dossiers refusés purgés après 30 jours.</div>';
+    + '<div class="info-box" style="background:var(--sur2);border-color:var(--bor)">' + _uiIcon('shield') + ' <b>RGPD</b> — les pièces transitent par le relais (sous-traitant Cloudflare) puis sont rapatriées dans l\'espace Propryo (Supabase). La copie du relais expire avec le lien (+ 7 jours). Dossier non retenu : supprimé partout 30 jours après le refus. Aucun score, aucune décision automatique.</div>';
   const foot = el('inv-foot');
   if (foot) foot.innerHTML = '<button class="btn bs" onclick="closeM(\'ov-invite-candidat\')">Annuler</button>'
     + '<button class="btn bp" id="inv-gen-btn" onclick="_invGenerate()">Continuer →</button>';
@@ -12766,7 +12875,7 @@ async function _relayPullCandidatures(opts) {
       // (ré)importe quand même les données + pièces — sinon une ré-ouverture candidat serait avalée —
       // MAIS sans notifier (pas de re-flag rétroactif des anciens liens). 'import' = vraie maj → notifie.
       const _notify = (_decision === 'import');
-      // Mapping pur — AUCUN score injecté par le relais (recalculé localement plus bas).
+      // Mapping pur — AUCUN score (ni injecté par le relais, ni calculé ici).
       const partial = window._relayDossierVersCandidat(res, { logRef: link.logRef, entity: link.entity });
       // D13 : si le lien référence déjà un candidat (complément), on le met à jour ; sinon création.
       let cand = link.candId ? DB.candidats.find(x => x && x.id === link.candId && !x._deleted) : null;
@@ -12785,9 +12894,9 @@ async function _relayPullCandidatures(opts) {
         created++; newNames.push(((cand.prenom||'')+' '+(cand.nom||'')).trim() || 'Candidat');
       } else {
         // Complément : le dossier re-soumis fait foi pour les champs déclarés ; on préserve
-        // id / source / dateCreation / décisions manuelles (statut terminal, piecesVerifiees, score).
+        // id / source / dateCreation / décisions manuelles (statut terminal, piecesVerifiees).
         ['civilite','nom','prenom','ddn','lieuNaiss','tel','email','adressePrecedente',
-         'revenus','employeur','contrat','garant','piecesCompletes']
+         'revenus','employeur','employeurSiren','contrat','garant','piecesCompletes']
           .forEach(k => { cand[k] = partial[k]; });
         // VISALE-GMBI : le dossier en ligne ne porte que le n° de visa — même n° = on garde ce que le
         // bailleur a recopié du visa (loyer max, validité) ; n° différent = nouveau visa.
@@ -12807,23 +12916,28 @@ async function _relayPullCandidatures(opts) {
       if (!Array.isArray(cand._relayPieceIds)) cand._relayPieceIds = [];
       const pieces = Array.isArray(res.pieces) ? res.pieces : [];
       for (const p of pieces) {
-        if (cand._relayPieceIds.includes(p.pieceId)) continue; // déjà en GED
+        // CANDIDATURES-CONFORMITE lot 2 : type choisi par le candidat (liste fermée du décret, recontrôlée ici).
+        const _pType = (window.PiecesCand && p.type && window.PiecesCand.typeValide(String(p.categorie || ''), String(p.type))) ? String(p.type) : '';
+        if (cand._relayPieceIds.includes(p.pieceId)) { // déjà en GED : on reprend seulement un changement de type
+          const _dj = (DB.documents || []).find(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(cand.id) && d.relayPieceId === p.pieceId);
+          if (_dj && _pType && _dj.pieceType !== _pType) { _dj.pieceType = _pType; _stamp(_dj); }
+          continue;
+        }
         try {
           const { bytes, contentType } = await window._relayFetchPiece(cfg, link.id, p.pieceId, link.ownerToken);
-          await _attachmentSaveForEntity(
+          const _doc = await _attachmentSaveForEntity(
             { type: 'candidat', id: cand.id, ref: cand.id, logRef: cand.logRef, category: p.categorie || 'candidature' },
             { name: p.filename || (p.categorie || 'piece'), mime: contentType, size: bytes.length, dataB64: _bytesToDataUrl(bytes, contentType) }
           );
+          if (_doc) { _doc.relayPieceId = p.pieceId; if (_pType) _doc.pieceType = _pType; }
           cand._relayPieceIds.push(p.pieceId);
         } catch (e) { console.warn('[relay] pièce', p.pieceId, e); errors++; }
       }
-      // Recalcul du score Confiance — 100 % local (loi 6 juillet 1989 / décret 2015-1437).
-      const loyerHC = (typeof _loyerAttenduForCand === 'function') ? _loyerAttenduForCand(cand).loyer : (Number(link.loyer) || (typeof _invBienInfo === 'function' ? (_invBienInfo(link.logRef).loyer || 0) : 0));
-      try { cand.confianceScore = _calculConfiance(cand, loyerHC, _candPiecesPts(cand)); } catch (e) {}
-      _stamp(cand);
+      _stamp(cand);   // CANDIDATURES-CONFORMITE : plus aucun score calculé à l'import
       // PAS DE PURGE (modèle reopen). On stoppe juste le re-pull de ce lien + backref D13.
       link.candId = cand.id; link.status = 'collected'; link.deposed = (link.deposed || 0) + 1;
       link._lastSubmittedAt = res.submittedAt || link._lastSubmittedAt || ''; // réf. dédup ré-ouverture
+      { const _cid = cand.id; setTimeout(() => { _candVerifierEmployeur(_cid).catch(()=>{}); }, 0); } // constat Annuaire des entreprises (après saveDB)
       if (typeof _stamp === 'function') _stamp(link); else link._modifiedAt = Date.now();
       imported++;
     } catch (e) {
@@ -12962,79 +13076,116 @@ function _candMarkAllSeen(){
   _renderInboxSurfaces();
 }
 
-// ═══════════════════ LOG-CANDIDATS Phase 5 — Fiche candidat (pipeline + scoring + pièces) ═══════════════════
-// Le score "Confiance" est une AIDE À LA DÉCISION sur des critères de solvabilité légaux
-// (jamais discriminatoire — loi du 6 juillet 1989 art. 1). Le détail est 100 % transparent
-// (voir _confBreakdown). Source de vérité du total : window._calculConfiance.
-
-// Âge à partir d'une date ISO (yyyy-mm-dd). '' si invalide/absent.
-function _candAge(ddn){
-  if(!ddn) return '';
-  const d = new Date(ddn); if(isNaN(d.getTime())) return '';
-  const now = new Date(); let a = now.getFullYear()-d.getFullYear();
-  const m = now.getMonth()-d.getMonth();
-  if(m<0 || (m===0 && now.getDate()<d.getDate())) a--;
-  return (a>=0 && a<130) ? a+' ans' : '';
-}
+// ═══════════════════ LOG-CANDIDATS Phase 5 — Fiche candidat (pipeline + pièces) ═══════════════════
+// CANDIDATURES-CONFORMITE (12/10/2026) : la fiche ne montre plus de score ni l'âge du candidat (critère
+// de l'art. 225-1 du Code pénal ; la date de naissance reste, elle sert au bail). Elle montre l'état
+// factuel des pièces, les points à vérifier (constats sourcés) et la règle de conservation.
 
 // Catégories des documents RÉELLEMENT déposés pour un candidat (GED), dédupliquées.
-// Alimente le score de complétude des pièces (Q1 : la note reflète les vrais fichiers).
+// Alimente l'état factuel des pièces (liste et fiche).
 function _candCategoriesFournies(candId){
   return [...new Set((DB.documents||[])
     .filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===String(candId))
     .map(d => String(d.category||'')).filter(Boolean))];
 }
-// Points de complétude des pièces (0-20) pour le score Confiance : documents réels
-// (piecesScoreFromCategories) OU repli sur le flag déclaratif « dossier complet »
-// (candidat saisi à la main sans GED) — on garde le meilleur des deux.
-function _candPiecesPts(cand){
-  const c = (cand && typeof cand==='object') ? cand : (DB.candidats||[]).find(x=>x && x.id===cand);
-  if(!c) return 0;
-  const fn = (typeof piecesScoreFromCategories==='function') ? piecesScoreFromCategories
-           : (typeof window.piecesScoreFromCategories==='function') ? window.piecesScoreFromCategories : null;
-  const real = fn ? fn(_candCategoriesFournies(c.id)) : 0;
-  const decl = c.piecesCompletes ? 20 : 0;
-  return Math.max(real, decl);
-}
-
-// Décomposition transparente du score (mêmes seuils que _calculConfiance). Le total
-// renvoyé est recalé sur _calculConfiance pour rester l'unique source de vérité.
-// piecesPts (0-20, optionnel) = complétude des pièces déduite des documents réels.
-function _confBreakdown(cand, loyerHC, piecesPts){
-  const c = cand || {};
-  const revenus = Number(c.revenus)||0;
-  const loyer = Number(loyerHC)||0;
-  let ratioPts = 0, ratioVal = null;
-  if(loyer>0 && revenus>0){
-    ratioVal = revenus/loyer;
-    if(ratioVal>=3) ratioPts = 35; else if(ratioVal>=2.5) ratioPts = 20; else if(ratioVal>=2) ratioPts = 10;
+// CANDIDATURES-CONFORMITE — carte « Points à vérifier » : constats FACTUELS, chacun avec sa source et sa
+// date. Jamais de total, de couleur de verdict, de tri ni de formule de jugement (« suspect », « fiable »).
+// Visible seulement dans la fiche, jamais dans la liste (décision Didier 12/10, Q3).
+function _candPointsAVerifier(c){
+  const pts = [];
+  const E = window.Employeur, PC = window.PiecesCand;
+  // C7 — employeur introuvable ou fermé dans l'Annuaire des entreprises (ou numéro invalide).
+  if(E && c.employeurSiren && c.employeurVerif){
+    const ident = E.normaliserIdentifiant(c.employeurSiren);
+    if(ident && c.employeurVerif.id === ident.valeur){
+      const p = E.pointEmployeur(c.employeurVerif, c.employeur);
+      if(p){ p.actionsHtml = `<button class="btn bs bb" onclick="_candVerifierEmployeur('${_lyQ(c.id)}',{force:true,toast:true})">${_uiIcon('refresh',14)} Vérifier à nouveau</button>`; pts.push(p); }
+    }
   }
-  const contratPts = c.contrat==='CDI' ? 25 : c.contrat==='CDD' ? 10 : 0;
-  const _hasGar    = (typeof candHasGarantie==='function') ? candHasGarantie(c) : !!(c.garant && String(c.garant.nom||'').trim());
-  const garantPts  = _hasGar ? 20 : 0;
-  const _garLabel  = (c.visale && String(c.visale.visaId||'').trim()) ? 'Garantie Visale' : (c.garant && String(c.garant.nom||'').trim()) ? 'Garant présent' : 'Garant / Visale';
-  // Complétude des pièces : documents réels si fournis, sinon repli déclaratif (rétrocompat).
-  const piecesEff  = Number.isFinite(piecesPts) ? Math.max(0, Math.min(20, piecesPts)) : (c.piecesCompletes ? 20 : 0);
-  const nbCategs   = Math.round(piecesEff / 5); // 5 pts / catégorie requise (max 4)
-  const ratioTxt = ratioVal!=null ? ratioVal.toLocaleString('fr-FR',{maximumFractionDigits:1})+'×' : '';
-  const total = (typeof _calculConfiance==='function')
-    ? _calculConfiance(c, loyer, Number.isFinite(piecesPts) ? piecesPts : undefined)
-    : Math.min(100, ratioPts+contratPts+garantPts+piecesEff);
-  return {
-    total,
-    rows: [
-      { name:'Ratio revenus / loyer'+(ratioTxt?' ('+ratioTxt+')':''), pts:ratioPts, max:35 },
-      { name:'Type de contrat'+(c.contrat?' ('+c.contrat+')':''), pts:contratPts, max:25 },
-      { name:_garLabel, pts:garantPts, max:20 },
-      { name:'Pièces fournies ('+nbCategs+'/4)', pts:piecesEff, max:20 }
-    ]
+  // C1 — pièce reçue dont le NOM évoque une pièce hors de la liste du décret (suppression proposée).
+  if(PC){
+    (DB.documents||[]).filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===String(c.id) && !d.horsListeConservee).forEach(d => {
+      const hl = PC.nomFichierHorsListe(d.originalName || d.name || '', d.category);
+      if(!hl.length) return;
+      pts.push({ code:'C1', icone:'doc', titre:'Une pièce reçue semble hors de la liste des pièces exigibles.',
+        detail:'« ' + (d.originalName || d.name) + ' » : ' + hl.map(x => x.libelle.charAt(0).toLowerCase() + x.libelle.slice(1)).join(', ') + ' — pièce absente de la liste du décret n° 2015-1437. Il n\'est pas utile de la conserver.',
+        source:'décret n° 2015-1437, annexes I et II · contrôle sur le nom du fichier', url: PC.SOURCES_PIECES.decret.url,
+        date: d.uploadedAt ? 'le ' + fd(String(d.uploadedAt).slice(0,10)) : '',
+        actionsHtml: `<button class="btn bs bb" onclick="_candPieceHorsListeSupprimer(${JSON.stringify(d.id).replace(/"/g,'&quot;')})">${_uiIcon('trash',14)} Supprimer cette pièce</button><button class="btn bs bb" onclick="_candPieceHorsListeConserver(${JSON.stringify(d.id).replace(/"/g,'&quot;')})">Conserver</button>` });
+    });
+  }
+  return pts;
+}
+// Vérification de l'employeur dans l'Annuaire des entreprises (API publique, appel direct : CORS ouvert).
+// Numéro invalide → constat local sans réseau. Hors ligne / erreur → reportée, aucune alerte. Jamais bloquant.
+const _candVerifEnCours = new Set();
+async function _candVerifierEmployeur(candId, opts){
+  opts = opts || {};
+  const E = window.Employeur;
+  const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId);
+  if(!E || !c) return;
+  const ident = E.normaliserIdentifiant(c.employeurSiren);
+  if(!ident){ if(c.employeurVerif){ delete c.employeurVerif; _stamp(c); saveDB(); } return; }
+  if(!opts.force && !E.doitVerifier(c)) return;
+  if(_candVerifEnCours.has(candId)) return;
+  const fin = (verif) => {
+    const cc = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId); if(!cc || !verif) return;
+    cc.employeurVerif = verif; _stamp(cc); saveDB();
+    try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && typeof _ficheCandidatOuverte !== 'undefined' && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
+    if(opts.toast) showToast(verif.etat === 'actif' ? 'Employeur actif dans l\'Annuaire des entreprises' : 'Vérification enregistrée dans « Points à vérifier »', 'ok', 3500);
   };
+  if(!ident.valide) return fin({ id: ident.valeur, type: ident.type, etat: 'invalide', verifieLe: new Date().toISOString() });
+  if(window.__immoHorsLigne || (typeof navigator !== 'undefined' && navigator.onLine === false)){ if(opts.toast) showToast('Hors ligne : vérification reportée.', 'info'); return; }
+  _candVerifEnCours.add(candId);
+  try{
+    const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    const t = ctrl ? setTimeout(() => ctrl.abort(), 8000) : null;
+    const res = await fetch(E.urlRecherche(ident.valeur), { headers: { Accept: 'application/json' }, signal: ctrl ? ctrl.signal : undefined });
+    if(t) clearTimeout(t);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const verif = E.lireReponse(await res.json(), ident, new Date().toISOString());
+    if(verif) fin(verif); else if(opts.toast) showToast('Réponse de l\'annuaire illisible : vérification reportée.', 'warn');
+  }catch(e){
+    console.warn('[employeur] vérification reportée', e);
+    if(opts.toast) showToast('Annuaire des entreprises injoignable : vérification reportée.', 'warn');
+  }finally{ _candVerifEnCours.delete(candId); }
+}
+// Pièce reçue hors liste : suppression réelle (même routine que la purge — décision Didier 12/10, Q2).
+function _candPieceHorsListeSupprimer(docId){
+  const d = (DB.documents||[]).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat'); if(!d) return;
+  if(!confirm2('Supprimer la pièce « ' + (d.originalName || d.name) + ' » ?\n\nElle est effacée de l\'app et du stockage en ligne (RGPD). Action irréversible.')) return;
+  const candId = d.parentId;
+  const p = _candEffacerPieces([d]);
+  try{ if(typeof _auditLog==='function') _auditLog('delete','attachment',docId,'pièce hors liste effacée (RGPD)'); }catch(e){}
+  saveDB();
+  p.catch(e => console.warn('[candidat] effacement de la pièce', e));
+  showToast('Pièce supprimée', 'ok');
+  openFicheCandidat(candId);
+}
+function _candPieceHorsListeConserver(docId){
+  const d = (DB.documents||[]).find(x => x && !x._deleted && x.id === docId && x.parentType === 'candidat'); if(!d) return;
+  d.horsListeConservee = true; _stamp(d);
+  try{ if(typeof _auditLog==='function') _auditLog('update','attachment',docId,'pièce signalée hors liste conservée par décision du bailleur'); }catch(e){}
+  saveDB(); openFicheCandidat(d.parentId);
+}
+function _candPointsAVerifierHtml(c){
+  const pts = _candPointsAVerifier(c);
+  const regle = '<div class="cand-pv-regle">Ces points sont des constats, pas un avis sur le candidat. Ils se vérifient auprès de lui ; la décision appartient au bailleur. Propryo ne calcule aucun score et ne classe pas les dossiers.</div>';
+  if(!pts.length) return '<div class="cand-pv-vide">' + _uiIcon('check',15) + '<span>Aucun point relevé par les contrôles automatiques.</span></div>' + regle;
+  return '<div class="cand-pv">' + pts.map(p =>
+    '<div class="cand-pvi"><div class="tt">' + _uiIcon(p.icone || 'doc', 15) + '<span>' + escHtml(p.titre) + '</span></div>'
+    + (p.detail ? '<div class="dd">' + escHtml(p.detail) + '</div>' : '')
+    + '<div class="src">Source : ' + (p.url ? '<a href="' + escHtml(p.url) + '" target="_blank" rel="noopener">' + escHtml(p.source) + '</a>' : escHtml(p.source)) + (p.date ? ' · ' + escHtml(p.date) : '') + '</div>'
+    + (p.actionsHtml ? '<div class="act">' + p.actionsHtml + '</div>' : '')
+    + '</div>').join('') + '</div>' + regle;
 }
 
 // Transition de statut (recu/enCours/valide/refuse/converti). Re-render fiche + liste.
 function setCandidatStatut(id, statut){
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
-  c.statut = statut; _stamp(c);
+  c.statut = statut;
+  if(statut !== 'refuse') delete c.refuseLe;   // CANDIDATURES-CONFORMITE : plus refusé → plus de suppression programmée
+  _stamp(c);
   try { if(typeof _auditLog==='function') _auditLog('update','candidat',id,'statut='+statut); } catch(e){}
   saveDB(); rCandidats();
   if(statut==='valide') _relayRevokeForCandidat(c); // décision prise → fige le dépôt en ligne (cible mouvante)
@@ -13069,7 +13220,7 @@ function _onBailFullySigned(ref){
     const others = (DB.candidats||[]).filter(x => x && !x._deleted && !x._archived
       && x.logRef===ref && x.statut!=='refuse' && x.statut!=='converti');
     others.forEach(o => {
-      o.statut='refuse'; o._archived=true; _stamp(o);
+      o.statut='refuse'; o._archived=true; o.refuseLe=new Date().toISOString(); _stamp(o); // horloge de la purge RGPD
       try{ if(typeof _auditLog==='function') _auditLog('update','candidat',o.id,'archivé auto : bail signé pour '+ref); }catch(e){}
       try{ _relayRevokeForCandidat(o); }catch(e){} // « Dossier traité » côté candidat
     });
@@ -13082,17 +13233,25 @@ function _onBailFullySigned(ref){
   }catch(e){ console.warn('[candidat] finalisation après signature du bail', e); }
 }
 // Suppression DÉFINITIVE d'un candidat : tombstone (_deleted — propagation sync, pas de resurrection,
-// cf. BUG-DRIVE-RESURRECTION) + purge du dépôt relais + effacement des pièces GED (RGPD) + ferme la
-// fiche. Double confirmation si le candidat est encore actif. Réutilise les patterns existants.
+// cf. BUG-DRIVE-RESURRECTION) + purge du dépôt relais + effacement des pièces (RGPD) + ferme la fiche.
+// CANDIDATURES-CONFORMITE (décision Didier 12/10, Q2) : les pièces sont effacées par la MÊME routine que
+// la purge — local tout de suite, fichiers en ligne dans la foulée (hors ligne → file d'attente).
+// Double confirmation si le candidat est encore actif.
 function deleteCandidat(id){
   const c = (DB.candidats||[]).find(x=>x && x.id===id && !x._deleted); if(!c) return;
   const terminal = (c.statut==='refuse' || c.statut==='converti' || !!c._archived);
   if(!confirm2('Supprimer définitivement ce candidat ?\n\nSon dossier et ses pièces seront effacés (RGPD). Action irréversible.')) return;
   if(!terminal && !confirm2('⚠ Ce candidat est encore ACTIF.\n\nConfirmer la suppression définitive ?')) return;
   try{ _relayPurgeForCandidat(c); }catch(e){} // purge le dépôt en ligne (RGPD)
-  // Efface les pièces GED du candidat (tombstone DB + IDB + corbeille Drive).
-  (DB.documents||[]).filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===String(id))
-    .forEach(d => { try{ _attachmentDelete(d.id); }catch(e){} });
+  // Candidat CONVERTI en bail : ses pièces encore « candidat » (ajoutées après la conversion, avant la signature)
+  // rejoignent d'abord le dossier du bail — elles ne sont jamais effacées avec la fiche (relecture Opus #4).
+  if((c.statut==='converti' || String(c.bailRef||'').trim()) && c.bailRef && typeof _migrerDocsCandidatVersBail==='function'){
+    DB.documents = _migrerDocsCandidatVersBail(DB.documents||[], c.id, c.bailRef, c.logRef||c.bailRef);
+  }
+  // Efface les pièces du candidat : tombstone sans donnée personnelle + IndexedDB + fichiers en ligne.
+  const _pieces = (window.CandPurge ? window.CandPurge.piecesDuCandidat(DB.documents||[], id)
+    : (DB.documents||[]).filter(d => d && !d._deleted && d.parentType==='candidat' && String(d.parentId)===String(id)));
+  _candEffacerPieces(_pieces).catch(e => console.warn('[candidat] effacement des pièces', e));
   // Trace AVANT l'effacement (capture nom/prénom pour l'audit), puis remplace l'objet par un
   // tombstone NU : RGPD = on EFFACE réellement la PII (nom/email/revenus/garant…), pas un simple
   // flag _deleted. Jamais un splice (le tombstone propage la suppression à la sync/aux appareils).
@@ -13109,9 +13268,13 @@ function deleteCandidat(id){
 // composition/envoi d'un courrier de courtoisie arrivera avec le module relais.
 function refuserCandidat(id){
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
-  if(!confirm2('Refuser ce candidat ?\n\nIl sera archivé (statut « Refusé »), consultable 30 jours dans l\'onglet Archivés puis supprimé automatiquement (RGPD).')) return;
+  // CANDIDATURES-CONFORMITE : la date du refus est l'horloge de la purge (30 jours) ; la date exacte de
+  // suppression est annoncée (fiche, pièces, fichiers en ligne, copie du lien de dépôt).
+  const _refuseLe = new Date().toISOString();
+  const _supp = window.CandPurge ? window.CandPurge.dateSuppressionPrevue({ statut:'refuse', refuseLe:_refuseLe }) : '';
+  if(!confirm2('Refuser ce candidat ?\n\nIl passe au statut « Refusé » et rejoint l\'onglet Archivés.\n\nSuppression automatique ' + (_supp ? ('le ' + fd(_supp)) : 'dans 30 jours') + ' (30 jours après le refus) : fiche, pièces, fichiers en ligne et copie du lien de dépôt. Repasser le candidat « En cours » avant cette date annule la suppression.')) return;
   // Refusé → archivé : sort de la liste active (corrige l'« écran actif » d'un candidat refusé).
-  c.statut='refuse'; c._archived=true; _stamp(c);
+  c.statut='refuse'; c._archived=true; c.refuseLe=_refuseLe; _stamp(c);
   try{ if(typeof _auditLog==='function') _auditLog('update','candidat',id,'statut=refuse (archivé)'); }catch(e){}
   saveDB();
   _relayRevokeForCandidat(c); // refus = on FIGE le dépôt (révoque) → le candidat voit « Dossier traité » (neutre) ; purge relais au TTL (RGPD)
@@ -13181,7 +13344,7 @@ function _complRenderStep1(){
   const enLigne = _invState.enLigne;
   body.innerHTML = _complCandCtxHtml()
     + '<div class="fg"><label>Que manque-t-il ?</label>'
-    + '<textarea class="inp" id="compl-note" rows="4" style="resize:vertical" placeholder="Ex. Avis d\'imposition page 2 illisible, justificatif de domicile manquant…">Merci de compléter votre dossier (pièce manquante).</textarea></div>'
+    + '<textarea class="inp" id="compl-note" rows="4" style="resize:vertical" placeholder="Ex. Avis d\'imposition page 2 illisible, justificatif de domicile manquant…">' + escHtml(_invState.complNote != null ? _invState.complNote : 'Merci de compléter votre dossier (pièce manquante).') + '</textarea></div>'
     + (enLigne
         ? '<div class="info-box" style="background:var(--bg-success,rgba(22,163,74,.10));border-color:rgba(22,163,74,.3)">✓ <b>Dossier conservé</b> — le candidat complète en ligne via son lien existant ; ses pièces déjà déposées ne sont pas perdues.</div>'
         : '<div class="info-box" style="background:var(--bg-warning,rgba(234,88,12,.12));border-color:rgba(234,88,12,.35)">⚠ <b>Candidat saisi manuellement</b> — aucun lien en ligne à partager. La note ci-dessus est enregistrée en interne (statut « En cours »).</div>');
@@ -13192,7 +13355,40 @@ function _complRenderStep1(){
         : '<button class="btn bp" onclick="_complSaveManual()">Enregistrer la note</button>');
 }
 
+// CANDIDATURES-CONFORMITE lot 2 — BOUCLIER « pièce hors liste » : avant d'envoyer une demande de complément,
+// on cherche dans le texte les pièces que la loi interdit de demander (décret n° 2015-1437, art. 22-2 loi
+// n° 89-462). Si on en trouve : avertissement avec le texte légal et l'amende. JAMAIS bloquant : « Envoyer
+// quand même » poursuit, « Modifier la demande » revient à la note (conservée). Renvoie true si on continue.
+function _complBouclier(suite){
+  const note = (v('compl-note')||'').trim();
+  _invState.complNote = note;
+  if(_invState.complForce){ _invState.complForce = false; return true; }
+  const PC = window.PiecesCand;
+  const hits = PC ? PC.detecterPiecesInterdites(note) : [];
+  if(!hits.length) return true;
+  _invState.complSuite = suite;
+  const body = el('inv-body'); if(!body) return true;
+  if(el('inv-title')) el('inv-title').textContent = 'Demander un complément';
+  body.innerHTML = _complCandCtxHtml()
+    + '<div class="fg"><label>Pièces ou informations à compléter</label><textarea class="inp" id="compl-note" rows="4" style="resize:vertical">' + escHtml(note) + '</textarea></div>'
+    + '<div class="cand-warn"><div class="wt">' + _uiIcon('warn',16) + '<span>Cette demande vise des pièces hors de la liste autorisée.</span></div><ul>'
+    + hits.map(h => '<li>« ' + escHtml(h.extrait) + ' » — ' + escHtml(h.libelle) + '</li>').join('') + '</ul></div>'
+    + '<div class="cand-legal">Le bailleur ne peut exiger que les pièces de la liste fixée par le <b>décret n° 2015-1437 du 5 novembre 2015</b>. Loi n° 89-462, art. 22-2 : <q>' + escHtml(PC.TEXTE_AMENDE_22_2) + '</q>'
+    + '<span class="s">Légifrance : <a href="' + escHtml(PC.SOURCES_PIECES.art222.url) + '" target="_blank" rel="noopener">art. 22-2</a> en vigueur depuis le 27/03/2014 · <a href="' + escHtml(PC.SOURCES_PIECES.decret.url) + '" target="_blank" rel="noopener">annexes du décret</a> en vigueur depuis le 01/01/2023</span></div>';
+  const foot = el('inv-foot');
+  if(foot) foot.innerHTML = '<button class="btn bs" onclick="_complEnvoyerQuandMeme()">Envoyer quand même</button>'
+    + '<button class="btn bp" onclick="_invState.complNote=(v(\'compl-note\')||\'\').trim(); _complRenderStep1()">Modifier la demande</button>';
+  try{ if(typeof _auditLog==='function') _auditLog('update','candidat',_invState.candId,'avertissement pièce hors liste : ' + hits.map(h=>h.id).join(', ')); }catch(e){}
+  return false;
+}
+function _complEnvoyerQuandMeme(){
+  _invState.complForce = true;
+  const suite = _invState.complSuite; _invState.complSuite = null;
+  if(typeof suite === 'function') suite();
+}
+
 function _complSaveManual(){
+  if(!_complBouclier(_complSaveManual)) return;
   const note = (v('compl-note')||'').trim();
   const id = _invState.candId;
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
@@ -13201,6 +13397,7 @@ function _complSaveManual(){
 }
 
 async function _complReopen(){
+  if(!_complBouclier(_complReopen)) return;
   const id = _invState.candId;
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
   const link = c.linkId ? (DB.candidatLinks||[]).find(l=>l && l.id===c.linkId && !l._archived) : null;
@@ -13224,7 +13421,7 @@ async function _complReopen(){
   }
   // Succès : ré-arme le pull + repasse « En cours » + note.
   link.status='active'; if(typeof _stamp==='function') _stamp(link); else link._modifiedAt=Date.now();
-  c.statut='enCours'; c.complementNote=note; _stamp(c);
+  c.statut='enCours'; c.complementNote=note; delete c.refuseLe; _stamp(c);
   try{ if(typeof _auditLog==='function') _auditLog('update','candidat',id,'complément demandé (lien rouvert + partagé)'); }catch(e){}
   saveDB(); if(typeof rCandidats==='function') rCandidats();
   if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(id);
@@ -13260,7 +13457,7 @@ function _complRenderStep2(){
 
 // Repassage « En cours » sans canal en ligne (candidat manuel ou lien expiré).
 function _complementLocal(c, id, note){
-  c.statut='enCours'; if(note) c.complementNote=note; _stamp(c);
+  c.statut='enCours'; if(note) c.complementNote=note; delete c.refuseLe; _stamp(c);
   try{ if(typeof _auditLog==='function') _auditLog('update','candidat',id,'statut=enCours (complément demandé)'); }catch(e){}
   saveDB(); rCandidats();
   if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(id);
@@ -13272,14 +13469,6 @@ function toggleCandidatPiecesVerifiees(id){
   c.piecesVerifiees = !c.piecesVerifiees; _stamp(c);
   try { if(typeof _auditLog==='function') _auditLog('update','candidat',id,'piecesVerifiees='+c.piecesVerifiees); } catch(e){}
   saveDB(); rCandidats(); openFicheCandidat(id);
-}
-
-// Le loyer d'un bien vacant a changé → recalcule le score stocké de TOUS ses candidats (ratio).
-// Source unique (était recopiée : loyer du bien, saveParamLog, annonce étape 1 — audit ANNONCES).
-function _rescoreCandidatsDuLogement(ref){
-  (DB.candidats||[]).filter(x=>x && !x._deleted && x.logRef===ref).forEach(x=>{
-    try{ x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); }catch(e){}
-  });
 }
 
 // Loyer attendu d'un candidat (cascade logement → ancien locataire → invitation) via le helper
@@ -13300,7 +13489,7 @@ function _loyerAttenduForCand(c){
   return loyerAttenduForLog({ logHC: log?(Number(log.hc)||0):0, baux, linkLoyer: link?(Number(link.loyer)||0):0 });
 }
 // Popup « Loyer du logement » depuis la fiche candidat (« loyer attendu »). Écrit log.hc (structurant
-// → avertissement dans la popup), puis recalcule le score de TOUS les candidats du logement.
+// → avertissement dans la popup).
 let _lbCtx = null;
 function openLoyerBienModal(candId, logRef){
   // LOYER-REFERENCE — ouverture par candidat (candId) OU directement par bien (logRef, ✏️ fiche).
@@ -13327,7 +13516,7 @@ function openLoyerBienModal(candId, logRef){
       else warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passez par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
     } else {
       warn.style.background='rgba(234,88,12,.1)'; warn.style.border='1px solid rgba(234,88,12,.3)'; warn.style.color='#9a4a10';
-      warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au score du candidat et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
+      warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au ratio revenus / loyer affiché sur la fiche des candidats et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
     }
   }
   if(el('lb-ctx')) el('lb-ctx').innerHTML = 'Logement <b>'+escHtml(log.ref)+(log.imm?(' — '+escHtml(log.imm)):'')+'</b>'+(occupied?' · <span style="color:var(--ora);font-weight:600">occupé</span>':' · vacant');
@@ -13347,8 +13536,6 @@ function saveLoyerBien(){
   log.hc = hc; log.ch = ch; log.loyerHcRef = hc; log.chargesRef = ch; _stamp(log);   // saisie explicite du loyer de référence (le souhaité inclus)
   try{ if(typeof _pushLoyerTheoFromLive==='function') _pushLoyerTheoFromLive(log); }catch(e){} // LOYER-REFERENCE : dg / irl suivent
   const cid = _lbCtx.candId;
-  // Le loyer du logement impacte le ratio de TOUS ses candidats → on recalcule leurs scores stockés.
-  _rescoreCandidatsDuLogement(log.ref);
   try{ if(typeof _auditLog==='function') _auditLog('update','logement',log.ref, before+' € → '+hc+' € (loyer de référence HC, bien vacant)'); }catch(e){}
   saveDB();
   closeM('ov-loyer-bien');
@@ -13358,20 +13545,29 @@ function saveLoyerBien(){
   if(cid && el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(cid);
   else if(!cid && typeof _currentLogFicheRef!=='undefined' && _currentLogFicheRef===log.ref && typeof rLogFiche==='function'){ try{ rLogFiche(); }catch(e){} } // refresh fiche bien après édition ✏️
 }
+// Sous-ligne Employeur (carte Situation) : numéro + constat « actif » neutre, ou renvoi aux points à vérifier.
+function _candEmployeurSousLigneHtml(c){
+  const E = window.Employeur;
+  const ident = E ? E.normaliserIdentifiant(c.employeurSiren) : null;
+  if(!ident) return '';
+  const v = (c.employeurVerif && c.employeurVerif.id === ident.valeur) ? c.employeurVerif : null;
+  let st = '';
+  if(!v) st = 'Vérification dans l\'Annuaire des entreprises en attente (réseau).';
+  else if(v.etat === 'actif') st = E.ligneEmployeurActif(v);
+  else st = 'Voir « Points à vérifier ».';
+  return '<div class="cand-siren">' + (ident.type === 'siret' ? 'SIRET ' : 'SIREN ') + escHtml(ident.valeur) + '</div><div class="cand-supp">' + escHtml(st) + '</div>';
+}
+let _ficheCandidatOuverte = null;
 function openFicheCandidat(id){
-  const c = (DB.candidats||[]).find(x=>x && x.id===id);
+  const c = (DB.candidats||[]).find(x=>x && x.id===id && !x._deleted);
   const body = el('fiche-cand-body');
   if(!c || !body){ showToast('Candidat introuvable','err'); return; }
+  _ficheCandidatOuverte = id;
+  try{ if(window.Employeur && window.Employeur.doitVerifier(c)) setTimeout(() => { _candVerifierEmployeur(id).catch(()=>{}); }, 0); }catch(e){}
   if(c.vu === false){ c.vu = true; _stamp(c); saveDB(); try{ _renderInboxSurfaces(); }catch(e){} try{ if(typeof rCandidats==='function') rCandidats(); }catch(e){} } // re-render liste → la pastille « Nouveau » de la ligne disparaît
   const log = (DB.logements||[]).find(l=>l && l.ref===c.logRef);
   const _la = _loyerAttenduForCand(c); // cascade loyer attendu (logement → ancien loc → invitation)
   const loyerHC = _la.loyer;
-  const _piecesPts = _candPiecesPts(c); // complétude déduite des documents réels (Q1)
-  const bd = _confBreakdown(c, loyerHC, _piecesPts);
-  const score = Number(bd.total)||0;
-  if((Number(c.confianceScore)||0) !== score){ c.confianceScore = score; _stamp(c); saveDB(); try{ if(typeof rCandidats==='function') rCandidats(); }catch(e){} } // resynchronise le score stocké (liste) après (dé)dépôt de pièces
-  const cls = _confClass(score);
-  const ringColor = cls==='grn' ? 'var(--grn)' : cls==='ora' ? 'var(--ora)' : 'var(--red)';
   const verifie = !!c.piecesVerifiees;
   const declBadge = verifie ? '' : ' <span class="conf-decl" title="Données auto-déclarées, non encore vérifiées">déclaratif</span>';
   const stL = _CAND_ST_LABEL[c.statut]||c.statut||'—';
@@ -13415,8 +13611,9 @@ function openFicheCandidat(id){
 
   // ── Situation / ratio ───────────────────────────────────────────────────
   const revenus = Number(c.revenus)||0;
+  // Information, sans seuil ni couleur (le choix sur critères financiers objectifs appartient au bailleur).
   const ratioTxt = (loyerHC>0 && revenus>0)
-    ? `${revenus.toLocaleString('fr-FR')} € / ${loyerHC.toLocaleString('fr-FR')} € = <b>${(revenus/loyerHC).toLocaleString('fr-FR',{maximumFractionDigits:1})}×</b>`
+    ? `${revenus.toLocaleString('fr-FR')} € / ${loyerHC.toLocaleString('fr-FR')} € = <b>${(revenus/loyerHC).toLocaleString('fr-FR',{maximumFractionDigits:1})}×</b> <span class="mu" style="font-size:11px">information, sans seuil</span>`
     : '<span class="mu">— (loyer attendu non renseigné)</span>';
   // Loyer attendu (cascade) : valeur + source + bouton d'édition → popup qui écrit log.hc.
   const _laSrcTxt = _la.source==='logement' ? 'loyer du logement'
@@ -13471,12 +13668,16 @@ function openFicheCandidat(id){
   // classé + « + Ajouter » ciblé par catégorie. Bloc garant affiché seulement si garant déclaré.
   const piecesGroupedHtml = (typeof _renderCandidatPiecesGrouped==='function') ? _renderCandidatPiecesGrouped(c) : '';
 
-  // ── Scoring ─────────────────────────────────────────────────────────────
-  const critsHtml = bd.rows.map(r=>{
-    const pct = r.max ? Math.round(r.pts/r.max*100) : 0;
-    return `<div class="crit"><span class="cname">${escHtml(r.name)}</span><span class="cbar"><i style="width:${pct}%"></i></span><span class="cpts">${r.pts} / ${r.max}</span></div>`;
-  }).join('');
-  const tipTxt = 'Score basé sur revenus, contrat, garant et complétude du dossier. Aide à la décision, pas un verdict. Données déclaratives tant que les pièces ne sont pas vérifiées.';
+  // ── Points à vérifier (constats sourcés, sans total ni couleur de verdict) + conservation ─────
+  // CANDIDATURES-CONFORMITE : remplace l'ancienne carte « Score de confiance ». La liste des constats vient
+  // de _candPointsAVerifierHtml (lot 2 : employeur, pièce hors liste) ; la règle de suppression est annoncée.
+  const pointsHtml = _candPointsAVerifierHtml(c);
+  const _suppFiche = (window.CandPurge && c.statut==='refuse') ? window.CandPurge.dateSuppressionPrevue(c) : '';
+  const conservationHtml = c.statut==='converti'
+    ? 'Dossier retenu : les pièces ont rejoint le dossier du bail.'
+    : (_suppFiche
+      ? `Candidat non retenu : suppression automatique le <b>${escHtml(fd(_suppFiche))}</b> (30 jours après le refus) — fiche, pièces, fichiers en ligne et copie du lien de dépôt. Repasser le candidat « En cours » avant cette date annule la suppression.`
+      : 'Si ce dossier n\'est pas retenu, il est supprimé automatiquement <b>30 jours après le refus</b> : fiche, pièces, fichiers en ligne et copie du lien de dépôt. Retenu, il rejoint le dossier du bail.');
 
   // ── Conversion CTA ──────────────────────────────────────────────────────
   let convHtml = '';
@@ -13529,7 +13730,7 @@ function openFicheCandidat(id){
         <div class="kv-grid">
           <div class="k">Civilité</div><div class="v">${escHtml(c.civilite||'—')}</div>
           <div class="k">Nom · Prénom</div><div class="v">${escHtml(((c.nom||'—')+' · '+(c.prenom||'—')))}</div>
-          <div class="k">Date de naissance</div><div class="v">${c.ddn?escHtml(fd(c.ddn))+(_candAge(c.ddn)?(' ('+_candAge(c.ddn)+')'):''):'—'}</div>
+          <div class="k">Date de naissance</div><div class="v">${c.ddn?escHtml(fd(c.ddn)):'—'}</div>
           <div class="k">Lieu de naissance</div><div class="v">${escHtml(c.lieuNaiss||'—')}</div>
           <div class="k">Téléphone</div><div class="v">${escHtml(c.tel||'—')}</div>
           <div class="k">Email</div><div class="v">${escHtml(c.email||'—')}</div>
@@ -13541,7 +13742,7 @@ function openFicheCandidat(id){
         <div class="ct" style="margin-top:0">Situation</div>
         <div class="kv-grid">
           <div class="k">Revenus mensuels</div><div class="v"><b>${revenus.toLocaleString('fr-FR')} €</b>${declBadge}</div>
-          <div class="k">Employeur</div><div class="v">${escHtml(c.employeur||'—')}</div>
+          <div class="k">Employeur</div><div class="v">${escHtml(c.employeur||'—')}${_candEmployeurSousLigneHtml(c)}</div>
           <div class="k">Type de contrat</div><div class="v">${contratBadge}</div>
           <div class="k">Loyer attendu</div><div class="v">${loyerAttenduHtml}</div>
           <div class="k">Ratio revenus / loyer</div><div class="v">${ratioTxt}</div>
@@ -13565,20 +13766,12 @@ function openFicheCandidat(id){
       </div>
       <div class="fc-side">
     <div class="card">
-      <div class="flex-c" style="gap:8px;margin-bottom:16px">
-        <div class="ct" style="margin:0">Score de confiance</div>
-        <div class="tip-wrap" onclick="this.classList.toggle('show')"><span class="tip-ic">?</span><div class="tip-pop">${escHtml(tipTxt)}</div></div>
-        ${verifie?'':'<span class="conf-decl">déclaratif</span>'}
-      </div>
-      <div class="score-hero">
-        <div class="score-ring" style="background:conic-gradient(${ringColor} 0% ${score}%, var(--bor) ${score}% 100%)">
-          <div class="inner"><span class="sv" style="color:${ringColor}">${score}</span><span class="sl">/ 100</span></div>
-        </div>
-        <div style="flex:1;min-width:240px">${critsHtml}</div>
-      </div>
-      <div class="alert info" style="margin-top:12px;margin-bottom:0;font-size:11.5px;line-height:1.45">
-        ⚖ <b>Aide à la solvabilité, pas un verdict.</b> Jamais de critère discriminatoire (loi du 6 juillet 1989, art. 1). <span class="mu">Détail via le « ? ».</span>
-      </div>
+      <div class="ct" style="margin-top:0">Points à vérifier</div>
+      ${pointsHtml}
+    </div>
+    <div class="card">
+      <div class="ct" style="margin-top:0">Conservation des données</div>
+      <div class="cand-keep">${_uiIcon('lock',15)}<span>${conservationHtml}</span></div>
     </div>
 
     ${convHtml}
@@ -13598,7 +13791,7 @@ function _editCandidatFromFiche(id){
   set('cand-civ',c.civilite); set('cand-nom',c.nom); set('cand-prenom',c.prenom);
   set('cand-ddn',c.ddn); set('cand-lieu',c.lieuNaiss); set('cand-datedeb',c.dateDebutSouhaitee);
   set('cand-tel',c.tel); set('cand-email',c.email); set('cand-adrprec',c.adressePrecedente);
-  set('cand-revenus',c.revenus||''); set('cand-employeur',c.employeur);
+  set('cand-revenus',c.revenus||''); set('cand-employeur',c.employeur); set('cand-siren',c.employeurSiren);
   // Contrat : valeur prédéfinie ou "Autre" libre.
   const presets = ['CDI','CDD','Intérim','Freelance / Indépendant','Fonctionnaire','Étudiant','Retraité'];
   if(el('cand-contrat')){

@@ -28,6 +28,16 @@ describe('collectBackupFiles', () => {
     expect(collectBackupFiles(db, last).map(f => f.key).sort()).toEqual(['esp/seg/files/bc_L1', 'esp/seg/files/bp_L1', 'esp/seg/files/d2'])
   })
   it('lastBackupAt null → tout (sans clé ignoré)', () => { expect(collectBackupFiles(db, null).length).toBe(5) })
+  // CANDIDATURES-CONFORMITE : une pièce de candidat SUPPRIMÉE (purge RGPD, suppression manuelle) ne part
+  // plus dans la sauvegarde. Les autres pièces supprimées restent sauvegardées (preuve légale inchangée).
+  it('pièce de candidat supprimée exclue ; pièce de candidat vivante et autre pièce supprimée incluses', () => {
+    const d = { documents: [
+      { id: 1, parentType: 'candidat', cloudKey: 'esp/seg/files/c1', _deleted: true },
+      { id: 2, parentType: 'candidat', cloudKey: 'esp/seg/files/c2' },
+      { id: 3, parentType: 'bail', cloudKey: 'esp/seg/files/b3', _deleted: true }
+    ] }
+    expect(collectBackupFiles(d, null).map(f => f.key)).toEqual(['esp/seg/files/c2', 'esp/seg/files/b3'])
+  })
   // Fix audit #1 — un fichier porteur d'une clé MAIS sans horodatage (legacy/importé) ne doit JAMAIS
   // être dropé en silence quand lastBackupAt est posé (preuve légale perdue). On préfère un doublon.
   it('clé sans horodatage incluse même avec lastBackupAt non-null', () => {

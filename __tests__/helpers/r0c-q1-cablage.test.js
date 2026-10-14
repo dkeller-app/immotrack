@@ -11,7 +11,7 @@
  *  - `_computeExpectedRent` (🟠2) lit la même règle ;
  *  - `_finDetteBail` donne à la dette d'un bail le même point de départ et la même ouverture.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,6 +54,12 @@ const dbDe = dbAppDe;
 const SEEDS = Array.from({ length: 30 }, (_, i) => 1000 + i);
 const TODAY = '2026-09-30';
 const mois = ymRange('2021-01', '2026-12');
+
+// Horloge figée au jour de TODAY pour tout le fichier : `_finDetteBail` (code app) ne reçoit pas `today`
+// et lit la date réelle (`_loyerTodayLocal` → new Date()). Sans ça, la dette gagne un loyer à chaque mois qui passe.
+// Seul `Date` est figé (pas les timers) ; midi local évite tout effet de fuseau.
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(TODAY + 'T12:00:00')); });
+afterAll(() => { vi.useRealTimers(); });
 
 describe('R0-C · (b) PREUVE — sans date saisie, le dû et Finances sont IDENTIQUES à l\'ancien chemin', () => {
   for (const seed of SEEDS) {

@@ -1,4 +1,9 @@
-const ASSET_VERSION = '1';
+// CANDIDATURES-CONFORMITE lot 2 : liste FERMÉE des pièces (décret n° 2015-1437) — source unique partagée avec l'app.
+import { typesPourCategorie } from '../../js/core/pieces-candidature.js';
+
+// Bumpé à chaque changement de dossier.js / dossier.css (cache navigateur du formulaire public).
+const ASSET_VERSION = '2';
+const CATS_PIECES = ['identite', 'domicile', 'situation', 'ressources', 'garant'];
 
 function jsonForScript(v) {
   return JSON.stringify(v).replace(/</g, '\\u003c');
@@ -10,7 +15,7 @@ function escHtml(s) {
 }
 
 export function renderDossierPage({ candidature, candidatToken }) {
-  // Données strictement nécessaires au formulaire — AUCUN score Confiance (D7).
+  // Données strictement nécessaires au formulaire — AUCUN score (D7 ; CANDIDATURES-CONFORMITE : plus aucun score nulle part).
   const data = {
     bienLabel: candidature.bienLabel || '',
     loyer: candidature.loyer || 0,
@@ -19,7 +24,9 @@ export function renderDossierPage({ candidature, candidatToken }) {
     complementNote: candidature.complementNote || null,
     // Reprise (D13) : on renvoie le dossier déjà saisi + la liste des pièces (méta only).
     dossier: candidature.dossier || null,
-    pieces: (candidature.pieces || []).map((p) => ({ pieceId: p.pieceId, categorie: p.categorie, filename: p.filename }))
+    pieces: (candidature.pieces || []).map((p) => ({ pieceId: p.pieceId, categorie: p.categorie, filename: p.filename, type: p.type || '' })),
+    // Types proposés au candidat sous chaque fichier (id + libellé court), par zone de dépôt.
+    types: Object.fromEntries(CATS_PIECES.map((k) => [k, typesPourCategorie(k).map((t) => ({ id: t.id, libelle: t.libelle }))]))
   };
   return `<!doctype html>
 <html lang="fr">
