@@ -4043,6 +4043,8 @@ async function openEditEDL(id) {
   _edlArmLazyPhotos(migrated?{pieces:_edlP,cles:clesMig,compteursPhotos:e.compteursPhotos}:e);
   _edlFill({...e, cles:clesMig});
   _edlCptIA = (e.compteursIA && typeof e.compteursIA === 'object') ? JSON.parse(JSON.stringify(e.compteursIA)) : {};   // EDL-VOIX-IA (A2)
+  _edlVideos = Array.isArray(e.videos) ? JSON.parse(JSON.stringify(e.videos)) : [];               // EDL-VIDEO-IA : prises
+  _edlVideoAccords = Array.isArray(e.videoAccords) ? JSON.parse(JSON.stringify(e.videoAccords)) : [];   // accords horodatés
   _edlLoadCptPhotos(e.compteursPhotos);
   _edlRenderAll(e.signatures);
   // v14.42 Phase 4b : applique le lock UI si EDL signé (bandeau + CSS désactive inputs)
@@ -5432,11 +5434,15 @@ function _edlVoixSlotHTML(pi) {
 function _edlVoixSlotInner(pi) {
   const M = _evxM(); if (!M) return '';
   const bans = _edlVoixItemsPiece(pi).map((x) => M.EdlVoixVues.banniere(x, { ic: _evxIc, message: M.IaClient.messageErreur })).join('');
-  return bans + (_edlVoixDispo() ? M.EdlVoixVues.barrePiece(pi, { ic: _evxIc }) : '');
+  // EDL-VIDEO-IA : envoi des prises de la pièce, et « Filmer la pièce » si le relais a ouvert la vidéo.
+  const vbans = (typeof _edlVideoBannieres === 'function') ? _edlVideoBannieres(pi) : '';
+  const video = (typeof _edlVideoDispo === 'function') && _edlVideoDispo();
+  return bans + vbans + (_edlVoixDispo() ? (video ? window.EdlVideoVues.barrePieceVideo(pi, { ic: _evxIc }) : M.EdlVoixVues.barrePiece(pi, { ic: _evxIc })) : '');
 }
 function _edlVoixBoutonPC(pi) {
   const M = _evxM();
-  return (M && _edlVoixDispo()) ? M.EdlVoixVues.boutonPiecePC(pi, { ic: _evxIc }) : '';
+  if (!M || !_edlVoixDispo()) return '';
+  return ((typeof _edlVideoDispo === 'function') && _edlVideoDispo()) ? window.EdlVideoVues.boutonsPiecePCVideo(pi, { ic: _evxIc }) : M.EdlVoixVues.boutonPiecePC(pi, { ic: _evxIc });
 }
 /** Les dictées de l'EDL ouvert (par identifiant, ou par session si l'EDL n'est pas encore enregistré). */
 function _edlVoixItemsEDL() {
@@ -5498,13 +5504,20 @@ function _edlVoixTraiter() {
 async function _edlVoixStatut() {
   const c = _edlVoixClient(); if (!c) return;
   const r = await c.statut();
-  if (r.ok) { _EVX.actif = !!r.actif; _edlVoixActifMemo(_EVX.actif); }
-  else if (r.code === 'disabled') { _EVX.actif = false; _edlVoixActifMemo(false); }
+  if (r.ok) {
+    _EVX.actif = !!r.actif; _edlVoixActifMemo(_EVX.actif);
+    _EVX.video = r.video || { actif: false };   // EDL-VIDEO-IA : interrupteur AI_VIDEO du relais
+    if (typeof _edlVideoActifMemo === 'function') _edlVideoActifMemo(_EVX.video.actif === true);
+  }
+  else if (r.code === 'disabled') { _EVX.actif = false; _edlVoixActifMemo(false); _EVX.video = { actif: false }; if (typeof _edlVideoActifMemo === 'function') _edlVideoActifMemo(false); }
   _edlVoixRafraichir();
 }
 /** Chaque ouverture d'un EDL : nouvelle session, file relue, analyse relancée, statut vérifié. */
 function _edlVoixReset() {
   if (_EVX.rec) { try { _EVX.rec.annuler(); } catch (_) {} _EVX.rec = null; }
+  if (_EVX.vrec) { try { _EVX.vrec.annuler(); } catch (_) {} _EVX.vrec = null; }   // EDL-VIDEO-IA
+  if (typeof _edlVideoStopEchantillons === 'function') _edlVideoStopEchantillons();
+  _EVX.vsel = null; _EVX.accord = null;
   _edlVoixNiveauStop();
   _edlVoixVeille(false);
   _EVX.session = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -5515,7 +5528,7 @@ function _edlVoixOuverture() {
   if (!_evxM()) return;
   if (!_EVX.lie) {
     _EVX.lie = true;
-    window.addEventListener('online', () => { _edlVoixTraiter(); });
+    window.addEventListener('online', () => { _edlVoixTraiter(); if (typeof _edlVideoReprendreEnvois === 'function') _edlVideoReprendreEnvois(); });
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       const h = el('edl-voix'); if (!h || h.hidden) return;
@@ -5526,6 +5539,7 @@ function _edlVoixOuverture() {
   if (f) f.purger().catch(() => {});
   _edlVoixRecharger().then(() => _edlVoixTraiter());
   _edlVoixStatut();
+  if (typeof _edlVideoReprendreEnvois === 'function') _edlVideoReprendreEnvois();   // EDL-VIDEO-IA
 }
 
 // ── La couche (téléphone : page plein écran ; tablette : feuille ; PC : dialogue) ──
@@ -5544,7 +5558,7 @@ function _edlVoixAfficher(v, nom) {
   const h = _edlVoixHote(); if (!h) return;
   _EVX.vue = nom || '';
   const ferme = v.fermeLibelle || 'Fermer';
-  h.innerHTML = `<div class="evx-scrim" onclick="_edlVoixFermer()"></div><div class="evx-panel">`
+  h.innerHTML = `<div class="evx-scrim" onclick="_edlVoixFermer()"></div><div class="evx-panel${v.classe ? ' ' + v.classe : ''}">`
     + `<div class="evx-head"><button type="button" class="evx-back" onclick="_edlVoixFermer()" aria-label="${escHtml(ferme)}">${_evxIc('close')}<span>Fermer</span></button>`
     + `<div class="evx-ti" id="evx-ti">${escHtml(v.titre)}${v.sousTitre ? `<small>${escHtml(v.sousTitre)}</small>` : ''}</div></div>`
     + `<div class="evx-body">${v.corps}</div>${v.pied ? `<div class="evx-foot">${v.pied}</div>` : ''}</div>`;
@@ -5553,6 +5567,11 @@ function _edlVoixAfficher(v, nom) {
 }
 /** Fermer : pendant un enregistrement = abandonner (confirmation s'il y a plus de 5 s de dictée). */
 function _edlVoixFermer() {
+  if (_EVX.vrec && (_EVX.vrec.etat === 'enregistre' || _EVX.vrec.etat === 'pause')) {   // EDL-VIDEO-IA
+    if (_EVX.vrec.secondes() > 5 && !confirm2('Abandonner cette prise ? La vidéo ne sera pas gardée.')) return;
+    try { _EVX.vrec.annuler(); } catch (_) {}
+    _EVX.vrec = null; _EVX.vsel = null; _edlVideoStopEchantillons(); _edlVoixVeille(false);
+  }
   if (_EVX.rec && (_EVX.rec.etat === 'enregistre' || _EVX.rec.etat === 'pause')) {
     if (_EVX.rec.secondes() > 5 && !confirm2('Abandonner cette dictée ? L’enregistrement ne sera pas gardé.')) return;
     try { _EVX.rec.annuler(); } catch (_) {}
@@ -5635,6 +5654,16 @@ async function _edlVoixEnfiler(buf, mime, duree) {
 }
 function _edlVoixVueAnalyse(x) {
   const M = _evxM(); if (!M) return;
+  if (!x.erreur && Array.isArray(x.images) && x.images.length && window.EdlVideoVues) {   // EDL-VIDEO-IA
+    const vid = (x.video || {}).id || '';
+    const meta = _edlVideos.find((v) => v.id === vid);
+    const s = vid ? ((_EVX.venvoi || {})[vid] || { etat: 'attente', total: meta ? meta.octets : 0 }) : null;
+    const etape = x.etape === 'audio' ? 'transcription' : x.etape === 'texte' ? 'propositions' : 'photos';
+    _edlVoixAfficher(window.EdlVideoVues.vueTraitement({ piece: (x.contexte || {}).pieceNom || 'Pièce', duree: x.duree || 0,
+      mo: meta ? Math.round(meta.octets / 104857.6) / 10 : 0, images: x.images.length, empreinte: meta ? meta.sha256 : '', etape,
+      envoi: s && meta ? { ...s, id: vid, total: s.total || meta.octets, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) } : null }, { ic: _evxIc }), 'analyse');
+    return;
+  }
   if (x.erreur) {
     const m = M.IaClient.messageErreur(x.erreur.code, x.erreur);
     _edlVoixAfficher(M.EdlVoixVues.vueErreur({ titre: m.titre, texte: m.texte, icone: x.erreur.code === 'offline' ? 'cloud' : 'warn', piece: (x.contexte || {}).pieceNom || 'Pièce' }, { ic: _evxIc }), 'analyse');
@@ -5750,7 +5779,8 @@ function _edlVoixRelire(id, garderDefilement) {
   const b = el('edl-voix') && el('edl-voix').querySelector('.evx-body');
   const y = garderDefilement && b ? b.scrollTop : 0;
   const { pi, sortie, m } = _edlVoixModele(x);
-  _edlVoixAfficher(M.EdlVoixVues.vuePropositions({ item: x, m, piece: pi >= 0 ? (_edlP[pi].nom || 'Pièce') : ((x.contexte || {}).pieceNom || 'Pièce'), sortie, duree: x.duree || x.audioSec || 0 }, { ic: _evxIc }), 'propositions');
+  const ext = (typeof _edlVideoExtensionRelecture === 'function') ? (_edlVideoExtensionRelecture(x) || {}) : {};   // EDL-VIDEO-IA
+  _edlVoixAfficher(M.EdlVoixVues.vuePropositions({ item: x, m, piece: pi >= 0 ? (_edlP[pi].nom || 'Pièce') : ((x.contexte || {}).pieceNom || 'Pièce'), sortie, duree: x.duree || x.audioSec || 0, ...ext }, { ic: _evxIc }), 'propositions');
   const b2 = el('edl-voix') && el('edl-voix').querySelector('.evx-body'); if (b2 && y) b2.scrollTop = y;
 }
 async function _edlVoixDecider(x, patch) {
@@ -5794,7 +5824,9 @@ async function _edlVoixInscrireProp(x, cle, choix) {
   if (!r.ok) { showToast(r.raison === 'vide' ? 'Rien à inscrire pour cet élément.' : 'Inscription impossible.', 'warn', 3500); return false; }
   M.EdlDictee.appliquerPatch(elx, r.patch);
   const inscrit = {}; for (const k of Object.keys(r.patch)) if (!/^ia[ES]$/.test(k)) inscrit[k] = r.patch[k];
-  await _edlVoixDecider(x, { [cle]: { statut: 'ok', pi, ei, nom: elx.nom, inscrit, avant: r.avant } });
+  // EDL-VIDEO-IA (décision 5) : « Accepter » garde aussi les photos de la vidéo non écartées.
+  const photos = (Array.isArray(x.images) && x.images.length && typeof _edlVideoAjouterPhotos === 'function') ? await _edlVideoAjouterPhotos(x, eid, pi, ei) : [];
+  await _edlVoixDecider(x, { [cle]: { statut: 'ok', pi, ei, nom: elx.nom, inscrit, avant: r.avant, ...(photos.length ? { photos } : {}) } });
   return true;
 }
 /** Après une écriture : l'EDL se redessine (verdicts, pastilles) et s'enregistre (autosave explicite). */
@@ -5835,6 +5867,7 @@ async function _edlVoixAnnulerFaire(id, cle) {
     const r = M.EdlDictee.calculerAnnulation(elx, d.inscrit, d.avant, { sortie: !!_edlSortie, signe: _edlVoixSigne() });
     if (!r.ok) { refus(); return; }
     M.EdlDictee.appliquerPatch(elx, r.patch);
+    if (d.photos && typeof _edlVideoRetirerPhotos === 'function') _edlVideoRetirerPhotos(d.pi, d.ei, d.photos);   // EDL-VIDEO-IA
   }
   await _edlVoixDecider(x, { [cle]: null });
   _edlVoixApresEcriture(id);
@@ -5899,10 +5932,14 @@ function _edlVoixTranscription(id) {
 async function _edlVoixFinRelecture(id) {
   const M = _evxM(); const x = _edlVoixItem(id); if (!M || !x) return;
   const b = M.EdlDictee.bilanDecisions(x.resultat, x.decisions);
+  // EDL-VIDEO-IA : photos « vu à l'image, pas dit » encore à décider (relecture I4) — jamais perdues en silence.
+  const dits = new Set((((x.resultat || {}).propositions) || []).map((p) => String(p.elementId)));
+  const vusRestants = (((x.photos || {}).elements) || []).filter((e) => !dits.has(String(e.elementId)) && !((x.decisions || {})['v:' + e.elementId] || {}).statut).length;
+  if (b.aValider === 0 && vusRestants && !confirm2(`${vusRestants} élément${vusRestants > 1 ? 's' : ''} vu${vusRestants > 1 ? 's' : ''} à l’image n’${vusRestants > 1 ? 'ont' : 'a'} pas été décidé${vusRestants > 1 ? 's' : ''} : leurs photos ne seront pas gardées. Terminer quand même ?`)) return;
   if (b.aValider === 0) {
     const f = _edlVoixFile(); if (f) await f.supprimer(id);
     _EVX.items = _EVX.items.filter((y) => y.id !== id);
-    showToast('Relecture terminée : la transcription est effacée de l’appareil.', 'ok', 3500);
+    showToast(Array.isArray(x.images) && x.images.length ? 'Relecture terminée : la transcription et les images de travail sont effacées de l’appareil.' : 'Relecture terminée : la transcription est effacée de l’appareil.', 'ok', 3500);
   } else {
     showToast(`${b.aValider} proposition${b.aValider > 1 ? 's' : ''} à valider : le bandeau de la pièce les garde.`, 'info', 4000);
   }
@@ -5935,6 +5972,606 @@ function _edlVoixRafraichirCompteurs() {
   const bans = _edlVoixItemsEDL().filter((x) => (x.contexte || {}).cible === 'compteurs')
     .map((x) => M.EdlVoixVues.banniere(x, { ic: _evxIc, message: M.IaClient.messageErreur })).join('');
   s.innerHTML = bans + (_edlVoixDispo() ? M.EdlVoixVues.barreCompteurs({ ic: _evxIc }) : '');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * EDL-VIDEO-IA — FILMER LA PIÈCE (maquette validée par Didier le 14/10, mockups/EDL-VIDEO-IA ;
+ * CDC docs/CDC-EDL-VIDEO-IA.md). Prolonge la dictée ci-dessus, sans la recopier :
+ *   - même couche (#edl-voix), même file (IaFileAttente : une pièce filmée = une dictée + des images),
+ *     même écran de propositions (EdlVoixVues + vignettes EdlVideoVues), mêmes gestes Accepter / Modifier ;
+ *   - logique dans des modules testés : edl-video-images.js (choix des images), edl-video.js (accord,
+ *     fichier, conservation, médias), tus-client.js (envoi reprenable), audio-capture.js (mode vidéo).
+ * INTERRUPTEUR (décision 14/10, bêta sur offres gratuites) : « Filmer » n'apparaît que si le relais
+ * annonce video.actif (variable AI_VIDEO). Sinon : rien ne change, la dictée reste telle quelle.
+ * Jamais de blocage : caméra, espace, réseau, quota ou IA en échec → la dictée et la saisie restent.
+ * Gestes nommés _edlVideo… (jamais edl[A-Z]… : autosave au clic) ; autosave explicite après écriture.
+ * ═════════════════════════════════════════════════════════════════════════ */
+let _edlVideos = [];          // prises de l'EDL ouvert (record.videos)
+let _edlVideoAccords = [];    // accords horodatés des locataires présents (record.videoAccords)
+function _evxV() {
+  const w = (typeof window !== 'undefined') ? window : {};
+  return (_evxM() && w.EdlVideo && w.EdlVideoImages && w.EdlVideoVues) ? w : null;
+}
+function _edlVideoActifCache() { try { return localStorage.getItem(_lsKey('propryo_ia_video')) === '1'; } catch (_) { return false; } }
+function _edlVideoActifMemo(v) { try { localStorage.setItem(_lsKey('propryo_ia_video'), v ? '1' : '0'); } catch (_) {} }
+/** Le relais a-t-il ouvert la vidéo ? (dernier statut connu, pour pouvoir filmer hors réseau) */
+function _edlVideoOuverte() {
+  if (_EVX.video == null) _EVX.video = { actif: _edlVideoActifCache() };
+  return !!(_EVX.video && _EVX.video.actif === true);
+}
+function _edlVideoDispo() {
+  const M = _evxV(); if (!M || !_edlVoixDispo() || !_edlVideoOuverte()) return false;
+  return !!(M.AudioCapture.captureVideoDisponible && M.AudioCapture.captureVideoDisponible(window));
+}
+const _edlVideoMaxOctets = () => (_EVX.video && Number(_EVX.video.fichierMaxOctets)) || (window.EdlVideo ? window.EdlVideo.PLAN_GRATUIT_MAX_OCTETS : 50 * 1024 * 1024);
+function _edlVideoMagasin() {
+  const M = _evxM(); if (!M) return null;
+  if (!_EVX.vstore) _EVX.vstore = M.IaFileAttente.storeIndexedDB({ nom: 'propryo_medias', magasin: 'videos' });
+  return _EVX.vstore;
+}
+function _edlVideoEdlId() { return el('edl-edit-id') ? String(el('edl-edit-id').value || '') : ''; }
+
+// ── Accord des locataires présents (une fois par état des lieux) ──
+function _edlVideoFilmer(pi) {
+  const M = _evxV(); if (!M || !_edlVideoDispo() || !_edlP[pi]) return;
+  _EVX.ctx = { cible: 'piece', pi, pieceNom: _edlP[pi].nom || 'Pièce', video: true };
+  // L'accord est redemandé dès qu'un locataire de l'EDL n'a pas d'accord enregistré (arrivé ou ajouté après coup,
+  // ou noté absent plus tôt) ; les accords déjà donnés sont affichés figés (relecture Fable I2).
+  const noms = el('edl-loc') ? el('edl-loc').value : '';
+  if (!M.EdlVideo.accordManquant(noms, _edlVideoAccords)) { _edlVideoDemarrer(); return; }
+  _EVX.accord = M.EdlVideo.lignesAccordAvec(noms, _edlVideoAccords);
+  _edlVideoVueAccord();
+}
+function _edlVideoVueAccord() {
+  const M = _evxV(); if (!M || !_EVX.accord) return;
+  const peut = M.EdlVideo.peutFilmer(_EVX.accord).ok;
+  _edlVoixAfficher(M.EdlVideoVues.vueAccord({ notice: M.IaTransparence.noticeVideo(), lignes: _EVX.accord, peut }, { ic: _evxIc }), 'accord');
+}
+function _edlVideoAccordCocher(i) { const l = _EVX.accord && _EVX.accord[i]; if (!l || !l.present || l.fige) return; l.accord = !l.accord; _edlVideoVueAccord(); }
+function _edlVideoAccordPresence(i) { const l = _EVX.accord && _EVX.accord[i]; if (!l || l.fige) return; l.present = !l.present; if (!l.present) l.accord = false; _edlVideoVueAccord(); }
+function _edlVideoAccordRepresentant(i, v) { const l = _EVX.accord && _EVX.accord[i]; if (l) l.representant = String(v || '').slice(0, 120); }
+function _edlVideoAccordOk() {
+  const M = _evxV(); if (!M || !_EVX.accord) return;
+  if (!M.EdlVideo.peutFilmer(_EVX.accord).ok) { showToast('Chaque locataire présent coche sa case avant de filmer.', 'warn', 4000); return; }
+  _edlVideoAccords = M.EdlVideo.enregistrerAccords(_EVX.accord, { existants: _edlVideoAccords, version: M.IaTransparence.versionNoticeVideo() });
+  _EVX.accord = null;
+  _edlAutosaveTrigger('video-accord');
+  _edlVideoDemarrer();
+}
+/** Refus ou renoncement : l'EDL continue sans vidéo (dictée ou saisie à la main). */
+function _edlVideoSansVideo() { _EVX.accord = null; _edlVoixFermer(); showToast('Sans vidéo : dicter la pièce ou saisir à la main.', 'info', 3500); }
+
+// ── Filmer ──
+function _edlVideoVueFilmer() {
+  const M = _evxV(); const c = _EVX.ctx; if (!M || !c) return;
+  const r = _EVX.vrec;
+  _edlVoixAfficher(M.EdlVideoVues.vueFilmer({ piece: c.pieceNom, mode: _edlSortie ? 'sortie' : 'entree', sec: r ? r.secondes() : 0,
+    max: M.AudioCapture.VIDEO_PRISE_MAX_S, pause: !!(r && r.etat === 'pause'), prise: c.prise || 1, elements: M.EdlDictee.nomsElements(_edlP[c.pi]) }, { ic: _evxIc }), 'filmer');
+  const v = el('evx-viseur'); if (v && r && r.flux) { try { v.srcObject = r.flux; const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch (_) {} }
+}
+async function _edlVideoDemarrer() {
+  const M = _evxV(); const c = _EVX.ctx; if (!M || !c) return;
+  if (_EVX.vdemarre || (_EVX.vrec && _EVX.vrec.etat !== 'fini')) return;   // double tap : une seule caméra
+  _EVX.vdemarre = true;
+  try { await _edlVideoDemarrerFaire(M, c); } finally { _EVX.vdemarre = false; }
+}
+async function _edlVideoDemarrerFaire(M, c) {
+  // Espace libre : une prise de 3 min occupe ~25 Mo jusqu'à son envoi. Jamais bloquant : on propose la dictée.
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const e = await navigator.storage.estimate();
+      if (e && e.quota && e.quota - (e.usage || 0) < 40 * 1024 * 1024) {
+        _edlVideoErreur('Espace insuffisant sur l’appareil', `Il reste ${Math.max(0, Math.round((e.quota - (e.usage || 0)) / 1048576))} Mo ; une prise de 3 min occupe environ 25 Mo jusqu’à son envoi. Envoyer d’abord les vidéos en attente, ou continuer sans vidéo.`, 'warn', { onclick: `_edlVoixDicter(${Number(c.pi)})`, libelle: 'Dicter seulement', icone: 'mic' });
+        return;
+      }
+    }
+  } catch (_) {}
+  c.prise = M.EdlVideo.prochainNumeroPrise(_edlVideos, c.pi);
+  const rec = M.AudioCapture.creerEnregistreur({
+    video: true, MediaStream: window.MediaStream,
+    getUserMedia: (k) => navigator.mediaDevices.getUserMedia(k),
+    MediaRecorder: window.MediaRecorder,
+    onTick: (s) => { const t = el('evx-timer'); if (t) t.textContent = M.EdlVoixVues.duree(s); },
+    onMax: () => { showToast('3 minutes atteintes : la prise est gardée. Ajouter une prise pour finir la pièce.', 'warn', 5000); _edlVideoTerminer(); },
+  });
+  _EVX.vrec = rec;
+  _EVX.vsel = M.EdlVideoImages.creerSelecteur();
+  _EVX.vprec = null; _EVX.vflou = 0;
+  _edlVideoVueFilmer();
+  const r = await rec.demarrer();
+  if (!r.ok) { _EVX.vrec = null; _edlVideoErreurCapture(r.code); return; }
+  _edlVideoVueFilmer();
+  _edlVoixVeille(true);
+  _EVX.vtimer = setInterval(_edlVideoEchantillonner, 500);
+}
+/** Deux fois par seconde : mesure (petite image grise), image gardée si c'est la plus nette de la vue,
+ *  conseils « Plus lentement » / « Trop sombre ». Rien ne quitte l'appareil ici. */
+function _edlVideoEchantillonner() {
+  const M = _evxV(); const rec = _EVX.vrec; const S = _EVX.vsel; const v = el('evx-viseur');
+  if (!M || !rec || !S || rec.etat !== 'enregistre' || !v || !v.videoWidth) return;
+  try {
+    const W = v.videoWidth, H = v.videoHeight;
+    const sw = 90, sh = Math.max(2, Math.round(90 * H / W));
+    const c = _EVX.vcan || (_EVX.vcan = document.createElement('canvas'));
+    c.width = sw; c.height = sh;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(v, 0, 0, sw, sh);
+    const m = M.EdlVideoImages.mesurer(x.getImageData(0, 0, sw, sh).data, sw, sh);
+    const t = rec.instant();
+    const r = S.ajouter({ t, gris: m.gris, lum: m.lum, nettete: m.nettete });
+    if (r.meilleur) {
+      const d = M.EdlVideoImages.dimensionsEnvoi(W, H);
+      const g = _EVX.vgrand || (_EVX.vgrand = document.createElement('canvas'));
+      g.width = d.w; g.height = d.h;
+      g.getContext('2d').drawImage(v, 0, 0, d.w, d.h);
+      S.attacher(r.idx, { t, data: g.toDataURL('image/jpeg', 0.75) });
+    }
+    const ec = _EVX.vprec ? M.EdlVideoImages.ecart(m.gris, _EVX.vprec) : 0;
+    _EVX.vprec = m.gris;
+    _EVX.vflou = ec > 45 ? (_EVX.vflou || 0) + 1 : 0;
+    const h = el('evx-hint');
+    if (h) {
+      const msg = m.lum < 25 ? 'Trop sombre : allumer la lumière' : (_EVX.vflou >= 2 ? 'Plus lentement : image floue' : '');
+      h.textContent = msg; h.hidden = !msg;
+    }
+  } catch (e) { /* une mesure ratée n'arrête jamais la prise */ }
+}
+function _edlVideoStopEchantillons() { if (_EVX.vtimer) { clearInterval(_EVX.vtimer); _EVX.vtimer = null; } }
+function _edlVideoPause() {
+  const r = _EVX.vrec; if (!r) return;
+  if (r.etat === 'enregistre') r.pause(); else if (r.etat === 'pause') r.reprendre();
+  _edlVideoVueFilmer();
+}
+async function _edlVideoTerminer() {
+  const M = _evxV(); const r = _EVX.vrec; const c = _EVX.ctx;
+  if (!M || !r || (r.etat !== 'enregistre' && r.etat !== 'pause')) return;
+  _edlVideoStopEchantillons();
+  const out = await r.arreter();
+  _EVX.vrec = null; _edlVoixVeille(false);
+  const images = (_EVX.vsel ? _EVX.vsel.terminer() : []).map((x) => ({ id: 'f' + Math.round(x.t * 10), t: x.t, data: x.donnee.data, ...(x.flou ? { flou: true } : {}) }));
+  _EVX.vsel = null;
+  if (!out || !out.morceaux.length) { _edlVideoErreur('Prise vide', 'Rien n’a été enregistré. Filmer de nouveau.', 'warn', { onclick: '_edlVideoDemarrer()', libelle: 'Filmer de nouveau', icone: 'video' }); return; }
+  const blob = new Blob(out.morceaux, { type: out.mime });
+  const audio = out.audio ? new Blob(out.audio.morceaux, { type: out.audio.mime }) : null;
+  await _edlVideoGarder({ blob, mime: out.mime, duree: out.duree, images, audio: audio ? { buf: await audio.arrayBuffer(), mime: out.audio.mime } : null, ctx: c });
+}
+/** Commun à la prise et à l'import : empreinte, contrôle de taille, vidéo sur l'appareil, file d'analyse, envoi. */
+async function _edlVideoGarder({ blob, mime, duree, images, audio, ctx, importee = false }) {
+  const M = _evxV(); if (!M || !ctx) return;
+  const buf = await blob.arrayBuffer();
+  let sha = '';
+  try { const h = await crypto.subtle.digest('SHA-256', buf); sha = Array.from(new Uint8Array(h)).map((b) => b.toString(16).padStart(2, '0')).join(''); } catch (_) {}
+  const cle = M.EdlVideo.cleVideo();
+  const v = M.EdlVideo.nouvelleVideo({ cle, piece: ctx.pieceNom, pieceIdx: ctx.pi, prise: ctx.prise || M.EdlVideo.prochainNumeroPrise(_edlVideos, ctx.pi), mime, octets: buf.byteLength, duree, sha256: sha, importee });
+  const ctl = M.EdlVideo.controlerFichier({ octets: buf.byteLength, maxOctets: _edlVideoMaxOctets() });
+  let gardee = false;
+  if (ctl.ok) {
+    try { await _edlVideoMagasin().put({ id: cle, buf, mime: v.mime, cree: v.filmeLe }); gardee = true; }
+    catch (e) { showToast('Vidéo non gardée sur l’appareil (mémoire pleine) : les photos et la dictée sont quand même proposées.', 'warn', 6000); }
+  } else {
+    showToast(`Vidéo trop lourde pour le stockage (${ctl.mo} Mo, ${ctl.maxMo} Mo au plus par fichier) : elle n’est pas gardée ; les photos et la dictée sont quand même proposées.`, 'warn', 7000);
+  }
+  if (gardee) { _edlVideos.push(v); _edlAutosaveTrigger('video'); }
+  // La file d'analyse : le son (dictée) + les images ; la vidéo n'y entre jamais.
+  const f = _edlVoixFile();
+  const entree = M.EdlDictee.entreePiece(_edlP[ctx.pi], _edlSortie);
+  let x;
+  try {
+    x = await f.ajouter({ audio: audio ? audio.buf : null, mime: audio ? audio.mime : 'audio/webm', duree, task: 'edl-piece', cible: 'piece', entree, images,
+      video: { id: cle, piece: v.piece, prise: v.prise, ...(gardee ? {} : { nonGardee: true }) },
+      contexte: { edlId: _edlVideoEdlId(), session: _EVX.session, cible: 'piece', pi: ctx.pi, pieceNom: ctx.pieceNom, sortie: !!_edlSortie } });
+  } catch (e) {
+    _edlVideoErreur('Analyse non enregistrée sur l’appareil', 'Le stockage de l’appareil refuse les images (mémoire pleine ou navigation privée). Libérer de la place, puis filmer de nouveau.', 'warn', null);
+    return;
+  }
+  if (!_EVX.items.some((y) => y.id === x.id)) _EVX.items.push(x);
+  _EVX.itemId = x.id;
+  _edlVoixVueAnalyse(x);
+  _edlVoixTraiter();
+  if (gardee) _edlVideoEnvoyer(cle);
+}
+function _edlVideoErreur(titre, texte, icone, action, lien) {
+  const M = _evxV(); if (!M) return;
+  _edlVoixAfficher(M.EdlVideoVues.vueErreurVideo({ titre, texte, icone: icone || 'warn', action, lien, piece: (_EVX.ctx || {}).pieceNom || 'Pièce' }, { ic: _evxIc }), 'erreur');
+}
+function _edlVideoErreurCapture(code) {
+  const pi = Number((_EVX.ctx || {}).pi);
+  const dict = { onclick: `_edlVoixDicter(${pi})`, libelle: 'Dicter seulement', icone: 'mic' };
+  if (code === 'camera_refusee') _edlVideoErreur('Accès à la caméra refusé', 'Le navigateur bloque la caméra pour Propryo. L’autoriser dans les réglages du site, ou filmer avec l’appareil photo du téléphone puis importer la vidéo.', 'warn', { onclick: '_edlVideoImporter()', libelle: 'Importer une vidéo', icone: 'upload' }, { onclick: `_edlVoixDicter(${pi})`, libelle: 'Dicter seulement' });
+  else if (code === 'camera_absente') _edlVideoErreur('Aucune caméra disponible', 'Aucune caméra n’est accessible sur cet appareil. Filmer avec un autre appareil puis importer la vidéo, ou dicter la pièce.', 'warn', dict);
+  else _edlVideoErreur('Filmer impossible sur ce navigateur', 'Filmer avec l’appareil photo du téléphone, puis importer la vidéo ici (3 min au plus).', 'upload', { onclick: '_edlVideoImporter()', libelle: 'Importer une vidéo', icone: 'upload' });
+}
+
+// ── Import d'une vidéo de la galerie (3 min au plus ; taille max annoncée par le relais) ──
+function _edlVideoImporter() {
+  const M = _evxV(); if (!M || !_EVX.ctx) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'video/*';
+  inp.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;width:1px;height:1px';
+  inp.onchange = async () => {
+    const fi = inp.files && inp.files[0]; try { inp.remove(); } catch (_) {}
+    if (!fi) return;
+    const ctl = M.EdlVideo.controlerFichier({ octets: fi.size, maxOctets: _edlVideoMaxOctets() });
+    if (!ctl.ok) { _edlVideoErreur('Vidéo trop lourde', `Le stockage accepte ${ctl.maxMo || 50} Mo par fichier ; cette vidéo pèse ${ctl.mo || 0} Mo. Filmer la pièce dans l’app (720p), ou en prises plus courtes.`, 'warn', null); return; }
+    _edlVoixAfficher(M.EdlVideoVues.vueTraitement({ piece: _EVX.ctx.pieceNom, duree: 0, mo: Math.round(fi.size / 104857.6) / 10, etape: 'images' }, { ic: _evxIc }), 'analyse');
+    try { await _edlVideoImporterFichier(fi); } catch (e) { _edlVideoErreur('Vidéo illisible', 'Ce fichier ne se lit pas dans le navigateur. Essayer un autre format (MP4 ou WebM), ou dicter la pièce.', 'warn', null); }
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+async function _edlVideoImporterFichier(fi) {
+  const M = _evxV(); const c = _EVX.ctx; if (!M || !c) return;
+  const url = URL.createObjectURL(fi);
+  const v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto';
+  // Attachée (hors écran) : un <video> détaché du document ne charge pas toujours ses images.
+  v.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+  document.body.appendChild(v);
+  const retirer = () => { try { v.removeAttribute('src'); v.load(); v.remove(); } catch (_) {} URL.revokeObjectURL(url); };
+  const attendre = (ev) => new Promise((ok, ko) => { const f = () => { v.removeEventListener(ev, f); ok(); }; v.addEventListener(ev, f); setTimeout(() => ko(new Error(ev)), 15000); });
+  const charge = attendre('loadeddata');
+  v.src = url;
+  try { await charge; } catch (e) { retirer(); throw e; }
+  let D = v.duration;
+  if (!isFinite(D)) {   // WebM enregistré par Chrome : durée absente de l'en-tête → la lire en allant à la fin
+    try { const vu = attendre('seeked'); v.currentTime = 1e7; await vu; D = v.duration; if (!isFinite(D)) D = v.currentTime; } catch (_) {}
+  }
+  if (!isFinite(D) || D > M.EdlVideo.GALERIE_MAX_SEC + 2) { retirer(); _edlVideoErreur('Vidéo trop longue', 'Une prise dure 3 minutes au plus. Couper la vidéo, ou filmer la pièce en plusieurs prises.', 'clock', null); return; }
+  const S = M.EdlVideoImages.creerSelecteur();
+  const W = v.videoWidth, H = v.videoHeight;
+  const sw = 90, sh = Math.max(2, Math.round(90 * H / W));
+  const cp = document.createElement('canvas'); cp.width = sw; cp.height = sh; const xp = cp.getContext('2d', { willReadFrequently: true });
+  const d = M.EdlVideoImages.dimensionsEnvoi(W, H); const cg = document.createElement('canvas'); cg.width = d.w; cg.height = d.h; const xg = cg.getContext('2d');
+  for (let t = 0; t <= D - 0.05; t += M.EdlVideoImages.REGLAGES.pasSec) {
+    const vu = attendre('seeked'); v.currentTime = Math.round(t * 100) / 100;
+    try { await vu; } catch (e) { retirer(); throw e; }
+    xp.drawImage(v, 0, 0, sw, sh);
+    const m = M.EdlVideoImages.mesurer(xp.getImageData(0, 0, sw, sh).data, sw, sh);
+    const r = S.ajouter({ t, gris: m.gris, lum: m.lum, nettete: m.nettete });
+    if (r.meilleur) { xg.drawImage(v, 0, 0, d.w, d.h); S.attacher(r.idx, { t, data: cg.toDataURL('image/jpeg', 0.75) }); }
+  }
+  const images = S.terminer().map((x) => ({ id: 'f' + Math.round(x.t * 10), t: x.t, data: x.donnee.data, ...(x.flou ? { flou: true } : {}) }));
+  retirer();
+  // Son : décodé sur l'appareil puis réencodé en WAV 16 kHz mono (3 min ≈ 5,6 Mo) pour la dictée — seulement
+  // si le fichier reste raisonnable en mémoire (≤ 60 Mo). Sinon : photos seules (la dictée reste possible).
+  let audio = null;
+  if (fi.size <= 60 * 1024 * 1024) {
+    try {
+      const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      // Décodage par un contexte HORS LIGNE (aucun AudioContext laissé ouvert : iOS en limite le nombre).
+      const dec = await new AC(1, 16000, 16000).decodeAudioData(await fi.arrayBuffer());
+      const off = new AC(1, Math.ceil(dec.duration * 16000), 16000);
+      const s = off.createBufferSource(); s.buffer = dec; s.connect(off.destination); s.start();
+      const rendu = await off.startRendering();
+      audio = { buf: M.EdlVideo.encoderWav(rendu.getChannelData(0), 16000), mime: 'audio/wav' };
+    } catch (_) { audio = null; }
+  }
+  if (!audio) showToast('Le commentaire de cette vidéo n’est pas transcrit : les photos sont proposées ; dicter la pièce si besoin.', 'info', 6000);
+  await _edlVideoGarder({ blob: fi, mime: fi.type || 'video/mp4', duree: Math.round(D), images, audio, ctx: c, importee: true });
+}
+
+// ── Envoi de la vidéo vers le stockage (reprenable), puis enregistrement au registre (0058) ──
+function _edlVideoEtat(id, patch) {
+  if (!_EVX.venvoi) _EVX.venvoi = {};
+  _EVX.venvoi[id] = { ...(_EVX.venvoi[id] || {}), ...patch };
+  _edlVideoRafraichirEnvois();
+}
+function _edlVideoRafraichirEnvois() {
+  const M = _evxV(); if (!M) return;
+  document.querySelectorAll('#ov-edl .evx-vban[data-video]').forEach((n) => {
+    const id = n.getAttribute('data-video'); const s = (_EVX.venvoi || {})[id];
+    if (s) n.innerHTML = M.EdlVideoVues.blocEnvoi({ ...s, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) }, { ic: _evxIc });
+  });
+  const b = el('edl-voix') && el('edl-voix').querySelector('.evx-envoi-courant');
+  const id = b && b.getAttribute('data-video'); const s = id && (_EVX.venvoi || {})[id];
+  if (b && s) b.innerHTML = M.EdlVideoVues.blocEnvoi({ ...s, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) }, { ic: _evxIc });
+}
+/** Conservation des vidéos d'un EDL enregistré (décision 7) : échéance d'après le bail, alerte à 30 jours. */
+// Bail en cours ET baux archivés (clôture, relocation : c'est là que vit la restitution du dépôt) — relecture I5.
+function _edlVideoBauxDe(ref) { return [...Object.values(DB.baux || {}), ...(DB.baux_historique || [])].filter((b) => b && typeof b === 'object' && !b._deleted && b.ref === ref); }
+function _edlVideoConservation(rec) {
+  const M = _evxV(); if (!M || !rec || !Array.isArray(rec.videos) || !rec.videos.some((v) => v && v.cloudKey)) return null;
+  const dateFin = M.EdlVideo.echeanceVideosEDL(rec, _edlVideoBauxDe(rec.logement));
+  return { dateFin, alerte: dateFin ? M.EdlVideo.alerteConservation(dateFin) : null };
+}
+async function _edlVideoProlonger() {
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) { showToast('Lecture seule : rien ne peut être modifié.', 'warn', 4000); return; }
+  const M = _evxV(); const id = _edlVideoEdlId(); const rec = id ? (DB.edl || []).find((r) => String(r.id) === id) : null; if (!M || !rec) return;
+  const c = _edlVideoConservation(rec); if (!c) return;
+  const gel = M.EdlVideo.gelLitige(c.dateFin);
+  if (!confirm2(`Garder les vidéos de cet état des lieux jusqu’au ${fd(gel)} (litige en cours) ? Le gel pourra être prolongé ; il ne pourra pas être raccourci.`)) return;
+  rec.conservationMedias = { ...(rec.conservationMedias || {}), gelJusquau: gel, gelMotif: 'litige' };
+  if (!saveDB({ autosave: true, quoi: 'edl-photo' })) { showToast('Gel non enregistré sur l’appareil : réessayer.', 'warn', 5000); return; }
+  if (typeof window.__immoEdlMediaEcheance === 'function') { const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, espace: (((rec.videos || []).find((v) => v && v.cloudKey) || {}).cloudKey || '').split('/')[0], gelJusquau: gel, gelMotif: 'litige' }); if (!r || !r.ok) showToast('Gel noté sur l’appareil ; il sera transmis au prochain passage.', 'info', 4000); }
+  showToast(`Vidéos gardées jusqu’au ${fd(gel)}.`, 'ok', 3500);
+  _edlVoixRafraichir();
+}
+/** Bandeaux « envoi de la vidéo » d'une pièce (prises pas encore à l'abri) ; conservation sur la 1re pièce. */
+function _edlVideoBannieres(pi) {
+  const M = _evxV(); if (!M) return '';
+  let cons = '';
+  if (Number(pi) === 0) {
+    const id = _edlVideoEdlId(); const rec = id ? (DB.edl || []).find((r) => String(r.id) === id) : null;
+    const c = _edlVideoConservation(rec);
+    if (c && c.alerte) cons = `<div class="evx-ban ready">${_evxIc('clock')}<div><b>Vidéos de cet état des lieux : suppression ${c.alerte.echue ? 'à la prochaine purge' : 'le ' + escHtml(fd(c.alerte.dateFin))}</b>Fin de la 3e année qui suit la restitution du dépôt de garantie (art. 7-1 de la loi du 6 juillet 1989).<div class="evx-bx"><button type="button" class="btn evx-out" onclick="_edlVideoProlonger()">${_evxIc('lock')} Garder : litige en cours</button></div></div></div>`;
+  }
+  return cons + _edlVideos.filter((v) => Number(v.pieceIdx) === Number(pi) && !v.cloudKey).map((v) => {
+    const s = (_EVX.venvoi || {})[v.id] || { etat: 'attente', total: v.octets };
+    return M.EdlVideoVues.banniereVideo(v, { ...s, total: s.total || v.octets, maxMo: Math.floor(_edlVideoMaxOctets() / 1048576) }, { ic: _evxIc });
+  }).join('');
+}
+function _edlVideoRecDe(id) { return (DB.edl || []).find((r) => r && !r._deleted && Array.isArray(r.videos) && r.videos.some((v) => v && v.id === id)) || null; }
+/** Les envois passent UN à la fois (un seul fichier en mémoire, jamais deux envois du même objet — relecture I1/I8). */
+function _edlVideoEnvoyer(id) {
+  if (!_EVX.venvoyant) _EVX.venvoyant = new Set();
+  if (_EVX.venvoyant.has(id)) return _EVX.vchaine || Promise.resolve();
+  _EVX.venvoyant.add(id);
+  _EVX.vchaine = (_EVX.vchaine || Promise.resolve()).then(() => _edlVideoEnvoyerUne(id)).catch(() => {}).then(() => { _EVX.venvoyant.delete(id); });
+  return _EVX.vchaine;
+}
+async function _edlVideoEnvoyerUne(id) {
+  const M = _evxV(); if (!M) return;
+  const rec = _edlVideoRecDe(id);
+  if (!rec) { _edlVideoEtat(id, { etat: 'attente' }); return; }       // EDL pas encore enregistré : au prochain passage
+  const meta = rec.videos.find((v) => v.id === id);
+  if (meta.cloudKey) { await _edlVideoEnregistrer(rec, meta); return; }
+  if (typeof window.__immoCloudUploadResumable !== 'function') { _edlVideoEtat(id, { etat: 'attente', total: meta.octets }); return; }
+  const st = _edlVideoMagasin();
+  let local = null;
+  try { local = await st.get(id); } catch (_) { local = null; }
+  if (!local || !local.buf) { await _edlVideoRetrouver(rec, meta); return; }   // plus de copie locale : déjà envoyée ?
+  if (local.buf.byteLength > _edlVideoMaxOctets()) { _edlVideoEtat(id, { etat: 'trop_lourd', total: local.buf.byteLength }); return; }
+  try {
+    _edlVideoEtat(id, { etat: 'envoi', envoyes: 0, total: local.buf.byteLength });
+    const seg = _cloudEntiteSeg(_cloudEntiteNomForEdl(rec));
+    const r = await window.__immoCloudUploadResumable({
+      cle: id + '.' + M.EdlVideo.extensionVideo(local.mime), entiteSeg: seg || '_orphelin', type: local.mime, taille: local.buf.byteLength,
+      lire: (a, b) => Promise.resolve(local.buf.slice(a, b)), url: local.tusUrl || '',
+      onUrl: (u) => { local.tusUrl = u; st.put(local).catch(() => {}); },
+      onProgres: (a, b) => _edlVideoEtat(id, { etat: 'envoi', envoyes: a, total: b }),
+    });
+    if (!r || !r.ok || !r.path) {
+      _edlVideoEtat(id, { etat: r && r.code === 'offline' ? 'attente' : 'echec', message: r && r.code === 'trop_lourd' ? 'Le stockage refuse un fichier de cette taille.' : '' });
+      return;
+    }
+    // Fichier « déjà présent » (envoi déjà fait, ou autre chose) : on vérifie qu'il a la bonne taille avant de
+    // considérer la vidéo à l'abri ; sinon la copie locale est GARDÉE (relecture Fable M4).
+    if (r.existait) {
+      let taille = -1;
+      try {
+        const u = typeof window.__immoCloudFileUrl === 'function' ? await window.__immoCloudFileUrl(r.path, 60) : null;
+        if (u) { const h = await fetch(u, { method: 'HEAD' }); taille = Number(h.headers.get('content-length')); }
+      } catch (_) { taille = -1; }
+      if (taille !== local.buf.byteLength) { _edlVideoEtat(id, { etat: 'echec', message: 'Un fichier différent porte déjà ce nom dans le stockage : la vidéo reste sur l’appareil.' }); return; }
+    }
+    // À l'abri : chemin posé sur l'enregistrement VIVANT (relu : un enregistrement automatique l'a peut-être
+    // remplacé pendant l'envoi) et sur l'EDL ouvert ; copie locale effacée SEULEMENT si l'écriture a réussi.
+    const ecrit = _edlVideoPoserChemin(id, r.path);
+    _edlVideoEtat(id, { etat: 'abri', total: local.buf.byteLength });
+    if (ecrit) { try { await st.del(id); } catch (_) {} }
+    const recV = _edlVideoRecDe(id);
+    if (recV) await _edlVideoEnregistrer(recV, recV.videos.find((v) => v.id === id));
+  } catch (e) {
+    console.warn('[edl vidéo] envoi :', e && e.name);
+    _edlVideoEtat(id, { etat: 'echec' });
+  } finally {
+    if (typeof _edlVoixRafraichir === 'function') _edlVoixRafraichir();
+  }
+}
+/** Pose le chemin d'une prise à l'abri (enregistrement vivant + EDL ouvert) ; rend vrai si l'écriture a réussi. */
+function _edlVideoPoserChemin(id, chemin) {
+  const recV = _edlVideoRecDe(id);
+  const m = recV && recV.videos.find((v) => v.id === id); if (m) m.cloudKey = chemin;
+  const ouvert = _edlVideos.find((v) => v.id === id); if (ouvert) ouvert.cloudKey = chemin;
+  return !!(m && saveDB({ autosave: true, quoi: 'edl-photo' }));   // « edl-photo » : écriture permise hors ligne, remontée au cloud
+}
+/** Prise sans chemin ni copie locale (application fermée juste après l'envoi, ou chemin perdu) : le fichier est-il
+ *  dans le stockage, à son chemin attendu et à la bonne taille ? Si oui, on retrouve le chemin. */
+async function _edlVideoRetrouver(rec, meta) {
+  try {
+    const M = _evxV(); if (!M || typeof window.__immoCloudCheminFichier !== 'function' || typeof window.__immoCloudFileUrl !== 'function') return;
+    const chemin = window.__immoCloudCheminFichier(meta.id + '.' + M.EdlVideo.extensionVideo(meta.mime), _cloudEntiteSeg(_cloudEntiteNomForEdl(rec)) || '_orphelin');
+    if (!chemin) return;
+    const u = await window.__immoCloudFileUrl(chemin, 60); if (!u) return;
+    const h = await fetch(u, { method: 'HEAD' });
+    if (h.ok && Number(h.headers.get('content-length')) === Number(meta.octets)) { _edlVideoPoserChemin(meta.id, chemin); _edlVideoEtat(meta.id, { etat: 'abri', total: meta.octets }); }
+  } catch (_) { /* rien : réessayé à l'ouverture suivante */ }
+}
+/** Registre des médias (0058) : protège la vidéo une fois l'EDL signé. Tolérant (table absente, EDL pas
+ *  encore synchronisé) : réessayé à l'ouverture suivante, la vidéo reste dans le stockage en attendant. */
+async function _edlVideoEnregistrer(rec, meta) {
+  if (!meta || !meta.cloudKey || meta.registre || typeof window.__immoEdlMediaRegister !== 'function') return;
+  const r = await window.__immoEdlMediaRegister({ path: meta.cloudKey, edlLocalId: rec.id, mime: meta.mime, octets: meta.octets, duree: meta.duree, sha256: meta.sha256, piece: meta.piece, prise: meta.prise });
+  if (r && r.code === 'conflit') console.warn('[edl vidéo] registre : chemin déjà inscrit pour un autre état des lieux');
+  if (r && r.ok) {
+    const recV = _edlVideoRecDe(meta.id); const m = recV && recV.videos.find((v) => v.id === meta.id);
+    if (m) m.registre = true; meta.registre = true;
+    const ouvert = _edlVideos.find((v) => v.id === meta.id); if (ouvert) ouvert.registre = true;
+    saveDB({ autosave: true, quoi: 'edl-photo' });
+  }
+}
+/** À l'ouverture d'un EDL et au retour du réseau : ce qui n'est pas à l'abri (ou pas au registre) repart. */
+function _edlVideoReprendreEnvois() {
+  if (!_evxV()) return;
+  const enLigne = typeof navigator === 'undefined' || navigator.onLine !== false;
+  for (const rec of (DB.edl || [])) {
+    if (!rec || rec._deleted) continue;
+    for (const v of (rec.videos || [])) {
+      if (!enLigne) continue;                                   // hors ligne : rien à tenter (aucune lecture du fichier)
+      if (v && v.id && (!v.cloudKey || !v.registre)) _edlVideoEnvoyer(v.id);
+    }
+    if (enLigne) _edlVideoTransmettreEcheance(rec);
+  }
+  _edlVideoPurgerLocal();
+}
+/** Copies locales orphelines (EDL supprimé ou jamais enregistré) : effacées après 30 jours (RGPD, mémoire pleine). */
+async function _edlVideoPurgerLocal() {
+  if (_EVX.vpurgeFaite) return; _EVX.vpurgeFaite = true;
+  try {
+    const st = _edlVideoMagasin(); if (!st) return;
+    const connus = new Set(); (DB.edl || []).forEach((r) => { if (r && !r._deleted) (r.videos || []).forEach((v) => v && connus.add(v.id)); });
+    (_edlVideos || []).forEach((v) => v && connus.add(v.id));
+    const limite = Date.now() - 30 * 86400000;
+    for (const x of await st.all()) if (!connus.has(x.id) && Date.parse(x.cree || 0) < limite) await st.del(x.id);
+  } catch (_) { /* rien */ }
+}
+async function _edlVideoTransmettreEcheance(rec) {
+  const c = _edlVideoConservation(rec);
+  if (!c || !c.dateFin || typeof window.__immoEdlMediaEcheance !== 'function') return;
+  if (!_EVX.echeances) _EVX.echeances = {};
+  const cle = rec.id + '|' + c.dateFin;
+  if (_EVX.echeances[cle]) return;
+  _EVX.echeances[cle] = 1;
+  const g = rec.conservationMedias || {};
+  const chemin = (rec.videos.find((v) => v && v.cloudKey) || {}).cloudKey || '';
+  const r = await window.__immoEdlMediaEcheance({ edlLocalId: rec.id, espace: chemin.split('/')[0], purgeApres: c.dateFin, ...(g.gelJusquau ? { gelJusquau: g.gelJusquau, gelMotif: g.gelMotif || 'litige' } : {}) });
+  if (!r || !r.ok) delete _EVX.echeances[cle];
+}
+
+// ── Relecture : vignettes dans les cartes, « vu, pas dit », photo en grand, recadrage ──
+function _edlVideoImageSrc(x, imageId) { const im = (x.images || []).find((i) => i.id === imageId); return im ? im.data : ''; }
+function _edlVideoPhotosDe(x, eid) { return (((x.photos || {}).elements) || []).find((e) => String(e.elementId) === String(eid)) || null; }
+function _edlVideoEcartees(x) { const o = {}; for (const [k, d] of Object.entries(x.decisions || {})) if (k.startsWith('x:') && d && d.statut === 'ecarte') o[k.slice(2)] = true; return o; }
+/** Paramètres d'extension de vuePropositions pour une pièce filmée (null pour une dictée seule). */
+function _edlVideoExtensionRelecture(x) {
+  const M = _evxV(); if (!M || !Array.isArray(x.images) || !x.images.length) return null;
+  const ecartees = _edlVideoEcartees(x);
+  const src = (imageId) => _edlVideoImageSrc(x, imageId);
+  const personnes = new Set(((x.photos || {}).personnes) || []);
+  const photos = (l) => {
+    const p = _edlVideoPhotosDe(x, l.prop.elementId);
+    return p ? M.EdlVideoVues.blocPhotos({ itemId: x.id, eid: String(l.prop.elementId), images: p.images, vu: p.vu, ecartees, statut: l.statut, src, personnes }, { ic: _evxIc }) : '';
+  };
+  const dits = new Set((((x.resultat || {}).propositions) || []).map((p) => String(p.elementId)));
+  const pi = _edlVoixPieceDe(x);
+  const vus = (((x.photos || {}).elements) || []).filter((e) => !dits.has(String(e.elementId))).map((e) => {
+    const ei = pi >= 0 ? M.EdlDictee.retrouverElement(_edlP[pi], e.elementId, x.entree) : -1;
+    const nom = ei >= 0 ? _edlP[pi].elements[ei].nom : ((((x.entree || {}).elements) || []).find((y) => String(y.id) === String(e.elementId)) || {}).nom || 'Élément';
+    return M.EdlVideoVues.carteVu({ itemId: x.id, eid: String(e.elementId), nom, images: e.images, vu: e.vu, ecartees, statut: ((x.decisions || {})['v:' + e.elementId] || {}).statut || '', src, personnes }, { ic: _evxIc });
+  }).join('');
+  if (x.photosIndisponibles) {
+    if (!_EVX.vavertis) _EVX.vavertis = new Set();
+    if (!_EVX.vavertis.has(x.id)) { _EVX.vavertis.add(x.id); showToast('Photos non proposées pour cette prise : les propositions de la voix restent ; des photos peuvent être ajoutées à la main.', 'info', 5000); }
+  }
+  return { photos, vus, video: true };
+}
+async function _edlVideoEcarter(itemId, eid, imageId, depuisPhoto) {
+  const x = _edlVoixItem(itemId); if (!x) return;
+  const cle = 'x:' + eid + '|' + imageId;
+  const deja = !!((x.decisions || {})[cle] && x.decisions[cle].statut === 'ecarte');
+  await _edlVoixDecider(x, { [cle]: deja ? null : { statut: 'ecarte' } });
+  if (depuisPhoto) _edlVideoPhoto(itemId, eid, imageId); else _edlVoixRelire(itemId, true);
+}
+function _edlVideoPhoto(itemId, eid, imageId) {
+  const M = _evxV(); const x = _edlVoixItem(itemId); if (!M || !x) return;
+  const p = _edlVideoPhotosDe(x, eid); const im = (x.images || []).find((i) => i.id === imageId); if (!im) return;
+  const prop = p && p.images.find((i) => i.imageId === imageId);
+  const cadre = ((x.decisions || {})['k:' + eid + '|' + imageId] || {}).cadre || (prop && prop.cadre) || { x: 0, y: 0, l: 1, h: 1 };
+  const tri = (x.images || []).slice().sort((a, b) => a.t - b.t); const k = tri.findIndex((i) => i.id === imageId);
+  const pi = _edlVoixPieceDe(x); const ei = pi >= 0 ? M.EdlDictee.retrouverElement(_edlP[pi], eid, x.entree) : -1;
+  const statut = ((x.decisions || {})['p:' + eid] || (x.decisions || {})['v:' + eid] || {}).statut || '';
+  _EVX.vcadre = { ...cadre };
+  _edlVoixAfficher(M.EdlVideoVues.vuePhoto({ itemId, eid, nom: ei >= 0 ? _edlP[pi].elements[ei].nom : 'Élément', imageId, t: im.t, src: im.data, cadre,
+    prec: k > 0 ? tri[k - 1] : null, suiv: k >= 0 && k < tri.length - 1 ? tri[k + 1] : null,
+    ecartee: !!((x.decisions || {})['x:' + eid + '|' + imageId]), fige: !!statut }, { ic: _evxIc }), 'photo');
+  if (!statut) _edlVideoLierCadre();
+}
+/** Recadrage au doigt / à la souris : glisser le cadre, ou sa poignée pour le redimensionner. */
+function _edlVideoLierCadre() {
+  const M = _evxV(); const f = el('evx-frame'); const c = el('evx-crop'); if (!M || !f || !c) return;
+  let geste = null;
+  const pos = (e) => { const r = f.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
+  const appliquer = () => { const k = _EVX.vcadre; c.style.left = (k.x * 100) + '%'; c.style.top = (k.y * 100) + '%'; c.style.width = (k.l * 100) + '%'; c.style.height = (k.h * 100) + '%'; };
+  c.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) {}
+    geste = { mode: e.target.classList.contains('evx-poignee') ? 'taille' : 'deplacer', p0: pos(e), k0: { ..._EVX.vcadre } };
+  });
+  c.addEventListener('pointermove', (e) => {
+    if (!geste) return;
+    const p = pos(e); const dx = p.x - geste.p0.x, dy = p.y - geste.p0.y;
+    _EVX.vcadre = geste.mode === 'taille'
+      ? M.EdlVideoImages.ajusterCadre(geste.k0, { dl: dx, dh: dy })
+      : M.EdlVideoImages.ajusterCadre(geste.k0, { dx, dy });
+    appliquer();
+  });
+  const fin = () => { geste = null; };
+  c.addEventListener('pointerup', fin); c.addEventListener('pointercancel', fin);
+}
+function _edlVideoCadreEntier() { _EVX.vcadre = { x: 0, y: 0, l: 1, h: 1 }; const c = el('evx-crop'); if (c) { c.style.left = '0%'; c.style.top = '0%'; c.style.width = '100%'; c.style.height = '100%'; } }
+async function _edlVideoGarderCadre(itemId, eid, imageId) {
+  const x = _edlVoixItem(itemId); if (!x) return;
+  await _edlVoixDecider(x, { ['k:' + eid + '|' + imageId]: { cadre: { ...(_EVX.vcadre || { x: 0, y: 0, l: 1, h: 1 }) } }, ['x:' + eid + '|' + imageId]: null });
+  _edlVoixRelire(itemId, true);
+}
+function _edlVideoRetourPropositions(itemId) { _edlVoixRelire(itemId, true); }
+/** Photos GARDÉES d'un élément (non écartées), recadrées, ajoutées à l'élément par le pipeline photo
+ *  existant (IndexedDB puis envoi cloud) avec la preuve indexée { prise, instant, cadre }. Rend les clés. */
+async function _edlVideoAjouterPhotos(x, eid, pi, ei) {
+  const M = _evxV(); const p = _edlVideoPhotosDe(x, eid); if (!M || !p) return [];
+  const elx = _edlP[pi] && _edlP[pi].elements[ei]; if (!elx) return [];
+  const ecartees = _edlVideoEcartees(x);
+  const cote = _edlSortie ? 'photosS' : 'photosE';
+  if (!Array.isArray(elx[cote])) elx[cote] = [];
+  const v = x.video || {};
+  const cles = [];
+  for (const im of p.images) {
+    if (ecartees[eid + '|' + im.imageId]) continue;
+    const src = _edlVideoImageSrc(x, im.imageId); if (!src) continue;
+    const cadre = ((x.decisions || {})['k:' + eid + '|' + im.imageId] || {}).cadre || im.cadre || { x: 0, y: 0, l: 1, h: 1 };
+    try {
+      const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
+      const r = M.EdlVideoImages.rectPixels(cadre, img.naturalWidth, img.naturalHeight);
+      const cv = document.createElement('canvas'); cv.width = r.sw; cv.height = r.sh;
+      cv.getContext('2d').drawImage(img, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
+      const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.85));
+      const ph = await _edlIngestPhoto(blob);
+      ph.name = `${(v.piece || 'piece')}-${M.EdlVideoImages.mmss(im.t).replace(':', 'm')}s.jpg`;
+      ph.video = M.EdlVideo.metaPhotoVideo({ videoId: v.id || '', piece: v.piece || '', prise: v.prise || 1, t: im.t, cadre }) || undefined;
+      if (!ph.video) delete ph.video;
+      elx[cote].push(ph);
+      _edlEnvoyerPhoto(ph);
+      cles.push(ph.idbKey);
+    } catch (e) { _edlPhotoErreurStockage({ name: 'photo de la vidéo' }, e); }
+  }
+  return cles;
+}
+/** Retire les photos ajoutées par une décision (geste « Annuler »), si elles sont encore là. */
+function _edlVideoRetirerPhotos(pi, ei, cles) {
+  const elx = _edlP[pi] && _edlP[pi].elements[ei]; if (!elx || !Array.isArray(cles) || !cles.length) return;
+  for (const cote of ['photosE', 'photosS']) {
+    if (!Array.isArray(elx[cote])) continue;
+    elx[cote] = elx[cote].filter((ph) => {
+      if (!ph || !cles.includes(ph.idbKey)) return true;
+      try { _idbDel(ph.idbKey); delete _photoCache[ph.idbKey]; } catch (_) {}
+      return false;
+    });
+  }
+}
+// Cartes « vu à l'image, pas dit » : garder les photos (aucun état), ignorer, annuler, rétablir.
+async function _edlVideoGarderVu(itemId, cle) {
+  return _edlVoixVerrou(itemId + '|' + cle, async () => {
+    const M = _evxV(); const x = _edlVoixItem(itemId); if (!M || !_edlVoixPeutEcrire(x) || _edlVoixDejaDecide(x, cle)) return;
+    const eid = cle.slice(2); const pi = _edlVoixPieceDe(x);
+    const ei = pi >= 0 ? M.EdlDictee.retrouverElement(_edlP[pi], eid, x.entree) : -1;
+    if (ei < 0) { showToast('Élément introuvable dans la pièce : rien n’a été ajouté.', 'warn', 4000); return; }
+    const cles = await _edlVideoAjouterPhotos(x, eid, pi, ei);
+    if (!cles.length) { showToast('Aucune photo gardée pour cet élément.', 'info', 3000); return; }
+    await _edlVoixDecider(x, { [cle]: { statut: 'ok', pi, ei, nom: _edlP[pi].elements[ei].nom, photos: cles } });
+    _edlVoixApresEcriture(itemId);
+  });
+}
+async function _edlVideoIgnorerVu(itemId, cle) { const x = _edlVoixItem(itemId); if (!x || _edlVoixDejaDecide(x, cle)) return; await _edlVoixDecider(x, { [cle]: { statut: 'ign' } }); _edlVoixRelire(itemId, true); }
+async function _edlVideoRetablirVu(itemId, cle) { const x = _edlVoixItem(itemId); if (!x) return; await _edlVoixDecider(x, { [cle]: null }); _edlVoixRelire(itemId, true); }
+async function _edlVideoAnnulerVu(itemId, cle) {
+  return _edlVoixVerrou(itemId + '|' + cle, async () => {
+    const x = _edlVoixItem(itemId); if (!_edlVoixPeutEcrire(x)) return;
+    const d = (x.decisions || {})[cle]; if (!d || d.statut !== 'ok') return;
+    const elx = _edlP[d.pi] && _edlP[d.pi].elements[d.ei];
+    if (!elx || elx.nom !== d.nom) { showToast('Élément modifié depuis : retirer les photos à la main si besoin.', 'warn', 5000); return; }
+    _edlVideoRetirerPhotos(d.pi, d.ei, d.photos);
+    await _edlVoixDecider(x, { [cle]: null });
+    _edlVoixApresEcriture(itemId);
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -6278,7 +6915,15 @@ async function generateEDLPdfNative(edl) {
     drawPhotoEncadre('Photos — entrée', _isSortiePdf ? '' : (fd(edl.date) || ''), entItems);
     drawPhotoEncadre('Photos — sortie', _isSortiePdf ? (fd(edl.date) || '') : '', sorItems);
   };
-  const _photoItem = (ph, cap) => { const src = _photoCache[ph.idbKey] || ph.data; return src ? { src, ratio: _photoRatio[ph.idbKey], cap } : null; };
+  const _photoItem = (ph, cap) => {
+    const src = _photoCache[ph.idbKey] || ph.data;
+    // EDL-VIDEO-IA : une photo tirée d'une vidéo cite la prise et l'instant (preuve indexée, décret 2016-382
+    // art. 2 1° h : « illustré d'images »).
+    const _EVd = (typeof window !== 'undefined') ? window.EdlVideo : null;
+    const _EVi = (typeof window !== 'undefined') ? window.EdlVideoImages : null;
+    const leg = (ph && ph.video && _EVd) ? _EVd.legendePhoto(ph.video, _EVi ? _EVi.mmss : undefined) : '';
+    return src ? { src, ratio: _photoRatio[ph.idbKey], cap: leg ? `${cap} · ${leg}` : cap } : null;
+  };
 
   let y = MT;
 
@@ -6748,6 +7393,36 @@ async function generateEDLPdfNative(edl) {
     y += 6;
   }
 
+  // ─── 8 bis. EDL-VIDEO-IA — Vidéos de l'état des lieux ────────────
+  // Chaque prise : pièce, durée, date et heure, empreinte SHA-256 EN ENTIER (c'est elle qui se vérifie),
+  // accord des locataires présents, conservation et copie sur demande (décision 3 : espace locataire à venir).
+  {
+    const _EVd = (typeof window !== 'undefined') ? window.EdlVideo : null;
+    const _IATv = (typeof window !== 'undefined') ? window.IaTransparence : null;
+    const _lv = _EVd ? _EVd.lignesVideosPdf(edl) : [];
+    if (_lv.length || (edl.videoAccords || []).length) {
+      y = newPageIfNeeded(y, 40);
+      y = drawTitle(y, 'Vidéos de l’état des lieux', 2);
+      if (_lv.length) pdf.autoTable({
+        startY: y,
+        head: [['Pièce', 'Durée', 'Filmée le', 'Empreinte SHA-256', 'Stockage']],
+        body: _lv.map(l => [l.piece, l.duree, l.filmeLe, l.empreinte, l.aLAbri ? 'À l’abri' : 'En attente d’envoi']),
+        margin: { left: M, right: MR },
+        styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+        headStyles: { fillColor: [60,60,60], textColor: [255,255,255] },
+        columnStyles: { 3: { font: 'courier', fontSize: 6.5, cellWidth: 62 } }
+      });
+      if (_lv.length) y = pdf.lastAutoTable.finalY + 4;
+      const _quand = a => { const d = new Date(a.at); return isNaN(d) ? '' : `le ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`; };
+      const _acc = (edl.videoAccords || []).map(a => a.accord === true
+        ? `${a.nom}${a.representant ? ' (représenté par ' + a.representant + ')' : ''} : accord ${_quand(a)}`
+        : `${a.nom} : absent ${_quand(a)}`).join(' ; ');
+      pdf.setFont('helvetica','normal').setFontSize(8).setTextColor(60,60,60);
+      if (_acc) { const _al = pdf.splitTextToSize('Accord pour filmer : ' + _acc + '. ' + ((_IATv && _IATv.MENTION_ACCORD_VIDEO) || ''), CW); y = newPageIfNeeded(y, _al.length * 4 + 2); pdf.text(_al, M, y); y += _al.length * 4 + 1; }
+      if (_IATv && _IATv.MENTION_COPIE_VIDEO) { const _cl = pdf.splitTextToSize(_IATv.MENTION_COPIE_VIDEO, CW); y = newPageIfNeeded(y, _cl.length * 4 + 2); pdf.text(_cl, M, y); y += _cl.length * 4 + 4; }
+    }
+  }
+
   // ─── 9. Fait à [Ville] le [Date] ───────────────────────────────
   // v14.12.7 : utilise le template global EDL_FAITLE_TPL (idem formulaire EDL).
   y = newPageIfNeeded(y, 60); // assez pour signatures à suivre
@@ -6794,8 +7469,9 @@ async function generateEDLPdfNative(edl) {
   if (_IAT && _IAT.edlAAideIA(edl)) {
     y = newPageIfNeeded(y, 8);
     pdf.setFont('helvetica','italic').setFontSize(7.5).setTextColor(110,110,110);
-    pdf.text(pdf.splitTextToSize(_IAT.MENTION_PDF, CW), M, y);
-    try { pdf.setProperties({ keywords: 'aide-dictee-ia; propositions-ia-validees' }); } catch (e) {}
+    // EDL-VIDEO-IA : photos de la vidéo gardées → mention étendue « à la dictée et à l'image ».
+    pdf.text(pdf.splitTextToSize(_IAT.mentionPdf ? (_IAT.mentionPdf(edl) || _IAT.MENTION_PDF) : _IAT.MENTION_PDF, CW), M, y);
+    try { pdf.setProperties({ keywords: 'aide-dictee-ia; propositions-ia-validees' + (_IAT.edlAPhotosVideo && _IAT.edlAPhotosVideo(edl) ? '; aide-image-ia; photos-video-validees' : '') }); } catch (e) {}
   }
 
   // ─── 7. Footer Page X/Y sur chaque page ─────────────────────────
@@ -7969,6 +8645,7 @@ function _edlResetGlobalState() {
   _edlGarageMode = false;   // CHANTIER EDL-GARAGE — repart en mode logement ; re-dérivé à l'ouverture
   _edlCles.length = 0;
   _edlCptIA = {};   // EDL-VOIX-IA (A2)
+  _edlVideos = []; _edlVideoAccords = [];   // EDL-VIDEO-IA
   if (typeof _edlVoixReset === 'function') _edlVoixReset();   // EDL-VOIX-IA : nouvelle session de dictée
   // v15.205 BAIL-TYPES option A : reset aussi _edlMobElements pour éviter que les éléments
   // d'un EDL précédent ouvert dans la même session ne polluent un nouveau EDL.
@@ -8401,6 +9078,11 @@ function saveEDL(opts){
       ancienOcc:v('edl-ancien-occ'), notes:v('edl-notes'), drivePath:'',
       pieces:piecesClean, compteurs, compteursSortie, compteursPhotos:_edlGetCptPhotos(), chauffage, technologies, cles:_edlGetCles(),
       compteursIA: JSON.parse(JSON.stringify(_edlCptIA || {})),   // EDL-VOIX-IA (A2) : relevés dictés (marque, sans contenu)
+      // EDL-VIDEO-IA : prises vidéo (empreinte, durée, chemin dans le stockage) et accords des locataires.
+      // Dans l'instantané signé : la preuve de quelle vidéo a été filmée, intacte (empreinte SHA-256).
+      videos: (window.EdlVideo ? _edlVideos.map(window.EdlVideo.metaVideo) : JSON.parse(JSON.stringify(_edlVideos || []))),
+      videoAccords: JSON.parse(JSON.stringify(_edlVideoAccords || [])),
+      ...((_existingEdl && _existingEdl.conservationMedias) ? { conservationMedias: JSON.parse(JSON.stringify(_existingEdl.conservationMedias)) } : {}),
       garage: _edlGarageMode, // CHANTIER EDL-GARAGE — EDL réduit (droit commun) : pas de compteurs/DAAF/mobilier
       daaf: _daafRecord, // v15.08 Sprint 9 : sécurité incendie (EDL entrée surtout)
       // v15.202 : inventaire mobilier (null si toggle off, sinon { literie, ..., details })
@@ -8485,6 +9167,8 @@ function saveEDL(opts){
     // EDL-VOIX-IA — les dictées faites avant le 1er enregistrement prennent l'identifiant de l'EDL
     // (sinon, à la réouverture, elles ne seraient plus rattachées : perte silencieuse).
     if (typeof _edlVoixRattacher === 'function') _edlVoixRattacher(String(record.id));
+    // EDL-VIDEO-IA — une prise faite avant le 1er enregistrement (ou en attente) part maintenant.
+    if (typeof _edlVideoReprendreEnvois === 'function') _edlVideoReprendreEnvois();
     rEDLList();
     if (!keepOpen) closeM('ov-edl');
     // F8 : si l'écriture locale a été refusée, on ne dit surtout pas « enregistré ».
@@ -16335,7 +17019,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.734 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.735 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

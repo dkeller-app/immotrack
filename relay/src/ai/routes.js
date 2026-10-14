@@ -3,6 +3,7 @@
 //   GET  /ai/status                       → { actif, fournisseur, limites, usageJour }
 //   POST /ai/transcribe?lang=fr&task=…    corps = audio brut (Content-Type audio/*) → { text, segments, audioSec, modele }
 //   POST /ai/structure                    JSON { task, input } → { data, rejets, modele }
+//   (tâche `edl-photos` = état des lieux filmé : seulement si l'interrupteur AI_VIDEO est posé, cf. video.js)
 //
 // Toutes exigent un utilisateur connecté (même garde JWT/JWKS que POST /sessions).
 // Garde-fous : taille et type de l'audio contrôlés AVANT lecture, quota par compte et par jour (KV),
@@ -12,6 +13,7 @@
 import { makeAiProvider, fournisseurActif, AiError } from './provider.js';
 import { limites, lireUsageJour, decider, enregistrer } from './quota.js';
 import { tache } from './tasks/index.js';
+import { videoActif, annonceVideo, VIDEO_DEFAUTS } from './video.js';
 
 export const AUDIO_TYPES = new Set(['audio/mp3', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav']);
 export const AUDIO_MAX_DEFAUT = 10 * 1024 * 1024;   // 10 Mo ≈ 20 min d'Opus, ≈ 5 min de WAV 16 kHz
@@ -58,7 +60,7 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     const lim = limites(c.env);
     const u = await lireUsageJour(c.env.SESSIONS_KV, gate.userId);
     const f = fournisseurActif(c.env);
-    return c.json({ actif: !!f, fournisseur: f, limites: lim, usageJour: { appels: u.appels, audioSec: u.audioSec } });
+    return c.json({ actif: !!f, fournisseur: f, limites: lim, usageJour: { appels: u.appels, audioSec: u.audioSec, images: u.images || 0 }, video: annonceVideo(c.env, lim.imagesJour) });
   });
 
   app.post('/ai/transcribe', async (c) => {
@@ -108,34 +110,45 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     if (gate.error) return gate.error;
     const ia = providerFactory(c.env);
     if (!ia) { mesure('structure', 503); return c.json({ error: 'ai_disabled' }, 503); }
+    // Plafond du corps : 256 Kio (texte) ; plus grand seulement si la vidéo est ouverte (images en base64).
+    const video = videoActif(c.env);
+    const plafond = video ? VIDEO_DEFAUTS.jsonMaxOctets : JSON_MAX;
     const annonce = Number(c.req.header('Content-Length'));
-    if (Number.isFinite(annonce) && annonce > JSON_MAX) { mesure('structure', 413); return c.json({ error: 'too_large' }, 413); }
+    if (Number.isFinite(annonce) && annonce > plafond) { mesure('structure', 413); return c.json({ error: 'too_large' }, 413); }
 
-    let body;
-    try { const lu = await lireCorps(c.req, JSON_MAX); if (lu.trop) throw new Error(); body = JSON.parse(new TextDecoder().decode(lu.buf)); } catch {
+    let body, taille = 0;
+    try {
+      const lu = await lireCorps(c.req, plafond);
+      if (lu.trop) { mesure('structure', 413); return c.json({ error: 'too_large' }, 413); }
+      taille = lu.buf.byteLength;
+      body = JSON.parse(new TextDecoder().decode(lu.buf));
+    } catch {
       mesure('structure', 400); return c.json({ error: 'bad_json' }, 400);
     }
     const t = tache(body && body.task);
     if (!t) { mesure('structure', 400); return c.json({ error: 'unknown_task' }, 400); }
+    if (t.video && !video) { mesure('structure', 503, { tache: t.nom }); return c.json({ error: 'video_disabled' }, 503); }
+    if (taille > (t.JSON_MAX || JSON_MAX)) { mesure('structure', 413, { tache: t.nom }); return c.json({ error: 'too_large' }, 413); }
     const v = t.validerEntree(body.input);
     if (!v.ok) { mesure('structure', 400, { tache: t.nom, raison: v.raison }); return c.json({ error: 'bad_input', raison: v.raison }, 400); }
 
     const lim = limites(c.env);
     const kv = c.env.SESSIONS_KV;
-    const d = decider(await lireUsageJour(kv, gate.userId), lim);
+    const nImages = t.video && Array.isArray(v.input.images) ? v.input.images.length : 0;
+    const d = decider(await lireUsageJour(kv, gate.userId), lim, { images: nImages });
     if (!d.ok) { mesure('structure', 429, { motif: d.motif }); return c.json({ error: 'quota', motif: d.motif, limites: lim }, 429); }
 
-    await compter(kv, gate.userId, { appels: 1 });   // réservation avant l'appel payant
+    await compter(kv, gate.userId, nImages ? { appels: 1, images: nImages } : { appels: 1 });   // réservation avant l'appel payant
     let r;
     try {
-      r = await ia.structurer({ tache: t.nom, messages: t.messages(v.input), jsonSchema: t.jsonSchema, input: v.input });
+      r = await ia.structurer({ tache: t.nom, messages: t.messages(v.input), jsonSchema: t.jsonSchema, input: v.input, delaiMs: t.DELAI_MS });
     } catch (e) {
       return erreurIA(c, 'structure', e, t0);
     }
     await compter(kv, gate.userId, { jetonsE: r.jetonsE, jetonsS: r.jetonsS }, 'conso');
     const s = t.validerSortie(r.data, v.input);
     if (!s.ok) { mesure('structure', 502, { tache: t.nom, code: 'invalid_output', ms: Date.now() - t0 }); return c.json({ error: 'ai_invalid_output' }, 502); }
-    mesure('structure', 200, { tache: t.nom, je: r.jetonsE, js: r.jetonsS, rejets: s.rejets, ms: Date.now() - t0 });
+    mesure('structure', 200, { tache: t.nom, je: r.jetonsE, js: r.jetonsS, rejets: s.rejets, ...(nImages ? { images: nImages } : {}), ms: Date.now() - t0 });
     return c.json({ data: s.data, rejets: s.rejets, modele: r.modele });
   });
 }

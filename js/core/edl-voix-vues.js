@@ -111,7 +111,8 @@ export function banniere(item, { ic, message }) {
     return `<div class="evx-ban ${item.erreur.code === 'offline' ? 'wait' : 'err'}">${ic(item.erreur.code === 'offline' ? 'cloud' : 'warn')}<div><b>${esc(m.titre)}</b>${esc(m.texte)}`
       + `<div class="evx-bx">${actions}<button type="button" class="btn evx-sec" onclick="_edlVoixSupprimer('${id}')">${ic('trash')} Supprimer la dictée</button></div></div></div>`;
   }
-  return `<div class="evx-ban wait">${ic('hourglass')}<div><b>Analyse de la dictée (${d})</b>${item.etape === 'texte' ? 'Préparation des propositions.' : 'Transcription en cours.'} L’état des lieux reste modifiable à la main.</div></div>`;
+  const filmee = Array.isArray(item.images) && item.images.length > 0;
+  return `<div class="evx-ban wait">${ic('hourglass')}<div><b>Analyse ${filmee ? 'de la vidéo' : 'de la dictée'} (${d})</b>${item.etape === 'texte' ? 'Préparation des propositions.' : item.etape === 'images' ? 'Préparation des photos.' : 'Transcription en cours.'} L’état des lieux reste modifiable à la main.</div></div>`;
 }
 
 
@@ -141,7 +142,7 @@ function actions(id, cle, statut, { ic, ajout = false, bloque = null, okTexte = 
 
 const ancre = (cle) => 'evx-c-' + String(cle).replace(/[^a-z0-9-]/gi, '_');
 
-function carteProposition(id, l, sortie, { ic }) {
+function carteProposition(id, l, sortie, { ic, photos = null }) {
   const p = l.prop;
   const corr = l.corrections.map((k) => `<span class="evx-cor">Compris : <s>${esc(k.entendu)}</s> → ${esc(k.compris)}</span>`).join('');
   const eref = l.entreeRef ? `<div class="evx-eref">${ic('lock')} Entrée signée : ${l.entreeRef.etat ? pastille(l.entreeRef.etat) : 'non renseigné'}${l.entreeRef.obs ? ` <i>${esc(l.entreeRef.obs)}</i>` : ''}</div>` : '';
@@ -154,7 +155,7 @@ function carteProposition(id, l, sortie, { ic }) {
     + `<div class="evx-kv"><span class="k">${sortie ? 'Sortie' : 'État'}</span><span class="v">${pastille(p.etat)}</span>`
     + `<span class="k">Obs.</span><span class="v evx-obs">${p.observation ? esc(p.observation) : '<span class="evx-t3">Aucune observation proposée</span>'}</span>`
     + `<span class="k">Entendu</span><span class="v evx-src">« ${esc(p.source)} »${corr}</span></div>`
-    + why + verif + repl + intro + iaMark(ic)
+    + why + verif + repl + intro + (photos ? photos(l) : '') + iaMark(ic)
     + (l.introuvable ? actions(id, l.cle, l.statut, { ic, bloque: 'Proposition non inscrite.' }) : actions(id, l.cle, l.statut, { ic })) + '</div>';
 }
 
@@ -179,24 +180,27 @@ function carteCompteur(id, x, { ic }) {
     + actions(id, x.cle, x.statut, { ic, bloque: x.bloque ? RAISONS_COMPTEUR[x.bloque] || 'Relevé non inscriptible.' : null, okTexte: 'Inscrit dans le relevé.' }) + '</div>';
 }
 
-/** Écran des propositions. `m` = EdlDictee.modeleRelecture(...). */
-export function vuePropositions({ item, m, piece, sortie, duree: d }, { ic }) {
+/** Écran des propositions. `m` = EdlDictee.modeleRelecture(...).
+ *  État des lieux filmé (EDL-VIDEO-IA) : `photos(l)` ajoute les vignettes de la vidéo à chaque carte,
+ *  `vus` = cartes « vu à l'image, pas dit » (HTML déjà rendu), `video` = libellés de la prise. */
+export function vuePropositions({ item, m, piece, sortie, duree: d, photos = null, vus = '', video = false }, { ic }) {
   const id = item.id;
   const b = m.bilan;
   const compteursSeuls = !m.lignes.length && !m.ajouts.length && m.compteurs.length;
-  let corps = `<div class="evx-ia">${ic('sparkle')}<div><b>${esc(BANDEAU_PROPOSITIONS.titre)}</b> ${esc(BANDEAU_PROPOSITIONS.texte)}`
-    + `<button type="button" class="evx-lnk" onclick="_edlVoixTranscription('${jsId(id)}')">Voir la transcription</button></div></div>`
+  let corps = `<div class="evx-ia">${ic('sparkle')}<div><b>${esc(BANDEAU_PROPOSITIONS.titre)}</b> ${esc(BANDEAU_PROPOSITIONS.texte)}${video ? ' Les photos sont des images de la vidéo, non retouchées.' : ''}`
+    + (item.texte ? `<button type="button" class="evx-lnk" onclick="_edlVoixTranscription('${jsId(id)}')">Voir la transcription</button>` : '') + '</div></div>'
     + `<div class="evx-sum"><span class="evx-chip"><b>${b.total}</b> proposition${b.total > 1 ? 's' : ''}</span><span class="evx-chip"><b>${b.inscrites}</b> inscrite${b.inscrites > 1 ? 's' : ''}</span>`
     + `<span class="evx-chip"><b>${b.ignorees}</b> ignorée${b.ignorees > 1 ? 's' : ''}</span><span class="evx-chip"><b>${b.aValider}</b> à valider</span></div>`;
-  if (!b.total) {
+  if (!b.total && !vus) {
     corps += `<div class="evx-emp"><div class="evx-pic">${ic('info')}</div><h3>Aucun élément reconnu</h3><p>La dictée ne cite aucun élément de la pièce de façon exploitable. Rien n’a été modifié.</p></div>`;
   }
-  corps += m.lignes.map((l) => carteProposition(id, l, sortie, { ic })).join('');
+  corps += m.lignes.map((l) => carteProposition(id, l, sortie, { ic, photos })).join('');
+  if (vus) corps += '<div class="evx-sect">Vu à l’image, pas dit · aucun état proposé</div>' + vus;
   if (m.ajouts.length) corps += '<div class="evx-sect">Cité mais absent de la liste de la pièce</div>' + m.ajouts.map((x) => carteAjout(id, x, { ic })).join('');
   if (m.compteurs.length) corps += '<div class="evx-sect">Relevés de compteurs · validation une par une</div>' + m.compteurs.map((x) => carteCompteur(id, x, { ic })).join('');
   if (m.nonCites.length) corps += `<div class="evx-sect">Non cités · laissés tels quels (${m.nonCites.length})</div><div class="evx-nc">${m.nonCites.map(esc).join(' · ')}<small>Aucune valeur n’est touchée sur ces éléments.</small></div>`;
   const pied = (m.enAttente > 1 ? sec(`_edlVoixToutAccepter('${jsId(id)}')`, 'Tout accepter') : '') + pri(`_edlVoixFinRelecture('${jsId(id)}')`, 'Terminer la relecture');
-  return { titre: compteursSeuls ? 'Relevés dictés' : `Propositions · ${piece}`, sousTitre: `Dictée de ${duree(d)} · ${sortie ? 'sortie' : 'entrée'}`, corps, pied, ferme: 'close' };
+  return { titre: compteursSeuls ? 'Relevés dictés' : `Propositions · ${piece}`, sousTitre: `${video ? 'Vidéo' : 'Dictée'} de ${duree(d)} · ${sortie ? 'sortie' : 'entrée'}`, corps, pied, ferme: 'close' };
 }
 
 /** Modifier une proposition avant de l'inscrire (état + observation ; ou valeur d'un relevé). */

@@ -59,6 +59,65 @@ export function notice({ retentionZero = RETENTION_ZERO } = {}) {
   };
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// ÉTAT DES LIEUX FILMÉ (EDL-VIDEO-IA, GO Didier 14/10/2026) — textes, source unique.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+/** PDF signé quand au moins une PHOTO tirée d'une vidéo a été gardée (remplace MENTION_PDF). */
+export const MENTION_PDF_VIDEO = 'Observations et photos préparées avec une aide à la dictée et à l’image (IA), relues et validées par les parties.';
+/** Cadre « Vidéos » du PDF : la copie au locataire passera par l'espace locataire (chantier à venir). */
+export const MENTION_COPIE_VIDEO = 'Vidéos conservées par le bailleur pendant le bail puis trois ans après la restitution du dépôt de garantie (art. 7-1 de la loi n° 89-462 du 6 juillet 1989), plus longtemps seulement en cas de litige en cours, puis supprimées ; copie remise au locataire sur demande. L’empreinte permet de vérifier qu’une vidéo n’a pas été modifiée.';
+/** Sous la liste des accords dans le PDF : comment l'accord a été recueilli (ratifié par la signature). */
+export const MENTION_ACCORD_VIDEO = 'Accord recueilli avant de filmer sur l’appareil utilisé pour l’état des lieux, chaque locataire présent cochant sa case ; confirmé par la signature du présent état des lieux.';
+
+/**
+ * Écran d'ACCORD avant de filmer (une fois par état des lieux). Le locataire présent lit et coche
+ * LUI-MÊME sa case (jamais pré-cochée). Base retenue : intérêt légitime (preuve de l'état du logement)
+ * avec accord préalable de chaque locataire présent — à faire valider par l'avocat dans l'AIPD.
+ */
+export function noticeVideo({ retentionZero = RETENTION_ZERO } = {}) {
+  return {
+    titre: 'Filmer l’état des lieux',
+    sousTitre: 'Accord avant de filmer',
+    intro: 'La visite est filmée pièce par pièce, avec le son, pour garder une preuve de l’état du logement, à l’appui de l’état des lieux. Des images tirées de la vidéo sont analysées par une IA pour proposer des photos et des observations. Rien n’est inscrit sans validation des deux parties.',
+    sections: [
+      { icone: 'shield', titre: 'Qui traite les images et le son', texte: `${FOURNISSEUR}, société française, serveurs dans l’Union européenne, sous-traitant de Propryo. Seules quelques images et le son partent à l’analyse, jamais la vidéo entière. ${phraseConservationFournisseur(retentionZero).replace('ni l’enregistrement ni le texte', 'ni les images ni le son')}` },
+      { icone: 'folder', titre: 'Où la vidéo est gardée', texte: 'La vidéo entière est enregistrée dans l’espace Propryo du bailleur (stockage Supabase, serveurs dans l’Union européenne), accessible aux seules personnes autorisées pour ce logement. Elle n’est jamais modifiée ; une empreinte permet de le vérifier.' },
+      { icone: 'clock', titre: 'Combien de temps la vidéo est gardée', texte: 'Pendant le bail, puis trois ans après la restitution du dépôt de garantie (prescription de l’article 7-1 de la loi du 6 juillet 1989) ; plus longtemps seulement en cas de litige en cours. Ensuite, elle est supprimée automatiquement.' },
+      { icone: 'info', titre: 'Ce qui n’est pas filmé', texte: 'Éviter de filmer les personnes. Les objets personnels n’entrent pas dans l’état des lieux. Une copie de la vidéo est remise au locataire sur demande.' },
+      { icone: 'check', titre: 'Refuser reste possible', texte: 'Sans accord, l’état des lieux se fait sans vidéo, à la voix ou à la main, exactement comme d’habitude.' },
+    ],
+    accord: 'J’accepte que cet état des lieux soit filmé.',
+    // Statut juridique à valider par l'avocat dans l'AIPD : intérêt légitime (preuve) ; l'accord vaut information et
+    // absence d'opposition préalable du locataire présent (« Continuer sans vidéo » = opposition, rien n'est filmé).
+  };
+}
+
+/** Version de la notice d'accord = empreinte de son texte (FNV-1a) : un accord renvoie au texte EXACT lu. */
+export function versionNoticeVideo(n = noticeVideo()) {
+  const s = JSON.stringify(n);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return 'nv-' + h.toString(16).padStart(8, '0');
+}
+
+/** L'EDL porte-t-il au moins une photo tirée d'une vidéo (gardée) ? */
+export function edlAPhotosVideo(edl) {
+  if (!edl || typeof edl !== 'object') return false;
+  for (const p of edl.pieces || []) {
+    for (const x of (p && p.elements) || []) {
+      for (const ph of [...((x && x.photosE) || []), ...((x && x.photosS) || [])]) if (ph && ph.video && ph.video.videoId) return true;
+    }
+  }
+  return false;
+}
+
+/** Mention du PDF : vidéo si une photo tirée d'une vidéo a été gardée, sinon dictée (si aide IA), sinon rien. */
+export function mentionPdf(edl) {
+  if (edlAPhotosVideo(edl)) return MENTION_PDF_VIDEO;
+  return edlAAideIA(edl) ? MENTION_PDF : '';
+}
+
 /** Marque lisible par machine posée sur un élément inscrit depuis une proposition. */
 export function marqueIA({ etat, obs, modele, maintenant = new Date() }) {
   return { etat: !!etat, obs: !!obs, at: maintenant.toISOString(), modele: String(modele || '') };
@@ -74,5 +133,6 @@ export function edlAAideIA(edl) {
     }
   }
   const c = edl.compteursIA;
-  return !!(c && typeof c === 'object' && Object.keys(c).length);
+  if (c && typeof c === 'object' && Object.keys(c).length) return true;
+  return edlAPhotosVideo(edl);   // EDL-VIDEO-IA : une photo de la vidéo gardée = aide de l'IA
 }

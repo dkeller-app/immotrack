@@ -16,7 +16,8 @@ export function codeDepuisReponse(status, body) {
   const e = body && body.error;
   if (status === 401 || status === 403) return 'auth';
   if (status === 429) return 'quota';
-  if (status === 404 || (status === 503 && e === 'ai_disabled')) return 'disabled';
+  // 503 video_disabled = état des lieux filmé pas encore ouvert (interrupteur AI_VIDEO du relais).
+  if (status === 404 || (status === 503 && (e === 'ai_disabled' || e === 'video_disabled'))) return 'disabled';
   if (status === 413) return 'too_large';
   if (status === 415) return 'format';
   if (status === 422) return 'refused';
@@ -51,7 +52,11 @@ export function creerClientIA({ base, getToken, fetchImpl, enLigne } = {}) {
     async statut() {
       const r = await appel('/ai/status', { method: 'GET' });
       if (!r.ok) return r;
-      return { ok: true, actif: !!r.body.actif, limites: r.body.limites || null, usageJour: r.body.usageJour || null };
+      // `video` : ce que le relais annonce pour l'état des lieux filmé (actif, taille max d'un fichier…).
+      // Absent (relais d'avant) ou actif=false → la fonction « Filmer » reste masquée.
+      const v = r.body.video && typeof r.body.video === 'object' ? r.body.video : null;
+      return { ok: true, actif: !!r.body.actif, limites: r.body.limites || null, usageJour: r.body.usageJour || null,
+        video: v ? { actif: v.actif === true, fichierMaxOctets: Number(v.fichierMaxOctets) || 0, priseMaxSec: Number(v.priseMaxSec) || 0, imagesParAppel: Number(v.imagesParAppel) || 8, imagesJour: Number(v.imagesJour) || 0 } : { actif: false } };
     },
     async transcrire(audio, { task = 'edl-piece', lang = 'fr', mime } = {}) {
       const type = String(mime || (audio && audio.type) || 'audio/webm');
@@ -77,7 +82,7 @@ export function messageErreur(code, { motif, limites } = {}) {
   switch (code) {
     case 'offline': return { titre: 'Pas de réseau', texte: 'La dictée est gardée sur l’appareil. Elle sera analysée dès le retour du réseau.', reessayable: true };
     case 'auth': return { titre: 'Session à renouveler', texte: 'La connexion au compte a expiré. La dictée est gardée sur l’appareil et repartira après reconnexion.', reessayable: true };
-    case 'quota': return { titre: 'Limite du jour atteinte', texte: motif === 'audio' ? `La dictée est limitée à ${minutes} minutes par jour et par compte. Elle sera de nouveau disponible demain.` : 'Le nombre d’analyses du jour est atteint pour ce compte. La dictée sera de nouveau disponible demain.', reessayable: false };
+    case 'quota': return { titre: 'Limite du jour atteinte', texte: motif === 'audio' ? `La dictée est limitée à ${minutes} minutes par jour et par compte. Elle sera de nouveau disponible demain.` : motif === 'images' ? 'L’analyse des images est limitée par jour et par compte. La vidéo est gardée ; les photos seront proposées demain, ou ajoutées à la main.' : 'Le nombre d’analyses du jour est atteint pour ce compte. La dictée sera de nouveau disponible demain.', reessayable: false };
     case 'disabled': return { titre: 'Dictée pas encore activée', texte: 'L’analyse de la dictée n’est pas encore ouverte sur ce compte.', reessayable: false };
     case 'too_large': return { titre: 'Enregistrement trop long', texte: 'Cet enregistrement dépasse la taille admise. Dicter la pièce en plusieurs fois.', reessayable: false };
     case 'format': return { titre: 'Format audio non reconnu', texte: 'Ce fichier n’est pas un enregistrement audio accepté (m4a, mp3, webm, ogg ou wav).', reessayable: false };
