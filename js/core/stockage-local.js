@@ -84,6 +84,8 @@ export const REGISTRE = [
   // EDL-VOIX-IA — dernier statut connu de l'IA (dictée proposée hors ligne) et notice déjà lue.
   { motif: deuxNs('propryo_ia_actif'), classe: 'etat', note: 'IA de dictée active (dernier statut connu)', exemples: ['propryo_ia_actif', '_test_propryo_ia_actif'] },
   { motif: deuxNs('propryo_ia_notice'), classe: 'etat', note: 'notice de la dictée IA déjà lue', exemples: ['propryo_ia_notice', '_test_propryo_ia_notice'] },
+  // EDL-VIDEO-IA — dernier statut connu de la vidéo (« Filmer la pièce » proposé hors ligne si le relais l'a ouverte).
+  { motif: deuxNs('propryo_ia_video'), classe: 'etat', note: 'état des lieux filmé ouvert (dernier statut connu)', exemples: ['propryo_ia_video', '_test_propryo_ia_video'] },
   // CANDIDATURES-CONFORMITE : chemins en ligne de pièces de candidats supprimées hors ligne, à effacer au retour (RGPD).
   { motif: deuxNs('imsb-cand-purge-attente'), classe: 'etat', note: 'fichiers en ligne de candidats à effacer (reprise hors ligne)', exemples: ['imsb-cand-purge-attente', '_test_imsb-cand-purge-attente'] },
   { motif: exacte('imsb-doc-express'), classe: 'etat', note: 'document express venu de propryo.fr, en attente de l’inscription (30 min)', exemples: ['imsb-doc-express'] },

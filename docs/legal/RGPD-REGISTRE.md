@@ -24,8 +24,8 @@
 | Sous-traitant | Service | Localisation données | DPA signé | Référence |
 |---|---|---|---|---|
 | **Google Ireland Limited** | Stockage Drive (sync optionnelle) | UE + US (transferts encadrés clauses contractuelles types) | Oui — voir [DPA-GOOGLE-DRIVE.md](DPA-GOOGLE-DRIVE.md) | [Google Cloud DPA](https://cloud.google.com/terms/data-processing-addendum) |
-| **Cloudflare, Inc.** | Relais à distance (Worker + R2 + KV) — `bail-sign-relay` : transit temporaire (1) du bail le temps de la **signature**, (2) des **dépôts de candidature en ligne** (dossier + pièces) le temps de leur rapatriement, (3) **espace locataire** (traitement n°8) : page et API servies par le relais, **sans stockage** côté Cloudflare (les données restent dans Supabase ; seul un code de confirmation de 10 min peut transiter en KV) | R2/KV mondial par défaut (KV répliqué multi-régions) ; restreindre via *Jurisdictional Restrictions* (R2 hint `eu`) recommandé | DPA standard Cloudflare (SCC) — à accepter dans le dashboard Cloudflare | [Cloudflare DPA](https://www.cloudflare.com/cloudflare-customer-dpa/) |
-| **Mistral AI** (France) | IA : transcription de la dictée de l'état des lieux (Voxtral) et préparation des propositions (Mistral Small) — appelée **uniquement par le relais** (clé jamais dans le navigateur) | Union européenne | Contrat de sous-traitance (DPA) Mistral à accepter ; **rétention zéro** à activer (facturation à l'usage) et **entraînement refusé** dans la console — à confirmer | [legal.mistral.ai](https://legal.mistral.ai) |
+| **Cloudflare, Inc.** | Relais à distance (Worker + R2 + KV) — `bail-sign-relay` : transit temporaire (1) du bail le temps de la **signature**, (2) des **dépôts de candidature en ligne** (dossier + pièces) le temps de leur rapatriement, (3) **espace locataire** (traitement n°9) : page et API servies par le relais, **sans stockage** côté Cloudflare (les données restent dans Supabase ; seul un code de confirmation de 10 min peut transiter en KV) | R2/KV mondial par défaut (KV répliqué multi-régions) ; restreindre via *Jurisdictional Restrictions* (R2 hint `eu`) recommandé | DPA standard Cloudflare (SCC) — à accepter dans le dashboard Cloudflare | [Cloudflare DPA](https://www.cloudflare.com/cloudflare-customer-dpa/) |
+| **Mistral AI** (France) | IA : transcription de la dictée de l'état des lieux (Voxtral), préparation des propositions (Mistral Small) et, pour l'état des lieux filmé, choix de photos parmi des **images** tirées de la vidéo sur l'appareil (Mistral Small 4, entrée image ; jamais la vidéo entière) — appelée **uniquement par le relais** (clé jamais dans le navigateur) | Union européenne | Contrat de sous-traitance (DPA) Mistral à accepter ; **rétention zéro** à activer (facturation à l'usage) et **entraînement refusé** dans la console — à confirmer | [legal.mistral.ai](https://legal.mistral.ai) |
 
 **Important** : si vous activez la sync Drive, vous transférez vos données à Google. Si vos locataires ont saisi des données personnelles (nom, IBAN, email), informez-les via un avenant au bail ou un courrier ad hoc avant l'activation.
 
@@ -76,9 +76,9 @@
 |---|---|
 | **Finalité** | Preuve photographique de l'état du logement à l'entrée + sortie (obligation art. 3 loi 89-462 + décret 2016-382) |
 | **Catégories de personnes** | Locataires (incidemment dans les photos si présents) |
-| **Catégories de données** | Photos JPEG/PNG (pieces, compteurs, clés) stockées en IndexedDB local + Drive si sync |
+| **Catégories de données** | Photos JPEG/PNG (pièces, compteurs, clés), dont les photos **tirées d'une vidéo** d'EDL (traitement n°8 : prise, instant, cadre conservés avec la photo) |
 | **Durée de conservation** | Bail + 3 ans (preuve en cas de litige restitution DG) |
-| **Stockage** | IndexedDB navigateur (`immotrack_photos`) + Google Drive si sync (dossier dédié `📋 EDL/` par logement) |
+| **Stockage** | IndexedDB navigateur (`immotrack_photos`) puis **Supabase Storage** (bucket `espace-files`, chemin par SCI, RLS par SCI — migrations 0024/0031) ; Google Drive seulement si l'ancienne sync est activée. *(Corrigé le 14/10/2026 : la mention « IndexedDB + Drive » était périmée depuis le transfert cloud des photos d'EDL.)* |
 
 ### 5. Signature électronique à distance du bail (BAIL-SIGNATURE-DISTANCE)
 
@@ -129,7 +129,26 @@
 | **Mesures techniques** | Clé du fournisseur en secret du relais, jamais dans le navigateur ; routes authentifiées (JWT Supabase) ; taille et type de l'audio contrôlés ; quota par compte et par jour ; sortie du modèle validée (éléments de la liste, états autorisés, extrait réellement entendu) ; **journaux sans contenu** (vérifié par test) ; aucune écriture sur un EDL signé |
 | **AIPD** | **Recommandée** (voix captée au domicile, IA) — à réaliser avec l'avocat avant l'ouverture commerciale |
 
-### 8. Espace locataire par lien, sans mot de passe (ESPACE-LOCATAIRE, migration 0059)
+### 8. État des lieux filmé (vidéo + IA) — EDL-VIDEO-IA
+
+> **Fonction ÉTEINTE en production** tant que le relais n'a pas `AI_VIDEO=true` (bêta sur offres gratuites, décision du 14/10/2026). Ce traitement s'applique dès son activation.
+
+| Champ | Détail |
+|---|---|
+| **Finalité** | Garder une **preuve** de l'état du logement (vidéo d'une pièce commentée, pièce de l'état des lieux) et **aider** à la rédaction : la voix suit le traitement n°7 ; des images tirées de la vidéo sur l'appareil sont analysées pour **proposer** des photos par élément (jamais d'état ni de responsabilité). Rien n'entre dans l'EDL sans validation humaine ; l'EDL reste contradictoire et signé |
+| **Catégories de personnes** | Bailleur / associé qui filme ; **locataires présents** (accord préalable) ; incidemment toute personne présente (consigne : ne pas filmer les personnes ; le modèle signale les images où une personne apparaît) |
+| **Catégories de données** | Vidéo (image et son, au domicile) ; images tirées de la vidéo (≤ 1 024 px) ; photos gardées (traitement n°4) avec prise, instant et cadre ; **accords horodatés** (nom, date, heure, version du texte, représentant éventuel) ; empreinte SHA-256 de chaque vidéo ; registre `edl_medias` (chemin, taille, durée, pièce, scellé, échéance, gel) ; compteurs d'images analysées par compte (sans contenu) |
+| **Données sensibles** | Aucune attendue ; l'intérieur d'un domicile est une donnée à caractère hautement personnel (critère d'AIPD) |
+| **Base légale** | **Intérêt légitime** à la preuve de l'état du logement (art. 6.1.f), avec **accord préalable de chaque locataire présent** (case non pré-cochée, cochée par lui ; le représentant d'un locataire représenté coche pour lui), horodaté dans l'EDL ; refus = pas de vidéo, l'EDL se fait à la voix ou à la main. **À faire valider par l'avocat dans l'AIPD** |
+| **Durée de conservation** | **Vidéo** (pièce de l'EDL) : pendant le bail, puis jusqu'à la fin de la 3e année qui suit la **restitution du dépôt de garantie** (art. 7-1 loi n° 89-462 ; CNIL délibération n° 2021-057 § 53), à défaut de date de restitution : fin du bail + 2 mois (art. 22) + 3 ans ; jamais moins de 3 ans après la signature de l'EDL (garde en base) ; **prolongeable** en cas de litige (CNIL § 54) ; **purge automatique** à échéance par tâche serveur planifiée, alerte « Ce qui presse » 30 jours avant. **Copie locale** de la vidéo : sur l'appareil jusqu'à l'envoi réussi, puis effacée. **Images tirées de la vidéo** : sur l'appareil le temps de la relecture, puis effacées (seules les photos gardées restent, traitement n°4). **Fournisseur** : idem traitement n°7 (rétention zéro à confirmer, sinon 30 jours au plus) |
+| **Destinataires** | Responsable de traitement ; associés de la SCI selon leurs droits (RLS) ; Supabase (stockage UE) ; Cloudflare (relais : transit des images et du son, jamais de la vidéo) ; Mistral AI (images et son seulement). **Locataire** : copie de la vidéo **sur demande** (mention dans le PDF), puis via l'espace locataire (chantier à venir) |
+| **Transferts hors UE** | Aucun prévu (Supabase et Mistral : UE ; transit relais Cloudflare, cf. sous-traitants) |
+| **Profilage / décision automatisée** | Aucun : photos proposées, gardées ou écartées par l'humain ; aucun état proposé par l'image ; aucun score |
+| **Transparence (AI Act art. 50)** | Écran d'accord avant de filmer ; mention « Proposé par l'IA, à vérifier » ; mention étendue au PDF signé (« aide à la dictée et à l'image ») ; cadre « Vidéos de l'état des lieux » du PDF (pièce, durée, date, empreinte, accord, conservation) |
+| **Mesures techniques** | Vidéo jamais envoyée à l'IA ; images ≤ 8 par appel, quota d'images par compte et par jour ; envoi reprenable (TUS) sans écrasement ; chemin par SCI et RLS (0031) ; **scellé** à la signature : ni suppression ni écrasement de la vidéo (table et stockage, migration 0058) ; échéance jamais avancée ; journaux sans contenu ; empreinte SHA-256 dans l'instantané signé |
+| **AIPD** | **Obligatoire à réaliser avant l'activation** (critères CNIL délibération 2021-057 § 74-75 : données à caractère hautement personnel — intérieur du domicile, image et voix —, usage innovant d'une IA) : à faire avec l'avocat ; elle couvre aussi la dictée (traitement n°7) |
+
+### 9. Espace locataire par lien, sans mot de passe (ESPACE-LOCATAIRE, migration 0059)
 
 | Champ | Détail |
 |---|---|
@@ -188,5 +207,5 @@ En cas de fuite de données (vol device + Drive non chiffré local, compromissio
 - Nouveau type de traitement (multi-user, portail locataire, etc.)
 - Changement de durée de conservation
 
-**Dernière mise à jour** : 2026-10-14 (traitement n°8 **espace locataire par lien** ; Cloudflare : rôle (3) sans stockage ; Resend à inscrire à l'activation des e-mails). Précédente : 2026-10-13 (traitement n°7 **dictée de l'EDL assistée par IA** + sous-traitant **Mistral AI** ; AIPD recommandée). Plus ancienne : 2026-06-08 (traitement n°6 étendu — **canal de dépôt en ligne** via relais Cloudflare : TTL invitation 7/14/30 j, `ownerToken` hors URL, score jamais calculé/transmis côté relais ; **rapatriement automatisé** documenté — aucune donnée nouvelle collectée ; Cloudflare ajouté aux sous-traitants/destinataires des candidatures)
+**Dernière mise à jour** : 2026-10-14 (traitement n°9 **espace locataire par lien** ; Cloudflare : rôle (3) sans stockage ; Resend à inscrire à l'activation des e-mails) ; 2026-10-14 (traitement n°8 **état des lieux filmé** — éteint en production jusqu'à activation ; AIPD obligatoire avant activation ; traitement n°4 corrigé : photos d'EDL dans Supabase Storage). Précédente : 2026-10-13 (traitement n°7 **dictée de l'EDL assistée par IA** + sous-traitant **Mistral AI** ; AIPD recommandée). Précédente : 2026-06-08 (traitement n°6 étendu — **canal de dépôt en ligne** via relais Cloudflare : TTL invitation 7/14/30 j, `ownerToken` hors URL, score jamais calculé/transmis côté relais ; **rapatriement automatisé** documenté — aucune donnée nouvelle collectée ; Cloudflare ajouté aux sous-traitants/destinataires des candidatures)
 **Mainteneur** : responsable de traitement ImmoTrack

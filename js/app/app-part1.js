@@ -109,6 +109,10 @@ function _uiIcon(name, size) {
     // EDL-VOIX-IA — dictée de l'état des lieux (micro) et micro refusé.
     mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3M8 21h8"/>',
     micoff:'<path d="M3 3l18 18"/><path d="M9 9v2a3 3 0 005 2.2M15 10V6a3 3 0 00-5.7-1.3"/><path d="M5 11a7 7 0 0011.5 5.3M19 11a7 7 0 01-.6 2.8M12 18v3M8 21h8"/>',
+    // EDL-VIDEO-IA — état des lieux filmé : filmer, arrêter la prise, recadrer une photo.
+    video:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>',
+    stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',
+    crop:'<path d="M6 2v14a2 2 0 002 2h14"/><path d="M18 22V8a2 2 0 00-2-2H2"/>',
     car:'<path d="M5 11l1.6-4.2A2 2 0 018.5 5.5h7a2 2 0 011.9 1.3L19 11M4 11h16v5H4z"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/>',
     pin:'<path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
     phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 005 5L15 12l5 2v4a2 2 0 01-2 2A16 16 0 013 5a2 2 0 012-2z"/>',
@@ -7188,6 +7192,20 @@ function _pilCollectFamilles(ctx) {
     };
     src.document = _dedupLot(src.document, false);
     src.entretien = _dedupLot(src.entretien, true);
+  } catch (e) {}
+
+  // ── EDL-VIDEO-IA (décision 7) : vidéos d'état des lieux supprimées dans 30 jours ou moins (restitution du
+  //    dépôt + 3 ans) — l'occasion de les garder en cas de litige. Lues sur l'EDL, aucun calcul ici. ──
+  try {
+    if (typeof _edlVideoConservation === 'function') {
+      const refs = new Set(scopeLogs.map(l => l.ref));
+      (DB.edl || []).forEach(rec => {
+        if (!rec || rec._deleted || !refs.has(rec.logement)) return;
+        const c = _edlVideoConservation(rec);
+        if (!c || !c.alerte || src.document.some(x => x.ref === rec.logement)) return;
+        src.document.push({ ref: rec.logement, nom: rec.logement, detail: 'Vidéos d’état des lieux : suppression le ' + (typeof fd === 'function' ? fd(c.alerte.dateFin) : c.alerte.dateFin), urgenceJours: c.alerte.jours });
+      });
+    }
   } catch (e) {}
 
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──

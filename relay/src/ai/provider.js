@@ -2,7 +2,9 @@
 //
 //   const ia = makeAiProvider(env, fetchImpl);
 //   await ia.transcrire({ audio, mime, langue, vocabulaire })  → { text, segments, audioSec, modele }
-//   await ia.structurer({ tache, messages, jsonSchema, input })  → { data, jetonsE, jetonsS, modele }
+//   await ia.structurer({ tache, messages, jsonSchema, input, delaiMs? })  → { data, jetonsE, jetonsS, modele }
+//   (les messages peuvent contenir des images `image_url` : tâche edl-photos, même modèle Mistral Small 4,
+//    entrée texte + image — https://docs.mistral.ai/models/mistral-small-4-0-26-03, relevé le 14/10/2026)
 //
 // Fournisseurs :
 //   - "mistral" : Mistral AI (France, hébergement UE). Transcription Voxtral, structuration Mistral Small
@@ -14,7 +16,7 @@
 // Erreurs : toujours une AiError { code } — 'unavailable' (réseau, délai, 5xx, 429 fournisseur),
 // 'refused' (4xx fournisseur : format non accepté…), 'invalid_output' (réponse illisible). Jamais de
 // contenu (audio, texte) dans le message d'erreur.
-import { FAKE_TRANSCRIPTION, FAKE_TEXTE, fauxEdlPiece } from './fake.js';
+import { FAKE_TRANSCRIPTION, FAKE_TEXTE, fauxEdlPiece, fauxEdlPhotos } from './fake.js';
 
 export class AiError extends Error {
   constructor(code, status) { super(`ai_${code}`); this.code = code; this.status = status || 0; }
@@ -82,7 +84,7 @@ function mistral(env, fetchImpl) {
       const audioSec = Number(u.prompt_audio_seconds) || (segments.length ? Math.ceil(segments[segments.length - 1].end) : 0) || Math.max(1, Math.ceil(octets / 4000));
       return { text: j.text.trim(), segments, audioSec, modele: j.model || mT };
     },
-    async structurer({ tache, messages, jsonSchema }) {
+    async structurer({ tache, messages, jsonSchema, delaiMs: delaiTache }) {
       const body = {
         model: mS,
         temperature: 0,
@@ -91,7 +93,7 @@ function mistral(env, fetchImpl) {
       };
       const j = await appel(fetchImpl, `${base}/v1/chat/completions`, {
         method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      }, delaiMs);
+      }, Math.max(delaiMs, Number(delaiTache) || 0));
       const contenu = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
       let data;
       try { data = typeof contenu === 'string' ? JSON.parse(contenu) : contenu; } catch { throw new AiError('invalid_output'); }
@@ -110,8 +112,8 @@ function fake() {
       return { text: FAKE_TEXTE, segments: FAKE_TRANSCRIPTION.map((s) => ({ ...s })), audioSec: Math.max(1, Math.round(octets / 4000)), modele: 'fake' };
     },
     async structurer({ tache, input }) {
-      if (tache !== 'edl-piece') throw new AiError('refused', 400);
-      const data = fauxEdlPiece(input);
+      if (tache !== 'edl-piece' && tache !== 'edl-photos') throw new AiError('refused', 400);
+      const data = tache === 'edl-photos' ? fauxEdlPhotos(input) : fauxEdlPiece(input);
       return { data, jetonsE: Math.ceil(JSON.stringify(input).length / 4), jetonsS: Math.ceil(JSON.stringify(data).length / 4), modele: 'fake' };
     },
   };
