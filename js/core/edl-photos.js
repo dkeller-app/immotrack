@@ -15,6 +15,8 @@
  */
 
 /** Les 8 emplacements de photos de compteurs (entrée + sortie). */
+import { metaPhotoVideo } from './edl-video.js';
+
 export const EDL_COMPTEUR_PHOTO_KEYS = ['elec', 'gaz', 'eauC', 'eauF', 'elecS', 'gazS', 'eauCS', 'eauFS'];
 
 /* ══ LOT 3 ══════════════════════════════════════════════════════════════════
@@ -69,6 +71,9 @@ export function metaPhoto(ph) {
     synced: !!p.synced,
     driveFileId: p.driveFileId || '',
     driveFileName: p.driveFileName || '',
+    // EDL-VIDEO-IA : photo tirée d'une vidéo — prise, instant (s) et cadre. Preuve indexée : doit
+    // survivre à chaque enregistrement (le PDF cite « vidéo Cuisine à 00:41 »).
+    ...(metaPhotoVideo(p.video) ? { video: metaPhotoVideo(p.video) } : {}),
   };
 }
 

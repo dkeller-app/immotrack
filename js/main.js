@@ -223,6 +223,11 @@ import * as IaFileAttente from './core/ia-file-attente.js';
 import * as AudioCapture from './core/audio-capture.js';
 import * as EdlDictee from './core/edl-dictee.js';
 import * as EdlVoixVues from './core/edl-voix-vues.js';
+// EDL-VIDEO-IA — état des lieux filmé : choix des images, règles et données, vues, envoi reprenable (TUS).
+import * as EdlVideoImages from './core/edl-video-images.js';
+import * as EdlVideo from './core/edl-video.js';
+import * as EdlVideoVues from './core/edl-video-vues.js';
+import * as TusClient from './core/tus-client.js';
 
 // EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
 // installation, Safari purge photos et miroir a 7 jours).
@@ -888,6 +893,10 @@ window.IaFileAttente = IaFileAttente;
 window.AudioCapture = AudioCapture;
 window.EdlDictee = EdlDictee;
 window.EdlVoixVues = EdlVoixVues;
+window.EdlVideoImages = EdlVideoImages;
+window.EdlVideo = EdlVideo;
+window.EdlVideoVues = EdlVideoVues;
+window.TusClient = TusClient;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
 // VISALE-GMBI (docs/CDC-VISALE-GMBI.md)

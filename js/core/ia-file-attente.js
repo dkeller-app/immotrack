@@ -11,6 +11,11 @@
  *   - jamais de blocage de l'EDL : la file tourne en tâche de fond, l'app n'attend rien d'elle.
  *
  * Étapes d'une dictée : 'audio' (à transcrire) → 'texte' (à structurer) → 'pret' (à relire).
+ * ÉTAT DES LIEUX FILMÉ (EDL-VIDEO-IA) : une pièce filmée est une dictée qui porte aussi des IMAGES tirées
+ * de la vidéo (`images` : [{ id, t, data }]) ; après 'texte', l'étape 'images' les fait analyser par lots
+ * de 8 (tâche edl-photos), un lot à la fois, reprise au lot suivant après une coupure. Vidéo éteinte côté
+ * relais (503 → 'disabled') : les photos sont sautées, les propositions de la voix restent. Rien entendu :
+ * les photos sont quand même proposées. La VIDÉO elle-même n'est jamais dans cette file.
  * Une erreur se pose à côté de l'étape ({ code, motif }) ; une erreur « réessayable » (réseau, service,
  * session) est retentée au prochain passage, les autres attendent un geste (Réessayer / Supprimer).
  *
@@ -18,8 +23,23 @@
  * L'audio est stocké en ArrayBuffer + type (les Blob en IndexedDB sont capricieux sur l'ancien Safari).
  */
 import { CODES_REESSAYABLES } from './ia-client.js';
+import { lots, instantCite } from './edl-video-images.js';
+import { entreePhotos, fusionnerPhotos } from './edl-video.js';
 
-export const ETAPES = Object.freeze({ AUDIO: 'audio', TEXTE: 'texte', PRET: 'pret' });
+export const ETAPES = Object.freeze({ AUDIO: 'audio', TEXTE: 'texte', IMAGES: 'images', PRET: 'pret' });
+const RESULTAT_VIDE = () => ({ propositions: [], aAjouter: [], compteurs: [], corrections: [] });
+
+/** Instants où les éléments ont été cités (si la transcription a des segments horodatés) : indices pour le modèle. */
+export function instantsCites(item) {
+  const out = {};
+  const segs = item && item.segments;
+  if (!Array.isArray(segs) || !segs.length) return out;
+  for (const p of ((item.resultat || {}).propositions) || []) {
+    const t = instantCite(segs, p.source);
+    if (t != null) out[String(p.elementId)] = t;
+  }
+  return out;
+}
 export const PURGE_JOURS = 30;
 
 export function storeMemoire() {
@@ -109,19 +129,54 @@ export function creerFileDictees({ store, client, maintenant = () => new Date(),
 
   async function un(item) {
     let x = item;
+    const filmee = Array.isArray(x.images) && x.images.length > 0;
     if (x.etape === ETAPES.AUDIO) {
-      if (!x.audio) return maj(x.id, { erreur: { code: 'vide', le: jour() } });
-      const r = await client.transcrire(blob(x.audio, x.mime), { task: x.task || 'edl-piece', mime: x.mime });
-      if (!r.ok) return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
-      // Rien entendu : l'audio est GARDÉ (« Réessayer » ou « Supprimer », au choix de l'utilisateur).
-      if (!String(r.text || '').trim()) return maj(x.id, { erreur: { code: 'vide', le: jour() } });
-      x = await maj(x.id, { etape: ETAPES.TEXTE, audio: null, texte: r.text, segments: r.segments || [], audioSec: r.audioSec || x.duree || 0, erreur: null, essais: 0 });
-      if (!x) return null;
+      // Pièce filmée sans son exploitable (micro indisponible) : directement aux photos.
+      if (!x.audio && filmee) {
+        x = await maj(x.id, { etape: ETAPES.IMAGES, texte: '', resultat: RESULTAT_VIDE(), erreur: null, essais: 0 });
+        if (!x) return null;
+      } else {
+        if (!x.audio) return maj(x.id, { erreur: { code: 'vide', le: jour() } });
+        const r = await client.transcrire(blob(x.audio, x.mime), { task: x.task || 'edl-piece', mime: x.mime });
+        if (!r.ok) return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
+        if (!String(r.text || '').trim()) {
+          // Rien entendu : dictée seule → l'audio est GARDÉ (« Réessayer » ou « Supprimer ») ;
+          // pièce filmée → les photos sont proposées quand même (l'image ne dépend pas de la voix).
+          if (!filmee) return maj(x.id, { erreur: { code: 'vide', le: jour() } });
+          x = await maj(x.id, { etape: ETAPES.IMAGES, audio: null, texte: '', segments: [], resultat: RESULTAT_VIDE(), erreur: null, essais: 0 });
+          if (!x) return null;
+        } else {
+          x = await maj(x.id, { etape: ETAPES.TEXTE, audio: null, texte: r.text, segments: r.segments || [], audioSec: r.audioSec || x.duree || 0, erreur: null, essais: 0 });
+          if (!x) return null;
+        }
+      }
     }
     if (x.etape === ETAPES.TEXTE) {
       const r = await client.structurer(x.task || 'edl-piece', { ...(x.entree || {}), texte: x.texte });
       if (!r.ok) return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
-      x = await maj(x.id, (c) => ({ etape: ETAPES.PRET, resultat: r.data, rejets: r.rejets || 0, modele: r.modele || '', erreur: null, essais: 0, decisions: c.decisions || {} }));
+      x = await maj(x.id, (c) => ({ etape: filmee ? ETAPES.IMAGES : ETAPES.PRET, resultat: r.data, rejets: r.rejets || 0, modele: r.modele || '', erreur: null, essais: 0, decisions: c.decisions || {} }));
+      if (!x) return null;
+    }
+    if (x.etape === ETAPES.IMAGES) {
+      const paquets = lots(x.images || [], 8);
+      const e = x.entree || {};
+      const cites = instantsCites(x);
+      let faits = Number(x.lotsFaits) || 0;
+      while (faits < paquets.length) {
+        const input = entreePhotos({ piece: e.piece, sortie: e.mode === 'sortie', elements: e.elements || [], images: paquets[faits], citeVers: cites });
+        const r = await client.structurer('edl-photos', input);
+        if (!r.ok) {
+          // Vidéo éteinte côté relais : les propositions de la voix restent, sans photos (jamais bloquant).
+          if (r.code === 'disabled') {
+            return maj(x.id, (c) => ({ etape: ETAPES.PRET, photos: fusionnerPhotos(c.resultatsPhotos || []), photosIndisponibles: 'disabled', erreur: null, essais: 0, decisions: c.decisions || {} }));
+          }
+          return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
+        }
+        faits++;
+        x = await maj(x.id, (c) => ({ resultatsPhotos: [...(c.resultatsPhotos || []), r.data], lotsFaits: faits, modeleImages: r.modele || c.modeleImages || '', erreur: null, essais: 0 }));
+        if (!x) return null;
+      }
+      x = await maj(x.id, (c) => ({ etape: ETAPES.PRET, photos: fusionnerPhotos(c.resultatsPhotos || []), erreur: null, essais: 0, decisions: c.decisions || {} }));
     }
     return x;
   }
@@ -136,11 +191,14 @@ export function creerFileDictees({ store, client, maintenant = () => new Date(),
 
   const api = {
     /** Ajoute une dictée (audio = ArrayBuffer). Renvoie l'élément créé. */
-    ajouter({ audio, mime, duree = 0, task = 'edl-piece', cible = 'piece', entree, contexte = {} }) {
+    ajouter({ audio, mime, duree = 0, task = 'edl-piece', cible = 'piece', entree, contexte = {}, images = null, video = null }) {
       const x = {
         id: idAleatoire(), cree: maintenant().toISOString(), task, cible,
         audio: audio || null, mime: String(mime || 'audio/webm'), duree: Math.round(duree), taille: audio ? audio.byteLength : 0,
         entree: entree || null, contexte, etape: ETAPES.AUDIO, erreur: null, essais: 0, decisions: {},
+        // Pièce filmée : images tirées sur l'appareil (data URL ≤ 768 px) et référence de la prise vidéo.
+        ...(Array.isArray(images) && images.length ? { images: images.map((im) => ({ id: String(im.id), t: Number(im.t) || 0, data: im.data, ...(im.flou ? { flou: true } : {}) })), lotsFaits: 0, resultatsPhotos: [] } : {}),
+        ...(video ? { video } : {}),
       };
       return serie(async () => { await store.put(x); notifier(x); return x; });
     },
