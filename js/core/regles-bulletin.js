@@ -24,6 +24,8 @@ export const CHAMPS_CONTRAT = Object.freeze([['salarie', 'Salarié'], ['employeu
 export const NUMERIQUES = Object.freeze(['brut', 'netSocial', 'netAvantImpot', 'impotBase', 'impotTaux', 'impotMontant', 'netAPayer', 'netImposable', 'cumulNetImposable']);
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+/** « de août 2026 » → « d'août 2026 » (élision devant une voyelle). */
+export const dePeriode = (p) => { const l = libellePeriode(p); return /^[aeiouéè]/i.test(l) ? 'd\'' + l : 'de ' + l; };
 export const libellePeriode = (p) => { const m = /^(\d{4})-(\d{2})$/.exec(String(p || '')); return m ? `${MOIS[+m[2] - 1]} ${m[1]}` : ''; };
 export const euros = (n) => (typeof n === 'number' && isFinite(n) ? n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/ /g, ' ') + ' €' : '—');
 const fdate = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; };
@@ -146,8 +148,8 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui 
       const ca = nombre(A.v.cumulNetImposable), cb = nombre(B.v.cumulNetImposable), nb = nombre(B.v.netImposable);
       if (ca != null && cb != null && nb != null) {
         const attendu = arrondi(ca + nb), ecart = arrondi(cb - attendu), ok = Math.abs(ecart) <= TOLERANCES.cumul;
-        B.e.regles.push({ code: 'B4', ok, titre: ok ? `Cumul net imposable dans la continuité de ${libellePeriode(A.v.periode)}.` : `Le cumul net imposable ne prolonge pas celui de ${libellePeriode(A.v.periode)}.`, detail: `${euros(ca)} + ${euros(nb)} = ${euros(attendu)} ; cumul imprimé : ${euros(cb)}${ok ? '' : ` ; écart : ${euros(Math.abs(ecart))}`}.`, source: SOURCES.arrete });
-        if (!ok) ajouter(B.e, { code: 'B4', icone: 'calc', titre: `Bulletin ${libellePeriode(B.v.periode)} : le cumul net imposable ne prolonge pas celui du bulletin de ${libellePeriode(A.v.periode)}.`, detail: `Cumul de ${libellePeriode(A.v.periode)} ${euros(ca)} + net imposable ${euros(nb)} = ${euros(attendu)} ; cumul imprimé ${euros(cb)}. Écart : ${euros(Math.abs(ecart))}.`, source: SOURCES.arrete.libelle + ', cumul annuel', url: SOURCES.arrete.url, ia: true, pieceId: B.p.id });
+        B.e.regles.push({ code: 'B4', ok, titre: ok ? `Cumul net imposable dans la continuité ${dePeriode(A.v.periode)}.` : `Le cumul net imposable ne prolonge pas celui ${dePeriode(A.v.periode)}.`, detail: `${euros(ca)} + ${euros(nb)} = ${euros(attendu)} ; cumul imprimé : ${euros(cb)}${ok ? '' : ` ; écart : ${euros(Math.abs(ecart))}`}.`, source: SOURCES.arrete });
+        if (!ok) ajouter(B.e, { code: 'B4', icone: 'calc', titre: `Bulletin ${libellePeriode(B.v.periode)} : le cumul net imposable ne prolonge pas celui du bulletin ${dePeriode(A.v.periode)}.`, detail: `Cumul ${dePeriode(A.v.periode)} ${euros(ca)} + net imposable ${euros(nb)} = ${euros(attendu)} ; cumul imprimé ${euros(cb)}. Écart : ${euros(Math.abs(ecart))}.`, source: SOURCES.arrete.libelle + ', cumul annuel', url: SOURCES.arrete.url, ia: true, pieceId: B.p.id });
       }
     }
   }

@@ -9492,7 +9492,7 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   #ov-verif-piece .m-foot{display:grid;grid-template-columns:1fr;gap:8px}
   #ov-verif-piece .m-foot .btn{width:100%;min-height:46px;justify-content:center;white-space:normal;text-align:center}
   #ov-verif-piece .m-foot .btn.bp{order:-1}
-  .vp-refs .btn,.vp-tbl .btn,.cand-ia-lot .btn{min-height:44px}
+  .vp-refs .btn,.vp-tbl .btn,.cand-ia-lot .btn,#vp-body .btn{min-height:44px}
   .cand-ia-lot .btn{width:100%;justify-content:center}
   .cand-ia-champs{grid-template-columns:1fr}
   .cand-ia-champs .inp{font-size:16px;min-height:44px}

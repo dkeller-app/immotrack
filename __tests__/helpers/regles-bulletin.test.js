@@ -47,8 +47,8 @@ describe('analyse du dossier', () => {
   it('scénario D : net à payer et cumul incohérents → constats sourcés, état « Écart relevé » sur les pièces concernées', () => {
     const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 }), piece('s', { ...SEPT, cumulNetImposable: 17905.2 })], identite: ID, recuLe: '2026-10-11' });
     expect(a.constats.map((c) => [c.code, c.pieceId])).toEqual([['B1', 'a'], ['B4', 's']]);
-    expect(a.constats[1].titre).toBe('Bulletin septembre 2026 : le cumul net imposable ne prolonge pas celui du bulletin de août 2026.');
-    expect(a.constats[1].detail).toBe('Cumul de août 2026 15 610,40 € + net imposable 2 312,60 € = 17 923,00 € ; cumul imprimé 17 905,20 €. Écart : 17,80 €.');
+    expect(a.constats[1].titre).toBe('Bulletin septembre 2026 : le cumul net imposable ne prolonge pas celui du bulletin d\'août 2026.');
+    expect(a.constats[1].detail).toBe('Cumul d\'août 2026 15 610,40 € + net imposable 2 312,60 € = 17 923,00 € ; cumul imprimé 17 905,20 €. Écart : 17,80 €.');
     expect(a.parPiece.a.etat).toBe('ecart'); expect(a.parPiece.s.etat).toBe('ecart');
   });
   it('identité et SIRET : nom différent, SIRET différent (SIREN déclaré comparé au SIREN lu)', () => {
