@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://recherche-entreprises.api.gouv.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.738</title>
+<title>Propryo v15.739</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -59,7 +59,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.738">
+<link rel="stylesheet" href="css/main.css?v=15.739">
 <link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7bb6198f">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
@@ -283,7 +283,7 @@ if(f)f.onsubmit=function(e){e.preventDefault();ov._pendingSubmit=true;var b=docu
 try{if(localStorage.getItem('immo-supabase-auth')||sessionStorage.getItem('immo-supabase-auth')){ov.classList.add('imsb-restoring');setTimeout(function(){ov.classList.remove('imsb-restoring')},15000)}}catch(e){}
 /* Un script de l'app n'a pas pu se charger (réseau mobile…) : un seul rechargement automatique, puis message. */
 window.__immoPartFail=function(n){try{if(!sessionStorage.getItem('imsb-part-reload')){sessionStorage.setItem('imsb-part-reload','1');location.reload();return}}catch(e){}
-ov.classList.remove('imsb-restoring');var er=document.getElementById('imsb-error');if(er){er.style.display='block';er.textContent="Chargement incomplet de l'application ("+n+"). V\u00e9rifie ta connexion puis recharge la page."}
+ov.classList.remove('imsb-restoring');var er=document.getElementById('imsb-error');if(er){er.style.display='block';er.textContent="Chargement incomplet de l'application ("+n+"). V\u00e9rifier la connexion puis recharger la page."}
 var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textContent='Se connecter'}};
 })();
 </script>
@@ -296,7 +296,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.738</em>
+      <em>v15.739</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -617,9 +617,9 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
            lit le fichier, montre ce qu'il a compris et laisse tout corriger avant d'importer. -->
       <div class="mu sm" style="padding:14px 16px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);line-height:1.6">
         <b>🏦 Les relevés bancaires s'importent depuis « Loyers &amp; Mouvements »</b><br>
-        Le bouton <b>🏦 Importer banque</b> y lit ton relevé (OFX ou Excel), te montre ce qu'il a compris
+        Le bouton <b>🏦 Importer banque</b> y lit le relevé (OFX ou Excel), montre ce qu'il a compris
         (colonnes retenues, contrôle du solde, lignes écartées et pourquoi), détecte les doublons et
-        te laisse tout corriger avant d'enregistrer quoi que ce soit.
+        laisse tout corriger avant d'enregistrer quoi que ce soit.
         <div style="margin-top:10px"><button class="btn bp" onclick="go('mouvements');_bankImportOpen()">🏦 Importer un relevé bancaire</button></div>
       </div>
     </div>
@@ -720,7 +720,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="flex-b mb16" style="flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="margin:0">Candidats</h2>
-          <div class="mu sm" style="margin-top:2px">Pré-sélection des locataires — triez les dossiers avant de créer un bail</div>
+          <div class="mu sm" style="margin-top:2px">Pré-sélection des locataires — trier les dossiers avant de créer un bail</div>
         </div>
         <div class="flex-c" style="gap:8px;flex-wrap:wrap">
           <button class="btn bs" onclick="_relayPullCandidatures()" title="Vérifier et rapatrier les dossiers déposés via les liens en ligne"><svg class="uic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Actualiser les dépôts</button>
@@ -1203,12 +1203,12 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
              profit d'une personnalisation « sans code ». Le corps juridique reste auto-généré
              par buildBailStructure (source unique) ; l'export Word garde BAIL_TEMPLATE_DEFAULT. -->
         <div class="ct" style="margin-bottom:2px">Bail</div>
-        <div class="mu sm mb16">Une seule chose à régler ici : tes clauses particulières par défaut. Tout le reste du bail est généré automatiquement et garanti conforme.</div>
+        <div class="mu sm mb16">Une seule chose à régler ici : les clauses particulières par défaut. Tout le reste du bail est généré automatiquement et garanti conforme.</div>
 
         <!-- Clauses particulières par défaut (câblées : pré-remplissent b-notes des nouveaux baux) -->
         <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
           <div style="font-weight:700;color:var(--acc);margin-bottom:4px"><span data-uic="edit"></span> Clauses particulières par défaut</div>
-          <div class="mu sm mb8">Votre texte, ajouté dans une section « Conditions particulières » de chaque <b>nouveau</b> bail — modifiable ensuite bail par bail. N'affecte jamais le corps légal.</div>
+          <div class="mu sm mb8">Texte ajouté dans une section « Conditions particulières » de chaque <b>nouveau</b> bail — modifiable ensuite bail par bail. N'affecte jamais le corps légal.</div>
           <textarea class="inp" id="param-bail-notes-default" rows="4" style="width:100%" placeholder="Ex : Le locataire s'engage à souscrire une assurance habitation et à en fournir l'attestation chaque année."></textarea>
           <div style="margin-top:10px"><button class="btn bp bb" onclick="saveBailNotesDefault()"><span data-uic="save"></span> Enregistrer</button></div>
         </div>
@@ -1381,8 +1381,8 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         </div>
         <div class="card">
           <div class="ct">🔗 Relais candidatures</div>
-          <div class="mu sm mb8">Envoie à un candidat un lien sécurisé pour déposer son dossier en ligne (sans compte). Données chiffrées hébergées temporairement chez Cloudflare (sous-traitant RGPD), purgées dès rapatriement dans l'app. Voir <a href="docs/legal/RGPD-REGISTRE.md" target="_blank" rel="noopener">RGPD-REGISTRE.md</a>.</div>
-          <div class="alert info mb8">✓ Utilise la <b>même configuration que le relais de signature</b> (même worker Cloudflare, même clé APP_KEY). Rien à saisir ici — configure-le une seule fois dans <b>Paramètres → 📨 Signature à distance — Relais</b>.</div>
+          <div class="mu sm mb8">Envoi à un candidat d'un lien sécurisé pour déposer son dossier en ligne (sans compte). Données chiffrées hébergées temporairement chez Cloudflare (sous-traitant RGPD), purgées dès rapatriement dans l'app. Voir <a href="docs/legal/RGPD-REGISTRE.md" target="_blank" rel="noopener">RGPD-REGISTRE.md</a>.</div>
+          <div class="alert info mb8">✓ <b>Même configuration que le relais de signature</b> (même worker Cloudflare, même clé APP_KEY). Rien à saisir ici — à configurer une seule fois dans <b>Paramètres → 📨 Signature à distance — Relais</b>.</div>
           <div class="mb8"><button class="btn bs" onclick="testRelayCfg()">🔌 Tester la connexion</button></div>
           <div id="relay-status" class="mu sm mt8"></div>
         </div>
@@ -1443,7 +1443,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         </div>
         <div class="card" id="exp-card-2044">
           <div class="ct">📋 Aide déclaration 2044 (v14.90)</div>
-          <div class="mu sm mb8">Calcule le résultat foncier de l'année (recettes - charges - intérêts) avec mapping automatique des catégories vers les lignes 2044. Aide au remplissage uniquement — pas un substitut au conseil de votre expert-comptable.</div>
+          <div class="mu sm mb8">Calcul du résultat foncier de l'année (recettes - charges - intérêts) avec mapping automatique des catégories vers les lignes 2044. Aide au remplissage uniquement — pas un substitut au conseil de l'expert-comptable.</div>
           <div class="mb8">
             <label for="legal-2044-year" class="mu sm">Année :</label>
             <select id="legal-2044-year" class="inp" style="width:auto;display:inline-block;margin-left:8px"></select>
@@ -1608,7 +1608,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     </div>
     <div class="fg"><label>Libellé *</label><input class="inp" id="mv-lib" placeholder="Description du mouvement"></div>
     <!-- V3-REFONTE-LOYERS B : affectation pilotée par la catégorie (bloc réutilisable _affZone). Les anciens champs restent (cachés) → saveMv inchangé. -->
-    <div class="fg"><label>Affectation — <span class="mu sm">où ça va ? (la catégorie propose, tu peux changer)</span></label><div id="mv-aff"></div></div>
+    <div class="fg"><label>Affectation — <span class="mu sm">où ça va ? (proposée par la catégorie, modifiable)</span></label><div id="mv-aff"></div></div>
     <div class="fg2" style="display:none">
       <div class="fg"><label>Immeuble</label><input class="inp" id="mv-imm" placeholder="ex: Freyming" list="mv-imm-list" oninput="_mvSyncCcSelect()" onchange="_mvSyncCcSelect()"><datalist id="mv-imm-list"></datalist></div>
       <div class="fg"><label>Qui (logement/entité)</label><select class="inp" id="mv-qui" onchange="_mvEnforceExclusivity()"></select></div>
@@ -1671,7 +1671,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     </div>
     <div class="fc-pane" data-p="0">
       <div class="fg"><label>Total des intérêts d'emprunt payés (exercice) €</label><input class="inp" type="number" step="0.01" id="fc-int" placeholder="ex. 6651"></div>
-      <div class="mu sm">💡 C'est ce qu'on te redemandera pour la 2044. Le bouton crée le mouvement « Prêt — Intérêts d'emprunt » que tu vérifies et enregistres (intérêts + frais d'emprunt : dossier, hypothèque, cautionnement, agios, assurance emprunteur).</div>
+      <div class="mu sm">💡 C'est ce qui sera demandé pour la 2044. Le bouton crée le mouvement « Prêt — Intérêts d'emprunt », à vérifier puis à enregistrer (intérêts + frais d'emprunt : dossier, hypothèque, cautionnement, agios, assurance emprunteur).</div>
     </div>
     <div class="fc-pane" data-p="1" style="display:none">
       <div class="fg"><label>Bien / prêt</label><input class="inp" id="fc-bien" placeholder="ex. Appartement Victor Hugo"></div>
@@ -1683,11 +1683,11 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         <div class="fg"><label>Durée (ans)</label><input class="inp" type="number" id="fc-duree" oninput="_finCreditCalc()" placeholder="20"></div>
         <div class="fg"><label>Date de début</label><input class="inp" type="date" id="fc-debut" oninput="_finCreditCalc()"></div>
       </div>
-      <div id="fc-preview" class="mu sm" style="background:var(--sur2);border-radius:8px;padding:10px 12px;margin-top:4px">Renseigne le prêt pour voir tes intérêts déductibles de l'exercice.</div>
-      <div class="mu sm" style="margin-top:6px">💡 On crée le mouvement <b>intérêts</b> (déductibles 2044). Le <b>capital amorti</b> est affiché pour info — il est déjà dans ta mensualité de prêt, on ne le re-crée pas (sinon il serait compté deux fois). Plusieurs prêts → répète l'opération.</div>
+      <div id="fc-preview" class="mu sm" style="background:var(--sur2);border-radius:8px;padding:10px 12px;margin-top:4px">Renseigner le prêt pour voir les intérêts déductibles de l'exercice.</div>
+      <div class="mu sm" style="margin-top:6px">💡 On crée le mouvement <b>intérêts</b> (déductibles 2044). Le <b>capital amorti</b> est affiché pour info — il est déjà dans la mensualité de prêt, on ne le re-crée pas (sinon il serait compté deux fois). Plusieurs prêts → répéter l'opération.</div>
     </div>
     <div class="fc-pane" data-p="2" style="display:none">
-      <div class="mu sm">📄 Import du tableau d'amortissement (PDF / Excel / CSV) — <b>à venir</b>. En attendant, utilise « Calculer depuis le prêt » ou « Saisir le montant ».</div>
+      <div class="mu sm">📄 Import du tableau d'amortissement (PDF / Excel / CSV) — <b>à venir</b>. En attendant, utiliser « Calculer depuis le prêt » ou « Saisir le montant ».</div>
     </div>
   </div>
   <div class="m-foot">
@@ -1775,7 +1775,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         <label>Entité propriétaire *</label><select class="inp" id="b-entity" onchange="autoFinBail(); renderBailSignataires(); _bIrlMoisDepuisBailleur()"></select>
       </div>
       <div class="fg" id="b-signataires-wrap" style="display:none">
-        <label>Signataires du bail <span style="color:var(--t3);font-weight:normal;font-size:11px">— cochez le(s) co-gérant(s) qui signera/signeront</span></label>
+        <label>Signataires du bail <span style="color:var(--t3);font-weight:normal;font-size:11px">— cocher le(s) co-gérant(s) qui signera/signeront</span></label>
         <div id="b-signataires-list" style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px"></div>
       </div>
       <div class="fg2">
@@ -1980,7 +1980,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
            v15.249 B7 (D-B13) — affordance « 🏛 hérité du bien » + lien fiche du bien. -->
       <div class="logmod-info-banner" style="margin-bottom:14px">
         <b><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V4h16v17"/><path d="M8 8h2M14 8h2M8 12h2M14 12h2M8 16h2M14 16h2"/></svg> Caractéristiques héritées du bien — lecture seule.</b><br>
-        Adresse, surface, DPE, ERP, chauffage, équipements, mobilier (meublé)… toutes ces données sont centralisées sur le bien et reprises automatiquement ici. Modifiez-les depuis l'onglet <b>Biens</b> (ou la fiche 360°) pour qu'elles s'appliquent à tous les baux successifs. Pour un bail signé, ces valeurs sont figées (immutabilité légale).
+        Adresse, surface, DPE, ERP, chauffage, équipements, mobilier (meublé)… toutes ces données sont centralisées sur le bien et reprises automatiquement ici. Les modifier depuis l'onglet <b>Biens</b> (ou la fiche 360°) pour qu'elles s'appliquent à tous les baux successifs. Pour un bail signé, ces valeurs sont figées (immutabilité légale).
         <button class="btn bs bb" type="button" style="margin-top:8px" onclick="_openBienFromBailWizard()"><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Modifier le bien dans sa fiche</button>
       </div>
       <div class="fg"><label>Adresse du bien</label><input class="inp" id="b-adrBien"></div>
@@ -2009,7 +2009,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg"><label>Parties communes</label><input class="inp" id="b-partiesCommunes" placeholder="Cave, grenier, parking..."></div>
       <div class="fg2">
         <div class="fg">
-          <label>Chauffage <span class="mu sm">(cochez tout ce qui équipe le logement)</span></label>
+          <label>Chauffage <span class="mu sm">(cocher tout ce qui équipe le logement)</span></label>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:4px 10px;margin-top:4px;font-size:13px">
             <label class="flex-c" style="gap:4px"><input type="checkbox" id="b-chauff-elec"> Électrique (convecteurs)</label>
             <label class="flex-c" style="gap:4px"><input type="checkbox" id="b-chauff-gaz"> Chaudière gaz</label>
@@ -2145,7 +2145,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <hr style="border:none;border-top:1px solid var(--bor);margin:6px 0 14px">
       <div class="logmod-info-banner" style="margin-bottom:14px">
         <b><svg class="uic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l4 4v16H6z"/><path d="M15 2v5h5M9 13h6M9 17h6"/></svg> Diagnostics hérités du bien — lecture seule.</b><br>
-        DPE, GES, plomb, amiante, électricité, gaz, bruit, ERP sont repris automatiquement du bien (modifiez-les depuis sa fiche). La <b>date</b> et la <b>société</b> du diagnostic restent éditables (propres à ce bail). Pour un bail signé, ces valeurs sont figées (immutabilité légale).
+        DPE, GES, plomb, amiante, électricité, gaz, bruit, ERP sont repris automatiquement du bien (modifiables depuis sa fiche). La <b>date</b> et la <b>société</b> du diagnostic restent éditables (propres à ce bail). Pour un bail signé, ces valeurs sont figées (immutabilité légale).
       </div>
       <div class="fg2">
         <div class="fg"><label title="Diagnostic de Performance Énergétique — note de A (très performant) à G (très énergivore), obligatoire dans le bail">Classe DPE</label><select class="inp" id="b-dpe"><option value="">-</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
@@ -2292,7 +2292,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     </div>
     <!-- TRAVAUX : QUI PAIE ? — numéro d'assistance de l'assurance habitation du locataire (« Qui appeler »). -->
     <div class="fg"><label for="mrh-tel">Numéro d'assistance <span class="mu sm">(facultatif)</span></label><input class="inp" id="mrh-tel" inputmode="tel" placeholder="Figure sur l'attestation d'assurance"></div>
-    <div class="fg"><label>Échéance de l'attestation</label><input class="inp" type="date" id="mrh-ech"><div class="mu sm" style="font-size:11px;margin-top:3px">Sert à vous rappeler de réclamer la nouvelle attestation au locataire.</div></div>
+    <div class="fg"><label>Échéance de l'attestation</label><input class="inp" type="date" id="mrh-ech"><div class="mu sm" style="font-size:11px;margin-top:3px">Sert à rappeler de réclamer la nouvelle attestation au locataire.</div></div>
     <div class="fg"><label>Notes</label><textarea class="inp" id="mrh-notes" rows="2" placeholder="(optionnel)"></textarea></div>
     <input type="hidden" id="mrh-edit-id">
     <input type="hidden" id="mrh-loc"><!-- locataire déduit du logement à l'enregistrement -->
@@ -2657,7 +2657,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <div class="fg"><label>Étage</label><input class="inp" id="log-etage" placeholder="RDC, 1er..."></div>
         <div class="fg"><label>N° appartement <span style="font-size:10.5px;color:var(--t2);font-weight:400">(localisation dans l'immeuble)</span></label><input class="inp" id="log-numApt" placeholder="ex: 3B, 12, Lot 5"></div>
       </div>
-      <div class="fg"><label>Adresse — override <span style="font-size:10.5px;color:var(--t2);font-weight:400">(laissez vide pour hériter de l'immeuble — cas rare : bâtiment à entrées multiples)</span></label><input class="inp" id="log-adr" placeholder="Vide = hérite de l'immeuble"></div>
+      <div class="fg"><label>Adresse — override <span style="font-size:10.5px;color:var(--t2);font-weight:400">(laisser vide pour hériter de l'immeuble — cas rare : bâtiment à entrées multiples)</span></label><input class="inp" id="log-adr" placeholder="Vide = hérite de l'immeuble"></div>
 
       <!-- BIENS étape 4 — ex-onglet Description : fiscalité et charges communes remontent en Identité
            (mockup s4-modale). Ids inchangés. N° lot copro : le champ historique log-lot est CONSERVÉ
@@ -2745,7 +2745,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
            affichés en lecture seule dans l'encart « 🏛 Hérité » (onglet Identité). _logRefreshInherited()
            bascule l'affichage entre #logmod-bati-own et la note ci-dessous — pilotage par id, inchangé. -->
       <div id="logmod-bati-own" style="display:none">
-        <div class="mu sm" style="margin:0 0 6px">🏠 Logement autonome — renseigne ici le bâti (pas d'immeuble lié).</div>
+        <div class="mu sm" style="margin:0 0 6px">🏠 Logement autonome — renseigner ici le bâti (pas d'immeuble lié).</div>
         <div class="fg2">
           <div class="fg">
             <label>Type d'habitat</label>
@@ -2784,7 +2784,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
            clause de bail « Désignation des pièces » et la structure de départ de chaque état des lieux.
            Vocabulaire : EDL_TPL / EDL_EXTRA VERBATIM (js/core/biens-pieces.js dérive le kit à l'exécution,
            il n'écrit aucun libellé — un écart de nom dédoublerait la ligne dans l'EDL). -->
-      <div class="logmod-section-title">🧩 Pièces du logement <span class="mu sm">(kit de démarrage — ajoutez / retirez librement)</span></div>
+      <div class="logmod-section-title">🧩 Pièces du logement <span class="mu sm">(kit de démarrage — ajout et retrait libres)</span></div>
       <div class="mu sm" style="font-size:11px;color:var(--t3);margin:0 0 8px">
         Les noms de pièces et d'éléments sont ceux de l'état des lieux, repris à l'identique : un seul vocabulaire, donc la reprise se fait sans traduction. Décocher un élément le retire de l'EDL de départ.
       </div>
@@ -2970,7 +2970,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div id="log-mobilier-section" style="display:none">
         <div class="logmod-section-title">🛋 Inventaire mobilier <span class="mu sm">(annexe obligatoire bail meublé — loi 89-462 art. 25-1)</span></div>
         <div class="logmod-info-banner">
-          Listez les meubles et équipements présents dans le logement, par pièce. Cet inventaire sert d'annexe à l'EDL d'entrée et au bail meublé.
+          Lister les meubles et équipements présents dans le logement, par pièce. Cet inventaire sert d'annexe à l'EDL d'entrée et au bail meublé.
         </div>
         <div id="log-mobilier-list" style="display:flex;flex-direction:column;gap:8px"></div>
         <button class="btn bs bb" type="button" onclick="_logMobilierAddRow()" style="margin-top:8px">+ Ajouter un meuble</button>
@@ -3300,7 +3300,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div class="m-head">
     <div>
       <h3 style="margin:0">📜 Importer un acte de vente</h3>
-      <div class="mu sm" style="margin-top:2px">Crée bailleur, immeuble et logements à partir de l'acte notarié — tout « ✨ à vérifier ».</div>
+      <div class="mu sm" style="margin-top:2px">Création du bailleur, de l'immeuble et des logements à partir de l'acte notarié — tout « ✨ à vérifier ».</div>
     </div>
     <button class="m-close" onclick="closeM('ov-acte')">✕</button>
   </div>
@@ -3315,11 +3315,11 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <div class="acte-step act" data-step="depot">
       <div class="acte-drop" id="acte-drop" onclick="el('acte-file').click()">
         <div class="ic">📄⤵</div>
-        <h4>Dépose l'acte de vente ici</h4>
+        <h4>Déposer l'acte de vente ici</h4>
         <p>ou clique pour choisir un fichier — PDF uniquement</p>
       </div>
       <input type="file" id="acte-file" accept="application/pdf,.pdf" style="display:none" onchange="_acteOnFile(this)">
-      <div class="acte-rgpd">🔒 <b>L'acte reste sur ton appareil.</b> La lecture se fait dans le navigateur (pdf.js), aucun envoi vers un serveur.</div>
+      <div class="acte-rgpd">🔒 <b>L'acte reste sur cet appareil.</b> La lecture se fait dans le navigateur (pdf.js), aucun envoi vers un serveur.</div>
       <div class="acte-foot-note">Astuce : une copie notariale PDF « texte » donne les meilleurs résultats. Un PDF scanné (image) ne pourra pas être lu → saisie manuelle.</div>
     </div>
 
@@ -3353,7 +3353,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 
   </div>
   <div class="m-foot acte-foot" id="acte-foot">
-    <span class="acte-hint" id="acte-hint">Dépose ou choisis l'acte PDF.</span>
+    <span class="acte-hint" id="acte-hint">Déposer ou choisir l'acte PDF.</span>
     <div style="display:flex;gap:8px">
       <button class="btn bs" id="acte-back" onclick="_actePrevStep()" style="display:none">‹ Retour</button>
       <button class="btn bp" id="acte-next" onclick="_acteNextStep()" style="display:none">Continuer ›</button>
@@ -3609,10 +3609,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     </div>
     <!-- v15.92 EM-5 EMAIL-FROM-PAR-ENTITE — adresse d'envoi des emails depuis cette entité -->
     <div class="fg">
-      <label>📤 Email d'envoi (optionnel) <span style="color:#888;font-weight:normal;font-size:11px" title="Adresse à utiliser comme expéditeur (From) des emails envoyés depuis cette entité. Doit être configurée en alias dans votre Gmail (Compte → 'Envoyer des e-mails en tant que'). Si vide : votre Gmail principal sera utilisé.">— alias Gmail configuré</span></label>
+      <label>📤 Email d'envoi (optionnel) <span style="color:#888;font-weight:normal;font-size:11px" title="Adresse à utiliser comme expéditeur (From) des emails envoyés depuis cette entité. Doit être configurée en alias dans le compte Gmail (Compte → 'Envoyer des e-mails en tant que'). Si vide : le Gmail principal sera utilisé.">— alias Gmail configuré</span></label>
       <input class="inp" type="email" id="ent-email-envoi" placeholder="gestion@sci-xxx.fr (alias Gmail send-as)">
       <div class="mu sm" style="margin-top:4px;font-size:11.5px">
-        Procédure : Gmail → ⚙ Paramètres → <b>Comptes et importation</b> → <b>Envoyer des e-mails en tant que</b> → <b>Ajouter une autre adresse</b>. Une fois validée par Gmail (code de vérification), saisissez-la ici pour que vos mails partent depuis cette adresse au lieu de votre Gmail perso.
+        Procédure : Gmail → ⚙ Paramètres → <b>Comptes et importation</b> → <b>Envoyer des e-mails en tant que</b> → <b>Ajouter une autre adresse</b>. Une fois validée par Gmail (code de vérification), la saisir ici pour que les mails partent depuis cette adresse au lieu du Gmail perso.
       </div>
     </div>
     <!-- Section signature -->
@@ -3661,7 +3661,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
          La gestion des immeubles se fait depuis la fiche bailleur 360° (bouton + Immeuble + menu ⋮ sur chaque carte).
          Principe utilisateur : « 1 création = 1 bulle » → la modale entité ne contient QUE les champs entité. -->
     <div id="ent-imm-info" class="mu sm" style="margin-top:16px;padding:10px 12px;background:var(--sur2);border-left:3px solid var(--acc);border-radius:4px;font-size:12px;color:var(--t2);display:none">
-      💡 Pour gérer les immeubles de ce bailleur, ouvrez sa fiche bailleur (« 📋 Voir détails » dans la liste Biens).
+      💡 Pour gérer les immeubles de ce bailleur, ouvrir sa fiche bailleur (« 📋 Voir détails » dans la liste Biens).
     </div>
     <input type="hidden" id="ent-edit-id">
   </div>
@@ -4546,15 +4546,15 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- IMPORT BANCAIRE — mirror généré depuis js/core/bank-import.js.
      Remplace la RÉPLIQUE INLINE des helpers _bank* qui vivait dans ce fichier
      (bug 3 du CDC-IMPORT : moteur en double, divergence garantie à terme). -->
-<script src="js/helpers/bank-import.global.js?v=a5d8725d" defer></script>
+<script src="js/helpers/bank-import.global.js?v=3d616fa5" defer></script>
 <!-- DÉLAI DE RESTITUTION DU DG (art. 22) — mirror généré depuis js/core/dg-delai.js : window.DgDelai. -->
 <script src="js/helpers/dg-delai.global.js?v=dea32378" defer></script>
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=01840a27" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=e50c6290" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=290116da" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part1.js?v=7eac8c6f" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=565ec04d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=a9753314" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">
@@ -4772,8 +4772,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     </div>
     <div class="m-body" style="font-size:13px">
       <div class="mu sm" style="margin-bottom:10px;line-height:1.55">
-        <b>L'app propose. Tu valides. Si tu veux que ce soit automatique, tu en fais une règle.</b><br>
-        Propryo ne livre aucune règle : ce sont tes données. Une mise à jour ne peut jamais en créer, en modifier ou en supprimer une.
+        <b>L'app propose, la validation reste manuelle. Pour automatiser, il suffit d'en faire une règle.</b><br>
+        Propryo ne livre aucune règle : ce sont des données propres au compte. Une mise à jour ne peut jamais en créer, en modifier ou en supprimer une.
       </div>
       <div id="import-rules-list-modal"></div>
     </div>
@@ -4875,12 +4875,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     </div>
     <div class="m-body" style="font-size:13px;line-height:1.55">
       <p style="margin:2px 0 12px;color:var(--mut)">
-        4 questions rapides pour adapter l'interface à votre usage.
-        Vous pourrez tout modifier ensuite dans <em>Paramètres → Profil utilisateur</em>.
+        4 questions rapides pour adapter l'interface au profil.
+        Tout reste modifiable ensuite dans <em>Paramètres → Profil utilisateur</em>.
       </p>
 
       <div class="form-row" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        <label class="lbl"><strong>1.</strong> Combien de logements gérez-vous ?</label>
+        <label class="lbl"><strong>1.</strong> Combien de logements sont gérés ?</label>
         <select id="pw-nbLogements" class="inp">
           <option value="1-3">1 à 3 logements</option>
           <option value="3-10">3 à 10 logements</option>
@@ -4890,7 +4890,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       </div>
 
       <div class="form-row" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        <label class="lbl"><strong>2.</strong> Quel est votre statut juridique principal ?</label>
+        <label class="lbl"><strong>2.</strong> Quel est le statut juridique principal ?</label>
         <select id="pw-statut" class="inp">
           <option value="particulier">Particulier (bailleur en nom propre)</option>
           <option value="sci">SCI (familiale ou non)</option>
@@ -4900,7 +4900,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       </div>
 
       <div class="form-row" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        <label class="lbl"><strong>3.</strong> Gérez-vous des biens pour le compte d'autres bailleurs ?</label>
+        <label class="lbl"><strong>3.</strong> Des biens sont-ils gérés pour le compte d'autres bailleurs ?</label>
         <select id="pw-mandataire" class="inp">
           <option value="non">Non, uniquement mes biens / ma SCI</option>
           <option value="oui">Oui, je suis mandataire (CRG, SEPA, etc.)</option>
@@ -4908,7 +4908,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       </div>
 
       <div class="form-row" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">
-        <label class="lbl"><strong>4.</strong> Comment gérez-vous votre comptabilité ?</label>
+        <label class="lbl"><strong>4.</strong> Comment la comptabilité est-elle gérée ?</label>
         <select id="pw-compta" class="inp">
           <option value="autonome">En autonomie (avec Propryo)</option>
           <option value="excel">Avec Excel en parallèle</option>

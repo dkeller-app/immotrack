@@ -1059,7 +1059,7 @@ export function _bankMatchHeuristic(line, ctx = {}) {
       result.confidence = 0.5;
       result.ambiguous = true;
       result.candidates = byName;
-      result.source = byName.length + ' locataires possibles — à toi de choisir';
+      result.source = byName.length + ' locataires possibles — à choisir';
       return result;
     }
     // Aucun nom reconnu : un MONTANT SEUL ne propose que s'il n'y a QU'UN lot dont le
@@ -1232,7 +1232,7 @@ export function _bankDedup(newLines, mouvementsExistants, options = {}) {
         if (dayDiff > toleranceDays) continue;
         isDuplicate = true; dupLevel = 'probable';
         duplicateOf = String(m.id || '?');
-        duplicateReason = `Même montant à ${Math.round(dayDiff)} jour(s) d’écart — à toi de dire si c’est la même opération`;
+        duplicateReason = `Même montant à ${Math.round(dayDiff)} jour(s) d’écart — à confirmer : est-ce la même opération ?`;
         break;
       }
     }

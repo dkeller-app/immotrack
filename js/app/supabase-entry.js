@@ -343,7 +343,7 @@ async function boot() {
     _perfMark('imports')
   } catch (e) {
     console.error('[ImmoSupabase] import CDN/boot :', e)
-    showError(overlay, 'Impossible de charger le service de connexion (réseau ?). Recharge la page pour réessayer.')
+    showError(overlay, 'Impossible de charger le service de connexion (réseau ?). Recharger la page pour réessayer.')
     const btn = overlay.querySelector('#imsb-submit')
     if (btn) { btn.disabled = false; btn.textContent = 'Recharger la page'; btn.type = 'button'; btn.onclick = () => location.reload() }
     return
@@ -777,7 +777,7 @@ async function boot() {
 
   // Liste des entités de l'espace (pour le picker du popup d'invitation). [{id, nom, couleur, perso}]
   async function _listEntites () {
-    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — se reconnecter.' }
     const { data, error } = await client
       .from('entites').select('id, nom, type, archived')
       .eq('espace_id', _cloudEspaceId)
@@ -791,7 +791,7 @@ async function boot() {
 
   // Membres de l'espace + leurs octrois par-entité. [{ user_id, isOwner, label, grants:[{entite_id,entite_nom,couleur,mode}] }]
   async function _listMembers () {
-    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — se reconnecter.' }
     const meUid = await _curUid()
     // 3 lectures parallèles (toutes sous RLS, scopées à l'espace).
     const [mRes, gRes, eRes, iRes] = await Promise.all([
@@ -822,18 +822,18 @@ async function boot() {
         const isOwner = m.full_espace === true
         const isMe = meUid && m.user_id === meUid
         const email = emailByUid[m.user_id] || m.invite_email || ''
-        const label = isMe ? 'Vous' : (email || ('Membre ' + String(m.user_id).slice(0, 8)))
+        const label = isMe ? 'Moi' : (email || ('Membre ' + String(m.user_id).slice(0, 8)))
         return { user_id: m.user_id, isOwner, isMe: !!isMe, label, email: isMe ? '' : email, grants: grantsByUid[m.user_id] || [] }
       })
-    // owner (vous) en premier, puis partenaires
+    // owner (moi) en premier, puis partenaires
     members.sort((a, b) => (b.isOwner - a.isOwner) || (b.isMe - a.isMe))
     return { members }
   }
 
   // Crée une invitation (RLS = manager). grants = [{entite_id, mode:'ecriture'|'lecture'}]. → { token, url }.
   async function _createInvite (grants, inviteEmail) {
-    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
-    if (!Array.isArray(grants) || grants.length === 0) return { error: 'Choisissez au moins un périmètre.' }
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — se reconnecter.' }
+    if (!Array.isArray(grants) || grants.length === 0) return { error: 'Choisir au moins un périmètre.' }
     const clean = grants
       .filter(g => g && g.entite_id && (g.mode === 'ecriture' || g.mode === 'lecture'))
       .map(g => ({ entite_id: g.entite_id, mode: g.mode }))
@@ -851,7 +851,7 @@ async function boot() {
 
   // Révoque l'accès d'un partenaire : octrois par-entité PUIS appartenance à l'espace (manager via RLS).
   async function _revokeMember (userId) {
-    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — se reconnecter.' }
     if (!userId) return { error: 'Membre invalide.' }
     const r1 = await client.from('entite_membre').delete().eq('espace_id', _cloudEspaceId).eq('user_id', userId)
     if (r1.error) return { error: r1.error.message }
@@ -1112,9 +1112,9 @@ function renderInviteError(overlay, msg) {
 async function acceptInviteFlow(api, client, overlay, token) {
   let preview = null
   try { const r = await client.rpc('invitation_preview', { p_token: token }); preview = r && r.data } catch (e) {}
-  if (!preview) return renderInviteError(overlay, 'Cette invitation est introuvable. Demande un nouveau lien.')
+  if (!preview) return renderInviteError(overlay, 'Cette invitation est introuvable. Un nouveau lien est à demander.')
   if (preview.status === 'revoked') return renderInviteError(overlay, 'Cette invitation a été annulée.')
-  if (preview.expired) return renderInviteError(overlay, 'Cette invitation a expiré. Demande un nouveau lien.')
+  if (preview.expired) return renderInviteError(overlay, 'Cette invitation a expiré. Un nouveau lien est à demander.')
 
   const cleanUrl = location.origin + location.pathname
   const espace = escapeHtml(preview.espace_nom || 'un espace')
@@ -1512,7 +1512,7 @@ async function onLoggedIn(api, overlay, user) {
     const b = document.createElement('div'); b.id = 'imsb-dead'
     b.setAttribute('role', 'alert')
     b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;padding:10px 16px;background:#7a1f1f;color:#fff;font:600 13.5px/1.4 sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)'
-    b.innerHTML = '<span>⚠ Ta session a expiré : tes modifications ne sont <u>plus enregistrées</u> dans le cloud.</span>'
+    b.innerHTML = '<span>⚠ Session expirée : les modifications ne sont <u>plus enregistrées</u> dans le cloud.</span>'
       + '<button id="imsb-dead-btn" style="border:none;border-radius:9px;padding:8px 16px;background:#fff;color:#7a1f1f;font:700 13px sans-serif;cursor:pointer">Se reconnecter</button>'
     document.body.appendChild(b)
     const btn = b.querySelector('#imsb-dead-btn')
@@ -1705,7 +1705,7 @@ async function onLoggedIn(api, overlay, user) {
       // le message d'un écrasement ; quand la version locale a été conservée,
       // c'est le contraire qu'il faut annoncer (lot 4bis).
       if (_conserves.length) _showRefreshBanner(_edlConflit.messageVersionsConservees(_conserves))
-      else if (wantBanner) _showRefreshBanner('Données actualisées — revérifie ta modif : une modification concurrente a été conservée à ta place.')
+      else if (wantBanner) _showRefreshBanner('Données actualisées — modification à revérifier : une modification concurrente a été conservée à sa place.')
       else if (typeof window.showToast === 'function') { try { window.showToast('🔄 Données actualisées', 'ok', 3500) } catch (e) {} }
     } catch (e) {
       console.warn('[Supabase] re-hydratation échouée (retentée au prochain signal)', e)

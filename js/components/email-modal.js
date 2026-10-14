@@ -171,7 +171,7 @@ function _ensureModalDom() {
           <button class="btn" type="button" onclick="window._emHandleAction('copy')">📋 Copier</button>
           <button class="btn" type="button" onclick="window._emHandleAction('mailto')">📧 Client externe</button>
         </div>
-        <button class="btn bp em-foot-primary" type="button" onclick="window._emHandleAction('sendnow')" id="em-sendnow-btn" style="display:none" title="Envoyer directement via votre compte Gmail (nécessite connexion Google)">📤 Envoyer maintenant</button>
+        <button class="btn bp em-foot-primary" type="button" onclick="window._emHandleAction('sendnow')" id="em-sendnow-btn" style="display:none" title="Envoyer directement via le compte Gmail (nécessite connexion Google)">📤 Envoyer maintenant</button>
       </div>
     </div>
   `;
@@ -273,7 +273,7 @@ function _fillModal(draft, type, opts, context) {
   // L'user voit le CC pré-rempli et peut le retirer s'il ne veut pas.
   if (cc && _fromEntite && !cc.value) {
     cc.value = _fromEntite;
-    cc.title = 'Pré-rempli automatiquement avec l\'adresse d\'envoi de l\'entité, pour archiver une copie dans la boîte de cette adresse (les mails envoyés via alias Gmail send-as ne sont sinon stockés que dans la boîte du compte Gmail maître). Vous pouvez retirer le CC si non souhaité.';
+    cc.title = 'Pré-rempli automatiquement avec l\'adresse d\'envoi de l\'entité, pour archiver une copie dans la boîte de cette adresse (les mails envoyés via alias Gmail send-as ne sont sinon stockés que dans la boîte du compte Gmail maître). Le CC peut être retiré si non souhaité.';
   } else if (cc) {
     cc.title = '';
   }
@@ -392,7 +392,7 @@ function _onMailto(ctx) {
   const url = _buildMailtoUrl(v.to, v.cc, v.subject, v.body);
 
   if (url.length > MAILTO_MAX_LENGTH) {
-    showToast('Mail trop long pour mailto: — utilise « Copier sujet + corps » à la place', 'warn', 6000);
+    showToast('Mail trop long pour mailto: — utiliser « Copier sujet + corps » à la place', 'warn', 6000);
     return;
   }
 
@@ -447,7 +447,7 @@ function _onSendNow(ctx) {
     ? window._getDriveToken()
     : null;
   if (!token) {
-    showToast('Connexion Google requise — cliquez sur ☁ Drive dans la sidebar', 'err', 5000);
+    showToast('Connexion Google requise — cliquer sur ☁ Drive dans la sidebar', 'err', 5000);
     return;
   }
 
@@ -456,8 +456,8 @@ function _onSendNow(ctx) {
   const modalElCheck = document.getElementById(MODAL_ID);
   const fromEntiteCheck = (modalElCheck && modalElCheck._emailCtx && modalElCheck._emailCtx.fromEntite) || '';
   const userEmail = (typeof window !== 'undefined' && typeof window._getDriveUserEmail === 'function')
-    ? (window._getDriveUserEmail() || '(votre Gmail)')
-    : '(votre Gmail)';
+    ? (window._getDriveUserEmail() || '(compte Gmail)')
+    : '(compte Gmail)';
   const fromDisplay = fromEntiteCheck
     ? fromEntiteCheck + ' (via ' + userEmail + ')'
     : userEmail;
@@ -510,7 +510,7 @@ function _onSendNow(ctx) {
 
   _emailSendViaGmail(token, mime)
     .then(result => {
-      showToast('Email envoyé ✓ depuis votre Gmail', 'ok', 3000);
+      showToast('Email envoyé ✓ depuis Gmail', 'ok', 3000);
       // closeM dans try/catch pour ne pas bloquer le reset UI si la modale a un état corrompu
       try { closeM(MODAL_ID); } catch (_) { /* swallow */ }
       // Log avec status='sent' + externalId pour traçabilité (RGPD : métadonnées seules)
@@ -535,16 +535,16 @@ function _onSendNow(ctx) {
         const looksLikeSendAsRejected = /not\s*allowed|invalidsender|delegate|sendas|from.*address/i.test(errBody);
         if (fromEntite && looksLikeSendAsRejected) {
           msg = 'Adresse d\'envoi « ' + fromEntite + ' » non autorisée par Gmail.\n\n'
-              + 'Cause probable : l\'alias n\'est pas configuré dans votre Gmail.\n\n'
+              + 'Cause probable : l\'alias n\'est pas configuré dans le compte Gmail.\n\n'
               + 'À faire : Gmail → ⚙ Paramètres → Comptes et importation → « Envoyer des e-mails en tant que » → ajouter cette adresse + validation par code.\n\n'
-              + 'En attendant, retirez l\'adresse du champ "Email d\'envoi" de l\'entité pour utiliser votre Gmail principal.';
+              + 'En attendant, retirer l\'adresse du champ "Email d\'envoi" de l\'entité pour utiliser le Gmail principal.';
         } else {
-          msg = 'Permission insuffisante (scope gmail.send manquant). Reconnecte Drive pour autoriser l\'envoi d\'emails.';
+          msg = 'Permission insuffisante (scope gmail.send manquant). Reconnecter Drive pour autoriser l\'envoi d\'emails.';
         }
       } else if (status === 401) {
-        msg = 'Token expiré. Reconnecte Drive et réessaie.';
+        msg = 'Token expiré. Reconnecter Drive et réessayer.';
       } else if (status === 429 || status === 503) {
-        msg = 'Quota Gmail dépassé temporairement. Réessaie dans quelques minutes ou utilise « Ouvrir client mail ».';
+        msg = 'Quota Gmail dépassé temporairement. Réessayer dans quelques minutes ou utiliser « Ouvrir client mail ».';
       }
       showToast(msg, 'err', 6000);
     })
@@ -599,7 +599,7 @@ function _onShare(ctx) {
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 4000);
     } catch (e) { /* download best-effort */ }
-    showToast('PDF téléchargé — glisse-le dans le mail qui s\'ouvre', 'ok', 7000);
+    showToast('PDF téléchargé — à glisser dans le mail qui s\'ouvre', 'ok', 7000);
     _log('download+mailto');
     _onMailto(ctx);   // ouvre le client mail pré-rempli (Outlook…) — l'user y dépose le PDF
     return;

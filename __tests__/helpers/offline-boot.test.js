@@ -265,10 +265,10 @@ describe('motifOnglet — griser ne suffit pas, il faut dire pourquoi (invariant
 describe('libelleDonneesDu — invariant 19c', () => {
   it('nomme le jour et l’heure des données affichées', () => {
     const d = new Date(2026, 7, 19, 8, 12);      // 19/08 à 08h12
-    expect(libelleDonneesDu(d)).toBe('Hors ligne — tes données du 19/08 à 08h12');
+    expect(libelleDonneesDu(d)).toBe('Hors ligne — données du 19/08 à 08h12');
   });
   it('accepte un horodatage', () => {
-    expect(libelleDonneesDu(new Date(2026, 4, 3, 14, 5).getTime())).toBe('Hors ligne — tes données du 03/05 à 14h05');
+    expect(libelleDonneesDu(new Date(2026, 4, 3, 14, 5).getTime())).toBe('Hors ligne — données du 03/05 à 14h05');
   });
   it('sans date connue, ne ment pas', () => {
     expect(libelleDonneesDu(0)).toBe('Hors ligne — données locales');

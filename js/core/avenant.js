@@ -96,7 +96,7 @@ export function loyerTravauxGuard(o) {
       if (coutTTC > 0 && coutTTC < seuil) alertes.push({ n: 'warn', m: 'Zone encadrée : le coût des travaux (' + coutTTC + ' €) est inférieur à la moitié d\'une année de loyer (' + seuil + ' €) — la majoration pour travaux n\'est pas ouverte.' });
       if (hausse > maxHausseMois) alertes.push({ n: 'warn', m: 'Zone encadrée : la hausse (' + hausse + ' €/mois) dépasse le plafond de 15 % du coût TTC ÷ 12 (' + maxHausseMois + ' €/mois, soit un loyer maximal de ' + maxLoyer + ' €).' });
     } else {
-      alertes.push({ n: 'info', m: 'Zone non tendue : la hausse pour travaux se fixe librement, d\'un commun accord — aucun plafond réglementaire. Veillez seulement au caractère réel des travaux (amélioration, non entretien).' });
+      alertes.push({ n: 'info', m: 'Zone non tendue : la hausse pour travaux se fixe librement, d\'un commun accord — aucun plafond réglementaire. Seul le caractère réel des travaux est à vérifier (amélioration, non entretien).' });
     }
   }
   return { seuil, maxHausseMois, maxLoyer, hausse, passoire, baisse: hausse < 0, zoneEncadree, alertes };

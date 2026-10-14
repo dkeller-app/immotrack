@@ -194,7 +194,7 @@ export function messageDeconnexionRefusee({ enAttente = 0, raison = '', quoi = n
     // Le cas de l'appartement : la saisie n'existe QUE sur cet appareil, et la
     // déconnexion efface la copie locale. C'est la perte la plus complète, et
     // c'est le chemin que l'audit a trouvé grand ouvert.
-    cause = "Tu es hors ligne : ce travail n'existe QUE sur cet appareil" + nomme + '.';
+    cause = "Hors ligne : ce travail n'existe QUE sur cet appareil" + nomme + '.';
   } else if (raison === 'blocage-chronique') {
     // Ne PAS dire « attends le réseau » : ce serait faux, et l'attente serait
     // sans fin. On nomme le vrai problème pour que quelqu'un puisse le traiter.
@@ -210,10 +210,10 @@ export function messageDeconnexionRefusee({ enAttente = 0, raison = '', quoi = n
     cause = 'Ces modifications attendent encore leur envoi' + nomme + '.';
   }
   const remede = raison === 'blocage-chronique'
-    ? 'Signale-le : se déconnecter maintenant perdrait cette modification.'
+    ? 'Signaler le problème : se déconnecter maintenant perdrait cette modification.'
     : raison === 'miroir-illisible'
       ? "Recharger l'application pour relire la copie, puis attendre que la pastille affiche « Enregistré »."
-      : 'Reconnecte-toi à un réseau et attends que la pastille affiche « Enregistré ».';
+      : 'Se reconnecter à un réseau et attendre que la pastille affiche « Enregistré ».';
   const texte = titre + '\n\n' + cause + '\n\n' + remede + '\n\n'
     + 'Se déconnecter QUAND MÊME perdrait ce travail : la déconnexion efface la copie locale, '
     + "et les photos déjà prises resteraient sur l'appareil sans état des lieux pour les relier.";
@@ -504,12 +504,12 @@ export function ecritureAutoriseeHorsLigne(quoi) {
 export function motifIndisponible(quoi) {
   const q = String(quoi || '');
   if (q === 'bail-signature') {
-    return 'Signer un bail demande du réseau. Tu peux l’envoyer pour signature à distance, ou le signer à ton retour.';
+    return 'Signer un bail demande du réseau. Il reste possible de l’envoyer pour signature à distance, ou de le signer au retour du réseau.';
   }
   if (q === 'signature-distance') {
     return 'La signature à distance passe par le relais : elle a besoin du réseau.';
   }
-  return 'Disponible dès que tu as du réseau.';
+  return 'Disponible dès le retour du réseau.';
 }
 
 /**
@@ -521,19 +521,19 @@ export function motifIndisponible(quoi) {
 export function motifOnglet(id) {
   const p = String(id || '');
   if (p === 'import' || p === 'export') {
-    return 'Importer ou exporter demande du réseau. Disponible dès que tu es reconnecté.';
+    return 'Importer ou exporter demande du réseau. Disponible dès la reconnexion.';
   }
   if (p === 'emails') {
-    return "L'envoi de messages passe par le réseau. Disponible dès que tu es reconnecté.";
+    return "L'envoi de messages passe par le réseau. Disponible dès la reconnexion.";
   }
   if (ONGLETS_FERMES_HORS_LIGNE.indexOf(p) >= 0) {
     // La phrase du CDC, telle quelle : ce sont des chiffres qui bougent avec les
     // imports bancaires, et « un montant périmé lu hors ligne, c'est une
     // décision prise sur une donnée fausse ».
     return 'Fermé hors ligne : ces montants bougent avec les imports bancaires. '
-      + 'Les afficher périmés te ferait décider sur une donnée fausse.';
+      + 'Les afficher périmés ferait décider sur une donnée fausse.';
   }
-  return 'Disponible dès que tu as du réseau.';
+  return 'Disponible dès le retour du réseau.';
 }
 
 /**
@@ -547,5 +547,5 @@ export function libelleDonneesDu(ts) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const hh = String(d.getHours()).padStart(2, '0');
   const mi = String(d.getMinutes()).padStart(2, '0');
-  return 'Hors ligne — tes données du ' + jj + '/' + mm + ' à ' + hh + 'h' + mi;
+  return 'Hors ligne — données du ' + jj + '/' + mm + ' à ' + hh + 'h' + mi;
 }

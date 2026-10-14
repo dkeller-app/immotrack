@@ -643,11 +643,11 @@ describe('_repullCloud — la version conservée est réellement ENVOYÉE (invar
     expect(copie.pieces[0].elements[0].photosE).toHaveLength(1);
   });
 
-  it('la bannière annonce la conservation, pas « revérifie ta modif »', async () => {
+  it('la bannière annonce la conservation, pas « modification à revérifier »', async () => {
     const m = monterRepull({ dbServeur: serveur(), edlLocaux: [localEnConflit()], conflits: ['7'] });
     await m.lancer();
     expect(m.vus.banniere).toMatch(/n’a PAS été écrasée/);
-    expect(m.vus.banniere).not.toMatch(/revérifie ta modif/);
+    expect(m.vus.banniere).not.toMatch(/modification à revérifier/);
   });
 
   it('SANS conflit, rien ne change : le serveur gagne, à l’identique (invariant 33)', async () => {
@@ -657,7 +657,7 @@ describe('_repullCloud — la version conservée est réellement ENVOYÉE (invar
     expect(m.vus.setDB).toBe(s);
     expect(m.vus.seed).toBe(s);                       // baseline = le DB hydraté lui-même
     expect(m.vus.marqueSale).toBe(0);
-    expect(m.vus.banniere).toMatch(/revérifie ta modif/);
+    expect(m.vus.banniere).toMatch(/modification à revérifier/);
   });
 
   it('les clés conflictées sont CONSOMMÉES — elles ne fuient pas au re-pull suivant', async () => {

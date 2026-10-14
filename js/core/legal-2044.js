@@ -199,7 +199,7 @@ export function _format2044Recap(result, opts = {}) {
     lines.push('⚠ Résultat foncier négatif — déficit foncier possible.');
     lines.push('  Imputation sur revenu global limitée à 10 700 €/an');
     lines.push('  (hors intérêts d\'emprunt → report sur 10 ans uniquement).');
-    lines.push('  → Consulter notice 2044 §V ou votre expert-comptable.');
+    lines.push('  → Consulter notice 2044 §V ou l\'expert-comptable.');
   }
   if (result.nonMappes && result.nonMappes.length) {
     lines.push('');

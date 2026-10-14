@@ -163,7 +163,7 @@ describe('5 · lecteurs câblés (vraies fonctions de rendu)', () => {
   it('archivage d\'un logement : refusé tant que le bail est OUVERT (même vacant)', () => {
     const { fn, base } = monter(dbDe({ A1: DEPART }), [...STATUT, 'archiveLogement']);
     fn.archiveLogement('A1');
-    expect(base._toasts).toEqual(['Terminez d\'abord le bail en cours avant d\'archiver']);
+    expect(base._toasts).toEqual(['Terminer d\'abord le bail en cours avant d\'archiver']);
   });
   it('fiche du bien (VRAI rLogFiche) — PC et téléphone : badge « Vacant (départ…) », portes annonce + candidat ouvertes ; loué : fermées', () => {
     for (const phone of [false, true]) {

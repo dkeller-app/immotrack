@@ -268,7 +268,7 @@ describe('export Word (exportBailWord) — refusé hors bail nu, comme le garage
   for (const [type, lbl] of [['meuble', 'meublé'], ['etudiant', 'étudiant'], ['mobilite', 'mobilité'], ['autre', '« autre » (régime libre)'], ['garage', 'garage (droit commun)']]) {
     it(type + ' : refus (toast) et aucun document Word', () => {
       const r = exporter({ ref: 'W-' + type, type }, { ref: 'W-' + type });
-      expect(r.toasts).toEqual(['Export Word indisponible pour un bail ' + lbl + ' — utilisez le PDF.']);
+      expect(r.toasts).toEqual(['Export Word indisponible pour un bail ' + lbl + ' — utiliser le PDF.']);
       expect(r.genere).toEqual([]);
     });
   }
