@@ -10519,6 +10519,8 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   .inc-vd-pay{font-size:22px}
   .inc-check{min-height:44px}
   .inc-src a,.inc-lien{min-height:44px}
+}   /* fin @media (max-width:767px) des incidents — accolade manquante depuis l'intégration v15.731-733 :
+       tout le bloc de la dictée (evx) ci-dessous n'était appliqué QUE sur téléphone (tablette et PC sans style) */
 /* ═══════════════════════════════════════════════════════════════════════════
    EDL-VOIX-IA — dicter la pièce (maquette validée le 13/10, mockups/EDL-VOIX-IA).
    Téléphone (≤ 767) : la couche est une PAGE plein écran (M-16), au-dessus du rail (M-3).
@@ -10723,8 +10725,8 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .evx-hint[hidden]{display:none}
 .evx-vf-bot{padding:12px;background:linear-gradient(transparent,var(--vf-voile));color:var(--vf-texte);font:400 14px/1.4 var(--font)}
 .evx-vf-bot b{display:block;font-size:15px}
-.evx-said{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.evx-said span{font:700 13px var(--font);background:var(--vf-pastille);border-radius:var(--rp);padding:3px 9px}
+.evx-said{display:flex;flex-wrap:nowrap;gap:6px;margin-top:6px;overflow-x:auto;overscroll-behavior:contain;scrollbar-width:none}
+.evx-said span{flex:none;font:700 13px var(--font);background:var(--vf-pastille);border-radius:var(--rp);padding:3px 9px;white-space:nowrap}
 
 /* Accord du locataire */
 .evx-acc{display:flex;gap:12px;align-items:flex-start;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:12px;margin-bottom:10px}

@@ -313,7 +313,7 @@ describe('capture vidéo (mode vidéo de l’enregistreur)', () => {
     const r = await b.rec.demarrer();
     expect(r).toEqual({ ok: true, mime: 'video/webm;codecs=vp9,opus' });
     expect(b.contraintes[0]).toBe(CONTRAINTES_VIDEO);
-    expect(CONTRAINTES_VIDEO.video.height.max).toBe(720);
+    expect(CONTRAINTES_VIDEO.video.height).toEqual({ ideal: 720 });   // jamais `max` : le portrait ferait échouer la caméra
     expect(b.recs[0].opts.videoBitsPerSecond).toBe(1000000);
     expect(b.recs[1].mimeType).toBe('audio/webm;codecs=opus');
     b.avance(4000); b.rec.pause(); b.avance(9000); b.rec.reprendre(); b.avance(2000);

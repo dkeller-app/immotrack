@@ -40,7 +40,9 @@ export const VIDEO_DEBIT = 1000000;
 export const VIDEO_PRISE_MAX_S = 180;
 export const CONTRAINTES_VIDEO = Object.freeze({
   audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
-  video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 }, frameRate: { ideal: 30, max: 30 } },
+  // Valeurs SOUHAITÉES seulement (jamais `max`) : en portrait, le téléphone tourne l'image (720×1280) et une
+  // contrainte stricte ferait échouer la caméra. Le poids reste borné par le débit (VIDEO_DEBIT).
+  video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
 });
 export function choisirFormatVideo(isTypeSupported) {
   if (typeof isTypeSupported !== 'function') return '';
