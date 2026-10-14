@@ -8,6 +8,8 @@
  * en incident du registre existant (nouvelIncident) et rédige les e-mails neutres.
  */
 
+import { ELEMENTS as QP_ELEMENTS, NATURES as QP_NATURES, URGENCES as QP_URGENCES } from './qui-paie.js'
+
 // ─────────────────────────── Jeton et lien (D2, D3) ───────────────────────────
 export const JETON_OCTETS = 32
 export const JETON_RE = /^[A-Za-z0-9_-]{43}$/
@@ -187,6 +189,35 @@ export function erreurSignalement(s) {
   return null
 }
 
+// CIRCUIT D'UN INCIDENT (migration 0060) — aide de l'IA et contact pour l'intervention, tels que la base les enregistre.
+// L'IA DÉCRIT (résumé, élément, nature, urgence) : jamais de cause ni de « qui paie » (CDC docs/CDC-INCIDENT-CIRCUIT.md).
+const _ELEMENTS_QP = new Set(QP_ELEMENTS.map((e) => e.k))
+const _NATURES_QP = new Set(QP_NATURES.map((n) => n.k))
+const _URGENCES_QP = new Set(QP_URGENCES.map((u) => u.k))
+const _txt = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max)
+/** Aide de l'IA jointe au signalement (validée par le locataire) : bornée, clés connues seulement ; null si vide. */
+export function normaliserIaSignalement(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null
+  const out = {
+    resume: _txt(x.resume, 2000),
+    element: _ELEMENTS_QP.has(x.element) ? x.element : null,
+    nature: _NATURES_QP.has(x.nature) ? x.nature : null,
+    urgences: [...new Set((Array.isArray(x.urgences) ? x.urgences : []).filter((u) => _URGENCES_QP.has(u)))],
+    texte: _txt(x.texte, 2000),
+    reponses: (Array.isArray(x.reponses) ? x.reponses : []).slice(0, 2).map((r) => ({ q: _txt(r && r.q, 200), r: _txt(r && r.r, 200) })).filter((r) => r.q && r.r),
+    dicte: x.dicte === true,
+  }
+  return out.resume || out.element || out.texte ? out : null
+}
+export const TELEPHONE_RE = /^[+0-9 .()-]{6,30}$/
+/** Contact pour l'intervention : le téléphone n'est retenu QUE si le locataire accepte qu'il soit transmis (D13). */
+export function normaliserContactSignalement(x) {
+  const c = x || {}
+  const tel = _txt(c.telephone, 30)
+  const accord = c.tel_partage === true && TELEPHONE_RE.test(tel) && /\d{6}/.test(tel.replace(/\D/g, ''))
+  return { tel_partage: accord, telephone: accord ? tel : null, acces_info: _txt(c.acces_info, 300) || null, presence: _txt(c.presence, 300) || null }
+}
+
 /** Identifiant d'incident DÉTERMINISTE (numérique, comme nid()) dérivé de l'uuid du signalement : deux membres qui
  *  importent en même temps produisent le même incident (aucun doublon). */
 export function idIncidentDuSignalement(uuid) {
@@ -203,7 +234,10 @@ export function champsIncident(sig, ctx) {
   const c = ctx || {}
   const pb = PROBLEMES.find((p) => p.k === sig.element) || PROBLEMES[PROBLEMES.length - 1]
   const piece = lblDe(PIECES, sig.piece)
-  const urgences = (sig.urgence === 'urgente' && pb.urgence) ? [pb.urgence] : []
+  // Avec l'aide de l'IA (0060) : l'élément et la nature déduits, confirmés par le locataire, remplacent la liste courte.
+  const ia = normaliserIaSignalement(sig.ia)
+  const urgIa = ia && ia.urgences.length ? ia.urgences : null
+  const urgences = sig.urgence === 'urgente' ? (urgIa || (pb.urgence ? [pb.urgence] : [])) : []
   return {
     id: Number(idIncidentDuSignalement(sig.id)),
     logRef: c.logRef || '',
@@ -213,9 +247,9 @@ export function champsIncident(sig, ctx) {
     signalePar: 'locataire',
     signaleParNom: String(c.nom || ''),
     canal: 'espace',
-    element: 'autre',
-    elementLibre: [pb.lbl, piece].filter(Boolean).join(' · '),
-    nature: pb.nature,
+    element: (ia && ia.element) || 'autre',
+    elementLibre: ia && ia.element ? piece : [pb.lbl, piece].filter(Boolean).join(' · '),
+    nature: (ia && ia.nature) || pb.nature,
     urgences,
     description: String(sig.description || ''),
     contexte: { partieCommune: sig.piece === 'parties_communes' },

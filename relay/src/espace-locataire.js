@@ -9,7 +9,13 @@
 import {
   JETON_RE, empreinteJeton, PIECES, PROBLEMES, URGENCES, ART21, ART23_JUSTIFICATIFS, ACCORD_VERSION, libelleAccord,
   erreurSignalement, erreurMessage, typeReel, MIME_DE, DEPOT_MAX_OCTETS, modeleEmail, TYPES_EMAIL,
+  normaliserIaSignalement, normaliserContactSignalement,
 } from '../../js/core/espace-locataire.js';
+import { ETAPES_LOCATAIRE, ART_7E_WEEKEND, ART_7E_SOURCE, exigeAccordExpres } from '../../js/core/incident-circuit.js';
+import { fournisseurActif } from './ai/provider.js';
+
+// Mention de transparence (AI Act, art. 50) affichée AVANT la dictée sur les pages par lien (locataire et artisan).
+export const MENTION_IA_LIEN = 'Un assistant automatique (intelligence artificielle, Mistral AI, hébergé dans l\'Union européenne) aide à décrire. Proposé par l\'IA, à vérifier. L\'enregistrement de la voix n\'est pas conservé après la transcription.';
 import { URGENCES as CONSIGNES_URGENCE, CONSIGNE_DANGER } from '../../js/core/qui-paie.js';
 import { elConfigure, rpc, lireObjet, deposerObjet, contactProprietaire, ElErreur } from './el-supabase.js';
 import { sha256hex } from './crypto-utils.js';
@@ -24,10 +30,11 @@ export const EL_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; 
 const ENTETES = {
   'Content-Security-Policy': EL_CSP, 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store',
   'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'X-Robots-Tag': 'noindex, nofollow, noarchive',
-  'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=()', 'Cross-Origin-Opener-Policy': 'same-origin',
+  // Micro : la page elle-même seulement (dictée du signalement avec l'aide de l'IA, migration 0060) ; rien pour un cadre tiers.
+  'Permissions-Policy': 'geolocation=(), microphone=(self), camera=(), payment=()', 'Cross-Origin-Opener-Policy': 'same-origin',
 };
 export function entetesEspace(headers) { for (const [k, v] of Object.entries(ENTETES)) headers.set(k, v); }
-function entetes(c) { for (const [k, v] of Object.entries(ENTETES)) c.header(k, v); }
+export function entetes(c) { for (const [k, v] of Object.entries(ENTETES)) c.header(k, v); }
 
 export function renderEspacePage() {
   return `<!doctype html>
@@ -54,10 +61,13 @@ export const REFERENTIEL = Object.freeze({
   pieces: PIECES, problemes: PROBLEMES, urgences: URGENCES, art21: ART21, art23: ART23_JUSTIFICATIFS,
   accordVersion: ACCORD_VERSION,
   consignes: Object.fromEntries(CONSIGNES_URGENCE.map((u) => [u.k, u.consignes])), danger: CONSIGNE_DANGER,
+  // Circuit d'un incident (0060) : suivi en 3 étapes, accord exprès pour un créneau hors jours ouvrés, mention IA.
+  etapes: ETAPES_LOCATAIRE, art7e: { texte: ART_7E_WEEKEND, source: ART_7E_SOURCE }, mentionIA: MENTION_IA_LIEN,
+  urgencesQp: CONSIGNES_URGENCE.map((u) => ({ k: u.k, lbl: u.lbl })),
 });
 
 // Condensat d'IP salé du jour : sert à la limite des jetons invalides (en base) sans jamais conserver l'IP.
-async function ipHash(c) {
+export async function ipHash(c) {
   const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'local';
   const jour = new Date().toISOString().slice(0, 10);
   const h = await sha256hex(new TextEncoder().encode(`${ip}|${jour}|${c.env.SIGNING_SECRET}`));
@@ -65,36 +75,78 @@ async function ipHash(c) {
 }
 
 // Limite de débit du relais (binding Workers « ratelimit » EL_RATE si présent) : par IP, toutes routes /api/el.
-async function limiteDebit(c, cle) {
+export async function limiteDebit(c, cle) {
   const rl = c.env && c.env.EL_RATE;
   if (!rl || typeof rl.limit !== 'function') return true;
   try { const { success } = await rl.limit({ key: cle }); return success !== false; } catch { return true; }
 }
 
-const jsonErreur = (c, statut, code) => c.json({ erreur: code }, statut);
-const inactif = (c) => c.json({ actif: false }, 410);
+export const jsonErreur = (c, statut, code) => c.json({ erreur: code }, statut);
+export const inactif = (c) => c.json({ actif: false }, 410);
 
-// Contexte commun d'un appel locataire : configuration, débit, jeton → empreinte, condensat d'IP.
-async function ctx(c) {
+// Contexte commun d'un appel par lien (locataire : X-El-Jeton ; artisan : X-Ar-Jeton, migration 0060) : configuration,
+// débit, jeton → empreinte, condensat d'IP.
+export async function ctxLien(c, entete = 'X-El-Jeton', prefixe = 'el:') {
   if (!elConfigure(c.env) || !c.env.SIGNING_SECRET) return { reponse: jsonErreur(c, 503, 'el_inactif') };
   const ip = await ipHash(c);
-  if (!(await limiteDebit(c, 'el:' + ip))) return { reponse: jsonErreur(c, 429, 'limite') };
-  const jeton = c.req.header('X-El-Jeton') || '';
+  if (!(await limiteDebit(c, prefixe + ip))) return { reponse: jsonErreur(c, 429, 'limite') };
+  const jeton = c.req.header(entete) || '';
   const h = JETON_RE.test(jeton) ? await empreinteJeton(jeton) : null;
   return { h, ip };
 }
-async function appel(c, fn, args) {
+const ctx = (c) => ctxLien(c, 'X-El-Jeton', 'el:');
+export async function appel(c, fn, args) {
   try { return { ok: true, v: await rpc(c.env, fn, args) }; } catch (e) {
     if (e instanceof ElErreur) return { ok: false, reponse: jsonErreur(c, e.statut, e.code) };
     return { ok: false, reponse: jsonErreur(c, 502, 'el_base') };
   }
 }
-async function lireJson(c, max = 64 * 1024) {
+export async function lireJson(c, max = 64 * 1024) {
   const len = Number(c.req.header('Content-Length') || 0);
   if (len > max) return null;
   try { const t = await c.req.text(); if (t.length > max) return null; return JSON.parse(t || '{}'); } catch { return null; }
 }
-const nomSur = (s) => String(s || '').replace(/[\u0000-\u001f"\\/<>:|?*]/g, '_').slice(0, 120) || 'document';
+export const nomSur = (s) => String(s || '').replace(/[\u0000-\u001f"\\/<>:|?*]/g, '_').slice(0, 120) || 'document';
+
+/**
+ * Réception d'un fichier déposé par un lien public (corps binaire). Type RÉEL vérifié par octets magiques, 10 Mo au plus.
+ * Lecture en flux, bornée : les premiers octets donnent le type ; le ticket (qui vérifie le jeton) est pris AVANT de lire
+ * la suite ; au-delà de 10 Mo, arrêt immédiat. `ticket(ext)` → { path } | { reponse } ; `fin(path, sha, taille)` → true |
+ * { reponse }. Partagé par l'espace locataire (/api/el/depot) et le lien de l'artisan (/api/ar/depot).
+ */
+export async function recevoirDepot(c, { ticket, fin, nomEntete }) {
+  const len = Number(c.req.header('Content-Length') || 0);
+  if (len > DEPOT_MAX_OCTETS) return jsonErreur(c, 413, 'trop_gros');
+  const body = c.req.raw.body;
+  if (!body) return jsonErreur(c, 400, 'vide');
+  const lecteur = body.getReader();
+  const morceaux = []; let total = 0;
+  const annuler = async () => { try { await lecteur.cancel(); } catch { /* ignoré */ } };
+  const lire = async (jusqua) => {
+    while (total < jusqua) {
+      const { done, value } = await lecteur.read();
+      if (done) return true;
+      morceaux.push(value); total += value.length;
+      if (total > DEPOT_MAX_OCTETS) { await annuler(); return false; }
+    }
+    return true;
+  };
+  if (!(await lire(16))) return jsonErreur(c, 413, 'trop_gros');
+  if (!total) return jsonErreur(c, 400, 'vide');
+  const tete = new Uint8Array(Math.min(total, 16)); { let o = 0; for (const m of morceaux) { const n = Math.min(m.length, 16 - o); tete.set(m.subarray(0, n), o); o += n; if (o >= 16) break; } }
+  const ext = typeReel(tete);
+  if (!ext) { await annuler(); return jsonErreur(c, 415, 'type'); }
+  const t = await ticket(ext);
+  if (!t || t.reponse || !t.path) { await annuler(); return (t && t.reponse) || inactif(c); }
+  if (!(await lire(DEPOT_MAX_OCTETS + 1))) return jsonErreur(c, 413, 'trop_gros');
+  const buf = new Uint8Array(total); { let o = 0; for (const m of morceaux) { buf.set(m, o); o += m.length; } }
+  try { await deposerObjet(c.env, t.path, buf, MIME_DE[ext]); } catch (e) { return jsonErreur(c, e.statut || 502, e.code || 'stockage'); }
+  const empreinte = await sha256hex(buf);
+  const f = await fin(t.path, empreinte, buf.length);
+  if (f !== true) return (f && f.reponse) || jsonErreur(c, 502, 'depot');   // empreinte non enregistrée : la pièce serait refusée plus tard
+  let brut = ''; try { brut = decodeURIComponent(String(c.req.header(nomEntete) || '').slice(0, 300)); } catch { brut = ''; }
+  return c.json({ path: t.path, nom: nomSur(brut), mime: MIME_DE[ext], taille: buf.length });
+}
 
 // ── OTP de l'accord (D10) : actif seulement si EL_CODE_ACCORD="true" ET EMAIL_MODE="resend" ──
 const codeAccordRequis = (env) => env.EL_CODE_ACCORD === 'true' && env.EMAIL_MODE === 'resend';
@@ -111,7 +163,7 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
     const x = await ctx(c); if (x.reponse) return x.reponse;
     const r = await appel(c, 'el_ouvrir', { p_jeton_sha256: x.h, p_ip_hash: x.ip }); if (!r.ok) return r.reponse;
     if (!r.v || r.v.actif !== true) return inactif(c);
-    return c.json({ ...r.v, referentiel: REFERENTIEL, libelleAccord: libelleAccord(r.v.locataire), codeAccord: codeAccordRequis(c.env) });
+    return c.json({ ...r.v, referentiel: REFERENTIEL, libelleAccord: libelleAccord(r.v.locataire), codeAccord: codeAccordRequis(c.env), ia: !!fournisseurActif(c.env) });
   });
 
   for (const [route, fn] of [['documents', 'el_documents'], ['signalements', 'el_signalements'], ['messages', 'el_messages']]) {
@@ -119,7 +171,13 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
       const x = await ctx(c); if (x.reponse) return x.reponse;
       const r = await appel(c, fn, { p_jeton_sha256: x.h, p_ip_hash: x.ip }); if (!r.ok) return r.reponse;
       if (r.v == null) return inactif(c);
-      return c.json({ liste: r.v });
+      if (route !== 'signalements' || !Array.isArray(r.v)) return c.json({ liste: r.v });
+      // Créneau proposé par l'artisan (0060) : un samedi, un dimanche ou un jour férié exige l'accord exprès du locataire
+      // (art. 7 e). Le code postal (Alsace-Moselle : deux jours fériés de plus) vient de l'adresse affichée à la page.
+      const b = await lireJson(c, 1024);
+      const cp = b && /^\d{5}$/.test(String(b.cp || '')) ? b.cp : '';
+      return c.json({ liste: r.v.map((s) => (s && s.intervention && s.intervention.creneau && s.intervention.creneau.date
+        ? { ...s, intervention: { ...s.intervention, accordExpres: exigeAccordExpres(String(s.intervention.creneau.date).slice(0, 10), cp) } } : s)) });
     });
   }
 
@@ -149,40 +207,17 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
   app.post('/api/el/depot', async (c) => {
     const x = await ctx(c); if (x.reponse) return x.reponse;
     if (!x.h) return inactif(c);                                     // jeton mal formé : rien n'est lu
-    const len = Number(c.req.header('Content-Length') || 0);
-    if (len > DEPOT_MAX_OCTETS) return jsonErreur(c, 413, 'trop_gros');
-    const body = c.req.raw.body;
-    if (!body) return jsonErreur(c, 400, 'vide');
-    // Lecture en flux, bornée : les premiers octets donnent le type réel ; le ticket (qui vérifie le jeton) est pris
-    // AVANT de lire la suite ; au-delà de 10 Mo, arrêt immédiat.
-    const lecteur = body.getReader();
-    const morceaux = []; let total = 0;
-    const lire = async (jusqua) => {
-      while (total < jusqua) {
-        const { done, value } = await lecteur.read();
-        if (done) return true;
-        morceaux.push(value); total += value.length;
-        if (total > DEPOT_MAX_OCTETS) { try { await lecteur.cancel(); } catch { /* ignoré */ } return false; }
-      }
-      return true;
-    };
-    if (!(await lire(16))) return jsonErreur(c, 413, 'trop_gros');
-    if (!total) return jsonErreur(c, 400, 'vide');
-    const tete = new Uint8Array(Math.min(total, 16)); { let o = 0; for (const m of morceaux) { const n = Math.min(m.length, 16 - o); tete.set(m.subarray(0, n), o); o += n; if (o >= 16) break; } }
-    const ext = typeReel(tete);
-    if (!ext) { try { await lecteur.cancel(); } catch { /* ignoré */ } return jsonErreur(c, 415, 'type'); }
-    const r = await appel(c, 'el_depot', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_ext: ext });
-    if (!r.ok) { try { await lecteur.cancel(); } catch { /* ignoré */ } return r.reponse; }
-    if (!r.v || !r.v.path) { try { await lecteur.cancel(); } catch { /* ignoré */ } return inactif(c); }
-    if (!(await lire(DEPOT_MAX_OCTETS + 1))) return jsonErreur(c, 413, 'trop_gros');
-    const buf = new Uint8Array(total); { let o = 0; for (const m of morceaux) { buf.set(m, o); o += m.length; } }
-    try { await deposerObjet(c.env, r.v.path, buf, MIME_DE[ext]); } catch (e) { return jsonErreur(c, e.statut || 502, e.code || 'stockage'); }
-    const empreinte = await sha256hex(buf);
-    const fin = await appel(c, 'el_depot_fin', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_path: r.v.path, p_sha256: empreinte, p_taille: buf.length });
-    if (!fin.ok) return fin.reponse;
-    if (fin.v !== true) return jsonErreur(c, 502, 'depot');   // empreinte non enregistrée : la pièce serait refusée plus tard
-    let brut = ''; try { brut = decodeURIComponent(String(c.req.header('X-El-Nom') || '').slice(0, 300)); } catch { brut = ''; }
-    return c.json({ path: r.v.path, nom: nomSur(brut), mime: MIME_DE[ext], taille: buf.length });
+    return recevoirDepot(c, {
+      nomEntete: 'X-El-Nom',
+      ticket: async (ext) => {
+        const r = await appel(c, 'el_depot', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_ext: ext });
+        return !r.ok ? { reponse: r.reponse } : (r.v && r.v.path ? { path: r.v.path } : null);
+      },
+      fin: async (path, sha, taille) => {
+        const f = await appel(c, 'el_depot_fin', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_path: path, p_sha256: sha, p_taille: taille });
+        return !f.ok ? { reponse: f.reponse } : f.v === true;
+      },
+    });
   });
 
   app.post('/api/el/signaler', async (c) => {
@@ -192,10 +227,27 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
     const photos = Array.isArray(b.photos) ? b.photos.slice(0, 7).map((p) => ({ path: String(p && p.path || ''), nom: nomSur(p && p.nom), mime: String(p && p.mime || '') })) : [];
     const err = erreurSignalement({ ...b, photos });
     if (err) return c.json({ erreur: 'invalide', message: err }, 400);
-    const r = await appel(c, 'el_signaler', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_piece: b.piece, p_element: b.element, p_urgence: b.urgence, p_description: String(b.description).trim(), p_photos: photos });
+    // Circuit d'un incident (0060) : aide de l'IA (validée par le locataire), contact pour l'intervention (téléphone
+    // seulement avec son accord, D13), accès et présences. Absents : signalement comme en 0059.
+    const ia = normaliserIaSignalement(b.ia);
+    const contact = normaliserContactSignalement(b);
+    const r = await appel(c, 'el_signaler', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_piece: b.piece, p_element: b.element, p_urgence: b.urgence, p_description: String(b.description).trim(), p_photos: photos,
+      p_ia: ia, p_tel_partage: contact.tel_partage, p_telephone: contact.telephone, p_acces_info: contact.acces_info, p_presence: contact.presence });
     if (!r.ok) return r.reponse;
     if (!r.v) return inactif(c);
     return c.json({ id: r.v });
+  });
+
+  // Le locataire confirme le créneau proposé par l'artisan (accord exprès un samedi, un dimanche ou un jour férié, art. 7 e).
+  app.post('/api/el/creneau', async (c) => {
+    const x = await ctx(c); if (x.reponse) return x.reponse;
+    const b = await lireJson(c, 2048);
+    if (!b || !/^[0-9a-f-]{36}$/.test(String(b.signalement_id || ''))) return jsonErreur(c, 400, 'invalide');
+    const r = await appel(c, 'el_creneau_confirmer', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_signalement_id: b.signalement_id, p_accord_expres: b.accord_expres === true });
+    if (!r.ok) return r.reponse;
+    if (r.v == null) return inactif(c);
+    if (r.v !== true) return jsonErreur(c, 409, 'creneau_absent');
+    return c.json({ confirme: true });
   });
 
   app.post('/api/el/message', async (c) => {

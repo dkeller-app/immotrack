@@ -45,13 +45,15 @@ function erreurDepuis(status, corps) {
   const code = String((corps && corps.code) || '');
   if (/el:limite/.test(msg)) return new ElErreur(429, 'limite');
   if (/el:ferme/.test(msg)) return new ElErreur(409, 'ferme');
+  if (/el:accord-requis/.test(msg)) return new ElErreur(400, 'accord_requis');   // créneau hors jours ouvrés (0060)
+  if (/ar:montant/.test(msg)) return new ElErreur(400, 'montant');
   if (code === '42501' || status === 401 || status === 403) return new ElErreur(503, 'el_identite');
-  if (code === '23514' || code === '22023' || /el:(photo|piece|type|version)/.test(msg)) return new ElErreur(400, 'invalide');
+  if (code === '23514' || code === '22023' || /(el|ar):(photo|piece|type|version|date|heure)/.test(msg)) return new ElErreur(400, 'invalide');
   return new ElErreur(502, 'el_base');
 }
 
 export async function rpc(env, fn, args, fetchImpl = fetch) {
-  if (!/^el_[a-z_]+$/.test(fn)) throw new ElErreur(500, 'fonction');   // frontière : seules les fonctions el_*
+  if (!/^(el|ar)_[a-z_]+$/.test(fn)) throw new ElErreur(500, 'fonction');   // frontière : seules les fonctions el_* et ar_* (0060)
   const token = await jetonRelais(env, fetchImpl);
   const r = await fetchImpl(`${base(env)}/rest/v1/rpc/${fn}`, {
     method: 'POST',
@@ -100,10 +102,11 @@ export async function deposerObjet(env, path, bytes, mime, fetchImpl = fetch) {
  * d'écriture sur la SCI exigé, accès non révoqué ni terminé). Jamais fournis par le client : pas de relais d'e-mails
  * ouvert. Renvoie { email, bailleur } ou null (refus, accès inactif, erreur).
  */
-export async function contactProprietaire(env, jwtProprietaire, accesId, jetonSha256 = null, fetchImpl = fetch) {
+export async function contactProprietaire(env, jwtProprietaire, accesId, jetonSha256 = null, fetchImpl = fetch, fn = 'el_acces_contact') {
   if (!/^[0-9a-f-]{36}$/.test(String(accesId || ''))) return null;
+  if (!['el_acces_contact', 'ar_acces_contact'].includes(fn)) return null;
   try {
-    const r = await fetchImpl(`${base(env)}/rest/v1/rpc/el_acces_contact`, {
+    const r = await fetchImpl(`${base(env)}/rest/v1/rpc/${fn}`, {
       method: 'POST',
       headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${jwtProprietaire}`, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(jetonSha256 ? { p_acces_id: accesId, p_jeton_sha256: jetonSha256 } : { p_acces_id: accesId }),

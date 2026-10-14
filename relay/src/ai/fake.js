@@ -200,3 +200,28 @@ export function fauxEdlPhotos(input) {
   }
   return { elements, personnes: [] };
 }
+
+// ── Circuit d'un incident (0060) : réponses simulées, par mots-clés (jamais en production). ──
+export function fauxIncidentLocataire(input) {
+  const n = normaliser(input.texte);
+  const eau = /\beau\b|fuite|goutte/.test(n), coule = /continu|inonde|coule partout/.test(n);
+  const piece = /cuisine|evier/.test(n) ? 'cuisine' : /salle de bain|douche|baignoire|lavabo/.test(n) ? 'salle_de_bain' : /\bwc\b|toilette/.test(n) ? 'wc' : 'autre';
+  const element = /evier|siphon|tuyau|evacuation/.test(n) ? 'canalisation' : /chasse/.test(n) ? 'chasse_eau' : /robinet|mitigeur/.test(n) ? 'robinet' : /serrure|porte/.test(n) ? 'serrure' : /chaudiere/.test(n) ? 'chaudiere' : 'autre';
+  const premiere = !input.reponses.length;
+  return {
+    resume: (eau ? 'Fuite d\'eau' : 'Problème signalé') + (piece === 'cuisine' ? ' sous l\'évier de la cuisine.' : '.') + (/coupe|ferme/.test(n) ? ' L\'arrivée d\'eau a été fermée.' : ''),
+    piece, probleme: eau ? 'fuite_eau' : (/serrure|porte/.test(n) ? 'porte_serrure' : 'autre'), element, nature: eau ? 'fuite' : 'panne',
+    urgence: coule ? 'urgente' : 'importante', urgences: coule ? ['eau'] : [],
+    questions: premiere && eau && !coule ? [{ question: 'L\'eau coule-t-elle en continu ?', choix: ['En continu', 'Goutte à goutte', 'Ne sait pas'] }] : [],
+  };
+}
+export function fauxConstatArtisan(input) {
+  const n = normaliser(input.texte);
+  const constat = /casse|choc|arrache/.test(n) ? 'casse' : /voisin|degat des eaux/.test(n) ? 'exterieure' : /usure|use|ecrase|rouille/.test(n) ? 'usure' : 'defaut';
+  const ampleur = /remplace (le|la) (ballon|chaudiere|appareil)|remplacement complet|tout change/.test(n) ? 'complet' : /detartr|nettoy|ramon|regl/.test(n) ? 'entretien' : 'petite';
+  const m = /(joint[^,.]*)/i.exec(input.texte);
+  return { constat, sousType: constat === 'exterieure' ? 'tiers' : null, ampleur, resume: 'Intervention réalisée : réparation et essai.', citation: m ? m[1].trim() : null };
+}
+export function fauxLectureFacture() {
+  return { entreprise: 'Plomberie Weber', siret: null, date: null, numero: 'F-2026-1042', montantHT: 107.27, tva: 10.73, montantTTC: 118, lignes: [{ libelle: 'Remplacement joint et collier de siphon', montant: 118 }], travaux: 'Remplacement du joint et du collier du siphon.', constatProbable: 'usure' };
+}

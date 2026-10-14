@@ -424,6 +424,17 @@ export function demandeArtisan({ inc, signalement, adresse, locataireNom, elemen
   }
 }
 
+/** E-mail (ou SMS) d'invitation de l'artisan : neutre, aucune donnée personnelle ni montant dans l'objet. */
+export function modeleEmailArtisan({ bailleur, lien } = {}) {
+  const b = _s(bailleur).trim() || 'Le propriétaire'
+  if (!/^https:\/\//.test(_s(lien))) return null
+  return {
+    objet: 'Demande d\'intervention',
+    texte: `Bonjour,\n\n${b} demande une intervention. Le détail (adresse, problème, photos, montant autorisé sans accord préalable) est sur cette page, sans compte ni mot de passe :\n${lien}\n\nLa même page sert à proposer un créneau, à déposer le devis puis la facture.\nLe lien est personnel : ne pas le transférer.\n\n— Propryo, pour ${b}\nMessage automatique : ne pas répondre à cet e-mail.`,
+    sms: `${b} : demande d'intervention (détail, créneau, devis, facture) : ${lien}`,
+  }
+}
+
 /* ─────────────── Résultat publié au locataire (après la validation du propriétaire) ─────────────── */
 
 const _texte = (t) => { const b = (t && TEXTES[t.id]) || null; return b ? { ref: b.ref, extrait: b.extrait, url: b.url } : null }

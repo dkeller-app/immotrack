@@ -3,8 +3,11 @@
 // une URL de requête, ni stocké. Toute donnée affichée passe par textContent (aucun innerHTML de donnée).
 // Écrans : maquette validée mockups/ESPACE-LOCATAIRE/maquette.html ; ton neutre (infinitif, ni « tu » ni « vous »).
 
+import { h, I, marque, fd, fdh, taille, plage, euros, creerToast, choisirFichiers, preparerImage, imagePourIA, creerDictee, mmss } from './lien-commun.js';
+
 const JETON_RE = /^[A-Za-z0-9_-]{43}$/;
 const root = document.getElementById('app');
+const toast = creerToast(root);
 const S = {
   jeton: null, info: null, inactif: false, erreur: null,
   docs: null, sigs: null, msgs: null,
@@ -12,64 +15,6 @@ const S = {
   sig: null, accord: { coche: false, etape: 'texte', code: '', a: '' },
   msg: { texte: '', pieces: [], envoi: false },
 };
-
-// ─────────────── utilitaires DOM sûrs ───────────────
-function h(tag, props, ...enfants) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props || {})) {
-    if (v == null || v === false) continue;
-    if (k === 'class') el.className = v;
-    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
-    else if (k === 'text') el.textContent = v;
-    else if (k === 'style') el.style.cssText = v;   // CSSOM : permis par la CSP (style-src 'self'), contrairement à l'attribut
-    else el.setAttribute(k, v === true ? '' : String(v));
-  }
-  for (const e of enfants.flat(Infinity)) {
-    if (e == null || e === false) continue;
-    el.append(e instanceof Node ? e : document.createTextNode(String(e)));
-  }
-  return el;
-}
-const P = {
-  home: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z', doc: 'M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h6',
-  tool: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z',
-  chat: 'M4 5h16v11H9l-5 4z', check: 'M5 12.5 10 17l9-10', lock: 'M5 11h14v10H5zM8 11V8a4 4 0 0 1 8 0v3',
-  back: 'M15 5l-7 7 7 7', x: 'M6 6l12 12M18 6 6 18', chev: 'M9 5l7 7-7 7', dl: 'M12 4v11M7 10l5 5 5-5M5 20h14',
-  cam: 'M4 8h3l2-3h6l2 3h3v11H4zM12 9.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7', clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7v5l3 2',
-  shield: 'M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z', info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 11v6M12 7.5v.5',
-  clip: 'M20 11.5 12 19.5a5 5 0 0 1-7-7L13.5 4a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3L14.5 7',
-  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6',
-  alert: 'M12 3 2 20h20zM12 10v4M12 17v.5', mail: 'M3 5h18v14H3zM3 7l9 6 9-6', plus: 'M12 5v14M5 12h14',
-  zip: 'M3 4h18v5H3zM5 9v11h14V9M10 13h4', ban: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M6 6l12 12', send: 'M21 3 10 14M21 3l-7 18-4-7-7-4z',
-  key: 'M8 11a4 4 0 1 0 0 8 4 4 0 0 0 0-8M11 12 20 3M16 7l3 3', euro: 'M17 6.5A7 7 0 1 0 17 17.5M4 10h9M4 14h9',
-};
-function I(n, s) {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('class', 'i'); svg.setAttribute('aria-hidden', 'true');
-  if (s) { svg.style.width = s + 'px'; svg.style.height = s + 'px'; }
-  const p = document.createElementNS(ns, 'path'); p.setAttribute('d', P[n] || ''); svg.append(p);
-  return svg;
-}
-function marque() {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 32 32'); svg.setAttribute('class', 'mark'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Propryo');
-  const r = document.createElementNS(ns, 'rect');
-  for (const [k, v] of Object.entries({ x: 1.76, y: 1.76, width: 28.48, height: 28.48, rx: 7.68, fill: 'none', stroke: 'var(--acc)', 'stroke-width': 3.52 })) r.setAttribute(k, v);
-  const c = document.createElementNS(ns, 'circle');
-  for (const [k, v] of Object.entries({ cx: 21.34, cy: 21.34, r: 4.1, fill: 'var(--acc)' })) c.setAttribute(k, v);
-  svg.append(r, c); return svg;
-}
-const fd = (s) => { if (!s) return ''; const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s)); if (m && (String(s).length <= 10 || /T23:59:59/.test(String(s)))) return `${m[3]}/${m[2]}/${m[1]}`; const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); };
-const fdh = (s) => { const d = new Date(s); if (isNaN(d)) return ''; return fd(s) + ' à ' + String(d.getHours()).padStart(2, '0') + ' h ' + String(d.getMinutes()).padStart(2, '0'); };
-const taille = (n) => !n ? '' : n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' Ko' : (n / 1024 / 1024).toFixed(1).replace('.', ',') + ' Mo';
-let _toastT = null;
-function toast(t) {
-  const old = root.querySelector('.toast'); if (old) old.remove();
-  const el = h('div', { class: 'toast', role: 'status' }, t); root.append(el);
-  clearTimeout(_toastT); _toastT = setTimeout(() => el.remove(), 3500);
-}
 
 // ─────────────── API (même origine, jeton en en-tête) ───────────────
 const MSG_ERREUR = {
@@ -107,7 +52,8 @@ async function charger() {
     if (!e.inactif) { S.erreur = e.message; render(); }
   }
 }
-async function rechargerSigs() { try { S.sigs = (await api('signalements')).liste || []; render(); } catch (e) { echec(e); } }
+const cpLogement = () => { const m = /\b(\d{5})\b/.exec(String((S.info && S.info.logement) || '')); return m ? m[1] : '' };
+async function rechargerSigs() { try { S.sigs = (await api('signalements', { cp: cpLogement() })).liste || []; if (S.sigSel) S.sigSel = S.sigs.find((x) => x.id === S.sigSel.id) || S.sigSel; render(); } catch (e) { echec(e); } }
 async function rechargerMsgs() { try { S.msgs = (await api('messages')).liste || []; if (S.info) S.info.compteurs.messages_non_lus = 0; render(); } catch (e) { echec(e); } }
 
 // ─────────────── navigation ───────────────
@@ -126,7 +72,7 @@ function aller(vue) {
   const b = root.querySelector('.el-body'); if (b) b.scrollTop = 0;
 }
 function ouvrirCouche(c) { S.couche = c; render(); const f = root.querySelector('.pg .bk'); if (f) f.focus(); }
-function fermerCouche() { S.couche = null; render(); }
+function fermerCouche() { if (S.sig && S.sig.dictee && S.sig.dictee.actif()) S.sig.dictee.arreter(); S.couche = null; render(); }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.couche) fermerCouche(); });
 window.addEventListener('hashchange', () => { location.reload(); });
 
@@ -361,7 +307,23 @@ async function envoyerAccord(donner, bouton) {
 }
 
 // ─────────────── signaler ───────────────
-function debuterSignalement() { S.sig = { piece: null, element: null, description: '', urgence: null, photos: [], envoi: false }; ouvrirCouche('signaler1'); }
+// Circuit d'un incident (0060) : avec l'IA, le locataire décrit avec ses mots (voix ou texte) + photos ; l'assistant
+// reformule, pose au plus deux questions, déduit élément, nature et urgence. Urgence : SEULEMENT les consignes de sécurité.
+// Sans IA (ou en cas d'échec) : le formulaire en deux étapes de 0059, jamais bloquant.
+const contactVide = () => ({ tel_partage: false, telephone: '', acces_info: '', presence: '' });
+function debuterSignalement() {
+  S.sig = { piece: null, element: null, description: '', urgence: null, photos: [], envoi: false, ...contactVide(), ia: null, texte: '', images: [], questions: [], reponses: [], qi: 0, dictee: null, etat: 'saisie', secondes: 0, charge: false, envoye: false };
+  if (S.info.ia) {
+    S.sig.dictee = creerDictee((ev) => {
+      const s = S.sig; if (!s) return;
+      if (ev.etat === 'enregistre') { s.etat = 'dictee'; s.secondes = ev.secondes; const n = root.querySelector('#el-mm'); if (n) n.textContent = mmss(ev.secondes); if (ev.secondes === 0) render(); return; }
+      if (ev.etat === 'erreur') { s.etat = 'saisie'; toast(ev.message); render(); return; }
+      if (ev.etat === 'arrete') transcrireSig(ev.blob);
+    });
+    return ouvrirCouche('ia1');
+  }
+  ouvrirCouche('signaler1');
+}
 const choix = (liste, cle, sel, onpick) => h('div', { class: 'chips', role: 'radiogroup' }, liste.map((x) => h('button', { class: 'opt', role: 'radio', 'aria-checked': sel === x.k ? 'true' : 'false', onclick: () => onpick(x.k) }, x.lbl)));
 function coucheSignaler1() {
   const R = S.info.referentiel, s = S.sig;
@@ -372,36 +334,36 @@ function coucheSignaler1() {
     h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Description'), h('textarea', { class: 'inp', maxlength: 2000, placeholder: 'Décrire le problème : depuis quand, ce qui se passe.', oninput: (e) => { s.description = e.target.value; const b = root.querySelector('.pg-f .btn.p'); if (b) b.disabled = !(s.piece && s.element && s.description.trim().length >= 3); } }, s.description))],
     pied: [h('button', { class: 'btn p', disabled: !ok, onclick: () => ouvrirCouche('signaler2') }, 'Continuer', I('chev', 16))] };
 }
-async function preparerImage(file) {
-  if (file.type === 'application/pdf') return file;
-  try {
-    const bmp = await createImageBitmap(file);
-    const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
-    const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
-    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
-    // Ré-encodage JPEG : réduit le poids ET retire les métadonnées (position GPS de l'appareil photo).
-    return await new Promise((res) => cv.toBlob((b) => res(b || file), 'image/jpeg', 0.85));
-  } catch (e) { if (/^image\/(jpeg|png)$/.test(file.type)) return file; throw new Error('Format non accepté : photo (JPEG, PNG) ou PDF.'); }
-}
 async function deposer(file) {
   const blob = await preparerImage(file);
   const nom = (file.name || 'photo').replace(/\.[^.]+$/, '') + (blob.type === 'application/pdf' ? '.pdf' : blob.type === 'image/png' ? '.png' : '.jpg');
   return api('depot', blob, { binaire: true, headers: { 'Content-Type': 'application/octet-stream', 'X-El-Nom': encodeURIComponent(nom) } });
-}
-function choisirFichiers(accept, multiple, onfiles) {
-  const inp = h('input', { type: 'file', accept, multiple: multiple || null, class: 'vh' });
-  inp.addEventListener('change', () => { onfiles([...inp.files]); inp.remove(); });
-  document.body.append(inp); inp.click();
 }
 async function ajouterPhotos(files) {
   const s = S.sig;
   for (const f of files) {
     if (s.photos.length >= 6) { toast('6 photos au plus.'); break; }
     const ph = { nom: f.name, url: null, charge: true }; s.photos.push(ph); render();
-    try { const r = await deposer(f); Object.assign(ph, r, { charge: false, url: URL.createObjectURL(f) }); }
-    catch (e) { s.photos.splice(s.photos.indexOf(ph), 1); echec(e); }
+    try {
+      const r = await deposer(f); Object.assign(ph, r, { charge: false, url: URL.createObjectURL(f) });
+      // Pour l'assistant : 3 images réduites au plus, jamais conservées.
+      if (S.info.ia && s.images.length < 3) { const d = await imagePourIA(f); if (d) { ph.ia = d; s.images.push(d); } }
+    } catch (e) { s.photos.splice(s.photos.indexOf(ph), 1); echec(e); }
     render();
   }
+}
+const vignettes = (s) => h('div', { class: 'thumbs' },
+  s.photos.map((p) => h('div', { class: 'thumb' }, p.url ? h('img', { src: p.url, alt: p.nom || 'photo' }) : h('span', null, 'Envoi…'),
+    p.charge ? null : h('button', { class: 'x', onclick: () => { s.photos.splice(s.photos.indexOf(p), 1); if (p.ia) s.images = s.images.filter((x) => x !== p.ia); render(); } }, 'Retirer'))),
+  s.photos.length < 6 ? h('button', { class: 'thumb add', onclick: () => choisirFichiers('image/*', true, ajouterPhotos) }, I('cam', 22), 'Ajouter') : null);
+// Contact pour l'intervention : le téléphone n'est transmis à l'entreprise QU'avec l'accord coché (D13).
+function blocContact(s) {
+  return [h('div', { class: 'sec' }, 'Pour l\'intervention'),
+    h('button', { class: 'chk', role: 'checkbox', 'aria-checked': s.tel_partage ? 'true' : 'false', onclick: () => { s.tel_partage = !s.tel_partage; render(); } },
+      h('span', { class: 'bx' }, I('check', 16)), h('span', null, 'L\'entreprise d\'intervention peut appeler ' + (S.info.locataire || 'le locataire') + ' pour fixer le rendez-vous.', h('br'), h('span', { class: 'small' }, 'Sans cet accord, le rendez-vous passe par le bailleur et par cet espace.'))),
+    s.tel_partage ? h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Téléphone'), h('input', { class: 'inp', type: 'tel', inputmode: 'tel', autocomplete: 'tel', maxlength: 30, value: s.telephone, oninput: (e) => { s.telephone = e.target.value; } })) : null,
+    h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Accès (facultatif)'), h('input', { class: 'inp', maxlength: 300, placeholder: 'Code, étage, interphone', value: s.acces_info, oninput: (e) => { s.acces_info = e.target.value; } })),
+    h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Moments où quelqu\'un est présent (facultatif)'), h('input', { class: 'inp', maxlength: 300, value: s.presence, oninput: (e) => { s.presence = e.target.value; } }))];
 }
 function coucheSignaler2() {
   const R = S.info.referentiel, s = S.sig;
@@ -411,35 +373,135 @@ function coucheSignaler2() {
   return { titre: 'Signaler un problème', retour: () => ouvrirCouche('signaler1'), contenu: [
     h('div', { class: 'steps' }, h('i', { class: 'on' }), h('i', { class: 'on' })),
     h('p', { class: 'small', style: 'margin:0 0 10px' }, 'Étape 2 sur 2 · ' + ((R.pieces.find((p) => p.k === s.piece) || {}).lbl || '') + ' · ' + (pb.lbl || '')),
-    h('div', { class: 'fld' }, h('span', { class: 'lb' }, 'Photos (6 au plus)'), h('div', { class: 'thumbs' },
-      s.photos.map((p) => h('div', { class: 'thumb' }, p.url ? h('img', { src: p.url, alt: p.nom || 'photo' }) : h('span', null, 'Envoi…'),
-        p.charge ? null : h('button', { class: 'x', onclick: () => { s.photos.splice(s.photos.indexOf(p), 1); render(); } }, 'Retirer'))),
-      s.photos.length < 6 ? h('button', { class: 'thumb add', onclick: () => choisirFichiers('image/*', true, ajouterPhotos) }, I('cam', 22), 'Ajouter') : null)),
+    h('div', { class: 'fld' }, h('span', { class: 'lb' }, 'Photos (6 au plus)'), vignettes(s)),
     h('div', { class: 'fld' }, h('span', { class: 'lb' }, 'Urgence'), h('div', { class: 'radio', role: 'radiogroup' }, R.urgences.map((u) =>
       h('button', { class: 'opt', role: 'radio', 'aria-checked': s.urgence === u.k ? 'true' : 'false', onclick: () => { s.urgence = u.k; render(); } }, h('span', { class: 'dot' }), h('span', null, u.lbl, h('small', null, u.aide)))))),
     h('div', { class: 'banner acc' }, I('alert'), h('span', null, h('b', null, R.danger + ' '), consignes.join(' '))),
-    h('p', { class: 'small mt' }, 'Le signalement part au bailleur, qui décide de la suite.')],
+    blocContact(s),
+    h('p', { class: 'small mt' }, 'Le signalement part au bailleur, qui organise l\'intervention.')],
     pied: [h('button', { class: 'btn p', disabled: !s.urgence || charge || s.envoi, onclick: (e) => envoyerSignalement(e.currentTarget) }, I('send'), 'Envoyer le signalement')] };
 }
-async function envoyerSignalement(bouton) {
-  const s = S.sig; s.envoi = true; bouton.classList.add('busy');
+
+// ── avec l'assistant IA ──
+async function transcrireSig(blob) {
+  const s = S.sig; s.etat = 'saisie'; s.charge = true; s.dicte = true; render();
   try {
-    await api('signaler', { piece: s.piece, element: s.element, urgence: s.urgence, description: s.description, photos: s.photos.map((p) => ({ path: p.path, nom: p.nom, mime: p.mime })) });
+    const r = await fetch('/api/el/ia/transcrire', { method: 'POST', headers: { 'X-El-Jeton': S.jeton, 'Content-Type': blob.type || 'audio/webm' }, body: blob, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
+    if (r.status === 410) { S.inactif = true; S.couche = null; return render(); }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.erreur === 'quota' ? 'Limite de dictée atteinte pour aujourd\'hui : écrire directement.' : 'Dictée non comprise : écrire plutôt.');
+    s.texte = (s.texte ? s.texte + ' ' : '') + (j.text || '');
+  } catch (e) { toast(e.message); } finally { s.charge = false; render(); }
+}
+async function demanderIA(bouton) {
+  const s = S.sig;
+  if (s.texte.trim().length < 3) { toast('Décrire le problème en quelques mots.'); return; }
+  if (s.photos.some((p) => p.charge)) { toast('Photo en cours d\'envoi.'); return; }
+  if (bouton) bouton.classList.add('busy'); s.charge = true;
+  try {
+    const r = await fetch('/api/el/ia/structurer', { method: 'POST', headers: { 'X-El-Jeton': S.jeton, 'Content-Type': 'application/json' }, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
+      body: JSON.stringify({ task: 'incident-locataire', input: { texte: s.texte, reponses: s.reponses, images: s.images } }) });
+    if (r.status === 410) { S.inactif = true; S.couche = null; return render(); }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.data) throw new Error('assistant');
+    s.ia = j.data;
+    s.piece = j.data.piece; s.element = j.data.probleme; s.urgence = j.data.urgence; s.description = j.data.resume;
+    s.charge = false;
+    // Urgence : seulement les consignes de sécurité, puis l'envoi immédiat (aucune question).
+    if (s.urgence === 'urgente' && consignesDe(s).length) return ouvrirCouche('urgence');
+    if (!s.reponses.length && j.data.questions.length) { s.questions = j.data.questions; s.qi = 0; return ouvrirCouche('ia2'); }
+    return ouvrirCouche('ia3');
+  } catch (e) {
+    // Jamais bloquant : sans l'assistant, le formulaire guidé reprend avec le texte déjà écrit.
+    s.charge = false; if (bouton) bouton.classList.remove('busy');
+    s.description = s.texte; toast('Assistant indisponible : choisir la pièce et le problème.');
+    ouvrirCouche('signaler1');
+  }
+}
+function consignesDe(s) {
+  const R = S.info.referentiel, out = [];
+  const urg = (s.ia && s.ia.urgences.length) ? s.ia.urgences : [((R.problemes.find((p) => p.k === s.element) || {}).urgence)].filter(Boolean);
+  for (const u of urg) for (const c of (R.consignes[u] || [])) if (!out.includes(c)) out.push(c);
+  if (out.length) out.push(R.danger);
+  return out;
+}
+function coucheIa1() {
+  const s = S.sig, enreg = s.etat === 'dictee';
+  return { titre: 'Signaler un problème', contenu: [
+    h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, h('span', { class: 'ia-tag' }, I('spark', 14), 'Assistant IA'), h('span', { class: 'small' }, 'Étape 1 sur 2')),
+    h('p', { class: 'h2' }, 'Décrire le problème avec ses mots'),
+    h('p', { class: 'muted', style: 'margin:2px 0 12px' }, 'Parler ou écrire, comme au téléphone. L\'assistant reformule et pose au plus deux questions si quelque chose manque.'),
+    h('div', { class: 'mic' }, h('span', { class: 'dot' + (enreg ? ' on' : '') }), h('span', { class: 'grow muted' }, enreg ? 'Enregistrement…' : s.charge ? 'Un instant…' : 'Dictée'), h('span', { class: 'num', id: 'el-mm', style: 'font-weight:700' }, mmss(s.secondes)),
+      h('button', { class: 'btn s', disabled: s.charge || null, onclick: () => (enreg ? s.dictee.arreter() : s.dictee.demarrer()) }, I(enreg ? 'stop' : 'mic', 16), enreg ? 'Arrêter' : 'Dicter')),
+    h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Texte'), h('textarea', { class: 'inp', maxlength: 3000, placeholder: 'Ex. : de l\'eau sous l\'évier de la cuisine depuis ce matin, le meuble est mouillé.', oninput: (e) => { s.texte = e.target.value; } }, s.texte)),
+    h('div', { class: 'fld' }, h('span', { class: 'lb' }, 'Photos (6 au plus, conseillées)'), vignettes(s)),
+    h('div', { class: 'ia-note' }, I('info', 16), h('span', null, S.info.referentiel.mentionIA || '')),
+    h('div', { class: 'banner acc mt' }, I('alert'), h('span', null, h('b', null, 'Danger immédiat (gaz, fumée, personne blessée) : appeler le 112 ou le 18'), ' avant toute chose.'))],
+    pied: [h('button', { class: 'btn p', disabled: enreg || s.charge || null, onclick: (e) => demanderIA(e.currentTarget) }, I('chev'), 'Continuer')] };
+}
+function coucheIa2() {
+  const s = S.sig, q = s.questions[s.qi] || {};
+  const suivant = () => { if (s.qi + 1 < s.questions.length) { s.qi++; render(); } else demanderIA(null); };
+  return { titre: 'Signaler un problème', retour: () => ouvrirCouche('ia1'), contenu: [
+    h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, h('span', { class: 'ia-tag' }, I('spark', 14), 'Assistant IA'), h('span', { class: 'small' }, 'Question ' + (s.qi + 1) + ' sur ' + s.questions.length)),
+    h('div', { class: 'msgs' }, h('div', { class: 'bub me' }, s.texte),
+      h('div', { class: 'bub ia' }, h('span', { class: 'who' }, I('spark', 14), 'Assistant IA'), q.question || '')),
+    h('div', { class: 'radio mt', role: 'radiogroup' }, (q.choix || []).map((c) => h('button', { class: 'opt', role: 'radio', 'aria-checked': 'false', disabled: s.charge || null, onclick: () => { s.reponses.push({ q: q.question, r: c }); suivant(); } }, h('span', { class: 'dot' }), h('span', null, c)))),
+    h('p', { class: 'small mt' }, 'Deux questions au plus. Il est toujours possible de passer.')],
+    pied: [h('button', { class: 'btn s', disabled: s.charge || null, onclick: () => ouvrirCouche('ia3') }, 'Passer')] };
+}
+function coucheIa3() {
+  const R = S.info.referentiel, s = S.sig;
+  const charge = s.photos.some((p) => p.charge);
+  return { titre: 'Vérifier et envoyer', retour: () => ouvrirCouche('ia1'), contenu: [
+    h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, h('span', { class: 'ia-tag' }, I('spark', 14), 'Assistant IA'), h('span', { class: 'small' }, 'Étape 2 sur 2')),
+    h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Résumé proposé (modifiable)'), h('textarea', { class: 'inp', maxlength: 2000, oninput: (e) => { s.description = e.target.value; } }, s.description)),
+    h('p', { class: 'small', style: 'margin:-4px 0 8px' }, 'Proposé par l\'IA, à vérifier. Ni cause ni responsabilité : seulement ce qui se voit.'),
+    h('div', { class: 'fld' }, h('span', { class: 'lb' }, 'Où ?'), choix(R.pieces, 'piece', s.piece, (k) => { s.piece = k; render(); })),
+    h('div', { class: 'fld' }, h('span', { class: 'lb' }, 'Urgence'), h('div', { class: 'radio', role: 'radiogroup' }, R.urgences.map((u) =>
+      h('button', { class: 'opt', role: 'radio', 'aria-checked': s.urgence === u.k ? 'true' : 'false', onclick: () => { s.urgence = u.k; render(); } }, h('span', { class: 'dot' }), h('span', null, u.lbl, h('small', null, u.aide)))))),
+    s.photos.length ? h('div', { class: 'fld' }, h('span', { class: 'lb' }, 'Photos'), vignettes(s)) : null,
+    blocContact(s)],
+    pied: [h('button', { class: 'btn p', disabled: charge || s.envoi || s.description.trim().length < 3 || null, onclick: (e) => envoyerSignalement(e.currentTarget) }, I('send'), 'Envoyer le signalement')] };
+}
+// Urgence : les consignes existantes (QuiPaie.URGENCES, CONSIGNE_DANGER), mot pour mot, et rien d'autre ; envoi immédiat.
+function coucheUrgence() {
+  const s = S.sig, c = consignesDe(s);
+  return { titre: s.envoye ? 'Urgence : signalement envoyé' : 'Urgence : à faire maintenant', contenu: [
+    h('div', { class: 'urg' }, h('h3', null, I('alert', 22), 'À faire maintenant'), h('ol', null, c.map((x) => h('li', null, x)))),
+    h('a', { class: 'btn s w mt', href: 'tel:112' }, I('phone', 18), 'Appeler le 112'),
+    s.envoye ? h('div', { class: 'banner pos mt' }, I('check'), h('span', null, h('b', null, 'Signalement envoyé en urgence le ' + fdh(S.envoyeLe) + '. '), 'Le bailleur est prévenu ; l\'avancement s\'affiche dans « Signalements ».'))
+      : [h('div', { class: 'sec' }, 'Pour l\'intervention'),
+        h('button', { class: 'chk', role: 'checkbox', 'aria-checked': s.tel_partage ? 'true' : 'false', onclick: () => { s.tel_partage = !s.tel_partage; render(); } }, h('span', { class: 'bx' }, I('check', 16)), h('span', null, 'L\'entreprise d\'intervention peut appeler ce numéro.')),
+        s.tel_partage ? h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Téléphone'), h('input', { class: 'inp', type: 'tel', inputmode: 'tel', autocomplete: 'tel', maxlength: 30, value: s.telephone, oninput: (e) => { s.telephone = e.target.value; } })) : null]],
+    pied: s.envoye ? [h('button', { class: 'btn p', onclick: () => aller('suivi') }, I('eye'), 'Suivre le signalement')]
+      : [h('button', { class: 'btn p', disabled: s.envoi || null, onclick: (e) => envoyerSignalement(e.currentTarget, true) }, I('send'), 'Envoyer en urgence')] };
+}
+async function envoyerSignalement(bouton, urgence) {
+  const s = S.sig; s.envoi = true; bouton.classList.add('busy');
+  const ia = s.ia ? { resume: s.description, element: s.ia.element, nature: s.ia.nature, urgences: s.urgence === 'urgente' ? s.ia.urgences : [], texte: s.texte, reponses: s.reponses, dicte: !!s.dicte } : null;
+  try {
+    await api('signaler', { piece: s.piece || 'autre', element: s.element || 'autre', urgence: s.urgence || 'importante', description: s.description, photos: s.photos.filter((p) => p.path).map((p) => ({ path: p.path, nom: p.nom, mime: p.mime })),
+      ia, tel_partage: s.tel_partage, telephone: s.telephone, acces_info: s.acces_info, presence: s.presence });
     s.photos.forEach((p) => p.url && URL.revokeObjectURL(p.url));
     S.sigs = null; if (S.info.compteurs) S.info.compteurs.signalements_ouverts = (S.info.compteurs.signalements_ouverts || 0) + 1;
     S.envoyeLe = new Date().toISOString();
-    ouvrirCouche('envoye'); rechargerSigs();
+    if (urgence) { s.envoye = true; s.envoi = false; render(); } else ouvrirCouche('envoye');
+    rechargerSigs();
   } catch (e) { s.envoi = false; bouton.classList.remove('busy'); echec(e); }
 }
 function coucheEnvoye() {
   return { titre: 'Signalement', contenu: [h('div', { class: 'empty' }, h('span', { class: 'ic pos big' }, I('check', 28)), h('p', { class: 'h2' }, 'Signalement envoyé'),
-    h('p', { class: 'muted', style: 'margin:0' }, `Envoyé le ${fdh(S.envoyeLe)} au bailleur (${S.info.bailleur}). L'avancement s'affiche dans « Signalements ». Le bailleur peut aussi répondre dans « Messages ».`))],
+    h('p', { class: 'muted', style: 'margin:0' }, `Envoyé le ${fdh(S.envoyeLe)} au bailleur (${S.info.bailleur}). L'avancement s'affiche dans « Signalements » : signalé, intervention prévue, terminé.`))],
     pied: [h('button', { class: 'btn p', onclick: () => aller('suivi') }, 'Suivre les signalements', I('chev', 16))] };
 }
 
 // ─────────────── suivi ───────────────
-const STATUT = { signale: 'Signalé', en_cours: 'En cours', resolu: 'Résolu' };
+// Trois étapes vues du locataire (0060) : Signalé → Intervention prévue → Terminé. Rien sur la cause ni le coût avant la
+// publication du résultat par le bailleur, après sa validation.
 const lbl = (liste, k) => ((liste || []).find((x) => x.k === k) || {}).lbl || '';
+const etapeDe = (s) => ((s.resultat || s.statut === 'resolu') ? 'termine' : ((s.intervention && s.intervention.creneau) || s.statut === 'en_cours') ? 'intervention' : 'signale');
+const ETAPE_LBL = { signale: 'Signalé', intervention: 'Intervention prévue', termine: 'Terminé' };
 function titreSig(s) { const R = S.info.referentiel; return [lbl(R.problemes, s.element), lbl(R.pieces, s.piece).toLowerCase()].filter(Boolean).join(' · '); }
 function vueSuivi() {
   const l = S.sigs;
@@ -447,10 +509,16 @@ function vueSuivi() {
   if (peut('signaler')) contenu.push(h('button', { class: 'btn p w', onclick: debuterSignalement }, I('plus'), 'Signaler un problème'));
   if (!l) { contenu.push(h('p', { class: 'small mt' }, 'Chargement…')); return { contenu }; }
   if (!l.length) { contenu.push(h('div', { class: 'card empty mt' }, h('span', { class: 'ic big' }, I('tool', 26)), h('p', { class: 'muted', style: 'margin:0' }, 'Aucun signalement pour le moment.'))); return { contenu }; }
-  const ligne = (s) => h('button', { class: 'li', onclick: () => { S.sigSel = s; ouvrirCouche('detail'); } }, h('span', { class: 'ic' }, I('tool', 20)),
-    h('span', { class: 'tx' }, h('b', null, titreSig(s)), h('span', null, 'Signalé le ' + fd(s.cree_le) + (s.statut === 'resolu' && s.dates.resolu ? ' · résolu le ' + fd(s.dates.resolu) : '') + (s.nb_photos ? ' · ' + s.nb_photos + ' photo' + (s.nb_photos > 1 ? 's' : '') : ''))),
-    h('span', { class: 'chip ' + (s.statut === 'resolu' ? 'pos' : 'adv') }, STATUT[s.statut] || 'Signalé'));
-  const ouverts = l.filter((s) => s.statut !== 'resolu'), finis = l.filter((s) => s.statut === 'resolu');
+  const sous = (s) => {
+    const e = etapeDe(s), it = s.intervention;
+    if (e === 'termine') return 'Signalé le ' + fd(s.cree_le) + ' · terminé' + (s.resultat_publie_le ? ' le ' + fd(s.resultat_publie_le) : s.dates.resolu ? ' le ' + fd(s.dates.resolu) : '');
+    if (it && it.creneau) return 'Intervention ' + plage(it.creneau) + (it.confirme_le ? '' : ' · à confirmer');
+    return 'Signalé le ' + fd(s.cree_le) + (s.nb_photos ? ' · ' + s.nb_photos + ' photo' + (s.nb_photos > 1 ? 's' : '') : '');
+  };
+  const ligne = (s) => h('button', { class: 'li', onclick: () => { S.sigSel = s; S.accordCreneau = false; ouvrirCouche('detail'); } }, h('span', { class: 'ic' }, I('tool', 20)),
+    h('span', { class: 'tx' }, h('b', null, titreSig(s)), h('span', null, sous(s))),
+    h('span', { class: 'chip ' + (etapeDe(s) === 'termine' ? 'pos' : 'adv') }, ETAPE_LBL[etapeDe(s)]));
+  const ouverts = l.filter((s) => etapeDe(s) !== 'termine'), finis = l.filter((s) => etapeDe(s) === 'termine');
   if (ouverts.length) contenu.push(h('div', { class: 'sec' }, 'En cours'), h('div', { class: 'list' }, ouverts.map(ligne)));
   if (finis.length) contenu.push(h('div', { class: 'sec' }, 'Terminés'), h('div', { class: 'list' }, finis.map(ligne)));
   return { contenu };
@@ -458,17 +526,47 @@ function vueSuivi() {
 function chargerImage(source, id, index, img) {
   api('fichier', { source, id, index }, { blob: true }).then((b) => { img.src = URL.createObjectURL(b); }).catch(() => { img.alt = 'Photo indisponible'; });
 }
+// Résultat expliqué (publié par le bailleur après sa validation) : constat, payeur, montant si le locataire paie, textes.
+function blocResultat(r) {
+  const loc = r.payeur === 'locataire';
+  const titre = loc ? 'À la charge du locataire' + (r.montantTtc ? ' : ' + euros(r.montantTtc) : '') : r.payeur === 'bailleur' ? 'À la charge du bailleur' : r.payeur === 'syndic' ? 'Pris en charge par le syndic de copropriété' : 'Circuit de l\'assurance';
+  return h('div', { class: 'verdict mt' },
+    h('div', { class: 'vh' }, h('span', { class: 'ic ' + (loc ? '' : 'pos') }, I(loc ? 'scale' : 'check', 20)), h('div', null, h('b', null, titre), loc && r.facture ? h('div', { class: 'small' }, 'Facture n° ' + r.facture) : r.payeur === 'bailleur' ? h('div', { class: 'small' }, 'Rien à payer pour le locataire') : null)),
+    h('div', { class: 'vb' },
+      h('dl', { class: 'kv', style: 'margin:0' }, [['Constat', r.constat], ['Ampleur', r.ampleur], ['Travaux', r.travaux]].filter(([, v]) => v).map(([k, v]) => [h('dt', null, k), h('dd', null, v)])),
+      (r.textes || []).map((t) => [h('div', { class: 'quote' }, '« ' + t.extrait + ' »'), h('p', { class: 'src' }, t.ref + ' — Légifrance')]),
+      r.exceptions ? h('div', { class: 'banner mt' }, I('info'), h('span', null, 'Si la cause est autre (vétusté, malfaçon, vice), le signaler au bailleur : la réparation lui reviendrait alors. Selon le contrat, l\'assurance habitation peut couvrir certains dommages.')) : null,
+      h('p', { class: 'small', style: 'margin:10px 0 0' }, 'Information juridique générale, pas une consultation juridique (loi n° 71-1130 du 31 décembre 1971, art. 54).')));
+}
 function coucheDetail() {
-  const s = S.sigSel || {}, d = s.dates || {};
-  const etapes = [['signale', 'Signalé', d.signale], ['en_cours', 'En cours', d.en_cours], ['resolu', 'Résolu', d.resolu]];
-  const rang = { signale: 0, en_cours: 1, resolu: 2 }[s.statut] || 0;
-  return { titre: 'Signalement', contenu: [h('p', { class: 'h2' }, titreSig(s)), h('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Signalé le ' + fdh(s.cree_le) + ' · ' + lbl(S.info.referentiel.urgences, s.urgence).toLowerCase()),
-    h('div', { class: 'card' }, h('ul', { class: 'tl' }, etapes.map(([k, l, dt], i) => h('li', { class: i < rang || (i === rang && k === 'resolu') ? 'ok' : i === rang ? 'cur' : '' },
-      h('span', { class: 'd' }, i <= rang ? I(i < rang || k === 'resolu' ? 'check' : 'clock') : null), h('div', null, h('b', null, l), h('span', null, dt ? fdh(dt) : '—')))))),
-    h('div', { class: 'card' }, h('b', { style: 'display:block;margin-bottom:6px' }, 'Description envoyée'), h('span', { class: 'muted', style: 'white-space:pre-wrap' }, s.description),
-      s.nb_photos ? h('div', { class: 'thumbs mt' }, Array.from({ length: s.nb_photos }, (_, k) => { const img = h('img', { alt: 'Photo ' + (k + 1) }); chargerImage('signalement', s.id, k, img); return h('div', { class: 'thumb' }, img); })) : null),
-    h('p', { class: 'small mt' }, 'La prise en charge et la suite sont décidées par le bailleur, qui peut répondre dans « Messages ».')],
-    pied: peut('message') ? [h('button', { class: 'btn s', onclick: () => { S.msg.signalement = s.id; aller('messages'); } }, I('chat'), 'Écrire au bailleur')] : null };
+  const s = S.sigSel || {}, d = s.dates || {}, it = s.intervention, R = S.info.referentiel;
+  const e = etapeDe(s), rang = { signale: 0, intervention: 1, termine: 2 }[e];
+  const etapes = [['Signalé', fdh(s.cree_le)], ['Intervention prévue', it ? it.entreprise + (it.creneau ? ' · ' + plage(it.creneau) : ' · créneau à venir') : (d.en_cours ? 'Pris en compte le ' + fdh(d.en_cours) : '—')], ['Terminé', s.resultat_publie_le ? 'Validé par le bailleur le ' + fdh(s.resultat_publie_le) : d.resolu ? fdh(d.resolu) : 'Le résultat s\'affichera ici, expliqué.']];
+  const aConfirmer = it && it.creneau && !it.confirme_le && e !== 'termine';
+  const accord = it && it.accordExpres && it.accordExpres.exige;
+  const contenu = [h('p', { class: 'h2' }, titreSig(s)), h('p', { class: 'muted', style: 'margin:0 0 12px' }, 'Signalé le ' + fdh(s.cree_le) + ' · ' + lbl(R.urgences, s.urgence).toLowerCase()),
+    h('div', { class: 'card' }, h('ul', { class: 'tl' }, etapes.map(([l, t], i) => h('li', { class: i < rang || (i === rang && i === 2) ? 'ok' : i === rang ? 'cur' : '' },
+      h('span', { class: 'd' }, i <= rang ? I(i < rang || i === 2 ? 'check' : 'clock') : null), h('div', null, h('b', null, l), h('span', null, t))))))];
+  if (aConfirmer) {
+    contenu.push(h('div', { class: 'card' }, h('b', { style: 'display:block;margin-bottom:4px' }, 'Confirmer le rendez-vous'), h('span', { class: 'muted' }, plage(it.creneau) + ', proposé par ' + it.entreprise + '.'),
+      accord ? [h('div', { class: 'quote' }, '« ' + R.art7e.texte + ' »'), h('p', { class: 'src' }, R.art7e.source),
+        h('button', { class: 'chk mt', role: 'checkbox', 'aria-checked': S.accordCreneau ? 'true' : 'false', onclick: () => { S.accordCreneau = !S.accordCreneau; render(); } }, h('span', { class: 'bx' }, I('check', 16)),
+          h('span', null, S.info.locataire + ' donne son accord exprès pour une intervention ce jour-là (' + ({ samedi: 'samedi', dimanche: 'dimanche', ferie: 'jour férié' }[it.accordExpres.motif]) + ').'))] : null,
+      h('button', { class: 'btn g', style: 'padding:0 2px;margin-top:6px', onclick: () => { S.msg.signalement = s.id; S.msg.texte = 'Le créneau proposé ne convient pas. Moments possibles : '; aller('messages'); } }, I('cal', 16), 'Demander un autre moment')));
+  } else if (it && it.confirme_le && e !== 'termine') contenu.push(h('div', { class: 'banner pos' }, I('check'), h('span', null, 'Rendez-vous confirmé : ' + plage(it.creneau) + ' avec ' + it.entreprise + '.')));
+  if (s.resultat) contenu.push(blocResultat(s.resultat));
+  contenu.push(h('div', { class: 'card mt' }, h('b', { style: 'display:block;margin-bottom:6px' }, 'Description envoyée'), h('span', { class: 'muted', style: 'white-space:pre-wrap' }, s.description),
+    s.nb_photos ? h('div', { class: 'thumbs mt' }, Array.from({ length: s.nb_photos }, (_, k) => { const img = h('img', { alt: 'Photo ' + (k + 1) }); chargerImage('signalement', s.id, k, img); return h('div', { class: 'thumb' }, img); })) : null));
+  if (!s.resultat) contenu.push(h('p', { class: 'small mt' }, 'Aucune information sur la cause ni sur le coût avant la fin de l\'intervention.'));
+  const pied = [];
+  if (aConfirmer) pied.push(h('button', { class: 'btn p', disabled: (accord && !S.accordCreneau) || null, onclick: (ev) => confirmerCreneau(s, ev.currentTarget) }, I('check'), 'Confirmer le rendez-vous'));
+  else if (peut('message')) pied.push(h('button', { class: s.resultat ? 'btn p' : 'btn s', onclick: () => { S.msg.signalement = s.id; aller('messages'); } }, I('chat'), s.resultat ? 'Contester ou poser une question' : 'Écrire au bailleur'));
+  return { titre: 'Signalement', contenu, pied: pied.length ? pied : null };
+}
+async function confirmerCreneau(s, b) {
+  b.classList.add('busy');
+  try { await api('creneau', { signalement_id: s.id, accord_expres: !!S.accordCreneau }); S.couche = null; await rechargerSigs(); toast('Rendez-vous confirmé.'); }
+  catch (e) { b.classList.remove('busy'); echec(e.code === 'accord_requis' ? new Error('Cocher l\'accord exprès pour ce jour-là.') : e); }
 }
 
 // ─────────────── messages ───────────────
@@ -516,5 +614,6 @@ async function envoyerMessage(bouton) {
 }
 
 const VUES = { accueil: vueAccueil, documents: vueDocuments, suivi: vueSuivi, messages: vueMessages };
-const COUCHES = { doc: coucheDoc, accord: coucheAccord, signaler1: coucheSignaler1, signaler2: coucheSignaler2, envoye: coucheEnvoye, detail: coucheDetail };
+const COUCHES = { doc: coucheDoc, accord: coucheAccord, signaler1: coucheSignaler1, signaler2: coucheSignaler2, envoye: coucheEnvoye, detail: coucheDetail,
+  ia1: coucheIa1, ia2: coucheIa2, ia3: coucheIa3, urgence: coucheUrgence };
 charger();

@@ -194,3 +194,25 @@ textarea.inp{min-height:110px;resize:vertical;line-height:1.45}
 @media (min-width:768px){.toast{bottom:24px}}
 .prog{height:4px;border-radius:2px;background:var(--sur3);overflow:hidden;margin-top:6px}
 .prog i{display:block;height:100%;background:var(--pos);width:0}
+
+/* ── Circuit d'un incident (0060) : assistant IA, urgence, plafond, page de l'artisan ── */
+.acts{display:flex;flex-wrap:wrap;gap:8px}
+.acts .btn{flex:1 1 calc(50% - 4px)}
+.cap{display:flex;gap:12px;align-items:center;padding:14px;border-radius:var(--rl);background:var(--pos-soft);border:1px solid var(--bor)}
+.cap .amt{font:800 24px var(--display);line-height:1.1}
+.ia-tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:var(--rp);background:var(--adv-bg);color:var(--adv)}
+.ia-note{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--t2);line-height:1.4;padding:8px 10px;border-radius:var(--r);background:var(--sur2);border:1px solid var(--bor);margin-top:12px}
+.ia-note svg{flex:none;margin-top:1px}
+.bub.ia{align-self:flex-start;border-bottom-left-radius:4px}
+.bub.ia .who{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--adv);margin-bottom:4px}
+.mic{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px dashed var(--t3);border-radius:var(--rl);background:var(--sur)}
+.mic .dot{width:12px;height:12px;border-radius:50%;background:var(--t3);flex:none}
+.mic .dot.on{background:var(--acc)}
+.urg{border-radius:var(--rl);padding:14px;background:var(--acc-bg);border:1.5px solid var(--acc)}
+.urg h3{margin:0 0 8px;font:800 18px var(--display);display:flex;gap:8px;align-items:center}
+.urg ol{margin:0;padding-left:22px;font-size:16px;line-height:1.5}
+.urg ol li+li{margin-top:6px}
+.verdict{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;background:var(--sur)}
+.verdict .vh{display:flex;gap:10px;align-items:center;padding:12px 14px;background:var(--sur2);border-bottom:1px solid var(--bor)}
+.verdict .vh b{font:800 17px var(--display)}
+.verdict .vb{padding:12px 14px}

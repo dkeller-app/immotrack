@@ -12,7 +12,7 @@
 // d'audio, de texte, d'extrait, de nom de pièce ni d'identifiant (règle vérifiée par test).
 import { makeAiProvider, fournisseurActif, AiError } from './provider.js';
 import { limites, lireUsageJour, decider, enregistrer } from './quota.js';
-import { tache } from './tasks/index.js';
+import { tache, JSON_MAX_IMAGES } from './tasks/index.js';
 import { videoActif, annonceVideo, VIDEO_DEFAUTS } from './video.js';
 
 export const AUDIO_TYPES = new Set(['audio/mp3', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav']);
@@ -112,7 +112,8 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     if (!ia) { mesure('structure', 503); return c.json({ error: 'ai_disabled' }, 503); }
     // Plafond du corps : 256 Kio (texte) ; plus grand seulement si la vidéo est ouverte (images en base64).
     const video = videoActif(c.env);
-    const plafond = video ? VIDEO_DEFAUTS.jsonMaxOctets : JSON_MAX;
+    // Tâches à images hors vidéo (lecture de facture) : plafond de la plus grande ; chaque tâche garde le sien (JSON_MAX).
+    const plafond = Math.max(video ? VIDEO_DEFAUTS.jsonMaxOctets : JSON_MAX, JSON_MAX_IMAGES || 0);
     const annonce = Number(c.req.header('Content-Length'));
     if (Number.isFinite(annonce) && annonce > plafond) { mesure('structure', 413); return c.json({ error: 'too_large' }, 413); }
 
@@ -127,14 +128,15 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     }
     const t = tache(body && body.task);
     if (!t) { mesure('structure', 400); return c.json({ error: 'unknown_task' }, 400); }
+    // Taille d'abord (vidéo éteinte : une tâche vidéo garde le plafond texte de 256 Kio, comme avant).
+    if (taille > ((t.video && !video) ? JSON_MAX : (t.JSON_MAX || JSON_MAX))) { mesure('structure', 413, { tache: t.nom }); return c.json({ error: 'too_large' }, 413); }
     if (t.video && !video) { mesure('structure', 503, { tache: t.nom }); return c.json({ error: 'video_disabled' }, 503); }
-    if (taille > (t.JSON_MAX || JSON_MAX)) { mesure('structure', 413, { tache: t.nom }); return c.json({ error: 'too_large' }, 413); }
     const v = t.validerEntree(body.input);
     if (!v.ok) { mesure('structure', 400, { tache: t.nom, raison: v.raison }); return c.json({ error: 'bad_input', raison: v.raison }, 400); }
 
     const lim = limites(c.env);
     const kv = c.env.SESSIONS_KV;
-    const nImages = t.video && Array.isArray(v.input.images) ? v.input.images.length : 0;
+    const nImages = (t.video || t.images) && Array.isArray(v.input.images) ? v.input.images.length : 0;
     const d = decider(await lireUsageJour(kv, gate.userId), lim, { images: nImages });
     if (!d.ok) { mesure('structure', 429, { motif: d.motif }); return c.json({ error: 'quota', motif: d.motif, limites: lim }, 429); }
 
