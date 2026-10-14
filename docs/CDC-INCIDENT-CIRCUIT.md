@@ -1,6 +1,6 @@
 # CDC — Circuit d'un incident : locataire → artisan → fin
 
-**Version 2 — 14/10/2026 — GO de Didier sur les recommandations D1 à D18 (relayé par le pilotage le 14/10). Document de référence du chantier, versionné dans le dépôt** (la maquette reste dans le dossier gitignoré  de ).
+**Version 2 — 14/10/2026 — GO de Didier sur les recommandations D1 à D18 (relayé par le pilotage le 14/10). Document de référence du chantier, versionné dans le dépôt** (la maquette reste dans le dossier gitignoré `mockups/INCIDENT-CIRCUIT/` de `DesktopImmo`).
 Chantier `feat/incident-circuit` (worktree `Desktop\Immo-wt-incident-circuit`, base `origin/main` 62721002 = v15.736). Remplace et précise le § 8 de `docs/CDC-PROPRYO.md`.
 Maquette : `mockups/INCIDENT-CIRCUIT/maquette.html` (écrans locataire, propriétaire, artisan, schéma ; 3 formats ; sobre et dark). Captures : `mockups/INCIDENT-CIRCUIT/captures/` (58 PNG + `_mesures.json`).
 
@@ -159,7 +159,7 @@ Routes publiques nouvelles (`/api/el/ia/*`, `/api/ar/ia/*`) authentifiées par l
 
 ---
 
-## 9. RGPD (inscrit au registre )
+## 9. RGPD (inscrit au registre `docs/legal/RGPD-REGISTRE.md`)
 
 Nouveau traitement « Incidents et interventions » : finalité entretien du logement (obligation du bailleur, art. 6 c) ; données du locataire transmises à l'artisan **minimisées** (prénom, nom, adresse, accès, téléphone seulement avec accord) ; artisan = nouveau destinataire, accès par lien limité à son incident, **30 jours après la fin** ; Mistral AI (sous-traitant, UE) pour la transcription et la lecture, voix non conservée, `RETENTION_ZERO=false` tant que non confirmé ; données des artisans (entreprises, données publiques ou fournies) ; durée de conservation de l'incident alignée sur le dossier du bail (preuves).
 
