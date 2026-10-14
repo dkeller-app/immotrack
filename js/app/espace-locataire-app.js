@@ -26,7 +26,7 @@ const jour = (s) => String(s || '').slice(0, 10)
 const db = () => { try { return DB } catch (e) { return null } }   // eslint-disable-line no-undef
 const vivant = (o) => o && !o._deleted
 
-const etat = { acces: [], docs: new Map(), msgs: new Map(), relais: null, charge: false, enCours: false, dernier: 0 }
+const etat = { acces: [], docs: new Map(), msgs: new Map(), relais: null, charge: false, enCours: false, dernier: 0, echecs: new Set() }
 
 // ─────────────────────────── Correspondance bail (app) ↔ ligne `baux` (cloud) ───────────────────────────
 function locatairesDuBail(bail, log) {
@@ -437,7 +437,7 @@ async function publierLocation(t, accesLoc) {
   let n = 0
   for (const u of plan.maj) { try { await API().update('locataire_documents', u.id, u.patch) } catch (e) { /* retenté au prochain cycle */ } }
   // Parents (décomptes) avant les justificatifs.
-  const ordre = voulus.filter((d) => !parCle.has(d.cle)).sort((a, b) => (a.parentCle ? 1 : 0) - (b.parentCle ? 1 : 0))
+  const ordre = voulus.filter((d) => !parCle.has(d.cle) && !etat.echecs.has(t.id + '|' + d.cle)).sort((a, b) => (a.parentCle ? 1 : 0) - (b.parentCle ? 1 : 0))
   for (const d of ordre) {
     try {
       let fichier = d.storage_path ? { storage_path: d.storage_path } : null
@@ -452,7 +452,11 @@ async function publierLocation(t, accesLoc) {
       })
       parCle.set(d.cle, row); n++
       await avisDocument(row, accesLoc, t)
-    } catch (e) { if (e && e.code !== '23505') console.warn('[espace-locataire] publication', d.cle, e && e.message) }
+    } catch (e) {
+      // Échec (droit d'écriture absent, fichier refusé…) : pas de nouvel essai pendant la session — rien n'est régénéré en boucle.
+      etat.echecs.add(t.id + '|' + d.cle)
+      if (e && e.code !== '23505') console.warn('[espace-locataire] publication', d.cle, e && e.message)
+    }
   }
   if (n) chargerDocs(t.id)
   return n
@@ -489,6 +493,11 @@ async function importerSignalements() {
     const x = etat.acces.find((a) => a.id === s.acces_id); const t = x ? locationDe(x) : null
     if (!t) continue
     const legacy = EL.idIncidentDuSignalement(s.id); if (!legacy) continue
+    // Réserver d'abord (droit d'écriture de la SCI exigé par la RLS) : un associé en lecture seule n'importe rien,
+    // sinon son app créerait un incident qu'elle ne pourrait jamais envoyer au cloud.
+    let reserve = []
+    try { reserve = await API().update('locataire_signalements', s.id, { incident_legacy_id: legacy, importe_le: new Date().toISOString() }) } catch (e) { reserve = [] }
+    if (!reserve.length) continue
     if (!D.incidents) D.incidents = []
     let inc = D.incidents.find((i) => String(i.id) === legacy)
     if (!inc) {
@@ -509,7 +518,6 @@ async function importerSignalements() {
       if (G('_auditLog')) W._auditLog('create', 'incident', inc.id, 'signalé depuis l\'espace locataire')
       n++
     }
-    try { await API().update('locataire_signalements', s.id, { incident_legacy_id: legacy, importe_le: new Date().toISOString() }) } catch (e) { /* retenté */ }
   }
   if (n) {
     if (G('saveDB')) W.saveDB()
