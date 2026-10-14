@@ -161,3 +161,16 @@ describe('page publique de dépôt : information du candidat', () => {
     expect(readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8')).toMatch(/ASSET_VERSION = '3'/);
   });
 });
+
+describe('Paramètres : l\'onglet « Candidatures » ouvre son propre panneau (setTab apparie onglets et panneaux par position)', () => {
+  it('ordre des panneaux = ordre des onglets dans #p-params', () => {
+    const fd = require('node:fs').openSync(resolve(root, 'index.html'), 'r');
+    const html = require('node:fs').readFileSync(fd, 'utf8'); require('node:fs').closeSync(fd);
+    const i = html.indexOf('id="p-params"'); const j = html.indexOf('<div class="page"', i + 10);
+    const zone = html.slice(i, j > 0 ? j : undefined);
+    const onglets = [...zone.matchAll(/onclick="setParamsTab\('([a-z]+)'/g)].map((m) => m[1]);
+    const panneaux = [...zone.matchAll(/class="tab-panel[^"]*" id="tp-([a-z]+)"/g)].map((m) => m[1]);
+    expect(onglets).toContain('candidatures');
+    expect(panneaux.slice(0, onglets.length)).toEqual(onglets.map((o) => (o === 'modele' ? 'modele' : o)));
+  });
+});
