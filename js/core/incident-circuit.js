@@ -144,10 +144,11 @@ export function plafondPour(reglages, metier) {
   if (!r.valideLe) return 0
   return Object.prototype.hasOwnProperty.call(r.parMetier, metier) ? r.parMetier[metier] : r.plafondTtc
 }
-/** Devis déposé : accepté automatiquement sous le plafond (montant TTC ≤ plafond > 0), sinon au propriétaire. */
-export function decisionDevis(montantTtc, plafondTtc) {
-  const m = montant(montantTtc), p = montant(plafondTtc)
-  return (m != null && m > 0 && p != null && p > 0 && m <= p) ? 'auto_accepte' : 'en_attente'
+/** Devis déposé : accepté automatiquement sous le plafond (montant TTC + devis déjà acceptés sur la même intervention
+ *  ≤ plafond > 0), sinon au propriétaire. Miroir de ar_document (0060). */
+export function decisionDevis(montantTtc, plafondTtc, dejaAccepteTtc = 0) {
+  const m = montant(montantTtc), p = montant(plafondTtc), d = montant(dejaAccepteTtc) || 0
+  return (m != null && m > 0 && p != null && p > 0 && m + d <= p) ? 'auto_accepte' : 'en_attente'
 }
 export const STATUTS_DEVIS = Object.freeze({ auto_accepte: 'Accepté automatiquement (sous le plafond)', en_attente: 'En attente de la réponse du propriétaire', accepte: 'Accepté par le propriétaire', refuse: 'Refusé par le propriétaire' })
 /** Phrase affichée à l'artisan (D1). */
@@ -184,7 +185,7 @@ export function nouvelArtisan(f, now) {
     creeLe: x.creeLe || now || new Date().toISOString(),
   }
 }
-export const artisanCouvre = (a, metier) => !!a && !a._deleted && Array.isArray(a.metiers) && a.metiers.includes(metier)
+export const artisanCouvre = (a, metier) => !!metier && !!a && !a._deleted && Array.isArray(a.metiers) && a.metiers.includes(metier)
 export const joignable = (a) => !!(a && (a.tel || a.email))
 
 /** Date de la dernière intervention d'un artisan (incidents où il a été choisi), AAAA-MM-JJ ou ''. */
@@ -442,6 +443,13 @@ const _texte = (t) => { const b = (t && TEXTES[t.id]) || null; return b ? { ref:
  * Résultat montré au locataire : payeur RETENU par le propriétaire, constat, travaux, montant si le locataire paie,
  * textes cités relus dans le référentiel (jamais ceux stockés). Zone grise non tranchée → { erreur }.
  */
+export const EXCEPTIONS_LOCATAIRE = Object.freeze({
+  // Loi n° 89-462, art. 7 c : « à moins qu'il ne prouve qu'elles ont eu lieu par cas de force majeure, par la faute du
+  // bailleur ou par le fait d'un tiers qu'il n'a pas introduit dans le logement ».
+  degradation: 'Si les dégradations viennent d\'un cas de force majeure, d\'une faute du bailleur ou du fait d\'un tiers non introduit dans le logement, le signaler au bailleur : elles ne seraient alors pas à la charge du locataire. Selon le contrat, l\'assurance habitation peut couvrir certains dommages.',
+  // Art. 7 d : « sauf si elles sont occasionnées par vétusté, malfaçon, vice de construction, cas fortuit ou force majeure ».
+  reparation: 'Si la cause est autre (vétusté, malfaçon, vice de construction, cas fortuit ou force majeure), le signaler au bailleur : la réparation lui reviendrait alors. Selon le contrat, l\'assurance habitation peut couvrir certains dommages.',
+})
 export function resultatPourLocataire({ verdict, payeurRetenu, constat, montantTtc, factureNumero, now } = {}) {
   if (!verdict) return { erreur: 'Aucun verdict : enregistrer d\'abord le constat.' }
   const p = payeurRetenu || verdict.payeur
@@ -459,7 +467,9 @@ export function resultatPourLocataire({ verdict, payeurRetenu, constat, montantT
     constat: constatLbl(c.constat), ampleur: ampleurLbl(c.ampleur), cause: causeAffichee((entreeMoteur(c) || {}).cause),
     travaux: _s(c.resume).slice(0, 1000),
     textes: textes.map(_texte).filter(Boolean),
-    exceptions: p === PAYEURS.LOCATAIRE,
+    // Rappel des exceptions de LA règle appliquée : art. 7 c (dégradations) ou art. 7 d (réparations locatives).
+    exceptions: p !== PAYEURS.LOCATAIRE ? null
+      : (entreeMoteur(c) || {}).cause === 'faute_locataire' ? EXCEPTIONS_LOCATAIRE.degradation : EXCEPTIONS_LOCATAIRE.reparation,
     publieLe: now || new Date().toISOString(),
   }
 }

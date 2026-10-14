@@ -9,11 +9,13 @@ import { TEXTES } from '../../js/core/qui-paie.js';
 import { CONSTATS, AMPLEURS, SOUS_TYPES_EXTERIEURE, phrasePlafond, normaliserConstat, normaliserCreneau, montant, modeleEmailArtisan, STATUTS_DEVIS, exigeAccordExpres } from '../../js/core/incident-circuit.js';
 import { JETON_RE, empreinteJeton } from '../../js/core/espace-locataire.js';
 import { elConfigure, lireObjet, contactProprietaire } from './el-supabase.js';
-import { entetes, ctxLien, appel, lireJson, nomSur, jsonErreur, inactif, recevoirDepot, limiteDebit, MENTION_IA_LIEN } from './espace-locataire.js';
+import { entetes, ctxLien, appel, lireJson, nomSur, jsonErreur, inactif, recevoirDepot, limiteDebit, MENTION_IA_LIEN, EL_ASSET_VERSION } from './espace-locataire.js';
 import { fournisseurActif } from './ai/provider.js';
 import { makeSender } from './email-sender.js';
 
-export const AR_ASSET_VERSION = '1';
+// Même numéro que la page du locataire (el.css et lien-commun.js sont partagés) : jamais une URL ?v= déjà servie.
+const codePostal = (adresse) => { const m = /\b(\d{5})\b/.exec(String(adresse || '')); return m ? m[1] : ''; };
+export const AR_ASSET_VERSION = EL_ASSET_VERSION;
 
 export function renderArtisanPage() {
   return `<!doctype html>
@@ -55,7 +57,7 @@ export function registerEspaceArtisanRoutes(app) {
     const r = await appel(c, 'ar_ouvrir', { p_jeton_sha256: x.h, p_ip_hash: x.ip }); if (!r.ok) return r.reponse;
     if (!r.v || r.v.actif !== true) return inactif(c);
     // Accord exprès pour le créneau proposé (le locataire confirme) : information affichée à l'artisan.
-    const cr = r.v.creneau && r.v.creneau.date ? exigeAccordExpres(String(r.v.creneau.date).slice(0, 10), '') : null;
+    const cr = r.v.creneau && r.v.creneau.date ? exigeAccordExpres(String(r.v.creneau.date).slice(0, 10), codePostal(r.v.demande && r.v.demande.adresse)) : null;
     return c.json({ ...r.v, phrasePlafond: phrasePlafond(r.v.plafond_ttc), creneauAccordExpres: cr, referentiel: REFERENTIEL_ARTISAN, ia: !!fournisseurActif(c.env) });
   });
 
@@ -118,7 +120,7 @@ export function registerEspaceArtisanRoutes(app) {
     const r = await appel(c, 'ar_creneau', { p_jeton_sha256: x.h, p_ip_hash: x.ip, p_date: cr.date, p_debut: cr.debut, p_fin: cr.fin });
     if (!r.ok) return r.reponse;
     if (r.v == null) return inactif(c);
-    return c.json({ creneau: cr, accordExpres: exigeAccordExpres(cr.date, '') });
+    return c.json({ creneau: cr, accordExpres: exigeAccordExpres(cr.date, b && /^\d{5}$/.test(String(b.cp || '')) ? b.cp : '') });
   });
 
   // Constat NEUTRE (proposé par l'IA, confirmé par l'artisan). Il ne voit jamais la répartition.
@@ -137,6 +139,20 @@ export function registerEspaceArtisanRoutes(app) {
 // ── E-mail d'invitation de l'artisan, à la demande du PROPRIÉTAIRE (connecté). Mode dev : rien ne part. ──
 // Le destinataire est lu EN BASE (ar_acces_contact : droit d'écriture exigé, lien actif, jeton de CE lien) : jamais fourni
 // par le client (pas de relais d'e-mails ouvert). Le lien est reconstruit sur l'ORIGINE DU RELAIS.
+// Plafond d'envois (comme le code du locataire, 3 / heure) : 3 invitations par lien et par heure, 30 par compte et par
+// jour. Le destinataire est en base, mais un membre peut le poser : pas de rafale vers une adresse tierce.
+export const ENVOIS_LIEN_HEURE = 3, ENVOIS_COMPTE_JOUR = 30;
+async function envoiPermis(kv, accesId, userId) {
+  if (!kv) return true;
+  const now = Date.now(), jour = new Date(now).toISOString().slice(0, 10);
+  const cl = 'arn:' + accesId, cc = 'arnj:' + userId + ':' + jour;
+  const pl = await kv.get(cl, 'json'), nc = Number(await kv.get(cc)) || 0;
+  const nl = pl && pl.fenetre > now - 3600_000 ? (pl.envois || 0) : 0;
+  if (nl >= ENVOIS_LIEN_HEURE || nc >= ENVOIS_COMPTE_JOUR) return false;
+  await kv.put(cl, JSON.stringify({ envois: nl + 1, fenetre: nl ? pl.fenetre : now }), { expirationTtl: 3600 });
+  await kv.put(cc, String(nc + 1), { expirationTtl: 86400 });
+  return true;
+}
 export function registerEspaceArtisanProprietaire(app, { requireSupabaseUser, sender = null }) {
   app.post('/ar/notifier', async (c) => {
     const auth = await requireSupabaseUser(c);
@@ -149,6 +165,7 @@ export function registerEspaceArtisanProprietaire(app, { requireSupabaseUser, se
     const contact = await contactProprietaire(c.env, jwt, b.acces_id, await empreinteJeton(b.jeton), fetch, 'ar_acces_contact');
     if (!contact) return jsonErreur(c, 403, 'interdit');
     if (!contact.email) return jsonErreur(c, 409, 'sans_email');
+    if (!(await envoiPermis(c.env.SESSIONS_KV, b.acces_id, auth.userId))) return jsonErreur(c, 429, 'limite');
     const m = modeleEmailArtisan({ bailleur: String(contact.bailleur || '').slice(0, 120), lien: new URL(c.req.url).origin + '/a#' + b.jeton });
     if (!m) return jsonErreur(c, 400, 'invalide');
     const s = sender || makeSender(c.env);

@@ -30,7 +30,7 @@ const vivant = (o) => o && !o._deleted
 const QP = () => W.QuiPaie
 const IN = () => W.Incidents
 
-const etat = { acces: new Map(), depots: new Map(), lu: new Map(), relais: null, sugg: new Map(), geo: new Map(), choix: null, lecture: new Map(), valid: new Map(), filtreMetier: null }
+const etat = { acces: new Map(), depots: new Map(), lu: new Map(), relais: null, sugg: new Map(), geo: new Map(), choix: null, lecture: new Map(), valid: new Map(), filtreMetier: null, envoi: new Set() }
 
 // ─────────────────────────── Accès aux données de l'app ───────────────────────────
 const incidentDe = (id) => (G('_incGet') ? W._incGet(id) : null)
@@ -41,11 +41,13 @@ function entiteDe(inc) {
   return ((db() || {}).entites || []).find((e) => vivant(e) && e.nom === nom) || null
 }
 const reglagesDe = (inc) => IC.normaliserReglages((entiteDe(inc) || {}).incidentReglages)
+// Métier de l'incident : choisi dans le circuit, sinon celui de l'élément. Élément « autre » (signalement sans aide de
+// l'IA, élément non reconnu) : AUCUN métier supposé → aucun artisan proposé ni prévenu, le propriétaire choisit.
 function metierDe(inc) {
   const d = QP() && inc ? QP().elementDef(inc.element) : null
-  return (inc && inc.circuit && inc.circuit.metier) || (d && d.metier) || 'plomberie'
+  return (inc && inc.circuit && inc.circuit.metier) || (d && d.metier) || null
 }
-const metierLbl = (m) => ((IN() && IN().NAF_METIERS[m]) || {}).lbl || m
+const metierLbl = (m) => (m ? ((IN() && IN().NAF_METIERS[m]) || {}).lbl || m : 'métier à préciser')
 function artisans() { const D = db(); if (!D) return []; if (!Array.isArray(D.artisans)) D.artisans = []; return D.artisans }
 const artisanDe = (id) => artisans().find((a) => vivant(a) && String(a.id) === String(id)) || null
 function persisterInc(inc, avant) { if (G('_incPersister')) W._incPersister(inc, 'update', avant) }
@@ -115,7 +117,7 @@ function etapes(inc) {
 function lignePlafond(inc) {
   const r = reglagesDe(inc), ent = entiteDe(inc), m = metierDe(inc), p = IC.plafondPour(r, m)
   const qui = ent ? ent.nom : 'cette structure'
-  return `<div class="inc-row"><span class="k">Plafond sans accord</span><span class="v">${r.valideLe ? esc(euros(p)) + ' TTC (' + esc(metierLbl(m).toLowerCase()) + ')' : 'Non validé : tout devis passe par ici'}
+  return `<div class="inc-row"><span class="k">Plafond sans accord</span><span class="v">${r.valideLe ? esc(euros(p)) + ' TTC' + (m ? ' (' + esc(metierLbl(m).toLowerCase()) + ')' : '') : 'Non validé : tout devis passe par ici'}
     <button type="button" class="inc-lien" onclick="_incGo('plafond')">${r.valideLe ? 'Modifier' : 'Régler'}</button></span></div>${ent ? '' : `<div class="inc-note">${ico('info', 13)} Structure de l'incident introuvable : plafond réglé pour ${esc(qui)}.</div>`}`
 }
 function carteHtml(inc) {
@@ -129,13 +131,20 @@ function carteHtml(inc) {
       corps += `<div class="inc-note pos">${ico('check', 13)} Validé le ${esc(fdh(inc.valideLe))} · ${esc(((QP() && QP().PAYEUR_LBL[p]) || p || '').toLowerCase())}${inc.resultatPublieLe ? ' · résultat publié au locataire' : ''}</div>`
       if (inc.remboursement && inc.remboursement.montant) corps += `<div class="inc-row"><span class="k">Demandé au locataire</span><span class="v">${esc(euros(inc.remboursement.montant))} · ${inc.remboursement.recuLe ? 'remboursé le ' + esc(fdate(inc.remboursement.recuLe)) : 'en attente'}
         <button type="button" class="inc-lien" onclick="IncCircuit.rembourse(${js(String(inc.id))})">${inc.remboursement.recuLe ? 'Annuler' : 'Marquer remboursé'}</button></span></div>`
+      // Dépôts de l'artisan arrivés APRÈS la validation (le lien reste ouvert 30 jours pour la facture, D14).
+      for (const d of deps.filter((y) => y.type_depot !== 'photo' && String(y.cree_le) > String(inc.valideLe))) {
+        const joint = dansLeDossier(inc, d)
+        corps += `<div class="inc-pro"><span class="n">${d.type_depot === 'devis' ? 'Devis' : 'Facture'}${d.numero ? ' ' + esc(d.numero) : ''} · ${esc(euros(d.montant_ttc))}</span><span class="m">Déposé le ${esc(fdate(d.cree_le))}, après la validation${joint ? ' · dans le dossier' : ''}</span>
+          <span class="a"><button type="button" class="btn bs bb" onclick="IncCircuit.ouvrirDepot(${js(d.id)})">${ico('eye', 13)} Ouvrir</button>${joint ? '' : '<button type="button" class="btn bs bb" onclick="IncCircuit.joindre(' + js(String(inc.id)) + ',' + js(d.id) + ')">' + ico('link', 13) + ' Joindre au dossier</button>'}</span></div>`
+      }
+      if (inc.espaceSignalementId && !inc.resultatPublieLe && API()) corps += `<div class="inc-step-acts"><button type="button" class="btn bs bb" id="inc-pub" onclick="IncCircuit.publier(${js(String(inc.id))})">${ico('send', 13)} Publier le résultat au locataire</button></div>`
     } else if (x) {
       corps += `<div class="inc-row"><span class="k">Artisan</span><span class="v">${esc(x.artisan_nom)} · prévenu le ${esc(fdate(x.emis_le))}${x.derniere_visite ? ' · page ouverte' : ''}</span></div>`
       corps += `<div class="inc-row"><span class="k">Rendez-vous</span><span class="v">${x.creneau_date ? esc(fdate(x.creneau_date)) + (x.creneau_debut ? ' ' + esc(x.creneau_debut.slice(0, 5).replace(':', ' h ')) + (x.creneau_fin ? '–' + esc(x.creneau_fin.slice(0, 5).replace(':', ' h ')) : '') : '') + (x.creneau_confirme_le ? ' · confirmé par le locataire' : ' · à confirmer par le locataire') : 'Pas encore proposé'}</span></div>`
       for (const d of deps.filter((y) => y.type_depot !== 'photo')) {
         const st = d.statut ? ' · ' + (IC.STATUTS_DEVIS[d.statut] || d.statut).toLowerCase() : ''
         corps += `<div class="inc-pro"><span class="n">${d.type_depot === 'devis' ? 'Devis' : 'Facture'}${d.numero ? ' ' + esc(d.numero) : ''} · ${esc(euros(d.montant_ttc))}</span><span class="m">Déposé le ${esc(fdate(d.cree_le))}${esc(st)}</span>
-          <span class="a"><button type="button" class="btn bs bb" onclick="IncCircuit.ouvrirDepot(${js(d.id)})">${ico('eye', 13)} Ouvrir</button>${d.type_depot === 'devis' && d.statut === 'en_attente' ? `<button type="button" class="btn bs bb" onclick="_incGo('devis')">${ico('check', 13)} Répondre</button>` : ''}</span></div>`
+          <span class="a"><button type="button" class="btn bs bb" onclick="IncCircuit.ouvrirDepot(${js(d.id)})">${ico('eye', 13)} Ouvrir</button>${d.type_depot === 'devis' && d.statut === 'en_attente' ? `<button type="button" class="btn bs bb" onclick="_incGo('devis')">${ico('check', 13)} Répondre</button>` : d.type_depot === 'devis' ? `<button type="button" class="btn bs bb" onclick="_incGo('devis')">${ico('sparkle', 13)} Vérifier le montant</button>` : ''}</span></div>`
       }
       const nPh = deps.filter((y) => y.type_depot === 'photo').length
       if (nPh) corps += `<div class="inc-row"><span class="k">Photos de l'artisan</span><span class="v">${nPh} <button type="button" class="inc-lien" onclick="IncCircuit.ouvrirPhotos(${js(String(inc.id))})">Voir</button></span></div>`
@@ -144,7 +153,8 @@ function carteHtml(inc) {
     } else {
       const a = artisanPropose(inc)
       corps += a ? `<div class="inc-row"><span class="k">Artisan du carnet</span><span class="v">${esc(a.nom)} (${esc(metierLbl(metierDe(inc)).toLowerCase())})</span></div>`
-        : `<div class="inc-note">${ico('info', 13)} Aucun artisan du carnet pour ${esc(metierLbl(metierDe(inc)).toLowerCase())} : choisir dans la liste des entreprises autour du logement.</div>`
+        : metierDe(inc) ? `<div class="inc-note">${ico('info', 13)} Aucun artisan du carnet pour ${esc(metierLbl(metierDe(inc)).toLowerCase())} : choisir dans la liste des entreprises autour du logement.</div>`
+        : `<div class="inc-note">${ico('info', 13)} Métier à préciser : aucun artisan n'est proposé ni prévenu tant que le métier n'est pas choisi.</div>`
       if (inc.artisan && inc.artisan.nom) corps += `<div class="inc-row"><span class="k">Artisan noté</span><span class="v">${esc(inc.artisan.nom)}</span></div>`
     }
     if (!inc.valideLe) corps += lignePlafond(inc)
@@ -154,6 +164,7 @@ function carteHtml(inc) {
 }
 // L'artisan que Propryo prévient (carnet, métier, structure) ; sinon le premier artisan joignable du carnet pour ce métier.
 function artisanPropose(inc) {
+  if (!metierDe(inc)) return null
   const ctx = { metier: metierDe(inc), entity: (entiteDe(inc) || {}).nom || inc.entity || '', incidents: (db() || {}).incidents || [] }
   return IC.artisanAPrevenir(artisans(), ctx) || IC.artisansPourMetier(artisans(), ctx).find(IC.joignable) || null
 }
@@ -185,9 +196,10 @@ function vueArtisan(inc) {
   const carnet = IC.artisansPourMetier(artisans(), ctx)
   const autres = artisans().filter((a) => vivant(a) && !carnet.includes(a) && (!ctx.entity || !a.entity || a.entity === ctx.entity))
   const metiers = Object.entries(IN().NAF_METIERS)
-  const s = etat.sugg.get(cleInc(inc) + '|' + m)
+  const s = m ? etat.sugg.get(cleInc(inc) + '|' + m) : null
   let sugg = ''
-  if (!s) sugg = `<button type="button" class="btn bs" onclick="IncCircuit.suggerer(${js(String(inc.id))})">${ico('search', 14)} Chercher les entreprises autour du logement (${esc(metierLbl(m).toLowerCase())})</button>`
+  if (!m) sugg = ''
+  else if (!s) sugg = `<button type="button" class="btn bs" onclick="IncCircuit.suggerer(${js(String(inc.id))})">${ico('search', 14)} Chercher les entreprises autour du logement (${esc(metierLbl(m).toLowerCase())})</button>`
   else if (s.etat === 'charge') sugg = `<div class="inc-note">${ico('clock', 13)} Recherche en cours (annuaire officiel${IC.metierEnergie(m) ? ', liste RGE' : ''})…</div>`
   else if (s.etat === 'erreur') sugg = `<div class="inc-note">${ico('warn', 13)} ${esc(s.message || 'L\'annuaire ne répond pas.')} <button type="button" class="inc-lien" onclick="IncCircuit.suggerer(${js(String(inc.id))})">Réessayer</button></div>`
   else if (!s.liste.length) sugg = `<div class="inc-note">Aucune entreprise active trouvée pour ce métier à ${esc(String(s.rayon))} km.</div>`
@@ -205,14 +217,16 @@ function vueArtisan(inc) {
   return {
     titre: 'Choisir un artisan', sub: (G('_incElLbl') ? W._incElLbl(inc) : '') + ' · ' + (G('_incBienLbl') ? W._incBienLbl(inc) : ''),
     body: `
-  <div class="inc-f inc-metier"><label class="inc-lb" for="inc-c-metier">Métier</label><select class="inp" id="inc-c-metier" onchange="IncCircuit.metier(this.value)">${metiers.map(([k, x]) => `<option value="${esc(k)}"${k === m ? ' selected' : ''}>${esc(x.lbl)}</option>`).join('')}</select></div>
+  <div class="inc-f inc-metier"><label class="inc-lb" for="inc-c-metier">Métier</label><select class="inp" id="inc-c-metier" onchange="IncCircuit.metier(this.value)">${m ? '' : '<option value="" selected disabled>Choisir le métier</option>'}${metiers.map(([k, x]) => `<option value="${esc(k)}"${k === m ? ' selected' : ''}>${esc(x.lbl)}</option>`).join('')}</select></div>
+  ${!m ? `<div class="inc-note">${ico('info', 13)} Choisir le métier : le carnet et les entreprises autour du logement s'affichent ensuite.</div>
+  <button type="button" class="btn bs bb" style="margin-top:6px" onclick="IncCircuit.editer(null)">${ico('plus', 13)} Ajouter un artisan au carnet</button>` : `
   <div class="inc-grp"><div class="inc-grp-h"><h4>${ico('book', 15)} Carnet de ${esc(ent ? ent.nom : 'la structure')}</h4><span class="inc-sub">${esc(metierLbl(m))} · le plus récemment intervenu d'abord</span></div>
     ${carnet.length ? carnet.map((a) => ligneArtisan(inc, a)).join('') : `<div class="inc-note">Aucun artisan du carnet pour ce métier.</div>`}
     ${autres.length ? `<details class="inc-det"><summary>Autres artisans du carnet (${autres.length})</summary>${autres.map((a) => ligneArtisan(inc, a)).join('')}</details>` : ''}
     <button type="button" class="btn bs bb" style="margin-top:6px" onclick="IncCircuit.editer(null)">${ico('plus', 13)} Ajouter un artisan au carnet</button></div>
   <div class="inc-grp"><div class="inc-grp-h"><h4>${ico('search', 15)} Entreprises autour du logement</h4><span class="inc-sub">${esc(metierLbl(m))} (${esc(IN().NAF_METIERS[m].naf)})</span></div>
-    <div class="inc-guard neutre"><b>Critères (faits publics)</b><ol>${IC.CRITERES.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>${esc(IC.MENTION_SUGGESTIONS)} Seuls le code d'activité et la position du logement sont envoyés à l'annuaire de l'État et à l'ADEME.</div>
-    ${sugg}</div>
+    <div class="inc-guard neutre"><b>Critères (faits publics)</b><ol>${IC.CRITERES.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>${esc(IC.MENTION_SUGGESTIONS)} L'adresse du logement est envoyée à la Base adresse nationale pour la situer ; seuls le code d'activité et cette position sont envoyés à l'annuaire de l'État et à l'ADEME.</div>
+    ${sugg}</div>`}
   <div class="inc-grp"><div class="inc-grp-h"><h4>${ico('shield', 15)} Urgence : assistance des assurances</h4></div>
     <div class="inc-pro"><span class="n">Assurance habitation du locataire${ass.mrh.compagnie ? ' — ' + esc(ass.mrh.compagnie) : ''}</span><span class="m">${ass.mrh.tel ? 'Assistance : ' + esc(ass.mrh.tel) : 'Numéro non renseigné'}</span><span class="a">${tel(ass.mrh.tel)}</span></div>
     <div class="inc-pro"><span class="n">PNO du bailleur${ass.pno.compagnie ? ' — ' + esc(ass.pno.compagnie) : ''}</span><span class="m">${ass.pno.tel ? 'Assistance : ' + esc(ass.pno.tel) : 'Numéro non renseigné'}</span><span class="a">${tel(ass.pno.tel)}</span></div></div>
@@ -236,7 +250,8 @@ async function geocoder(inc) {
 }
 async function suggerer(incId) {
   const inc = incidentDe(incId); if (!inc) return
-  const m = etat.filtreMetier || metierDe(inc), cle = cleInc(inc) + '|' + m
+  const m = etat.filtreMetier || metierDe(inc); if (!m) return
+  const cle = cleInc(inc) + '|' + m
   etat.sugg.set(cle, { etat: 'charge', liste: [] }); rerender()
   try {
     const g = await geocoder(inc)
@@ -310,7 +325,7 @@ async function confirmerChoix() {
 // ─────────────────────────── Fiche d'un artisan du carnet (note privée, CDC § 13) ───────────────────────────
 function editer(id) { etat.edition = id == null ? 'nouveau' : String(id); aller('carnet') }
 function vueCarnet(inc) {
-  const a = etat.edition === 'nouveau' ? IC.nouvelArtisan({ entity: (entiteDe(inc) || {}).nom || inc.entity || '', metiers: [metierDe(inc)] }) : artisanDe(etat.edition)
+  const a = etat.edition === 'nouveau' ? IC.nouvelArtisan({ entity: (entiteDe(inc) || {}).nom || inc.entity || '', metiers: [etat.filtreMetier || metierDe(inc)].filter(Boolean) }) : artisanDe(etat.edition)
   if (!a) return vueArtisan(inc)
   const metiers = Object.entries(IN().NAF_METIERS)
   return {
@@ -372,11 +387,18 @@ function adresseDe(inc) {
   const et = log && log.etage ? String(log.etage).trim() : ''
   return [(log && (log.adr || log.ref)) || inc.imm || '', et ? (/^\d/.test(et) ? 'étage ' + et : et) : ''].filter(Boolean).join(', ')
 }
+// Un seul envoi à la fois par incident : deux clics émettraient deux jetons, le premier lien partagé ne marcherait plus.
 async function envoyer(incId, artisanId) {
+  const cle = String(incId)
+  if (etat.envoi.has(cle)) return
+  etat.envoi.add(cle)
+  try { await envoyerUneFois(incId, artisanId) } finally { etat.envoi.delete(cle) }
+}
+async function envoyerUneFois(incId, artisanId) {
   const inc = incidentDe(incId), art = artisanDe(artisanId)
   if (!inc || !art) return
   if (!IC.joignable(art)) { editer(art.id); toast('Ajouter un téléphone ou un e-mail à la fiche.', 'warn', 5000); return }
-  const r = reglagesDe(inc), metier = art.metiers.includes(metierDe(inc)) ? metierDe(inc) : (art.metiers[0] || metierDe(inc))
+  const r = reglagesDe(inc), metier = art.metiers.includes(metierDe(inc)) ? metierDe(inc) : (art.metiers[0] || metierDe(inc) || null)
   const plafond = IC.plafondPour(r, metier)
   const sig = await signalementDe(inc)
   const demande = Object.assign(IC.demandeArtisan({ inc, signalement: sig || { description: inc.description }, adresse: adresseDe(inc), locataireNom: locataireNom(inc), elementLbl: G('_incElLbl') ? W._incElLbl(inc) : '', photos: photosDuDossier(inc) }),
@@ -495,8 +517,9 @@ function vueDevis(inc) {
   const att = devis.filter((d) => d.statut === 'en_attente')
   const lu = (d) => etat.lecture.get(d.id)
   return {
-    titre: 'Devis à accepter', sub: x ? x.artisan_nom + ' · plafond ' + euros(x.plafond_ttc) + ' TTC' : '',
-    body: (att.length ? att : devis).map((d) => {
+    titre: att.length ? 'Devis à accepter' : 'Devis', sub: x ? x.artisan_nom + ' · plafond ' + euros(x.plafond_ttc) + ' TTC' : '',
+    // En attente d'abord, puis les autres (un devis accepté automatiquement se relit aussi : montant déclaré par l'artisan).
+    body: [...att, ...devis.filter((d) => d.statut !== 'en_attente')].map((d, i) => {
       const l = lu(d)
       const ecart = l && l.montantTTC != null && Math.abs(l.montantTTC - Number(d.montant_ttc)) > 1
       return `<div class="inc-grp"><div class="inc-grp-h"><h4>${ico('doc', 15)} Devis${d.numero ? ' ' + esc(d.numero) : ''} · ${esc(euros(d.montant_ttc))} TTC</h4><span class="inc-sub">Déposé le ${esc(fdh(d.cree_le))} · ${esc(IC.STATUTS_DEVIS[d.statut] || '')}</span></div>
@@ -505,7 +528,7 @@ function vueDevis(inc) {
         ${l ? `<div class="inc-row"><span class="k">Lu par l'IA (à vérifier)</span><span class="v">${l.montantTTC != null ? esc(euros(l.montantTTC)) + ' TTC' : 'montant illisible'}${l.travaux ? ' · ' + esc(l.travaux) : ''}</span></div>` : ''}
         ${ecart ? `<div class="inc-guard">${ico('warn', 13)} Le montant lu sur le document (${esc(euros(l.montantTTC))}) diffère du montant déclaré par l'artisan (${esc(euros(d.montant_ttc))}).</div>` : ''}
         <div class="inc-step-acts"><button type="button" class="btn bs bb" onclick="IncCircuit.ouvrirDepot(${js(d.id)})">${ico('eye', 13)} Ouvrir le devis</button>${l ? '' : `<button type="button" class="btn bs bb" onclick="IncCircuit.lireDepot(${js(String(inc.id))},${js(d.id)})">${ico('sparkle', 13)} Lire avec l'IA</button>`}
-        ${d.statut === 'en_attente' ? `<button type="button" class="btn bs bb" onclick="IncCircuit.decider(${js(String(inc.id))},${js(d.id)},false)">${ico('close', 13)} Refuser</button><button type="button" class="btn bp bb" onclick="IncCircuit.decider(${js(String(inc.id))},${js(d.id)},true)">${ico('check', 13)} Accepter le devis</button>` : ''}</div></div>`
+        ${d.statut === 'en_attente' ? `<button type="button" class="btn bs bb" onclick="IncCircuit.decider(${js(String(inc.id))},${js(d.id)},false)">${ico('close', 13)} Refuser</button><button type="button" class="btn ${i === 0 ? 'bp' : 'bs'} bb" onclick="IncCircuit.decider(${js(String(inc.id))},${js(d.id)},true)">${ico('check', 13)} Accepter le devis</button>` : ''}</div></div>`
     }).join('') + `<div class="inc-note">${ico('info', 13)} Accepter engage ${esc((entiteDe(inc) || {}).nom || 'la structure')} pour ce montant. Refuser : l'artisan le voit sur sa page ; rien n'est commandé. La répartition se calcule à la fin, sur la facture.</div>`,
     foot: `<button type="button" class="btn bs" onclick="_incGo('fiche')">${ico('chevron-left', 14)} Retour à l'incident</button>`,
   }
@@ -631,6 +654,12 @@ function vueValider(inc) {
     : `<div class="inc-vd"><div class="inc-vd-top"><div class="inc-k">Qui paie</div><div class="inc-vd-pay${arb ? ' arb' : ''}">${esc(QP().PAYEUR_LBL[verdict.payeur] || verdict.payeur)}</div><div class="inc-vd-conf"><span>Règle ${esc(verdict.regle || '')}</span></div><div class="inc-vd-why">${esc(verdict.resume || '')}</div></div>
       <div class="inc-vd-b">${arb ? `<div class="inc-reads">${verdict.lectures.map((l, i) => `<label class="inc-read"><span class="inc-rh"><input type="radio" name="inc-v-payeur" value="${esc(l.payeur)}"${payeur === l.payeur ? ' checked' : ''} onchange="IncCircuit.majValidation()"> Lecture ${i + 1} : ${esc(QP().PAYEUR_LBL[l.payeur] || l.payeur)}</span><span class="inc-rs">${esc(l.si.charAt(0).toUpperCase() + l.si.slice(1))}.</span>${l.textes.map(cite).join('')}</label>`).join('')}</div>` : (verdict.textes || []).map(cite).join('')}
       <div class="inc-legal">${ico('info', 13)} <span>${esc(QP().MENTION_LEGALE)}</span></div></div></div>`
+  // Contre-contrôle (jamais bloquant) : montant à enregistrer comparé aux devis acceptés et au plafond du lien.
+  const xv = accesActif(inc), devisOk = depotsDe(xv).filter((d) => d.type_depot === 'devis' && (d.statut === 'auto_accepte' || d.statut === 'accepte'))
+  const totalDevis = devisOk.reduce((t, d) => t + (Number(d.montant_ttc) || 0), 0), mt = IC.montant(v.montant)
+  const ecart = !deja && mt > 0 && xv ? (totalDevis > 0 && mt > totalDevis + 1 ? `Le montant (${euros(mt)}) dépasse le total des devis acceptés (${euros(totalDevis)}).`
+    : !totalDevis && Number(xv.plafond_ttc) > 0 && mt > Number(xv.plafond_ttc) ? `Le montant (${euros(mt)}) dépasse le plafond sans accord (${euros(xv.plafond_ttc)}) et aucun devis n'a été accepté.` : '') : ''
+  const ecartHtml = ecart ? `<div class="inc-guard">${ico('warn', 13)} ${esc(ecart)} Vérifier la facture avant de valider.</div>` : ''
   const argent = deja ? `<div class="inc-note pos">${ico('check', 13)} Dépense déjà enregistrée dans Finances : ${esc(euros(G('_incCoutBailleur') ? W._incCoutBailleur(inc) : null))}. Elle n'est pas comptée une seconde fois.</div>`
     : `${cands.length ? `<div class="inc-grp"><div class="inc-grp-h"><h4>${ico('link', 15)} Déjà dans les mouvements ?</h4><span class="inc-sub">Rattacher évite de compter la dépense deux fois.</span></div>${cands.slice(0, 4).map((m) => `<div class="inc-pro"><span class="n">${esc(euros(+m.db || 0))} · ${esc(fdate(m.date))}</span><span class="m">${esc(m.lib || '')}</span><span class="a"><button type="button" class="btn bs bb" onclick="IncCircuit.rattacher(${js(String(inc.id))},${+m.id})">${ico('link', 13)} Rattacher</button></span></div>`).join('')}</div>` : ''}
       <div class="inc-g2"><div class="inc-f"><label class="inc-lb" for="inc-fac-mt">Montant TTC payé</label><input class="inp" id="inc-fac-mt" inputmode="decimal" placeholder="0,00" value="${v.montant != null ? esc(String(v.montant).replace('.', ',')) : ''}"></div>
@@ -646,7 +675,7 @@ function vueValider(inc) {
         <div class="inc-f"><span class="inc-lb">Ampleur</span>${radio('inc-v-ampleur', IC.AMPLEURS, v.ampleur)}</div>
         <div class="inc-f"><label class="inc-lb" for="inc-v-resume">Travaux réalisés</label><textarea class="inp" id="inc-v-resume" rows="2" maxlength="1000">${esc(v.resume)}</textarea></div></div>
       ${verdictHtml}
-      <div class="inc-grp"><div class="inc-grp-h"><h4>${ico('money', 15)} Argent</h4><span class="inc-sub">La dépense part dans Finances une seule fois, par le chemin existant</span></div>${argent}
+      <div class="inc-grp"><div class="inc-grp-h"><h4>${ico('money', 15)} Argent</h4><span class="inc-sub">La dépense part dans Finances une seule fois, par le chemin existant</span></div>${ecartHtml}${argent}
         ${payeur === 'locataire' ? `<div class="inc-note">${ico('info', 13)} Le locataire verra le montant de la facture, le constat et les textes ; le remboursement se suit sur la fiche (son traitement dans la déclaration 2044 est à voir avec le comptable).</div>` : ''}</div>
       <div class="inc-note">${ico('info', 13)} ${signal ? 'Après la validation, le locataire voit le résultat expliqué dans son espace (constat, payeur, montant s\'il paie, textes cités) et peut le contester par message.' : 'Pas d\'espace locataire pour ce signalement : préparer ensuite le message au locataire si besoin.'}</div>`,
     foot: `<button type="button" class="btn bs" onclick="_incGo('fiche')">Annuler</button><button type="button" class="btn bp" id="inc-v-ok" onclick="IncCircuit.valider()">${ico('check', 14)} Valider${signal ? ' et informer le locataire' : ''}</button>`,
@@ -660,7 +689,8 @@ function lireValidation(inc) {
   if (sel('inc-v-ampleur')) v.ampleur = sel('inc-v-ampleur')
   if (sel('inc-v-payeur')) v.payeur = sel('inc-v-payeur')
   const r = document.getElementById('inc-v-resume'); if (r) v.travaux = r.value
-  const m = document.getElementById('inc-fac-mt'); if (m) v.montant = IC.montant(m.value)
+  // Champ absent (dépense déjà rattachée / enregistrée) : aucun montant saisi ne survit, seul Finances fait foi.
+  const m = document.getElementById('inc-fac-mt'); if (m) v.montant = IC.montant(m.value); else delete v.montant
   const n = document.getElementById('inc-fac-num'); if (n) v.numero = n.value
   const d = document.getElementById('inc-fac-dt'); if (d) v.date = d.value
   etat.valid.set(String(inc.id), v)
@@ -692,8 +722,14 @@ async function valider() {
   if (!deja && montantSaisi > 0 && G('_incEnregistrerFacture')) {
     const n0 = (inc.mouvementIds || []).length
     await W._incEnregistrerFacture()
-    if ((inc.mouvementIds || []).length === n0) toast('Fin validée ; la dépense n\'a pas été enregistrée (voir le message ci-dessus) : la saisir ensuite depuis la fiche.', 'warn', 6500)
+    // Dépense non créée (date vide, erreur…) : le propriétaire décide ; rien n'est publié ni demandé sans dépense réelle.
+    if ((inc.mouvementIds || []).length === n0 && G('confirm2') && !W.confirm2('La dépense n\'a pas été enregistrée dans Finances (voir le message).\n\nValider quand même la fin SANS montant ? Rien ne sera demandé ni montré au locataire.')) {
+      const b2 = document.getElementById('inc-v-ok'); if (b2) { b2.disabled = false; b2.innerHTML = ico('check', 14) + ' Valider' }
+      return
+    }
   }
+  // Montant retenu = la dépense RÉELLEMENT enregistrée dans Finances, jamais un montant saisi qui n'y serait pas.
+  const montantRetenu = (inc.mouvementIds || []).length && G('_incCoutBailleur') ? W._incCoutBailleur(inc) : null
   const avant = JSON.parse(JSON.stringify(inc))
   // 2. Constat, verdict, payeur retenu (règles de qui-paie.js inchangées ; champs du moteur posés pour l'historique).
   const e = IC.entreeMoteur(k)
@@ -703,31 +739,55 @@ async function valider() {
   inc.valideLe = new Date().toISOString()
   // La facture déposée par l'artisan rejoint le dossier de preuves (sans copie du fichier).
   const x = accesActif(inc), fac = valeursValidation(inc).facture
-  if (fac) {
-    const D = db(); if (!D.documents) D.documents = []
-    if (!D.documents.some((d) => vivant(d) && d.parentType === 'incident' && String(d.parentId) === String(inc.id) && d.cloudKey === fac.storage_path)) {
-      const doc = { id: G('nid') ? W.nid() : Date.now(), parentType: 'incident', parentId: inc.id, parentRef: String(inc.id), logRef: inc.logRef || null, category: 'travaux', idbKey: null, cloudKey: fac.storage_path, name: fac.nom || 'facture', originalName: fac.nom || 'facture', mime: fac.mime, size: 0, uploadedAt: fac.cree_le, source: 'lien-artisan' }
-      if (G('_stamp')) W._stamp(doc); D.documents.push(doc)
-    }
-  }
+  if (fac) joindreDepot(inc, fac)
+  inc.circuit = Object.assign({}, inc.circuit || {}, { factureNumero: v.numero || null })
   if (inc.statut !== 'resolu' && IN()) IN().changerStatut(inc, 'resolu', new Date().toISOString())
   persisterInc(inc, avant)
   // 3. Résultat publié au locataire (espace locataire) — textes relus dans le référentiel.
   const payeur = inc.payeurRetenu || (inc.verdict && inc.verdict.payeur)
-  if (payeur === 'locataire') { const a3 = JSON.parse(JSON.stringify(inc)); inc.remboursement = { montant: montantSaisi || (G('_incCoutBailleur') ? W._incCoutBailleur(inc) : null), recuLe: null }; persisterInc(inc, a3) }
+  if (payeur === 'locataire') { const a3 = JSON.parse(JSON.stringify(inc)); inc.remboursement = { montant: montantRetenu > 0 ? montantRetenu : null, recuLe: null }; persisterInc(inc, a3) }
   const api = API()
-  if (api && inc.espaceSignalementId) {
-    const r = IC.resultatPourLocataire({ verdict: inc.verdict, payeurRetenu: inc.payeurRetenu, constat: k, montantTtc: payeur === 'locataire' ? (montantSaisi || (inc.remboursement && inc.remboursement.montant)) : null, factureNumero: v.numero })
-    if (!r.erreur) {
-      try { if (await api.publierResultat(inc.espaceSignalementId, r)) { const a4 = JSON.parse(JSON.stringify(inc)); inc.resultatPublieLe = r.publieLe; persisterInc(inc, a4) } }
-      catch (err) { toast('Résultat non publié dans l\'espace locataire (connexion ?) : réessayer depuis la fiche.', 'warn', 6000) }
-    }
-  }
+  if (api && inc.espaceSignalementId) await publierResultat(inc, false)
   // 4. Le lien de l'artisan reste ouvert 30 jours (facture tardive), puis expire (D14).
   if (api && x) { try { await api.rpc('ar_acces_valider', { p_acces_id: x.id }) } catch (err) { /* sans effet sur la validation */ } }
   etat.valid.delete(String(inc.id))
   toast('Fin validée.', 'ok', 4000)
   aller('fiche'); if (G('_incRefreshHost')) W._incRefreshHost()
+}
+// Un dépôt de l'artisan rejoint le dossier de preuves de l'incident (référence au fichier, sans copie). Idempotent.
+function joindreDepot(inc, dep) {
+  const D = db(); if (!D || !dep) return false
+  if (!D.documents) D.documents = []
+  if (D.documents.some((d) => vivant(d) && d.parentType === 'incident' && String(d.parentId) === String(inc.id) && d.cloudKey === dep.storage_path)) return false
+  const nom = dep.nom || dep.type_depot || 'document'
+  const doc = { id: G('nid') ? W.nid() : Date.now(), parentType: 'incident', parentId: inc.id, parentRef: String(inc.id), logRef: inc.logRef || null, category: 'travaux', idbKey: null, cloudKey: dep.storage_path, name: nom, originalName: nom, mime: dep.mime, size: 0, uploadedAt: dep.cree_le, source: 'lien-artisan' }
+  if (G('_stamp')) W._stamp(doc); D.documents.push(doc)
+  return true
+}
+const dansLeDossier = (inc, dep) => ((db() || {}).documents || []).some((d) => vivant(d) && d.parentType === 'incident' && String(d.parentId) === String(inc.id) && d.cloudKey === dep.storage_path)
+function joindre(incId, depotId) {
+  const inc = incidentDe(incId), x = inc ? accesActif(inc) : null; if (!inc) return
+  const dep = depotsDe(x).find((d) => String(d.id) === String(depotId)); if (!dep) return
+  if (joindreDepot(inc, dep)) { if (G('saveDB')) W.saveDB(); toast('Joint au dossier de l\'incident.', 'ok', 3500) }
+  rerender()
+}
+// Résultat expliqué au locataire. Montant = la dépense RÉELLEMENT enregistrée dans Finances (jamais un montant saisi).
+async function publierResultat(inc, seul) {
+  const api = API(); if (!api || !inc || !inc.espaceSignalementId) return false
+  const payeur = inc.payeurRetenu || (inc.verdict && inc.verdict.payeur)
+  const cout = (inc.mouvementIds || []).length && G('_incCoutBailleur') ? W._incCoutBailleur(inc) : null
+  const r = IC.resultatPourLocataire({ verdict: inc.verdict, payeurRetenu: inc.payeurRetenu, constat: inc.constat, montantTtc: payeur === 'locataire' && cout > 0 ? cout : null, factureNumero: (inc.circuit && inc.circuit.factureNumero) || '' })
+  if (r.erreur) { if (seul) toast(r.erreur, 'warn', 5000); return false }
+  try {
+    if (await api.publierResultat(inc.espaceSignalementId, r)) { const a4 = JSON.parse(JSON.stringify(inc)); inc.resultatPublieLe = r.publieLe; persisterInc(inc, a4); if (seul) { toast('Résultat publié dans l\'espace du locataire.', 'ok', 4000); rerender() } return true }
+  } catch (err) { /* message ci-dessous */ }
+  toast('Résultat non publié dans l\'espace locataire (connexion ?) : réessayer avec « Publier le résultat » sur la fiche.', 'warn', 6000)
+  return false
+}
+async function publier(incId) {
+  const b = document.getElementById('inc-pub'); if (b) b.disabled = true
+  await publierResultat(incidentDe(incId), true)
+  if (b) b.disabled = false
 }
 function rembourse(incId) {
   const inc = incidentDe(incId); if (!inc || !inc.remboursement) return
@@ -755,6 +815,7 @@ export function demarrer() {
   if (_demarre) return
   _demarre = true
   W.IncCircuit = {
+    joindre, publier,
     carteHtml, piedHtml, verdictVisible, verdictAttenteHtml,
     vues: { artisan: vueArtisan, choisir: vueChoisir, carnet: vueCarnet, plafond: vuePlafond, devis: vueDevis, 'facture-ia': vueFactureIa, valider: vueValider },
     envoyer, renvoyer, retirer, choisir, confirmerChoix, editer, enregistrerArtisan, supprimerArtisan, suggerer, validerPlafond, decider, lireDepot, deposerFacture,

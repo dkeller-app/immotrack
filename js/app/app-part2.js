@@ -15786,6 +15786,11 @@ function _incCalculerVerdict(inc) {
   delete v.mention;   // la mention est affichée en permanence, inutile de la stocker
   return v;
 }
+// Recalcul SANS jamais effacer un verdict existant : avec le circuit (0060), un incident sans constat ni cause n'a pas
+// de verdict calculable (null) ; un ancien verdict reste alors celui de la fiche.
+function _incVerdictRecalcule(inc) {
+  return _incCalculerVerdict(inc) || inc.verdict || null;
+}
 function _incPersister(inc, action, avant) {
   _stamp(inc);
   if (typeof _auditLog === 'function') _auditLog(action, 'incident', inc.id, _incElLbl(inc), avant, action === 'update' ? inc : undefined);
@@ -15813,7 +15818,7 @@ function _incEnregistrer() {
       ageAns: f.ageAns == null ? (existant.ageAns == null ? null : existant.ageAns) : (f.ageAns === '' ? null : Number(f.ageAns)), description: f.description,
       signalePar: f.signalePar, signaleParNom: f.signaleParNom, canal: f.canal, creeLe: f.creeLe, contexte: f.contexte,
     });
-    existant.verdict = _incCalculerVerdict(existant);
+    existant.verdict = _incVerdictRecalcule(existant);
     _incPersister(existant, 'update', avant);
     showToast('Incident mis à jour', 'ok');
   } else {
@@ -15850,6 +15855,7 @@ function _incCite(t) {
 function _incVerdictHtml(inc) {
   const { QP } = _incMods();
   const v = inc.verdict || _incCalculerVerdict(inc);
+  if (!v) return (window.IncCircuit && IncCircuit.verdictAttenteHtml) ? IncCircuit.verdictAttenteHtml(inc) : '';   // pas encore de constat
   const arb = v.payeur === 'a_arbitrer';
   const conf = arb ? `<span class="inc-badge acc">Zone grise</span>` : `<span class="inc-badge">${_uiIcon('book', 13)} ${escHtml(QP.CONFIANCE_LBL[v.confiance] || '')}</span>`;
   const lectures = arb ? `<div class="inc-reads">${v.lectures.map((l, i) => `<div class="inc-read"><span class="inc-rh">Lecture ${i + 1}</span><span class="inc-rp">${escHtml(_incPayeurLbl(l.payeur))}</span><span class="inc-rs">${escHtml(l.si.charAt(0).toUpperCase() + l.si.slice(1))}.</span>${l.textes.map(_incCite).join('')}</div>`).join('')}</div>` : '';
@@ -15966,7 +15972,7 @@ function _incCocher(k, on) {
 function _incRecalculer() {
   const inc = _incGet(_incState && _incState.id); if (!inc) return;
   const avant = JSON.parse(JSON.stringify(inc));
-  inc.verdict = _incCalculerVerdict(inc);
+  inc.verdict = _incVerdictRecalcule(inc);
   _incPersister(inc, 'update', avant);
   _incRender(); _incRefreshHost();
 }
@@ -16079,6 +16085,7 @@ function _incMessageTexte(inc) {
   // Textes cités = ceux qui désignent le locataire (verdict, ou lecture « locataire » d'une zone grise) ;
   // payeur retenu contre la suggestion → message sans citation (qui-paie.js, relecture C3).
   const v = inc.verdict || _incCalculerVerdict(inc);
+  if (!v) return '';   // pas encore de constat : rien à expliquer au locataire
   const ent = (DB.entites || []).find(e => e && e.nom === inc.entity);
   return QP.messageLocataire(v, { element: _incElLbl(inc), dateSignalement: fd(_incJour(inc.creeLe)), bien: _incBienLbl(inc), signataire: (ent && ent.nom) || inc.entity || '', retenuLocataire: inc.payeurRetenu === 'locataire' }) || '';
 }

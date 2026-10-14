@@ -76,6 +76,10 @@ describe('API /api/ar — frontière', () => {
   it('rpc accepte el_* et ar_*, refuse le reste', async () => {
     await expect(rpc(E, 'artisan_acces', {})).rejects.toMatchObject({ statut: 500 });
     await expect(rpc(E, 'arx', {})).rejects.toMatchObject({ statut: 500 });
+    // Fonctions réservées aux membres : jamais sous l'identité du relais.
+    for (const fn of ['ar_acces_emettre', 'ar_acces_revoquer', 'ar_acces_valider', 'ar_devis_decider', 'ar_acces_contact', 'el_acces_emettre', 'el_acces_contact']) {
+      await expect(rpc(E, fn, {})).rejects.toMatchObject({ statut: 500 })
+    }
   });
   it('document : montant TTC exigé pour un devis ou une facture ; transmis tel quel (décision du statut par la base)', async () => {
     const r0 = await postAr('/api/ar/document', { type: 'devis', path: 'x/y/files/ar-z.pdf', montant_ttc: '' });
@@ -128,9 +132,10 @@ describe('IA des liens publics (D15)', () => {
   const audio = new Uint8Array(4000).fill(7);
   it('seules les tâches du type de lien ; lien inactif = 410', async () => {
     expect(TACHES_LIEN).toEqual({ el: ['incident-locataire'], ar: ['constat-artisan'] });
+    monterIdentite();
+    rpcRepond('el_ia_autorise', { proprietaire: crypto.randomUUID(), lien: crypto.randomUUID() });
     const r = await postEl('/api/el/ia/structurer', { task: 'edl-piece', input: {} });
     expect(r.status).toBe(400);
-    monterIdentite();
     rpcRepond('el_ia_autorise', null);
     const r2 = await postEl('/api/el/ia/structurer', { task: 'incident-locataire', input: { texte: 'De l\'eau sous l\'évier de la cuisine' } });
     expect(r2.status).toBe(410);
@@ -173,6 +178,28 @@ describe('IA des liens publics (D15)', () => {
     expect(r.status).toBe(200);
     expect((await r.json()).data).toMatchObject({ montantTTC: 118, constatProbable: 'usure' });
     expect((await lireUsageJour(env.SESSIONS_KV, sub)).images).toBe(1);
+  });
+});
+
+describe('/ar/notifier (invitation par e-mail)', () => {
+  it('lien vérifié AVANT de lire le corps de structurer : sans lien actif, 410 même pour un corps invalide', async () => {
+    monterIdentite();
+    rpcRepond('ar_ia_autorise', null);
+    const r = await app.request('/api/ar/ia/structurer', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Ar-Jeton': JETON }, body: '{pas du json' }, E);
+    expect(r.status).toBe(410);
+  });
+  it('3 invitations par lien et par heure, destinataire lu en base', async () => {
+    const accesId = crypto.randomUUID();
+    const h = { ...(await appAuth({ sub: crypto.randomUUID() })), 'Content-Type': 'application/json' };
+    fetchMock.get(ORIGIN).intercept({ path: '/rest/v1/rpc/ar_acces_contact', method: 'POST' })
+      .reply(200, { email: 'artisan@example.test', bailleur: 'SCI Dupont' }, { headers: { 'content-type': 'application/json' } }).times(4);
+    const corps = JSON.stringify({ acces_id: accesId, jeton: JETON });
+    for (let i = 0; i < 3; i++) {
+      const r = await app.request('https://relais.example.test/ar/notifier', { method: 'POST', headers: h, body: corps }, E);
+      expect(r.status).toBe(200);
+    }
+    const r = await app.request('https://relais.example.test/ar/notifier', { method: 'POST', headers: h, body: corps }, E);
+    expect(r.status).toBe(429);
   });
 });
 

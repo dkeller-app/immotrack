@@ -72,9 +72,14 @@ describe('M · migration 0060 (texte)', () => {
     expect(e).toMatch(/has_entite_write_all\(i\.espace_id, i\.entite_id, i\.logement_id, i\.immeuble_id\)/)
     expect(e).toMatch(/_ar_photos_valides\(p_demande->'photos'/)
   })
-  it('M-6 plafond : le statut d\'un devis est décidé par la base (≤ plafond > 0 → accepté automatiquement)', () => {
-    expect(fn('ar_document')).toMatch(/when a\.plafond_ttc > 0 and p_montant_ttc <= a\.plafond_ttc then 'auto_accepte' else 'en_attente'/)
+  it('M-6 plafond : le statut d\'un devis est décidé par la base (cumul ≤ plafond > 0, aucun refus, incident non résolu)', () => {
+    const d = fn('ar_document')
+    expect(d).toMatch(/when a\.plafond_ttc > 0 and not public\._ar_resolu\(a\)/)
+    expect(d).toMatch(/dr\.statut = 'refuse'/)
+    expect(d).toMatch(/p_montant_ttc \+ coalesce\(\(select sum\(dd\.montant_ttc\)[\s\S]*statut in \('auto_accepte', 'accepte'\)\), 0\) <= a\.plafond_ttc/)
+    expect(d).toMatch(/p_type = 'devis' and a\.valide_le is not null then raise exception 'el:ferme'/)
     expect(fn('ar_devis_decider')).toMatch(/d\.statut <> 'en_attente'/)
+    expect(fn('ar_devis_decider')).toMatch(/where id = d\.id and statut = 'en_attente'/)
   })
   it('M-7 page artisan : les chemins des photos ne sortent pas (rang et nom seulement)', () => {
     expect(fn('ar_ouvrir')).toMatch(/\(a\.demande - 'photos'\)/)

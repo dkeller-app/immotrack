@@ -234,7 +234,8 @@ export function champsIncident(sig, ctx) {
   const c = ctx || {}
   const pb = PROBLEMES.find((p) => p.k === sig.element) || PROBLEMES[PROBLEMES.length - 1]
   const piece = lblDe(PIECES, sig.piece)
-  // Avec l'aide de l'IA (0060) : l'élément et la nature déduits, confirmés par le locataire, remplacent la liste courte.
+  // Avec l'aide de l'IA (0060) : l'élément et la nature DÉDUITS par l'IA (le locataire confirme la pièce et l'urgence,
+  // pas ces deux champs) remplacent la liste courte ; le propriétaire les revoit sur la fiche.
   const ia = normaliserIaSignalement(sig.ia)
   const urgIa = ia && ia.urgences.length ? ia.urgences : null
   const urgences = sig.urgence === 'urgente' ? (urgIa || (pb.urgence ? [pb.urgence] : [])) : []

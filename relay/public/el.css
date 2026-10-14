@@ -213,6 +213,6 @@ textarea.inp{min-height:110px;resize:vertical;line-height:1.45}
 .urg ol{margin:0;padding-left:22px;font-size:16px;line-height:1.5}
 .urg ol li+li{margin-top:6px}
 .verdict{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;background:var(--sur)}
-.verdict .vh{display:flex;gap:10px;align-items:center;padding:12px 14px;background:var(--sur2);border-bottom:1px solid var(--bor)}
-.verdict .vh b{font:800 17px var(--display)}
+.verdict .verdict-h{display:flex;gap:10px;align-items:center;padding:12px 14px;background:var(--sur2);border-bottom:1px solid var(--bor)}
+.verdict .verdict-h b{font:800 17px var(--display)}
 .verdict .vb{padding:12px 14px}

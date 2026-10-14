@@ -2,7 +2,7 @@
 // Le jeton est lu dans le FRAGMENT de l'URL (#…) et envoyé dans l'en-tête X-Ar-Jeton ; il n'est jamais mis dans une URL
 // de requête, ni stocké. Toute donnée affichée passe par textContent. Maquette validée : mockups/INCIDENT-CIRCUIT
 // (écrans « Artisan ») ; ton neutre (infinitif, ni « tu » ni « vous ») ; téléphone d'abord (charte M-1 → M-17).
-import { h, I, marque, fd, fdh, plage, euros, creerToast, choisirFichiers, preparerImage, creerDictee, mmss } from './lien-commun.js?v=1';   // version : changer avec EL_ASSET_VERSION / AR_ASSET_VERSION
+import { h, I, marque, fd, fdh, plage, euros, creerToast, choisirFichiers, preparerImage, creerDictee, mmss } from './lien-commun.js?v=3';   // version : changer avec EL_ASSET_VERSION / AR_ASSET_VERSION
 
 const JETON_RE = /^[A-Za-z0-9_-]{43}$/;
 const root = document.getElementById('app');
@@ -140,6 +140,8 @@ function corps() {
 const lbl = (l, k) => ((l || []).find((x) => x.k === k) || {}).lbl || '';
 
 // ─────────────── créneau ───────────────
+// Code postal de l'adresse d'intervention (jours fériés propres à l'Alsace-Moselle).
+function codePostal() { const m = /\b(\d{5})\b/.exec(String((S.info && S.info.demande && S.info.demande.adresse) || '')); return m ? m[1] : ''; }
 function ouvrirCreneau() { const c = S.info.creneau || {}; S.creneau = { date: c.date || '', debut: c.debut || '', fin: c.fin || '' }; ouvrirCouche('creneau'); }
 function coucheCreneau() {
   const c = S.creneau;
@@ -154,7 +156,7 @@ function coucheCreneau() {
 }
 async function envoyerCreneau(b) {
   b.classList.add('busy');
-  try { await api('creneau', { date: S.creneau.date, debut: S.creneau.debut || null, fin: S.creneau.fin || null }); S.couche = null; await recharger(); toast('Créneau proposé au locataire.'); }
+  try { await api('creneau', { date: S.creneau.date, debut: S.creneau.debut || null, fin: S.creneau.fin || null, cp: codePostal() }); S.couche = null; await recharger(); toast('Créneau proposé au locataire.'); }
   catch (e) { echec(e); } finally { b.classList.remove('busy'); }
 }
 
@@ -242,7 +244,7 @@ function coucheExpl() {
         h('button', { class: 'btn s', disabled: x.charge || null, onclick: () => (enreg ? x.dictee.arreter() : x.dictee.demarrer()) }, I(enreg ? 'stop' : 'mic', 16), enreg ? 'Arrêter' : 'Dicter')) : null,
       h('label', { class: 'fld' }, h('span', { class: 'lb' }, 'Texte'), h('textarea', { class: 'inp', maxlength: 6000, placeholder: 'Ex. : joint du siphon écrasé, collier rouillé ; remplacés, essai d\'étanchéité concluant.', oninput: (e) => { x.texte = e.target.value; } }, x.texte)),
       S.info.ia ? h('div', { class: 'ia-note' }, I('info', 16), h('span', null, R.mentionIA || '')) : null],
-      pied: [h('button', { class: 'btn s', onclick: () => { x.etat = 'choix'; render(); } }, 'Choisir moi-même'),
+      pied: [h('button', { class: 'btn s', onclick: () => { x.etat = 'choix'; render(); } }, 'Choisir sans l\'assistant'),
         h('button', { class: 'btn p', disabled: enreg || x.charge || !S.info.ia || null, onclick: (e) => proposer(e.currentTarget) }, I('chev'), 'Voir le constat proposé')] };
   }
   return { titre: 'Constat', retour: () => { x.etat = 'saisie'; render(); }, contenu: [

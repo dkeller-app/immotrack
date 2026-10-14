@@ -52,8 +52,15 @@ function erreurDepuis(status, corps) {
   return new ElErreur(502, 'el_base');
 }
 
+// Frontière : la liste EXACTE des fonctions « côté lien » appelées sous l'identité du relais (0059, 0060). Les fonctions
+// réservées aux membres (el_acces_emettre, ar_acces_emettre, ar_devis_decider…) n'y figurent pas.
+export const FONCTIONS_RELAIS = new Set([
+  'el_ouvrir', 'el_documents', 'el_signalements', 'el_messages', 'el_fichier', 'el_depot', 'el_depot_fin', 'el_signaler',
+  'el_message_envoyer', 'el_accord', 'el_contact', 'el_creneau_confirmer', 'el_ia_autorise',
+  'ar_ouvrir', 'ar_fichier', 'ar_depot', 'ar_depot_fin', 'ar_document', 'ar_creneau', 'ar_constat', 'ar_ia_autorise',
+])
 export async function rpc(env, fn, args, fetchImpl = fetch) {
-  if (!/^(el|ar)_[a-z_]+$/.test(fn)) throw new ElErreur(500, 'fonction');   // frontière : seules les fonctions el_* et ar_* (0060)
+  if (!FONCTIONS_RELAIS.has(fn)) throw new ElErreur(500, 'fonction');
   const token = await jetonRelais(env, fetchImpl);
   const r = await fetchImpl(`${base(env)}/rest/v1/rpc/${fn}`, {
     method: 'POST',

@@ -3,7 +3,7 @@
 // une URL de requête, ni stocké. Toute donnée affichée passe par textContent (aucun innerHTML de donnée).
 // Écrans : maquette validée mockups/ESPACE-LOCATAIRE/maquette.html ; ton neutre (infinitif, ni « tu » ni « vous »).
 
-import { h, I, marque, fd, fdh, taille, plage, euros, creerToast, choisirFichiers, preparerImage, imagePourIA, creerDictee, mmss } from './lien-commun.js?v=1';   // version : changer avec EL_ASSET_VERSION / AR_ASSET_VERSION
+import { h, I, marque, fd, fdh, taille, plage, euros, creerToast, choisirFichiers, preparerImage, imagePourIA, creerDictee, mmss } from './lien-commun.js?v=3';   // version : changer avec EL_ASSET_VERSION / AR_ASSET_VERSION
 import { documentNouveau, plusRecentDabord, confirmationAccord } from './el-lib.js';
 
 const JETON_RE = /^[A-Za-z0-9_-]{43}$/;
@@ -556,11 +556,11 @@ function blocResultat(r) {
   const loc = r.payeur === 'locataire';
   const titre = loc ? 'À la charge du locataire' + (r.montantTtc ? ' : ' + euros(r.montantTtc) : '') : r.payeur === 'bailleur' ? 'À la charge du bailleur' : r.payeur === 'syndic' ? 'Pris en charge par le syndic de copropriété' : 'Circuit de l\'assurance';
   return h('div', { class: 'verdict mt' },
-    h('div', { class: 'vh' }, h('span', { class: 'ic ' + (loc ? '' : 'pos') }, I(loc ? 'scale' : 'check', 20)), h('div', null, h('b', null, titre), loc && r.facture ? h('div', { class: 'small' }, 'Facture n° ' + r.facture) : r.payeur === 'bailleur' ? h('div', { class: 'small' }, 'Rien à payer pour le locataire') : null)),
+    h('div', { class: 'verdict-h' }, h('span', { class: 'ic ' + (loc ? '' : 'pos') }, I(loc ? 'scale' : 'check', 20)), h('div', null, h('b', null, titre), loc && r.facture ? h('div', { class: 'small' }, 'Facture n° ' + r.facture) : r.payeur === 'bailleur' ? h('div', { class: 'small' }, 'Rien à payer pour le locataire') : null)),
     h('div', { class: 'vb' },
       h('dl', { class: 'kv', style: 'margin:0' }, [['Constat', r.constat], ['Ampleur', r.ampleur], ['Travaux', r.travaux]].filter(([, v]) => v).map(([k, v]) => [h('dt', null, k), h('dd', null, v)])),
       (r.textes || []).map((t) => [h('div', { class: 'quote' }, '« ' + t.extrait + ' »'), h('p', { class: 'src' }, t.ref + ' — Légifrance')]),
-      r.exceptions ? h('div', { class: 'banner mt' }, I('info'), h('span', null, 'Si la cause est autre (vétusté, malfaçon, vice), le signaler au bailleur : la réparation lui reviendrait alors. Selon le contrat, l\'assurance habitation peut couvrir certains dommages.')) : null,
+      typeof r.exceptions === 'string' && r.exceptions ? h('div', { class: 'banner mt' }, I('info'), h('span', null, r.exceptions)) : null,
       h('p', { class: 'small', style: 'margin:10px 0 0' }, 'Information juridique générale, pas une consultation juridique (loi n° 71-1130 du 31 décembre 1971, art. 54).')));
 }
 function coucheDetail() {

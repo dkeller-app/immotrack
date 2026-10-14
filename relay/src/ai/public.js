@@ -88,6 +88,8 @@ export function registerAiPublicRoutes(app, { providerFactory = makeAiProvider }
       if (!ia) { mesure(route, 503); return jsonErreur(c, 503, 'ia_inactive'); }
       const annonce = Number(c.req.header('Content-Length'));
       if (Number.isFinite(annonce) && annonce > JSON_MAX_LIEN) { mesure(route, 413); return jsonErreur(c, 413, 'trop_gros'); }
+      // Lien vérifié AVANT de lire et valider le corps (pas de travail gratuit pour un appel sans jeton valide).
+      const a = await autoriser(c, type); if (a.reponse) return a.reponse;
       let body;
       try {
         const lu = await lireCorps(c.req, JSON_MAX_LIEN);
@@ -99,7 +101,6 @@ export function registerAiPublicRoutes(app, { providerFactory = makeAiProvider }
       const v = t.validerEntree(body.input);
       if (!v.ok) { mesure(route, 400, { tache: t.nom, raison: v.raison }); return c.json({ erreur: 'entree', raison: v.raison }, 400); }
       const nImages = t.images && Array.isArray(v.input.images) ? v.input.images.length : 0;
-      const a = await autoriser(c, type); if (a.reponse) return a.reponse;
       const q = await quotas(c, type, a, { images: nImages });
       if (q) { mesure(route, 429, q); return c.json({ erreur: 'quota', motif: q.motif }, 429); }
       const kv = c.env.SESSIONS_KV;

@@ -345,7 +345,8 @@ begin
   end if;
   if d.type_depot <> 'devis' or d.statut <> 'en_attente' then raise exception 'ar:deja-decide' using errcode = 'P0001'; end if;
   update public.artisan_depots set statut = case when p_accepte then 'accepte' else 'refuse' end, decide_le = now(), decide_par = (select auth.uid())
-   where id = d.id;
+   where id = d.id and statut = 'en_attente';   -- deux associés en même temps : la 2e décision échoue
+  if not found then raise exception 'ar:deja-decide' using errcode = 'P0001'; end if;
   return case when p_accepte then 'accepte' else 'refuse' end;
 end;
 $$;
@@ -414,6 +415,20 @@ begin
   return null;
 end;
 $$;
+
+-- Incident déjà passé « résolu » (par exemple un mouvement bancaire rattaché avant la validation) : un devis déposé
+-- ensuite n'est plus accepté automatiquement, il attend le propriétaire.
+create or replace function public._ar_resolu(p_acces public.artisan_acces)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.incidents i where i.espace_id = p_acces.espace_id and i.legacy_id = p_acces.incident_legacy_id
+                  and i.statut = 'resolu');
+$$;
+revoke all on function public._ar_resolu(public.artisan_acces) from public, anon, authenticated;
 revoke all on function public._ar_acces(text, text) from public, anon, authenticated;
 
 create or replace function public._ar_prefixe(a public.artisan_acces)
@@ -544,13 +559,22 @@ begin
   if p_type in ('devis', 'facture') and (p_montant_ttc is null or p_montant_ttc <= 0 or p_montant_ttc > 1000000) then
     raise exception 'ar:montant' using errcode = '22023';
   end if;
+  -- Fin validée : le lien reste ouvert 30 jours pour la facture (D14), plus pour un devis.
+  if p_type = 'devis' and a.valide_le is not null then raise exception 'el:ferme' using errcode = 'P0001'; end if;
   if (select count(*) from public.artisan_depots d where d.acces_id = a.id) >= 30 then raise exception 'el:limite' using errcode = 'P0001'; end if;
   select oo.storage_path, oo.sha256, oo.taille into o from public.artisan_ouvertures oo
    where oo.acces_id = a.id and oo.storage_path = p_path and oo.mode = 'depot' and oo.cree_le > now() - interval '24 hours' and oo.sha256 is not null
    order by oo.cree_le desc limit 1;
   if not found then raise exception 'ar:piece-invalide' using errcode = '23514'; end if;
+  -- Plafond PAR INTERVENTION (D1) : la somme des devis déjà acceptés sur ce lien compte (un 2e devis qui ferait
+  -- dépasser le plafond attend le propriétaire). Après un REFUS sur ce lien, ou sur un incident déjà résolu, plus
+  -- aucune acceptation automatique : un devis refusé ne se redépose pas à un montant déclaré plus bas.
   v_statut := case when p_type <> 'devis' then null
-                   when a.plafond_ttc > 0 and p_montant_ttc <= a.plafond_ttc then 'auto_accepte' else 'en_attente' end;
+                   when a.plafond_ttc > 0 and not public._ar_resolu(a)
+                    and not exists (select 1 from public.artisan_depots dr where dr.acces_id = a.id and dr.type_depot = 'devis' and dr.statut = 'refuse')
+                    and p_montant_ttc + coalesce((select sum(dd.montant_ttc) from public.artisan_depots dd
+                          where dd.acces_id = a.id and dd.type_depot = 'devis' and dd.statut in ('auto_accepte', 'accepte')), 0) <= a.plafond_ttc
+                     then 'auto_accepte' else 'en_attente' end;
   insert into public.artisan_depots (acces_id, espace_id, type_depot, storage_path, nom, mime, sha256, taille, montant_ttc, numero, statut, decide_le)
   values (a.id, a.espace_id, p_type, o.storage_path, left(coalesce(nullif(btrim(coalesce(p_nom, '')), ''), p_type), 120),
           case when o.storage_path like '%.pdf' then 'application/pdf' when o.storage_path like '%.png' then 'image/png' else 'image/jpeg' end,
@@ -573,6 +597,7 @@ begin
   a := public._ar_acces(p_jeton_sha256, p_ip_hash);
   if a.id is null then return null; end if;
   if p_date is null or p_date < current_date - 1 or p_date > current_date + 180 then raise exception 'ar:date' using errcode = '22023'; end if;
+  if a.valide_le is not null then raise exception 'el:ferme' using errcode = 'P0001'; end if;   -- fin validée
   if p_debut is not null and p_fin is not null and p_fin <= p_debut then raise exception 'ar:heure' using errcode = '22023'; end if;
   update public.artisan_acces set creneau_date = p_date, creneau_debut = p_debut, creneau_fin = p_fin, creneau_propose_le = now(),
          creneau_confirme_le = null, creneau_accord_expres = false
@@ -610,7 +635,7 @@ as $$
 declare a public.artisan_acces%rowtype;
 begin
   a := public._ar_acces(p_jeton_sha256, p_ip_hash);
-  if a.id is null or a.emis_par is null then return null; end if;
+  if a.id is null or a.emis_par is null or a.valide_le is not null then return null; end if;   -- l'IA ne sert qu'au constat
   return jsonb_build_object('proprietaire', a.emis_par, 'lien', a.id);
 end;
 $$;
@@ -672,7 +697,7 @@ security definer
 set search_path = ''
 as $$
   select x.* from public.artisan_acces x
-   where x.espace_id = p_sig.espace_id and x.revoque_le is null
+   where x.espace_id = p_sig.espace_id and x.revoque_le is null and now() < public._ar_fin(x.emis_le, x.valide_le)
      and (x.signalement_id = p_sig.id or (p_sig.incident_legacy_id is not null and x.incident_legacy_id = p_sig.incident_legacy_id
           and (x.logement_id = p_sig.logement_id or (x.logement_id is null and x.entite_id is not distinct from p_sig.entite_id))))
    order by x.emis_le desc limit 1;

@@ -197,6 +197,30 @@ try {
   check('devis au-dessus du plafond : Dave refusé ; Carol (écriture sur A) accepte ; pas de seconde décision ; un devis automatique ne se re-décide pas',
     !de1.ok && val(de2) === 'accepte' && !de3.ok && /ar:deja-decide/.test(de3.msg) && !de4.ok, JSON.stringify({ de1, de2, de3, de4 }))
 
+  // ── Plafond PAR INTERVENTION : cumul des devis acceptés ; après un refus, plus d'acceptation automatique ──
+  // (nouveau lien sur l'incident de B pour repartir d'un cumul nul)
+  const T3 = jeton(), H3 = h(T3)
+  const e3 = await asUserKeep(U.alice, EMET, [espace, INC.B, null, 'Serrurerie Kern', null, null, 'serrurerie', 300, demande([]), H3])
+  check('2e lien émis (SCI-B, plafond 300)', e3.ok, JSON.stringify(e3))
+  const depot3 = async (ext) => { const d = val(await RK('ar_depot', [H3, IP, ext])); await RK('ar_depot_fin', [H3, IP, d.path, 'c'.repeat(64), 2048]); return d.path }
+  const k1 = val(await RK('ar_document', [H3, IP, 'devis', await depot3('pdf'), 'K-1', 150, 'K-1']))
+  const k2 = val(await RK('ar_document', [H3, IP, 'devis', await depot3('pdf'), 'K-2', 150, 'K-2']))
+  const k3 = val(await RK('ar_document', [H3, IP, 'devis', await depot3('pdf'), 'K-3', 290, 'K-3']))
+  check('cumul : 150 + 150 ≤ 300 acceptés automatiquement ; un 3e devis de 290 attend le propriétaire', k1.statut === 'auto_accepte' && k2.statut === 'auto_accepte' && k3.statut === 'en_attente', JSON.stringify({ k1, k2, k3 }))
+  const kr = await asUserKeep(U.alice, call('ar_devis_decider', [0, 0]), [k3.id, false])
+  await q("update public.artisan_depots set statut = 'refuse' where id in ($1, $2)", [k1.id, k2.id])   // cumul des acceptés remis à zéro
+  const k4 = val(await RK('ar_document', [H3, IP, 'devis', await depot3('pdf'), 'K-3 bis', 90, 'K-3']))
+  check("devis refusé puis redéposé à un montant déclaré plus bas : PAS d'acceptation automatique", val(kr) === 'refuse' && k4.statut === 'en_attente', JSON.stringify({ kr, k4 }))
+  const kd = await asUserKeep(U.alice, call('ar_devis_decider', [0, 0]), [k4.id, true])
+  const kd2 = await asUser(U.alice, call('ar_devis_decider', [0, 0]), [k4.id, false])
+  check('décision unique : la 2e réponse sur le même devis est refusée (ar:deja-decide)', val(kd) === 'accepte' && !kd2.ok && /ar:deja-decide/.test(kd2.msg), JSON.stringify({ kd, kd2 }))
+  await q('delete from public.artisan_depots where acces_id = (select id from public.artisan_acces where incident_legacy_id = $1 and espace_id = $2 limit 1)', [INC.B, espace])
+  await q("update public.incidents set statut = 'resolu' where espace_id = $1 and legacy_id = $2", [espace, INC.B])
+  const k5 = val(await RK('ar_document', [H3, IP, 'devis', await depot3('pdf'), 'K-5', 50, 'K-5']))
+  const kc = await RK('ar_constat', [H3, IP, 'usure', null, 'petite', null])
+  check("incident déjà résolu (mouvement rattaché) : devis en attente ; constat encore possible tant que la fin n'est pas validée", k5.statut === 'en_attente' && val(kc) === true, JSON.stringify({ k5, kc }))
+  await q("update public.incidents set statut = 'signale' where espace_id = $1 and legacy_id = $2", [espace, INC.B])
+
   // ── Créneau et constat ──
   const sam = (await q("select (current_date + ((6 - extract(isodow from current_date)::int + 7) % 7) + 7)::date as d")).rows[0].d
   const lun = (await q("select (current_date + ((8 - extract(isodow from current_date)::int) % 7) + 7)::date as d")).rows[0].d
@@ -251,6 +275,12 @@ try {
   check('validation finale : fin du lien = validation + 30 jours', v1.ok && Math.abs(new Date(val(v1)) - (Date.now() + 30 * 864e5)) < 120e3, JSON.stringify(v1))
   const cs3 = await R('ar_constat', [H2, IP, 'casse', null, 'petite', null])
   check('après validation : le constat n\'est plus modifiable par l\'artisan (el:ferme)', !cs3.ok && /el:ferme/.test(cs3.msg), JSON.stringify(cs3))
+  const depot2 = async (ext) => { const d = val(await RK('ar_depot', [H2, IP, ext])); await RK('ar_depot_fin', [H2, IP, d.path, 'd'.repeat(64), 2048]); return d.path }
+  const dvF = await R('ar_document', [H2, IP, 'devis', await depot2('pdf'), 'Devis tardif', 290, 'D-9'])
+  const faF = val(await RK('ar_document', [H2, IP, 'facture', await depot2('pdf'), 'Facture tardive', 118, 'F-9']))
+  const crF = await R('ar_creneau', [H2, IP, lun, '08:00', '10:00'])
+  const iaF = val(await R('ar_ia_autorise', [H2, IP]))
+  check("après validation : plus de devis (el:ferme), ni de créneau, ni d'IA ; la facture tardive passe (D14)", !dvF.ok && /el:ferme/.test(dvF.msg) && faF && faF.id && !crF.ok && /el:ferme/.test(crF.msg) && iaF === null, JSON.stringify({ dvF, faF, crF, iaF }))
   await q("update public.artisan_acces set valide_le = now() - interval '31 days' where id = $1", [ACC])
   const oExp = val(await R('ar_ouvrir', [H2, IP]))
   await q("update public.artisan_acces set valide_le = null, emis_le = now() - interval '91 days' where id = $1", [ACC])

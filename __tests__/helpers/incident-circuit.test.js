@@ -93,6 +93,9 @@ describe('P · plafond et devis', () => {
     expect(IC.decisionDevis(50, 0)).toBe('en_attente')
     expect(IC.decisionDevis(0, 300)).toBe('en_attente')
     expect(IC.decisionDevis('', 300)).toBe('en_attente')
+    // Plafond par intervention : les devis déjà acceptés sur le même lien comptent.
+    expect(IC.decisionDevis(150, 300, 150)).toBe('auto_accepte')
+    expect(IC.decisionDevis(290, 300, 290)).toBe('en_attente')
   })
   it('P-4 phrase affichée à l\'artisan', () => {
     expect(IC.phrasePlafond(300)).toMatch(/jusqu'à 300 € TTC, déplacement compris/)
@@ -242,12 +245,19 @@ describe('R · résultat publié au locataire', () => {
   const v = (c) => IC.verdictDuConstat(inc(), c)
   it('R-1 locataire : montant, facture, textes RELUS dans le référentiel, rappel des exceptions', () => {
     const r = IC.resultatPourLocataire({ verdict: v({ constat: 'usure', ampleur: 'petite', resume: 'Joint changé' }), constat: { constat: 'usure', ampleur: 'petite', resume: 'Joint changé' }, montantTtc: '118,00', factureNumero: '2026-1042', now: 'T' })
-    expect(r).toMatchObject({ payeur: 'locataire', montantTtc: 118, facture: '2026-1042', constat: 'Pièce usée par le temps', ampleur: 'Petite réparation', exceptions: true, publieLe: 'T' })
+    expect(r).toMatchObject({ payeur: 'locataire', montantTtc: 118, facture: '2026-1042', constat: 'Pièce usée par le temps', ampleur: 'Petite réparation', exceptions: IC.EXCEPTIONS_LOCATAIRE.reparation, publieLe: 'T' })
     expect(r.textes.map((t) => t.ref)).toEqual([TEXTES['ann-IVa'].ref, TEXTES.a7d.ref])
   })
   it('R-2 bailleur : aucun montant affiché ; textes du bailleur', () => {
     const r = IC.resultatPourLocataire({ verdict: v({ constat: 'usure', ampleur: 'complet' }), constat: { constat: 'usure', ampleur: 'complet' }, montantTtc: 640 })
-    expect(r.payeur).toBe('bailleur'); expect(r.montantTtc).toBeNull(); expect(r.exceptions).toBe(false)
+    expect(r.payeur).toBe('bailleur'); expect(r.montantTtc).toBeNull(); expect(r.exceptions).toBeNull()
+  })
+  it('R-1 bis pièce cassée (art. 7 c) : les exceptions rappelées sont celles du 7 c, pas du 7 d', () => {
+    const k = { constat: 'casse', ampleur: 'petite' }
+    const r = IC.resultatPourLocataire({ verdict: v(k), constat: k, montantTtc: 90 })
+    expect(r.payeur).toBe('locataire')
+    expect(r.exceptions).toBe(IC.EXCEPTIONS_LOCATAIRE.degradation)
+    expect(r.exceptions).toMatch(/tiers non introduit/)
   })
   it('R-3 zone grise non tranchée → refus ; tranchée → textes de la lecture retenue', () => {
     const z = IC.verdictDuConstat(inc(), { constat: 'exterieure' })   // fait d'un tiers : à arbitrer
