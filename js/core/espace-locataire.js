@@ -261,7 +261,8 @@ export function planPublication(souhaites, publies) {
     if (!p) { creer.push(s); continue }
     if (p.retire_le) continue   // retiré par le propriétaire : on ne le republie jamais tout seul
     const diff = {}
-    for (const k of ['titre', 'periode', 'date_doc', 'storage_path', 'sha256', 'visible_jusqu_au'])
+    // Le titre n'est jamais réécrit après publication (il peut porter une date de réédition, D8).
+    for (const k of ['periode', 'date_doc', 'storage_path', 'sha256', 'visible_jusqu_au'])
       if (s[k] !== undefined && (s[k] || null) !== (p[k] || null)) diff[k] = s[k] || null
     if (Object.keys(diff).length) maj.push({ id: p.id, patch: diff })
   }

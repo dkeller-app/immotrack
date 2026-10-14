@@ -166,6 +166,9 @@ describe('E-6 · publication des documents (D6, D8)', () => {
     const plan = EL.planPublication(sou, pub)
     expect(plan.creer.map((x) => x.cle)).toEqual(['quittance:2026-09'])
     expect(plan.maj).toEqual([{ id: 'd2', patch: { storage_path: 'p2b' } }])
+    // Titre jamais réécrit (une date de réédition reste celle de la première publication, D8).
+    const p2 = EL.planPublication([{ cle: 'quittance:2026-08', titre: 'Quittance d\'août 2026 (réédition du 15/10/2026)', storage_path: 'p2' }], [{ id: 'd2', cle: 'quittance:2026-08', titre: 'Quittance d\'août 2026 (réédition du 14/10/2026)', storage_path: 'p2' }])
+    expect(p2).toEqual({ creer: [], maj: [] })
   })
 })
 
