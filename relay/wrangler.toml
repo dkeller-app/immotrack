@@ -40,3 +40,15 @@ OTP_REQUIRED = "false"
 AI_QUOTA_AUDIO_SEC = "3600"
 AI_QUOTA_CALLS = "200"
 AI_AUDIO_MAX_BYTES = "10485760"
+
+# ── ÉTAT DES LIEUX FILMÉ (vidéo + IA) — src/ai/video.js ── ÉTEINT (décision Didier 14/10/2026) ──
+# La bêta tourne sur les offres GRATUITES (Supabase Free : 1 Go, 50 Mo par fichier ; Workers Free :
+# 10 ms de CPU par requête). Tant que AI_VIDEO est ABSENTE : /ai/status annonce video.actif=false, la tâche
+# edl-photos répond 503 video_disabled, l'app masque « Filmer la pièce ». La dictée n'est pas touchée.
+# ACTIVATION (après passage à Supabase Pro + Workers Paid, SANS redéploiement de code) : poser
+#   AI_VIDEO = "true"
+#   AI_VIDEO_FILE_MAX_BYTES = "209715200"   # 200 Mo par fichier (défaut 50 Mo = plan gratuit)
+#   AI_QUOTA_IMAGES = "2000"                # images analysées par compte et par jour (≈ 3 EDL filmés)
+# dans le tableau de bord Cloudflare (Workers → bail-sign-relay → Settings → Variables), ou ici + deploy.
+# ATTENTION : un `wrangler deploy` ultérieur REMPLACE les variables posées au tableau de bord par celles de
+# ce fichier (sauf `wrangler deploy --keep-vars`) : reporter ces trois lignes ici au déploiement suivant.

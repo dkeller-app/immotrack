@@ -185,3 +185,18 @@ function fauxCompteurs(texte) {
   }
   return out;
 }
+
+// État des lieux filmé (tâche edl-photos) : pour chaque élément CITÉ (citeVers connu), les deux images
+// les plus proches de l'instant, cadre centré. Les éléments sans instant ne sont pas « vus » par le faux
+// fournisseur. Jamais d'état (règle de la tâche). Sert à faire tourner la chaîne, pas à mesurer un modèle.
+export function fauxEdlPhotos(input) {
+  const images = (input.images || []).slice();
+  const elements = [];
+  for (const e of input.elements || []) {
+    if (e.note || e.citeVers == null) continue;
+    const proches = images.slice().sort((a, b) => Math.abs(a.t - e.citeVers) - Math.abs(b.t - e.citeVers)).slice(0, 2);
+    if (!proches.length) continue;
+    elements.push({ elementId: e.id, images: proches.map((im) => ({ imageId: im.id, x: 0.1, y: 0.1, l: 0.8, h: 0.8 })), vu: null });
+  }
+  return { elements, personnes: [] };
+}

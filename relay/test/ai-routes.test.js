@@ -131,7 +131,7 @@ describe('routes IA — quota par compte et par jour', () => {
     for (const [cle, cleConso] of [[cleJour(sub, now), cleJour(sub, now, 'conso')], [cleMois(sub, now), cleMois(sub, now, 'conso')]]) {
       const raw = await env.SESSIONS_KV.get(cle), rawC = await env.SESSIONS_KV.get(cleConso);
       const v = JSON.parse(raw), w = JSON.parse(rawC);
-      for (const o of [v, w]) expect(Object.keys(o).sort()).toEqual(['appels', 'audioSec', 'jetonsE', 'jetonsS']);
+      for (const o of [v, w]) expect(Object.keys(o).sort()).toEqual(['appels', 'audioSec', 'images', 'jetonsE', 'jetonsS']);
       expect(v.appels).toBe(2);                     // réservations (avant l'appel payant)
       expect(w.audioSec).toBe(2);                   // consommation (après), clé distincte
       expect(w.jetonsE).toBeGreaterThan(0);
