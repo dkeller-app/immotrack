@@ -10519,6 +10519,7 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
   .inc-vd-pay{font-size:22px}
   .inc-check{min-height:44px}
   .inc-src a,.inc-lien{min-height:44px}
+}   /* fin @media (max-width:767px) des incidents — accolade perdue à l intégration v15.732/733 : le bloc de la dictée (evx) n était appliqué que sur téléphone */
 /* ═══════════════════════════════════════════════════════════════════════════
    EDL-VOIX-IA — dicter la pièce (maquette validée le 13/10, mockups/EDL-VOIX-IA).
    Téléphone (≤ 767) : la couche est une PAGE plein écran (M-16), au-dessus du rail (M-3).
