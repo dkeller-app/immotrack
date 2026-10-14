@@ -8,13 +8,16 @@
 import { estNote } from './edl-relecture.js';
 
 export const MODES = Object.freeze({ ENTREE: 'entree', SORTIE: 'sortie' });
+export const NOM_MAX = 120;   // = LIMITES.nomMax du relais (relay/src/ai/tasks/edl-piece.js)
 
 /** Entrée de la tâche « edl-piece » pour la pièce `piece` ({ nom, elements:[{ nom }] }). */
 export function entreePiece(piece, sortie) {
   const elements = [];
   ((piece && piece.elements) || []).forEach((x, i) => {
     const nom = String((x && x.nom) || '').replace(/\s+/g, ' ').trim();
-    if (nom) elements.push({ id: String(i), nom, note: estNote(nom) });
+    // Un nom de plus de 120 caractères ferait refuser toute la dictée par le relais : l'élément n'est
+    // simplement pas proposé à l'IA (il reste saisissable à la main).
+    if (nom && nom.length <= NOM_MAX) elements.push({ id: String(i), nom, note: estNote(nom) });
   });
   return { piece: String((piece && piece.nom) || 'Pièce').trim() || 'Pièce', mode: sortie ? MODES.SORTIE : MODES.ENTREE, elements };
 }
@@ -171,7 +174,7 @@ export const estNumero = (cle) => /-num$/.test(cle);
 
 /**
  * Champ EXISTANT qui reçoit le relevé : index → colonne d'entrée ou de sortie ; N° de compteur → le
- * même champ (un numéro ne change pas), mais en sortie seulement s'il est encore vide.
+ * champ unique (colonne d'entrée), jamais rempli depuis une dictée de sortie (peutInscrireCompteur).
  */
 export function champCompteur(cle, sortie) {
   if (!COMPTEURS[cle]) return null;
@@ -188,7 +191,8 @@ export function valeurCompteurAffichee(cle, valeur) {
 export function peutInscrireCompteur(cle, { sortie = false, signe = false, valeurActuelle = '' } = {}) {
   if (signe) return { ok: false, raison: 'signe' };
   if (!COMPTEURS[cle]) return { ok: false, raison: 'cle' };
-  if (sortie && estNumero(cle) && String(valeurActuelle || '').trim()) return { ok: false, raison: 'numero_deja_note' };
+  // En sortie, le N° de compteur vit dans la colonne d'ENTRÉE : jamais écrit depuis une dictée de sortie.
+  if (sortie && estNumero(cle)) return { ok: false, raison: String(valeurActuelle || '').trim() ? 'numero_deja_note' : 'numero_entree' };
   return { ok: true };
 }
 

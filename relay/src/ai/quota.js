@@ -4,8 +4,10 @@
 //   aiq:{uid}:{AAAA-MM-JJ} → { appels, audioSec, jetonsE, jetonsS }   TTL 48 h  (quota du jour)
 //   aiu:{uid}:{AAAA-MM}    → { appels, audioSec, jetonsE, jetonsS }   TTL 400 j (suivi mensuel)
 // Jamais d'audio, de texte, de nom de pièce ni d'identifiant de bail : seulement des compteurs.
-// KV est « à cohérence éventuelle » : le quota est un garde-fou de coût, pas une barrière exacte
-// (quelques appels simultanés peuvent le dépasser d'un cran — acceptable, borné par la taille max).
+// KV est « à cohérence éventuelle » et sans opération atomique : le quota est un garde-fou de coût, PAS
+// une barrière exacte. Des appels SIMULTANÉS d'un même compte authentifié peuvent tous passer le contrôle
+// (chaque appel reste borné par la taille max). Réservation avant l'appel payant pour réduire la fenêtre ;
+// compteur atomique (Durable Object) à prévoir avant l'ouverture publique.
 //
 // Valeurs par défaut surchargeables par variables d'environnement (wrangler.toml [vars]).
 export const QUOTA_DEFAUTS = { audioSecJour: 3600, appelsJour: 200 };

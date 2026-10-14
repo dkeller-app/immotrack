@@ -73,6 +73,21 @@ describe('routes IA — transcription', () => {
   });
 });
 
+describe('routes IA — corps sans Content-Length et écriture KV en échec', () => {
+  it('413 : corps segmenté (sans Content-Length) au-delà du plafond, lu en flux', async () => {
+    const petit = { ...FAKE, AI_AUDIO_MAX_BYTES: '1000' };
+    const flux = new ReadableStream({ start(ctl) { for (let i = 0; i < 5; i++) ctl.enqueue(new Uint8Array(400)); ctl.close(); } });
+    const r = await app.request('/ai/transcribe', { method: 'POST', headers: { ...(await appAuth({ sub: uid() })), 'Content-Type': 'audio/webm' }, body: flux, duplex: 'half' }, petit);
+    expect(r.status).toBe(413);
+  });
+  it('un échec d’écriture KV ne fait pas échouer (donc refacturer) une transcription réussie', async () => {
+    const kvCasse = { get: async () => null, put: async () => { throw new Error('KV 429'); } };
+    const r = await transcribe({ ...FAKE, SESSIONS_KV: kvCasse });
+    expect(r.status).toBe(200);
+    expect((await r.json()).text).toBe(CUISINE_TEXTE);
+  });
+});
+
 describe('routes IA — structuration', () => {
   it('200 : propositions validées pour la pièce', async () => {
     const r = await structure(FAKE, { task: 'edl-piece', input: CUISINE_INPUT });

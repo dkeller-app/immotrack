@@ -5443,14 +5443,32 @@ function _edlVoixItemsEDL() {
   const id = el('edl-edit-id') ? String(el('edl-edit-id').value || '') : '';
   return (_EVX.items || []).filter((x) => x.contexte && ((id && String(x.contexte.edlId || '') === id) || (x.contexte.session && x.contexte.session === _EVX.session)));
 }
+/** Pièce de la dictée : même position ET même nom, sinon le nom s'il est UNIQUE. Jamais un repli sur la
+ *  position seule (« Sol », « Murs »… existent dans toutes les pièces : on écrirait dans la mauvaise). */
 function _edlVoixPieceDe(x) {
   const c = x.contexte || {};
   if (c.cible === 'compteurs') return -1;
   if (_edlP[c.pi] && _edlP[c.pi].nom === c.pieceNom) return c.pi;
-  const j = _edlP.findIndex((p) => p && p.nom === c.pieceNom);
-  return j >= 0 ? j : (_edlP[c.pi] ? c.pi : -1);
+  const memes = _edlP.map((p, i) => (p && p.nom === c.pieceNom ? i : -1)).filter((i) => i >= 0);
+  return memes.length === 1 ? memes[0] : -1;
 }
-function _edlVoixItemsPiece(pi) { return _edlVoixItemsEDL().filter((x) => _edlVoixPieceDe(x) === pi); }
+/** Bandeaux d'une pièce ; les dictées dont la pièce est introuvable s'affichent dans la 1re pièce
+ *  (jamais perdues en silence : on peut les relire — rien ne s'inscrit — ou les supprimer). */
+function _edlVoixItemsPiece(pi) {
+  return _edlVoixItemsEDL().filter((x) => {
+    const p = _edlVoixPieceDe(x);
+    return p === pi || (pi === 0 && p === -1 && (x.contexte || {}).cible !== 'compteurs');
+  });
+}
+async function _edlVoixRattacher(id) {
+  const f = _edlVoixFile(); if (!f || !id) return;
+  for (const x of _EVX.items || []) {
+    if (x.contexte && !x.contexte.edlId && x.contexte.session === _EVX.session) {
+      x.contexte = { ...x.contexte, edlId: id };
+      try { await f.contexte(x.id, { edlId: id }); } catch (_) {}
+    }
+  }
+}
 /** Met à jour barres et bandeaux sans re-rendre les pièces (aucune saisie en cours n'est perdue). */
 function _edlVoixRafraichir() {
   const M = _evxM(); if (!M) return;
@@ -5488,6 +5506,7 @@ async function _edlVoixStatut() {
 function _edlVoixReset() {
   if (_EVX.rec) { try { _EVX.rec.annuler(); } catch (_) {} _EVX.rec = null; }
   _edlVoixNiveauStop();
+  _edlVoixVeille(false);
   _EVX.session = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   _EVX.items = []; _EVX.vue = ''; _EVX.itemId = ''; _EVX.ctx = null;
   const h = el('edl-voix'); if (h) { h.hidden = true; h.innerHTML = ''; }
@@ -5657,7 +5676,10 @@ function _edlVoixImporter() {
     if (fi.size > 10 * 1024 * 1024) { _edlVoixErreurCode('too_large'); return; }
     const ext = (fi.name.split('.').pop() || '').toLowerCase();
     const parExt = { m4a: 'audio/mp4', mp4: 'audio/mp4', mp3: 'audio/mpeg', webm: 'audio/webm', ogg: 'audio/ogg', wav: 'audio/wav', aac: 'audio/aac' };
-    const mime = (fi.type && /^audio\//.test(fi.type) ? fi.type.split(';')[0] : '') || parExt[ext] || '';
+    // L'extension d'abord (certains navigateurs annoncent audio/3gpp, audio/x-caf…) ; sinon un type connu du relais.
+    const connus = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp3', 'audio/m4a'];
+    const brut = (fi.type || '').split(';')[0].toLowerCase();
+    const mime = parExt[ext] || (connus.includes(brut) ? brut : '');
     if (!mime) { _edlVoixErreurCode('format'); return; }
     await _edlVoixEnfiler(await fi.arrayBuffer(), mime, 0);
   };
@@ -5738,13 +5760,30 @@ async function _edlVoixDecider(x, patch) {
 /** Garde commune à toute inscription : EDL signé, mode, dictée connue. */
 function _edlVoixPeutEcrire(x) {
   if (!x) return false;
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) { showToast('Lecture seule : rien ne peut être inscrit.', 'warn', 4000); return false; }
   if (_edlVoixSigne()) { showToast('État des lieux signé : rien ne peut y être inscrit.', 'warn', 4000); return false; }
+  // Les deux signatures tracées mais pas encore enregistrées : on ne change plus ce que les parties ont vu.
+  try {
+    if (typeof _edlGetSig === 'function' && _edlGetSig('edl-sig-bailleur') && _edlGetSig('edl-sig-locataire')) {
+      showToast('Les deux signatures sont tracées : effacer une signature avant de modifier l’état des lieux.', 'warn', 5000); return false;
+    }
+  } catch (_) {}
   if (!_edlVoixMemeMode(x)) { showToast('Cette dictée appartient à un autre état des lieux.', 'warn', 4000); return false; }
   return true;
 }
 /** Inscrit UNE proposition d'élément (sans re-rendu). Rend vrai si quelque chose a été écrit. */
+/** Double tap / double clic : une décision déjà prise n'est jamais rejouée (sinon la valeur d'« avant »
+ *  deviendrait celle de l'IA et l'annulation perdrait la saisie d'origine). */
+const _edlVoixDejaDecide = (x, cle) => !!(x && x.decisions && x.decisions[cle] && x.decisions[cle].statut);
+async function _edlVoixVerrou(cle, fn) {
+  if (!_EVX.verrous) _EVX.verrous = new Set();
+  if (_EVX.verrous.has(cle)) return undefined;
+  _EVX.verrous.add(cle);
+  try { return await fn(); } finally { _EVX.verrous.delete(cle); }
+}
 async function _edlVoixInscrireProp(x, cle, choix) {
   const M = _evxM();
+  if (_edlVoixDejaDecide(x, cle)) return false;
   const eid = cle.slice(2);
   const p = ((x.resultat || {}).propositions || []).find((q) => String(q.elementId) === eid); if (!p) return false;
   const pi = _edlVoixPieceDe(x); const piece = _edlP[pi];
@@ -5765,14 +5804,17 @@ function _edlVoixApresEcriture(id) {
   _edlVoixRelire(id, true);
 }
 async function _edlVoixAccepter(id, cle, choix) {
-  const x = _edlVoixItem(id); if (!_edlVoixPeutEcrire(x)) return;
-  const ok = cle.startsWith('c:') ? await _edlVoixInscrireCompteur(x, cle, choix) : await _edlVoixInscrireProp(x, cle, choix);
-  if (ok) _edlVoixApresEcriture(id);
+  return _edlVoixVerrou(id + '|' + cle, async () => {
+    const x = _edlVoixItem(id); if (!_edlVoixPeutEcrire(x)) return;
+    const ok = cle.startsWith('c:') ? await _edlVoixInscrireCompteur(x, cle, choix) : await _edlVoixInscrireProp(x, cle, choix);
+    if (ok) _edlVoixApresEcriture(id);
+  });
 }
-async function _edlVoixIgnorer(id, cle) { const x = _edlVoixItem(id); if (!x) return; await _edlVoixDecider(x, { [cle]: { statut: 'ign' } }); _edlVoixRelire(id, true); _edlVoixRafraichir(); }
+async function _edlVoixIgnorer(id, cle) { const x = _edlVoixItem(id); if (!x || _edlVoixDejaDecide(x, cle)) return; await _edlVoixDecider(x, { [cle]: { statut: 'ign' } }); _edlVoixRelire(id, true); _edlVoixRafraichir(); }
 async function _edlVoixRetablir(id, cle) { const x = _edlVoixItem(id); if (!x) return; await _edlVoixDecider(x, { [cle]: null }); _edlVoixRelire(id, true); _edlVoixRafraichir(); }
 /** Annuler une inscription : seulement si personne n'a retouché la valeur depuis (sinon : à la main). */
-async function _edlVoixAnnuler(id, cle) {
+async function _edlVoixAnnuler(id, cle) { return _edlVoixVerrou(id + '|' + cle, () => _edlVoixAnnulerFaire(id, cle)); }
+async function _edlVoixAnnulerFaire(id, cle) {
   const M = _evxM(); const x = _edlVoixItem(id); if (!M || !_edlVoixPeutEcrire(x)) return;
   const d = (x.decisions || {})[cle]; if (!d || d.statut !== 'ok') return;
   const refus = () => showToast('Valeur modifiée depuis : l’annulation ne l’écrase pas. Corriger à la main si besoin.', 'warn', 5000);
@@ -5798,8 +5840,9 @@ async function _edlVoixAnnuler(id, cle) {
   _edlVoixApresEcriture(id);
 }
 /** Élément cité mais absent de la liste : ajouté à la pièce sur confirmation explicite. */
-async function _edlVoixAjouter(id, cle) {
-  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !_edlVoixPeutEcrire(x)) return;
+async function _edlVoixAjouter(id, cle) { return _edlVoixVerrou(id + '|' + cle, () => _edlVoixAjouterFaire(id, cle)); }
+async function _edlVoixAjouterFaire(id, cle) {
+  const M = _evxM(); const x = _edlVoixItem(id); if (!M || !_edlVoixPeutEcrire(x) || _edlVoixDejaDecide(x, cle)) return;
   const a = ((x.resultat || {}).aAjouter || [])[Number(cle.slice(2))]; const pi = _edlVoixPieceDe(x);
   if (!a || !_edlP[pi]) return;
   const nx = M.EdlDictee.nouvelElement(a, { sortie: !!_edlSortie, modele: x.modele });
@@ -5839,7 +5882,8 @@ function _edlVoixToutAccepter(id) {
   _edlVoixAfficher(M.EdlVoixVues.vueToutAccepter({ id, m, piece: pi >= 0 ? (_edlP[pi].nom || 'Pièce') : 'Pièce' }, { ic: _evxIc }), 'tout');
 }
 /** « Tout inscrire » : les propositions d'éléments en attente seulement (ni ajouts ni compteurs). */
-async function _edlVoixToutInscrire(id) {
+async function _edlVoixToutInscrire(id) { return _edlVoixVerrou(id + '|tout', () => _edlVoixToutInscrireFaire(id)); }
+async function _edlVoixToutInscrireFaire(id) {
   const x = _edlVoixItem(id); if (!_edlVoixPeutEcrire(x)) return;
   const { m } = _edlVoixModele(x);
   let n = 0;
@@ -5867,6 +5911,7 @@ async function _edlVoixFinRelecture(id) {
 // ── Relevés de compteurs (lot B3) : validation une par une, dans les champs existants ──
 async function _edlVoixInscrireCompteur(x, cle, choix) {
   const M = _evxM();
+  if (_edlVoixDejaDecide(x, cle)) return false;
   const cleC = cle.slice(2);
   const k = ((x.resultat || {}).compteurs || []).find((c) => c.cle === cleC); if (!k) return false;
   const sortie = !!_edlSortie;
@@ -8437,6 +8482,9 @@ function saveEDL(opts){
     // v14.12.2 : MAJ edl-edit-id avec l'id du record sauvé pour que les actions
     // ultérieures (PDF, Drive) trouvent bien le record fraîchement créé/modifié.
     el('edl-edit-id').value = record.id;
+    // EDL-VOIX-IA — les dictées faites avant le 1er enregistrement prennent l'identifiant de l'EDL
+    // (sinon, à la réouverture, elles ne seraient plus rattachées : perte silencieuse).
+    if (typeof _edlVoixRattacher === 'function') _edlVoixRattacher(String(record.id));
     rEDLList();
     if (!keepOpen) closeM('ov-edl');
     // F8 : si l'écriture locale a été refusée, on ne dit surtout pas « enregistré ».

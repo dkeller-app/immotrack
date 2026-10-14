@@ -15,10 +15,13 @@ export function normaliser(s) {
 }
 
 // Vrai si `extrait` (normalisé, non vide, au moins 2 caractères utiles) est contenu dans `texte`.
+// Garde-fou : au moins 6 caractères utiles, et comparaison sur des FRONTIÈRES DE MOTS seulement — un
+// modèle qui invente ne peut pas « citer » un mot-outil (« de », « le ») ni un morceau de mot.
+export const EXTRAIT_MIN = 6;
 export function contientExtrait(texte, extrait) {
   const e = normaliser(extrait);
-  if (e.length < 2) return false;
-  return (' ' + normaliser(texte) + ' ').includes(' ' + e + ' ') || normaliser(texte).includes(e);
+  if (e.length < EXTRAIT_MIN) return false;
+  return (' ' + normaliser(texte) + ' ').includes(' ' + e + ' ');
 }
 
 // Chaîne non vide, nettoyée, d'au plus `max` caractères — sinon null (jamais de coupe : un texte trop

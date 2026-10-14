@@ -12,6 +12,9 @@ describe('socle IA — texte', () => {
     expect(contientExtrait(t, 'Vasque Évier')).toBe(true);
     expect(contientExtrait(t, 'carrelage de sol')).toBe(false);     // forme corrigée ≠ entendu
     expect(contientExtrait(t, 'a')).toBe(false);
+    expect(contientExtrait(t, 'de')).toBe(false);                // mot-outil : trop court pour prouver quoi que ce soit
+    expect(contientExtrait(t, 'aillance, vasque')).toBe(false);   // morceau de mot : refusé
+    expect(contientExtrait(t, 'en faillance')).toBe(true);
     expect(contientExtrait(t, '')).toBe(false);
   });
   it('texteBorne : jamais de coupe — trop long ou vide → null', () => {

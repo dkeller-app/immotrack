@@ -66,13 +66,14 @@ describe('file des dictées', () => {
     expect((await f.get(x.id)).etape).toBe(ETAPES.PRET);
   });
 
-  it('rien entendu : l’audio est supprimé quand même, erreur « vide »', async () => {
+  it('rien entendu : l’audio est GARDÉ (Réessayer possible), erreur « vide », pas de relance automatique', async () => {
     const f = creerFileDictees({ store: storeMemoire(), client: faux({ transcrire: async () => ({ ok: true, text: '   ', segments: [] }) }), creerBlob: blobFaux });
     const x = await f.ajouter({ audio: audio(), mime: 'audio/webm', entree: ENTREE });
     await f.traiter();
     const y = await f.get(x.id);
-    expect(y.audio).toBe(null);
+    expect(y.audio).not.toBe(null);
     expect(y.erreur.code).toBe('vide');
+    expect(f.reessayableSeule(y.erreur)).toBe(false);
   });
 
   it('structuration en échec : la transcription est gardée, seule la structuration est retentée', async () => {
@@ -133,5 +134,44 @@ describe('file des dictées', () => {
     expect((await f.lister()).map((i) => i.id)).toEqual([z.id]);
     await f.supprimer(z.id);
     expect(await f.lister()).toEqual([]);
+  });
+
+  it('suppression pendant le traitement : la dictée ne revient pas (ni audio ni texte)', async () => {
+    let lacher;
+    const client = faux({ transcrire: () => new Promise((r) => { lacher = () => r({ ok: false, code: 'unavailable' }); }) });
+    const f = creerFileDictees({ store: storeMemoire(), client, creerBlob: blobFaux });
+    const x = await f.ajouter({ audio: audio(), mime: 'audio/webm', entree: ENTREE });
+    const t = f.traiter();
+    await new Promise((r) => setTimeout(r, 5));
+    await f.supprimer(x.id);
+    lacher();
+    await t;
+    expect(await f.lister()).toEqual([]);
+  });
+
+  it('deux décisions rapprochées : aucune n’est perdue', async () => {
+    const f = creerFileDictees({ store: storeMemoire(), client: faux(), creerBlob: blobFaux });
+    const x = await f.ajouter({ audio: audio(), mime: 'audio/webm', entree: ENTREE });
+    await Promise.all([f.decisions(x.id, { 'p:0': { statut: 'ok' } }), f.decisions(x.id, { 'p:1': { statut: 'ign' } }), f.contexte(x.id, { edlId: '9' })]);
+    const y = await f.get(x.id);
+    expect(Object.keys(y.decisions).sort()).toEqual(['p:0', 'p:1']);
+    expect(y.contexte.edlId).toBe('9');
+  });
+
+  it('quota : relancée seule le lendemain ; IA désactivée (relais en cours de déploiement) : relancée seule', async () => {
+    let now = new Date('2026-10-14T10:00:00Z');
+    let rep = { ok: false, code: 'quota', motif: 'audio' };
+    const client = faux({ transcrire: async () => rep });
+    const f = creerFileDictees({ store: storeMemoire(), client, creerBlob: blobFaux, maintenant: () => now });
+    const x = await f.ajouter({ audio: audio(), mime: 'audio/webm', entree: ENTREE });
+    await f.traiter(); await f.traiter();
+    expect(client.transcrire).toHaveBeenCalledTimes(1);          // pas d'insistance le même jour
+    now = new Date('2026-10-15T08:00:00Z');
+    rep = { ok: false, code: 'disabled' };
+    await f.traiter();
+    expect(client.transcrire).toHaveBeenCalledTimes(2);          // nouveau jour : relancée
+    rep = { ok: true, text: 'sol', segments: [] };
+    await f.traiter();                                            // « disabled » : relancée seule
+    expect((await f.get(x.id)).etape).toBe(ETAPES.PRET);
   });
 });

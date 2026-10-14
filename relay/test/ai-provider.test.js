@@ -32,6 +32,8 @@ describe('adaptateur IA — Mistral (client HTTP injecté)', () => {
     expect(init.body.get('file').name).toBe('dictee.webm');
     expect(init.body.get('file').type).toBe('audio/webm');
     expect(init.body.getAll('context_bias')).toEqual([]);          // désactivé par défaut
+    // Mistral : timestamp_granularities est INCOMPATIBLE avec language (texte vide) → jamais les deux
+    expect(init.body.get('timestamp_granularities')).toBe(null);
   });
 
   it('context_bias seulement si AI_CONTEXT_BIAS=true', async () => {
@@ -75,6 +77,14 @@ describe('adaptateur IA — Mistral (client HTTP injecté)', () => {
   it('le message d\'erreur ne contient jamais de contenu', async () => {
     const f = vi.fn().mockResolvedValue(json({ choices: [{ message: { content: 'SECRET-CONTENU' } }] }));
     try { await makeAiProvider(env, f).structurer({ tache: 't', messages: [] }); } catch (e) { expect(String(e.message)).not.toContain('SECRET'); }
+  });
+});
+
+describe('adaptateur IA — durée facturée toujours comptée', () => {
+  it('sans usage ni segments : estimation par la taille (le quota audio monte quand même)', async () => {
+    const f = vi.fn().mockResolvedValue(json({ text: 'x' }));
+    const r = await makeAiProvider({ MISTRAL_API_KEY: 'k' }, f).transcrire({ audio: new ArrayBuffer(40000), mime: 'audio/webm' });
+    expect(r.audioSec).toBe(10);
   });
 });
 

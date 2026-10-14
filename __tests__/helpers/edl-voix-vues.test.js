@@ -75,7 +75,10 @@ describe('vues — lot B1', () => {
     expect(off).toContain('Supprimer la dictée');
     expect(off).toContain('Réessayer');
     const quota = V.banniere({ id: 'c', etape: 'audio', erreur: { code: 'quota', motif: 'audio' } }, { ic, message: messageErreur });
-    expect(quota).not.toContain('Réessayer');
+    expect(quota).toContain('Réessayer');                       // geste manuel toujours possible
+    const fmt = V.banniere({ id: 'e', etape: 'audio', erreur: { code: 'format' } }, { ic, message: messageErreur });
+    expect(fmt).not.toContain('Réessayer');                     // inutile : même fichier, même refus
+    expect(fmt).toContain('Supprimer la dictée');
     expect(V.banniere({ id: 'd', etape: 'texte', duree: 5 }, { ic, message: messageErreur })).toContain('Préparation des propositions');
     for (const h of [pret, off, quota]) expect(texte(h)).not.toMatch(TUTOIE);
   });

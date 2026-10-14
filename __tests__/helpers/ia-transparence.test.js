@@ -16,11 +16,13 @@ describe('notice de première utilisation', () => {
     const n = T.notice();
     const tout = [n.intro, ...n.sections.map((s) => s.texte)].join(' ');
     expect(tout).toContain('ne conserve ni l’enregistrement ni le texte');
-    expect(tout).not.toContain('30 jours');
+    expect(tout).not.toContain('garde les échanges 30 jours');
+    // l'audio non envoyé (hors ligne, échec) reste sur l'appareil 30 jours au plus : dit honnêtement
+    expect(tout).toContain('il reste sur l’appareil jusqu’à l’envoi ou sa suppression, 30 jours au plus');
   });
   it('bascule par la seule constante : sans rétention zéro, « 30 jours au plus »', () => {
     const tout = T.notice({ retentionZero: false }).sections.map((s) => s.texte).join(' ');
-    expect(tout).toContain('30 jours au plus');
+    expect(tout).toContain('garde les échanges 30 jours au plus');
     expect(tout).not.toContain('rétention zéro');
   });
   it('dit la finalité, le fournisseur UE, le sort de l’audio, et demande de prévenir les présents', () => {

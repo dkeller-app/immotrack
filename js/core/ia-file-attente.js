@@ -84,49 +84,72 @@ function idAleatoire() {
 export function creerFileDictees({ store, client, maintenant = () => new Date(), onChange = () => {}, creerBlob } = {}) {
   const blob = creerBlob || ((buf, type) => new Blob([buf], { type }));
   let enCours = null;
+  const jour = () => maintenant().toISOString().slice(0, 10);
 
-  async function maj(item, patch) {
-    const x = { ...item, ...patch, majLe: maintenant().toISOString() };
-    await store.put(x);
-    try { onChange(x); } catch (_) { /* l'UI ne bloque jamais la file */ }
-    return x;
+  // Toutes les écritures passent en SÉRIE : pas de lecture-modification-écriture entrelacée (deux
+  // décisions rapprochées, une suppression pendant un traitement, un contexte posé en parallèle).
+  let chaine = Promise.resolve();
+  const serie = (fn) => { const p = chaine.then(fn, fn); chaine = p.catch(() => {}); return p; };
+  const notifier = (x) => { try { onChange(x); } catch (_) { /* l'UI ne bloque jamais la file */ } };
+
+  /** Fusionne `patch` (objet, ou fonction de l'état RELU) sur l'état actuel en base. Si la dictée a été
+   *  supprimée entre-temps, rien n'est réécrit (une suppression demandée est respectée) : rend null. */
+  function maj(id, patch) {
+    return serie(async () => {
+      const cur = await store.get(id);
+      if (!cur) return null;
+      const p = typeof patch === 'function' ? patch(cur) : patch;
+      const x = { ...cur, ...p, majLe: maintenant().toISOString() };
+      await store.put(x);
+      notifier(x);
+      return x;
+    });
   }
+  const erreur = (r) => ({ erreur: { code: r.code, motif: r.motif || null, limites: r.limites || null, le: jour() } });
 
   async function un(item) {
     let x = item;
     if (x.etape === ETAPES.AUDIO) {
-      if (!x.audio) return maj(x, { erreur: { code: 'vide' } });
+      if (!x.audio) return maj(x.id, { erreur: { code: 'vide', le: jour() } });
       const r = await client.transcrire(blob(x.audio, x.mime), { task: x.task || 'edl-piece', mime: x.mime });
-      if (!r.ok) return maj(x, { erreur: { code: r.code, motif: r.motif || null, limites: r.limites || null }, essais: (x.essais || 0) + 1 });
-      if (!String(r.text || '').trim()) return maj(x, { audio: null, erreur: { code: 'vide' } });   // rien entendu : l'audio part quand même
-      x = await maj(x, { etape: ETAPES.TEXTE, audio: null, texte: r.text, segments: r.segments || [], audioSec: r.audioSec || x.duree || 0, erreur: null, essais: 0 });
+      if (!r.ok) return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
+      // Rien entendu : l'audio est GARDÉ (« Réessayer » ou « Supprimer », au choix de l'utilisateur).
+      if (!String(r.text || '').trim()) return maj(x.id, { erreur: { code: 'vide', le: jour() } });
+      x = await maj(x.id, { etape: ETAPES.TEXTE, audio: null, texte: r.text, segments: r.segments || [], audioSec: r.audioSec || x.duree || 0, erreur: null, essais: 0 });
+      if (!x) return null;
     }
     if (x.etape === ETAPES.TEXTE) {
-      const input = { ...(x.entree || {}), texte: x.texte };
-      const r = await client.structurer(x.task || 'edl-piece', input);
-      if (!r.ok) return maj(x, { erreur: { code: r.code, motif: r.motif || null, limites: r.limites || null }, essais: (x.essais || 0) + 1 });
-      x = await maj(x, { etape: ETAPES.PRET, resultat: r.data, rejets: r.rejets || 0, modele: r.modele || '', erreur: null, essais: 0, decisions: x.decisions || {} });
+      const r = await client.structurer(x.task || 'edl-piece', { ...(x.entree || {}), texte: x.texte });
+      if (!r.ok) return maj(x.id, (c) => ({ ...erreur(r), essais: (c.essais || 0) + 1 }));
+      x = await maj(x.id, (c) => ({ etape: ETAPES.PRET, resultat: r.data, rejets: r.rejets || 0, modele: r.modele || '', erreur: null, essais: 0, decisions: c.decisions || {} }));
     }
     return x;
   }
 
+  /** Réessayée seule au prochain passage ? (réseau, service, session, IA momentanément désactivée,
+   *  quota d'un jour PASSÉ). Les autres attendent un geste (Réessayer / Supprimer). */
+  function reessayableSeule(e) {
+    if (!e) return true;
+    if (CODES_REESSAYABLES.has(e.code) || e.code === 'disabled') return true;
+    return e.code === 'quota' && e.le !== jour();
+  }
+
   const api = {
     /** Ajoute une dictée (audio = ArrayBuffer). Renvoie l'élément créé. */
-    async ajouter({ audio, mime, duree = 0, task = 'edl-piece', cible = 'piece', entree, contexte = {} }) {
+    ajouter({ audio, mime, duree = 0, task = 'edl-piece', cible = 'piece', entree, contexte = {} }) {
       const x = {
         id: idAleatoire(), cree: maintenant().toISOString(), task, cible,
         audio: audio || null, mime: String(mime || 'audio/webm'), duree: Math.round(duree), taille: audio ? audio.byteLength : 0,
         entree: entree || null, contexte, etape: ETAPES.AUDIO, erreur: null, essais: 0, decisions: {},
       };
-      await store.put(x);
-      try { onChange(x); } catch (_) { /* rien */ }
-      return x;
+      return serie(async () => { await store.put(x); notifier(x); return x; });
     },
     async lister() {
       const xs = await store.all();
       return xs.sort((a, b) => String(a.cree).localeCompare(String(b.cree)));
     },
     get: (id) => store.get(id),
+    reessayableSeule,
     /** Traite toutes les dictées en attente, UNE à la fois. Jamais deux traitements simultanés. */
     traiter() {
       if (enCours) return enCours;
@@ -135,12 +158,12 @@ export function creerFileDictees({ store, client, maintenant = () => new Date(),
         try {
           for (const x of await api.lister()) {
             if (x.etape === ETAPES.PRET) continue;
-            if (x.erreur && !CODES_REESSAYABLES.has(x.erreur.code)) continue;
+            if (x.erreur && !reessayableSeule(x.erreur)) continue;
             let y;
             try { y = await un(x); } catch (_) {
-              const cur = (await store.get(x.id)) || x;           // état le plus récent (l'audio a pu être supprimé)
-              y = await maj(cur, { erreur: { code: 'unavailable' }, essais: (cur.essais || 0) + 1 });
+              y = await maj(x.id, (c) => ({ erreur: { code: 'unavailable', le: jour() }, essais: (c.essais || 0) + 1 }));
             }
+            if (!y) continue;                                   // supprimée pendant le traitement
             bilan.traitees++;
             if (y.etape === ETAPES.PRET) bilan.pretes++;
             if (y.erreur) {
@@ -155,33 +178,30 @@ export function creerFileDictees({ store, client, maintenant = () => new Date(),
     },
     /** Lève l'erreur d'une dictée (geste « Réessayer ») puis relance la file. */
     async reessayer(id) {
-      const x = await store.get(id);
-      if (!x) return null;
-      await maj(x, { erreur: null });
+      await maj(id, { erreur: null });
       await api.traiter();
       return store.get(id);
     },
-    /** Enregistre les décisions de relecture (accepter / ignorer…), sans contenu nouveau. */
-    async decisions(id, decisions) {
-      const x = await store.get(id);
-      return x ? maj(x, { decisions: { ...(x.decisions || {}), ...decisions } }) : null;
+    /** Enregistre les décisions de relecture (fusion sur l'état relu : aucune décision perdue). */
+    decisions(id, decisions) {
+      return maj(id, (c) => ({ decisions: { ...(c.decisions || {}), ...decisions } }));
     },
     /** Complète le contexte (ex. identifiant de l'EDL attribué après la dictée). */
-    async contexte(id, patch) {
-      const x = await store.get(id);
-      return x ? maj(x, { contexte: { ...(x.contexte || {}), ...patch } }) : null;
+    contexte(id, patch) {
+      return maj(id, (c) => ({ contexte: { ...(c.contexte || {}), ...patch } }));
     },
     /** Supprime une dictée (geste explicite, ou fin de relecture : transcription effacée). */
-    async supprimer(id) {
-      await store.del(id);
-      try { onChange(null); } catch (_) { /* rien */ }
+    supprimer(id) {
+      return serie(async () => { await store.del(id); notifier(null); });
     },
     /** Purge les dictées abandonnées depuis plus de PURGE_JOURS (EDL jamais enregistré…). */
-    async purger() {
+    purger() {
       const limite = maintenant().getTime() - PURGE_JOURS * 86400000;
-      let n = 0;
-      for (const x of await store.all()) if (Date.parse(x.majLe || x.cree) < limite) { await store.del(x.id); n++; }
-      return n;
+      return serie(async () => {
+        let n = 0;
+        for (const x of await store.all()) if (Date.parse(x.majLe || x.cree) < limite) { await store.del(x.id); n++; }
+        return n;
+      });
     },
   };
   return api;

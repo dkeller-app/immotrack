@@ -23,6 +23,10 @@ describe('entrée envoyée à l’IA', () => {
     expect(e.piece).toBe('Pièce');
     expect(e.elements).toEqual([{ id: '0', nom: 'Sol', note: false }, { id: '2', nom: 'Murs', note: false }]);
   });
+  it('nom d’élément trop long : non proposé à l’IA (sinon le relais refuserait toute la dictée)', () => {
+    const e = D.entreePiece({ nom: 'P', elements: [{ nom: 'x'.repeat(121) }, { nom: 'Sol' }] }, false);
+    expect(e.elements).toEqual([{ id: '1', nom: 'Sol', note: false }]);
+  });
   it('compteurs : aucun élément', () => {
     expect(D.entreeCompteurs(true)).toEqual({ piece: 'Compteurs', mode: 'sortie', elements: [] });
   });
@@ -166,9 +170,10 @@ describe('relevés de compteurs', () => {
     expect(D.valeurCompteurAffichee('eau-f', '456.3')).toBe('456,3');
     expect(D.valeurCompteurAffichee('gaz-num', '0123.4')).toBe('0123.4');
   });
-  it('sortie : un N° déjà noté ne se remplace pas ; EDL signé : rien', () => {
+  it('sortie : un N° de compteur (colonne d’entrée) n’est jamais écrit ; EDL signé : rien', () => {
     expect(D.peutInscrireCompteur('gaz-num', { sortie: true, valeurActuelle: '0123' })).toEqual({ ok: false, raison: 'numero_deja_note' });
-    expect(D.peutInscrireCompteur('gaz-num', { sortie: true, valeurActuelle: '' }).ok).toBe(true);
+    expect(D.peutInscrireCompteur('gaz-num', { sortie: true, valeurActuelle: '' })).toEqual({ ok: false, raison: 'numero_entree' });
+    expect(D.peutInscrireCompteur('gaz-num', { sortie: false, valeurActuelle: '' }).ok).toBe(true);
     expect(D.peutInscrireCompteur('gaz', { signe: true }).raison).toBe('signe');
   });
   it('les 9 clés = les champs compteurs de l’EDL', () => {

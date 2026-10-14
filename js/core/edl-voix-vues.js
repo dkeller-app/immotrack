@@ -16,6 +16,9 @@ import { MENTION_PROPOSITION, BANDEAU_PROPOSITIONS } from './ia-transparence.js'
 export function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+/** Identifiant placé dans un onclick (chaîne JS dans un attribut) : liste blanche stricte, jamais d’échappement HTML
+ *  (le navigateur redécode les entités avant d’exécuter le JS). Ids = UUID locaux, clés p:/a:/c:. */
+export function jsId(s) { return String(s == null ? '' : s).replace(/[^\w:-]/g, ''); }
 export function duree(sec) {
   const s = Math.max(0, Math.round(sec || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -90,7 +93,7 @@ export function vueErreur({ titre, texte, icone = 'warn', action = null, lien = 
 /** Bandeau d'une dictée dans la pièce (attente réseau, analyse, prête, erreur). */
 export function banniere(item, { ic, message }) {
   const d = duree(item.duree || item.audioSec || 0);
-  const id = esc(item.id);
+  const id = jsId(item.id);
   if (item.etape === 'pret') {
     const r = item.resultat || {};
     const n = (r.propositions || []).length + (r.compteurs || []).length;
@@ -102,7 +105,7 @@ export function banniere(item, { ic, message }) {
   }
   if (item.erreur) {
     const m = message(item.erreur.code, item.erreur);
-    const actions = m.reessayable
+    const actions = (m.reessayable || !['too_large', 'format'].includes(item.erreur.code))
       ? `<button type="button" class="btn evx-sec" onclick="_edlVoixReessayer('${id}')">${ic('refresh')} Réessayer</button>`
       : '';
     return `<div class="evx-ban ${item.erreur.code === 'offline' ? 'wait' : 'err'}">${ic(item.erreur.code === 'offline' ? 'cloud' : 'warn')}<div><b>${esc(m.titre)}</b>${esc(m.texte)}`
@@ -123,7 +126,7 @@ export function pastille(etat) {
 }
 const iaMark = (ic) => `<div class="evx-iamark">${ic('sparkle')} ${esc(MENTION_PROPOSITION)}</div>`;
 const chip = (statut) => (statut === 'ok' ? '<span class="evx-chip ok">Inscrit</span>' : statut === 'ign' ? '<span class="evx-chip ign">Ignoré</span>' : '<span class="evx-chip">À valider</span>');
-const q = (id, cle) => `'${esc(id)}','${esc(cle)}'`;
+const q = (id, cle) => `'${jsId(id)}','${jsId(cle)}'`;
 
 function actions(id, cle, statut, { ic, ajout = false, bloque = null, okTexte = 'Inscrit dans l’état des lieux.' }) {
   if (statut === 'ok') return `<div class="evx-done">${ic('check')} ${okTexte}<button type="button" class="btn evx-sec" onclick="_edlVoixAnnuler(${q(id, cle)})">Annuler</button></div>`;
@@ -164,7 +167,7 @@ function carteAjout(id, x, { ic }) {
     + actions(id, x.cle, x.statut, { ic, ajout: true, okTexte: 'Ajouté à la pièce.' }) + '</div>';
 }
 
-const RAISONS_COMPTEUR = { numero_deja_note: 'Numéro déjà noté : il ne change pas entre l’entrée et la sortie.', signe: 'État des lieux signé.', cle: 'Compteur inconnu.' };
+const RAISONS_COMPTEUR = { numero_deja_note: 'Numéro déjà noté : il ne change pas entre l’entrée et la sortie.', numero_entree: 'Le numéro de compteur se note dans la colonne d’entrée, à la main.', signe: 'État des lieux signé.', cle: 'Compteur inconnu.' };
 function carteCompteur(id, x, { ic }) {
   const k = x.k;
   return `<div class="evx-card${x.statut === 'ign' ? ' ign' : ''}" id="${ancre(x.cle)}"><div class="evx-hd"><div class="evx-nm">${esc(x.libelle)}</div>${chip(x.statut)}</div>`
@@ -182,7 +185,7 @@ export function vuePropositions({ item, m, piece, sortie, duree: d }, { ic }) {
   const b = m.bilan;
   const compteursSeuls = !m.lignes.length && !m.ajouts.length && m.compteurs.length;
   let corps = `<div class="evx-ia">${ic('sparkle')}<div><b>${esc(BANDEAU_PROPOSITIONS.titre)}</b> ${esc(BANDEAU_PROPOSITIONS.texte)}`
-    + `<button type="button" class="evx-lnk" onclick="_edlVoixTranscription('${esc(id)}')">Voir la transcription</button></div></div>`
+    + `<button type="button" class="evx-lnk" onclick="_edlVoixTranscription('${jsId(id)}')">Voir la transcription</button></div></div>`
     + `<div class="evx-sum"><span class="evx-chip"><b>${b.total}</b> proposition${b.total > 1 ? 's' : ''}</span><span class="evx-chip"><b>${b.inscrites}</b> inscrite${b.inscrites > 1 ? 's' : ''}</span>`
     + `<span class="evx-chip"><b>${b.ignorees}</b> ignorée${b.ignorees > 1 ? 's' : ''}</span><span class="evx-chip"><b>${b.aValider}</b> à valider</span></div>`;
   if (!b.total) {
@@ -192,7 +195,7 @@ export function vuePropositions({ item, m, piece, sortie, duree: d }, { ic }) {
   if (m.ajouts.length) corps += '<div class="evx-sect">Cité mais absent de la liste de la pièce</div>' + m.ajouts.map((x) => carteAjout(id, x, { ic })).join('');
   if (m.compteurs.length) corps += '<div class="evx-sect">Relevés de compteurs · validation une par une</div>' + m.compteurs.map((x) => carteCompteur(id, x, { ic })).join('');
   if (m.nonCites.length) corps += `<div class="evx-sect">Non cités · laissés tels quels (${m.nonCites.length})</div><div class="evx-nc">${m.nonCites.map(esc).join(' · ')}<small>Aucune valeur n’est touchée sur ces éléments.</small></div>`;
-  const pied = (m.enAttente > 1 ? sec(`_edlVoixToutAccepter('${esc(id)}')`, 'Tout accepter') : '') + pri(`_edlVoixFinRelecture('${esc(id)}')`, 'Terminer la relecture');
+  const pied = (m.enAttente > 1 ? sec(`_edlVoixToutAccepter('${jsId(id)}')`, 'Tout accepter') : '') + pri(`_edlVoixFinRelecture('${jsId(id)}')`, 'Terminer la relecture');
   return { titre: compteursSeuls ? 'Relevés dictés' : `Propositions · ${piece}`, sousTitre: `Dictée de ${duree(d)} · ${sortie ? 'sortie' : 'entrée'}`, corps, pied, ferme: 'close' };
 }
 
@@ -210,7 +213,7 @@ export function vueModifier({ id, cle, nom, prop, sortie, entreeRef, note = fals
       + `<label class="evx-lab" for="evx-obs">Observation</label><textarea class="evx-fld" id="evx-obs" rows="3">${esc(prop.observation || '')}</textarea>`;
   }
   corps += '<p class="evx-note">La version corrigée remplace la proposition. L’inscription reste annulable depuis la liste.</p>';
-  return { titre: `Modifier · ${nom}`, sousTitre: 'Proposition à corriger', corps, pied: sec(`_edlVoixRelire('${esc(id)}')`, 'Annuler') + pri(`_edlVoixModInscrire(${q(id, cle)})`, 'Inscrire'), ferme: 'back' };
+  return { titre: `Modifier · ${nom}`, sousTitre: 'Proposition à corriger', corps, pied: sec(`_edlVoixRelire('${jsId(id)}')`, 'Annuler') + pri(`_edlVoixModInscrire(${q(id, cle)})`, 'Inscrire'), ferme: 'back' };
 }
 
 /** Confirmation de « Tout accepter » : compte, nomme les remplacements et les « à vérifier ». */
@@ -222,7 +225,7 @@ export function vueToutAccepter({ id, m, piece }, { ic }) {
   if (rep.length) corps += `<div class="evx-sect">Remplacent une saisie existante (${rep.length})</div><div class="evx-nc">${rep.map((l) => `<b>${esc(l.nom)}</b> : ${[l.remplace.etat ? `${esc(l.remplace.etat)} → ${esc(l.prop.etat)}` : '', l.remplace.obs ? `« ${esc(l.remplace.obs)} » → « ${esc(l.prop.observation)} »` : ''].filter(Boolean).join(' · ')}`).join('<br>')}</div>`;
   if (ver.length) corps += `<div class="evx-sect">Marquées « à vérifier » (${ver.length})</div><div class="evx-nc">${ver.map((l) => `<b>${esc(l.nom)}</b> : ${esc(l.prop.aVerifier)}`).join('<br>')}</div>`;
   if (m.ajouts.some((x) => !x.statut) || m.compteurs.some((x) => !x.statut)) corps += '<p class="evx-note">Les éléments à ajouter et les relevés de compteurs ne sont pas concernés : ils se confirment un par un.</p>';
-  return { titre: 'Tout accepter', corps, pied: sec(`_edlVoixRelire('${esc(id)}')`, 'Revenir') + pri(`_edlVoixToutInscrire('${esc(id)}')`, 'Tout inscrire'), ferme: 'back' };
+  return { titre: 'Tout accepter', corps, pied: sec(`_edlVoixRelire('${jsId(id)}')`, 'Revenir') + pri(`_edlVoixToutInscrire('${jsId(id)}')`, 'Tout inscrire'), ferme: 'back' };
 }
 
 /** Transcription complète, horodatée, passages corrigés surlignés. */
@@ -240,5 +243,5 @@ export function vueTranscription({ item }, { ic }) {
     + `<div class="evx-tr">${segs.map((s) => `<div class="evx-trl"><span>${duree(s.start)}</span><span>${surligne(s.text)}</span></div>`).join('')}</div>`
     + (corr.length ? `<div class="evx-sect">Corrections proposées</div><div class="evx-nc">${corr.map((k) => `« ${esc(k.entendu)} » → ${esc(k.compris)}`).join('<br>')}</div>` : '')
     + '<p class="evx-note">La transcription reste sur cet appareil jusqu’à la fin de la relecture, puis est effacée. Elle n’entre pas dans l’état des lieux.</p>';
-  return { titre: `Transcription · ${(item.contexte || {}).pieceNom || 'Pièce'}`, corps, pied: pri(`_edlVoixRelire('${esc(item.id)}')`, 'Retour aux propositions'), ferme: 'back' };
+  return { titre: `Transcription · ${(item.contexte || {}).pieceNom || 'Pièce'}`, corps, pied: pri(`_edlVoixRelire('${jsId(item.id)}')`, 'Retour aux propositions'), ferme: 'back' };
 }

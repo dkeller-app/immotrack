@@ -154,3 +154,25 @@ describe('B2 / B3 — relecture et écriture : branchement', () => {
     expect(html.indexOf('id="edl-voix-cpt"', i) - i).toBeLessThan(600);
   });
 });
+
+describe('relecture adverse (14/10) — corrections câblées', () => {
+  const fn = (nom) => { const i = p2.indexOf(`function ${nom}(`); expect(i).toBeGreaterThan(0); return p2.slice(i, p2.indexOf('\n}', i) + 2); };
+  it('I1 : pièce retrouvée par position ET nom, ou nom unique — jamais la position seule', () => {
+    const f = fn('_edlVoixPieceDe');
+    expect(f).toContain('memes.length === 1 ? memes[0] : -1');
+    expect(f).not.toMatch(/\? c\.pi : -1/);
+  });
+  it('I2 : une décision déjà prise n’est jamais rejouée ; verrou par geste', () => {
+    for (const f of ['_edlVoixInscrireProp', '_edlVoixInscrireCompteur', '_edlVoixAjouterFaire']) expect(fn(f)).toContain('_edlVoixDejaDecide(x, cle)');
+    for (const f of ['_edlVoixAccepter', '_edlVoixAnnuler', '_edlVoixAjouter', '_edlVoixToutInscrire']) expect(fn(f)).toContain('_edlVoixVerrou(');
+  });
+  it('I4 : saveEDL rattache les dictées faites avant le 1er enregistrement', () => {
+    const s = p2.slice(p2.indexOf('function saveEDL('), p2.indexOf('function saveEDL(') + 20000);
+    expect(s).toContain('_edlVoixRattacher(String(record.id))');
+  });
+  it('I9 + lecture seule : signatures tracées et _appReadOnly bloquent toute inscription', () => {
+    const g = fn('_edlVoixPeutEcrire');
+    expect(g).toContain('_appReadOnly');
+    expect(g).toContain("_edlGetSig('edl-sig-bailleur') && _edlGetSig('edl-sig-locataire')");
+  });
+});

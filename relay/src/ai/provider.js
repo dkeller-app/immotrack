@@ -24,7 +24,8 @@ export const MISTRAL_BASE = 'https://api.mistral.ai';
 export const DEFAUTS = {
   modeleTranscription: 'voxtral-mini-latest',
   modeleStructure: 'mistral-small-latest',
-  delaiMs: 25000,
+  delaiMs: 25000,          // structuration
+  delaiTranscriptionMs: 60000,   // transcription (fichier jusqu'à 10 Mo)
 };
 
 export function fournisseurActif(env) {
@@ -34,7 +35,7 @@ export function fournisseurActif(env) {
   return null;
 }
 
-const EXT = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav' };
+const EXT = { 'audio/mp3': 'mp3', 'audio/m4a': 'm4a', 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav' };
 
 async function appel(fetchImpl, url, init, delaiMs) {
   let res;
@@ -62,18 +63,23 @@ function mistral(env, fetchImpl) {
       const fd = new FormData();
       fd.append('model', mT);
       fd.append('file', new Blob([audio], { type }), `dictee.${EXT[type] || 'bin'}`);
+      // Mistral : « timestamp_granularities n'est pas compatible avec language » (documentation
+      // offline_transcription ; les deux ensemble rendent un texte vide). On impose la langue (meilleure
+      // transcription du français) et on se passe des horodatages : la vue retombe sur le texte seul.
       if (langue) fd.append('language', langue);
       // Vocabulaire d'aide (« context_bias ») : désactivé tant que son format n'est pas vérifié avec
       // la clé réelle — un champ mal formé ferait échouer TOUTE la transcription.
       if (env.AI_CONTEXT_BIAS === 'true') for (const v of vocabulaire.slice(0, 100)) fd.append('context_bias', v);
-      fd.append('timestamp_granularities', 'segment');
-      const j = await appel(fetchImpl, `${base}/v1/audio/transcriptions`, { method: 'POST', headers: auth, body: fd }, delaiMs);
+      const j = await appel(fetchImpl, `${base}/v1/audio/transcriptions`, { method: 'POST', headers: auth, body: fd }, Math.max(delaiMs, DEFAUTS.delaiTranscriptionMs));
       if (!j || typeof j.text !== 'string') throw new AiError('invalid_output');
       const segments = Array.isArray(j.segments)
         ? j.segments.filter((s) => s && typeof s.text === 'string').map((s) => ({ start: Number(s.start) || 0, end: Number(s.end) || 0, text: s.text.trim() }))
         : [];
       const u = j.usage || {};
-      const audioSec = Number(u.prompt_audio_seconds) || (segments.length ? Math.ceil(segments[segments.length - 1].end) : 0);
+      // Durée facturée ; à défaut, la fin du dernier segment ; à défaut, estimation par la taille (~32 kb/s)
+      // pour que le quota audio monte toujours.
+      const octets = audio && audio.byteLength ? audio.byteLength : 0;
+      const audioSec = Number(u.prompt_audio_seconds) || (segments.length ? Math.ceil(segments[segments.length - 1].end) : 0) || Math.max(1, Math.ceil(octets / 4000));
       return { text: j.text.trim(), segments, audioSec, modele: j.model || mT };
     },
     async structurer({ tache, messages, jsonSchema }) {
