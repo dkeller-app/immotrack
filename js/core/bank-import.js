@@ -1676,7 +1676,8 @@ export function _bankRulesParCompte(rules, accounts, opts = {}) {
 export function _bankRuleVue(rule) {
   const r = rule || {};
   const v2 = _bankRuleIsV2(r);
-  const motsLibres = v2 ? (r.motsLibres || []).slice() : String(r.pattern || '').trim().split(/\s+/).filter(Boolean);
+  // Relecture ciblée A1 : un motif historique s'affiche comme il se cherche — UN morceau (« VIR LOYER JEAN »).
+  const motsLibres = v2 ? (r.motsLibres || []).slice() : (String(r.pattern || '').trim() ? [String(r.pattern).trim().replace(/\s+/g, ' ')] : []);
   return {
     id: r.id != null ? String(r.id) : '',
     mots: v2 ? (r.mots || []).slice() : [],

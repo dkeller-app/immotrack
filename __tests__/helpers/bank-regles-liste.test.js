@@ -85,7 +85,7 @@ describe('_bankRuleVue — ce que la liste affiche', () => {
   it('règle historique : le motif devient des mots « saisis », badge « Compte à choisir »', () => {
     const v = _bankRuleVue({ id: 'h', pattern: 'EDF  CLIENTS', cat: 'C' });
     expect(v.mots).toEqual([]);
-    expect(v.motsLibres).toEqual(['EDF', 'CLIENTS']);
+    expect(v.motsLibres).toEqual(['EDF CLIENTS']);   // relecture ciblée A1 : un seul morceau, comme il se cherche
     expect(v.compteAChoisir).toBe(true);
     expect(v.historique).toBe(true);
     expect(v.sens).toBe('');
