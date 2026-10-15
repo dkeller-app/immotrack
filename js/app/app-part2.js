@@ -5437,6 +5437,8 @@ function _edlVoixFile() {
 /** La dictée est-elle proposée ? (modules chargés, IA active, EDL non signé, écriture permise) */
 function _edlVoixDispo() {
   if (!_evxM()) return false;
+  // COMPTE DÉMO : le bouton est MONTRÉ (la brique existe) ; le geste affiche un message clair au lieu d'enregistrer (_edlVoixDemo).
+  if (typeof _isDemoMode !== 'undefined' && _isDemoMode) return !(typeof _appReadOnly !== 'undefined' && _appReadOnly) && !_edlVoixSigne();
   if (_EVX.actif == null) _EVX.actif = _edlVoixActifCache();
   if (_EVX.actif !== true) return false;
   if (typeof _appReadOnly !== 'undefined' && _appReadOnly) return false;
@@ -5607,14 +5609,24 @@ function _edlVoixFermer() {
 }
 
 // ── Dicter ──
+// COMPTE DÉMO (?demo=1) : pas de compte connecté, donc pas de relais — la dictée n'enregistre rien (aucun micro ouvert,
+// aucun envoi) et le dit en clair, plutôt qu'une erreur « Session à renouveler ». Hors démo : sans effet.
+function _edlVoixDemo() {
+  if (typeof _isDemoMode === 'undefined' || !_isDemoMode) return false;
+  const M = _evxM(); const m = M ? M.IaClient.messageErreur('demo') : null;
+  showToast(m ? m.titre + ' : ' + m.texte : 'Indisponible dans la démonstration.', 'info', 7000);
+  return true;
+}
 function _edlVoixDicter(pi) {
   const M = _evxM(); if (!M || !_edlVoixDispo() || !_edlP[pi]) return;
+  if (_edlVoixDemo()) return;
   _EVX.ctx = { cible: 'piece', pi, pieceNom: _edlP[pi].nom || 'Pièce' };
   if (!_edlVoixNoticeVue()) { _edlVoixAfficher(M.EdlVoixVues.vueNotice(M.IaTransparence.notice(), { ic: _evxIc }), 'notice'); return; }
   _edlVoixDemarrer();
 }
 function _edlVoixDicterCompteurs() {
   const M = _evxM(); if (!M || !_edlVoixDispo()) return;
+  if (_edlVoixDemo()) return;
   _EVX.ctx = { cible: 'compteurs', pi: -1, pieceNom: 'Compteurs' };
   if (!_edlVoixNoticeVue()) { _edlVoixAfficher(M.EdlVoixVues.vueNotice(M.IaTransparence.notice(), { ic: _evxIc }), 'notice'); return; }
   _edlVoixDemarrer();
@@ -34042,6 +34054,7 @@ function _backupAgoLabel(ms) {
 
 // Choisir + mémoriser un dossier (geste utilisateur requis).
 async function _backupPickFolder() {
+  if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Dossier de sauvegarde')) return;
   if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne permet pas le choix de dossier — utiliser le mode zip', 'warn', 5000); return; }
   try {
     const h = await window.showDirectoryPicker({ id: 'propryo-backup', mode: 'readwrite' });
@@ -34133,6 +34146,7 @@ const _BK_ZIP64_LIMIT = 3.8 * 1024 * 1024 * 1024;   // garde-fou : storedZip est
 
 // Orchestrateur. trigger = 'manuel' | 'auto'.
 async function _backupRun(trigger) {
+  if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Sauvegarde', trigger !== 'manuel')) return;
   const mode = _backupMode();
   if (mode === 'mobile') return;
   if (_backupRunning) return;
@@ -34343,6 +34357,7 @@ function _renderBackupCard() {
 // ── Auto-check au chargement (cadence + nouveau) ─────────────────────────────
 async function _backupAutoCheck() {
   try {
+    if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Sauvegarde', true)) return;
     if (_backupMode() === 'mobile') return;
     const _bk = window._bk;
     if (!_bk) return;   // module pas encore chargé (http-server requis) — silencieux
@@ -34410,6 +34425,7 @@ function _backupDismissBanner() {
 const _BK_REMINDER_MS = 7 * 86400000;
 async function _backupReminderCheck() {
   try {
+    if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Sauvegarde', true)) return;
     if (window.__immoSupabaseMode) return;   // BANDEAU-SAUVEGARDE-CLOUD (13/07) : pas de rappel « planifie une sauvegarde » en mode cloud (backup serveur quotidien)
     if (_backupMode() === 'mobile') return;                                 // sauvegarde = depuis un PC
     if (localStorage.getItem('immo_backup_reminder_off') === '1') return;   // opt-out définitif
@@ -34456,6 +34472,7 @@ function _backupReminderOff() {
 let _backupRestoreDir = null;   // dossier courant de la modale (résout le fichier au clic)
 
 async function _backupRestoreOpen() {
+  if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Restauration depuis le dossier de sauvegarde')) return;
   if (_backupMode() === 'mobile') { showToast('Restauration depuis un PC uniquement', 'warn', 5000); return; }
   if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne lit pas les dossiers — utiliser « Importer JSON »', 'warn', 6000); return; }
   let dir = await _backupLoadFolder();
@@ -35298,7 +35315,7 @@ function confirmReset() {
     const got = prompt(`Pour confirmer, taper exactement : ${expected}`);
     if(got !== expected) { showToast('Reset annulé (confirmation incorrecte)','warn'); return; }
   } else {
-    if(!confirm2('🧪 Mode TEST — Effacer toute la base sandbox ? (la prod ne sera pas touchée)')) return;
+    if(!confirm2((typeof _isDemoMode !== 'undefined' && _isDemoMode) ? 'Effacer toute la base de la démonstration ? « Recharger la démo » la remet ensuite (les vraies données ne sont pas touchées).' : '🧪 Mode TEST — Effacer toute la base sandbox ? (la prod ne sera pas touchée)')) return;
     if(!confirm2('Dernière confirmation : effacer TOUTES les données du sandbox ?')) return;
   }
   localStorage.removeItem(KEY); DB={}; initDB(); showToast('Base réinitialisée'); rExport();

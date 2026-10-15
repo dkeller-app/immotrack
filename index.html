@@ -16,6 +16,71 @@
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
      on masque le document par sécurité. Les aperçus internes (iframes data:/srcdoc) ne sont PAS l'app. -->
 <script>(function(){try{if(window.top!==window.self){window.top.location=window.self.location;}}catch(e){try{document.documentElement.style.display='none';}catch(_){}}})();</script>
+<!-- COMPTE DÉMO (?demo=1 SEULEMENT — hors de ce paramètre, ce script ne fait rien). Posé AVANT tout autre script.
+     1. HORLOGE FIGÉE : une démo faite aujourd'hui montre le même état dans deux mois (sans ça l'impayé grossit,
+        la révision IRL passe en retard, les échéances expirent). Tout `new Date()` / `Date.now()` rend le jour
+        DEMO_JOUR à l'heure réelle (décalage = nombre entier de jours entre minuits LOCAUX). Les dates explicites
+        (`new Date('2025-01-01')`) ne bougent pas. Aussi posé sur les fenêtres ouvertes par la page (impression).
+     2. RÉSEAU FERMÉ : aucune requête ne quitte la page vers le cloud (Supabase, relais, Google…). Seules passent la
+        même origine (fichiers de l'app) et les API publiques de l'État en lecture (adresse, risques, DPE, annuaire
+        des entreprises), qui ne reçoivent que des données fictives. L'INSEE est exclu : un indice IRL publié après le
+        jour figé changerait les montants de la démo. fetch / XMLHttpRequest / WebSocket /
+        EventSource / sendBeacon sont filtrés : une requête refusée échoue comme une coupure réseau.
+     Le marqueur window.__immoDemo n'est posé qu'APRÈS tous les cloisonnements (lu par app-part1.js, main.js → js/app/demo-app.js,
+     js/core/ia-client.js). FERMÉ PAR DÉFAUT : si un cloisonnement échoue, la page s'arrête avec un message (aucune donnée lue ni écrite). -->
+<script>(function(){if(!/[?&]demo=1/.test(location.search||'')) return;try{
+  var DEMO_JOUR=[2026,9,5];   /* 05/10/2026 (mois 0-indexé) */
+  var R=Date, n=new R(R.now());
+  var off=new R(DEMO_JOUR[0],DEMO_JOUR[1],DEMO_JOUR[2]).getTime()-new R(n.getFullYear(),n.getMonth(),n.getDate()).getTime();
+  function figer(w){
+    var RD=w.Date; if(!RD||RD.__demoFige) return;
+    function D(){ var a=[].slice.call(arguments);
+      if(!new.target) return new RD(RD.now()+off).toString();
+      return Reflect.construct(RD, a.length?a:[RD.now()+off], new.target); }
+    D.prototype=RD.prototype; D.now=function(){return RD.now()+off;}; D.parse=RD.parse; D.UTC=RD.UTC; D.__demoFige=true;
+    Object.setPrototypeOf(D,RD); w.Date=D;
+  }
+  figer(window);
+  var wo=window.open; window.open=function(){ var w=wo.apply(window,arguments); try{ if(w) figer(w); }catch(e){} return w; };
+  var PUBLIC=['api-adresse.data.gouv.fr','errial.georisques.gouv.fr','www.georisques.gouv.fr','data.ademe.fr','recherche-entreprises.api.gouv.fr'];
+  function permis(u){ try{ var s=(u&&typeof u==='object'&&'url' in u)?u.url:String(u); var x=new URL(s,location.href);
+    if(x.protocol==='data:'||x.protocol==='blob:') return true;
+    if(x.origin===location.origin) return true;
+    return x.protocol==='https:'&&PUBLIC.indexOf(x.hostname)>=0; }catch(e){ return false; } }
+  function refus(u){ try{ console.warn('[DEMO] requête bloquée (mode démonstration, aucun échange avec le cloud) :', String(u&&u.url||u).split('?')[0]); }catch(e){} }
+  var f=window.fetch; if(f) window.fetch=function(i){ if(!permis(i)){ refus(i); return Promise.reject(new TypeError('Mode démonstration : aucun échange avec le cloud')); } return f.apply(this,arguments); };
+  var X=window.XMLHttpRequest; if(X){ var xo=X.prototype.open; X.prototype.open=function(m,u){ if(!permis(u)){ refus(u); throw new TypeError('Mode démonstration : aucun échange avec le cloud'); } return xo.apply(this,arguments); }; }
+  function bloquerCtor(nom){ var C=window[nom]; if(!C) return; var B=function(u){ if(!permis(u)){ refus(u); throw new TypeError('Mode démonstration : aucun échange avec le cloud'); } return Reflect.construct(C, [].slice.call(arguments), new.target||B); }; B.prototype=C.prototype; Object.setPrototypeOf(B,C); window[nom]=B; }
+  bloquerCtor('WebSocket'); bloquerCtor('EventSource');
+  if(navigator.sendBeacon){ var sb=navigator.sendBeacon.bind(navigator); navigator.sendBeacon=function(u,d){ if(!permis(u)){ refus(u); return false; } return sb(u,d); }; }
+  /* 3. STOCKAGE CLOISONNÉ : la page démo ne voit QUE ses clés `_demo_` du localStorage (une clé écrite sans
+     _lsKey — jeton de session, document express… — est rangée sous `_demo_` elle aussi ; key()/length/clear
+     n'énumèrent que l'espace démo) et ses propres bases IndexedDB `demo__…` (photos, file de l'IA, sauvegardes).
+     Les vraies données de l'appareil ne sont donc ni lues ni écrites ni effacées par une démo. */
+  var SP=window.Storage&&Storage.prototype, LS=window.localStorage;
+  if(SP&&LS){ var P='_demo_', g=SP.getItem, st=SP.setItem, rm=SP.removeItem, ky=SP.key, ln=Object.getOwnPropertyDescriptor(SP,'length');
+    var m=function(k){ k=String(k); return k.indexOf(P)===0?k:P+k; };
+    var mien=function(){ var o=[], n=ln.get.call(LS); for(var i=0;i<n;i++){ var x=ky.call(LS,i); if(x&&x.indexOf(P)===0) o.push(x); } return o; };
+    SP.getItem=function(k){ return this===LS?g.call(this,m(k)):g.apply(this,arguments); };
+    SP.setItem=function(k,v){ return this===LS?st.call(this,m(k),v):st.apply(this,arguments); };
+    SP.removeItem=function(k){ return this===LS?rm.call(this,m(k)):rm.apply(this,arguments); };
+    SP.key=function(i){ if(this!==LS) return ky.apply(this,arguments); var a=mien(); return (i>=0&&i<a.length)?a[i]:null; };
+    var cl=SP.clear; SP.clear=function(){ if(this!==LS) return cl.call(this); mien().forEach(function(x){ rm.call(LS,x); }); };
+    Object.defineProperty(SP,'length',{configurable:true,enumerable:true,get:function(){ return this===LS?mien().length:ln.get.call(this); }});
+  }
+  var FP=window.IDBFactory&&IDBFactory.prototype;
+  if(FP){ var io=FP.open, idel=FP.deleteDatabase, Q='demo__';
+    var nm=function(n){ n=String(n); return n.indexOf(Q)===0?n:Q+n; };
+    FP.open=function(n){ var a=[].slice.call(arguments); a[0]=nm(n); return io.apply(this,a); };
+    FP.deleteDatabase=function(n){ return idel.call(this,nm(n)); };
+    if(FP.databases){ var idb=FP.databases; FP.databases=function(){ return idb.call(this).then(function(l){ return (l||[]).filter(function(d){ return d&&String(d.name).indexOf(Q)===0; }); }); }; }
+  }
+  if(!(SP&&LS&&FP)) throw new Error('cloisonnement indisponible');
+  window.__immoDemo = true;
+}catch(e){
+  try{ document.write('<p style="font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:48px auto;padding:0 16px">La démonstration ne peut pas démarrer sur ce navigateur : le stockage isolé n\'est pas disponible. Aucune donnée n\'a été lue ni écrite.</p>'); }catch(_){}
+  try{ window.stop(); }catch(_){}
+}})();</script>
 <script>/* Document express venu de propryo.fr : réception par postMessage (aucune donnée dans l'URL ni l'historique). Accepté seulement depuis propryo.fr / www.propryo.fr ET l'onglet qui a ouvert l'app. Purge à chaque chargement. Traité par js/app/doc-express.js. */(function(){try{var K='imsb-doc-express',T=30*60*1000,ls=localStorage;function montrer(){var n=document.getElementById('imsb-doc-note');if(n){n.hidden=false;}else{document.addEventListener('DOMContentLoaded',montrer);}}try{var r=JSON.parse(ls.getItem(K)||'null');if(r&&(!r.doc||!(Date.now()-r.t<T)))ls.removeItem(K);}catch(e){try{ls.removeItem(K);}catch(_){}}try{if(ls.getItem(K))montrer();}catch(e){}if(!/[?&]doc=attente(&|$)/.test(location.search)||!window.opener)return;var O=['https://propryo.fr','https://www.propryo.fr'],n=0,fini=false;function annoncer(){if(fini)return;O.forEach(function(o){try{window.opener.postMessage({propryo:'doc-pret'},o);}catch(e){}});if(++n<60)setTimeout(annoncer,500);}window.addEventListener('message',function(ev){if(fini||O.indexOf(ev.origin)<0||ev.source!==window.opener)return;var d=ev.data;if(!d||d.propryo!=='doc'||!d.doc||typeof d.doc!=='object'||typeof d.doc.type!=='string')return;fini=true;var s='';try{s=JSON.stringify(d.doc);}catch(e){}if(!s||s.length>20000){try{window.opener.postMessage({propryo:'doc-refus',raison:'taille'},ev.origin);}catch(e){}return;}try{ls.setItem(K,JSON.stringify({doc:d.doc,t:Date.now()}));window.opener.postMessage({propryo:'doc-recu'},ev.origin);montrer();}catch(e){}});annoncer();}catch(e){}})();</script>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
@@ -203,7 +268,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
   (function(){
     try{
       var p=(location.pathname||'').toLowerCase(), s=location.search||'';
-      var test = p.endsWith('index-test.html')||p.endsWith('/test')||p.includes('-test.')||/[?&]sandbox=1/.test(s);
+      var test = p.endsWith('index-test.html')||p.endsWith('/test')||p.includes('-test.')||/[?&](sandbox|demo)=1/.test(s);
       // CLOUD-ONLY : toute page servie (non-test) masque l'app jusqu'au login cloud. Mode test : ce script
       // ne tourne pas → harnais legacy/démo inchangé.
       // BUG-LOGIN-DOUBLE : window.__immoCloudBoot posé DÈS ICI (avant tout, synchrone) → la garde
@@ -4612,8 +4677,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=c017b049" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=c1179535" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=42bf7c9d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=454cba84" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=6b5a492c" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

@@ -209,6 +209,8 @@ async function partagerLien(jeton, nom, email, bienLabel, accesId) {
     const ok = await notifier('invitation', accesId, { jeton })
     if (ok) info = 'Invitation envoyée par e-mail à l\'adresse du bail. ' + info
   }
+  // COMPTE DÉMO (?demo=1) : nuage fictif local — le lien a la forme réelle mais aucune page locataire ne l'attend.
+  if (W.__immoDemo === true) info = '<b>Démonstration :</b> lien fictif, la page du locataire ne s\'ouvre qu\'avec un vrai compte. ' + info
   if (G('_openShareModal')) {
     W._openShareModal({
       title: 'Lien de l\'espace locataire', ctxIcon: ico('link', 20), ctxTitle: bienLabel,

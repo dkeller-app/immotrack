@@ -930,6 +930,9 @@ window.Incidents = Incidents;
 window.IncidentCircuit = IncidentCircuit;
 // Circuit d'un incident côté propriétaire (carte de la fiche, carnet, plafond, artisan, validation) : tous les modes.
 try { import('./app/incident-circuit-app.js').then((m) => m.demarrer()).catch((e) => console.warn('[circuit]', e)) } catch (e) { /* jamais bloquant */ }
+// COMPTE DÉMO (?demo=1 seulement : window.__immoDemo est posé par le script du <head> d'index.html) — nuage fictif local,
+// compléments calculés du jeu de données, espace locataire. Import dynamique : aucun poids pour les vrais comptes.
+if (window.__immoDemo === true) { try { import('./app/demo-app.js').then((m) => m.demarrer()).catch((e) => console.warn('[demo]', e)) } catch (e) { /* jamais bloquant */ } }
 window.DeclarationOccupation = DeclarationOccupation;
 
 // Marqueur pour les tests d'intégration
