@@ -198,7 +198,7 @@ describe('écritures du locataire', () => {
   });
   it('accord : avec e-mail actif et code exigé, refus sans code', async () => {
     monterIdentite();
-    const r = await post('/api/el/accord', { donner: true }, {}, { ...E, EL_CODE_ACCORD: 'true', EMAIL_MODE: 'resend' });
+    const r = await post('/api/el/accord', { donner: true }, {}, { ...E, EL_CODE_ACCORD: 'true', EMAIL_MODE: 'resend', RESEND_API_KEY: 'cle-de-test', EMAIL_FROM: 'ne-pas-repondre@notifications.propryo.fr' });
     expect(r.status).toBe(403);
     expect((await r.json()).erreur).toBe('code_requis');
   });

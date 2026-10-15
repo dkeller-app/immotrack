@@ -8,15 +8,27 @@
 // JOURNAUX : jamais d'adresse, de code, de lien ni de contenu — le type d'e-mail et un statut, rien d'autre.
 // fetchImpl injectable pour les tests (aucun appel réseau réel en test).
 import { modeleEmail, TYPES_MODELES } from './email-modeles.js';
-import { consommer, parJour, jourUTC, quotaGlobal } from './email-limites.js';
+import { consommer, regleGlobale, parJour, LIMITES } from './email-limites.js';
 
 export const RESEND_URL = 'https://api.resend.com/emails';
-const ADRESSE_RE = /^[^@\s<>()",;:\\[\]]{1,64}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+// Partie locale en ASCII seulement (pas de caractère Unicode « équivalent » après mise en minuscules, ex. le signe
+// Kelvin) ; ni espace, ni chevron, ni virgule, ni retour à la ligne (aucune injection d'en-tête ou de liste).
+const ADRESSE_RE = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 export const adresseValide = (a) => typeof a === 'string' && a.length <= 254 && ADRESSE_RE.test(a);
 const typeSur = (t) => (TYPES_MODELES.includes(t) ? t : 'inconnu');
 const journal = (statut, type, extra = '') => console.log(`[email] ${statut} type=${typeSur(type)}${extra ? ' ' + extra : ''}`);
 
 export const modeEmail = (env) => (env && env.EMAIL_MODE === 'resend' ? 'resend' : 'dev');
+/** Les e-mails partent-ils VRAIMENT ? (mode resend + clé + expéditeur valide) — une configuration incomplète vaut « non ». */
+export const emailsOperationnels = (env) => modeEmail(env) === 'resend' && !!(env && env.RESEND_API_KEY) && adresseValide(String(env.EMAIL_FROM || ''));
+
+// Empreinte d'un destinataire pour les compteurs (jamais l'adresse en clair dans une clé) : HMAC-SHA256 avec le secret
+// du relais, 32 caractères hexadécimaux.
+async function empreinteDestinataire(env, adresse) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(env.SIGNING_SECRET || 'propryo-email')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode('dest:' + String(adresse).toLowerCase()));
+  return [...new Uint8Array(sig)].slice(0, 16).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 export function makeSender(env, fetchImpl = fetch) {
   const mode = modeEmail(env);
@@ -30,9 +42,17 @@ export function makeSender(env, fetchImpl = fetch) {
     if (!env.RESEND_API_KEY) { journal('cle_absente', type); return { sent: false, error: 'config' }; }
     const from = adresseValide(String(env.EMAIL_FROM || '')) ? env.EMAIL_FROM : null;
     if (!from) { journal('expediteur_absent', type); return { sent: false, error: 'config' }; }
-    // Plafond global du relais (tous e-mails, toutes routes) : protège le quota du fournisseur et borne tout abus.
-    if (!(await consommer(env.SESSIONS_KV, [parJour('email:global:' + jourUTC(), quotaGlobal(env))]))) {
+    // Plafond global du relais (toutes routes) : protège le quota du fournisseur et borne tout abus. Deux réserves : les
+    // codes (signature, accord) ne peuvent pas être affamés par une rafale d'avis. KV en échec : on laisse passer (borné
+    // par le verrou EMAIL_RATE des routes et par le quota du fournisseur).
+    const kv = env.SESSIONS_KV;
+    if (!(await consommer(kv, [regleGlobale(env, type)], undefined, { siErreur: true }))) {
       journal('quota_jour', type); return { sent: false, error: 'quota' };
+    }
+    // Par DESTINATAIRE, toutes routes et tous liens confondus (renouveler un lien crée un nouvel accès : la limite par
+    // lien ne suffit pas à empêcher une rafale vers une même adresse).
+    if (!(await consommer(kv, [parJour('email:dest:' + await empreinteDestinataire(env, to), LIMITES.DESTINATAIRE_JOUR)], undefined, { siErreur: true }))) {
+      journal('limite_destinataire', type); return { sent: false, error: 'quota' };
     }
     const payload = {
       from: `Propryo <${from}>`, to: [to], subject: m.objet, text: m.texte, html: m.html,
@@ -56,10 +76,11 @@ export function makeSender(env, fetchImpl = fetch) {
   return {
     mode,
     // Code de signature à distance. Mode dev : rendu à l'appelant (affiché à l'écran, jamais journalisé).
-    async send({ to, code }) {
+    // bailleur : nom du bailleur enregistré sur la session (facultatif ; « votre bailleur » sinon).
+    async send({ to, code, bailleur }) {
       const type = 'otp_signature';
       if (mode !== 'resend') { journal('dev_non_envoye', type); return { sent: false, devCode: code }; }
-      return envoyer({ to, type, m: modeleEmail(type, { code }, { repondre: !!replyTo }) });
+      return envoyer({ to, type, m: modeleEmail(type, { code, bailleur }, { repondre: !!replyTo }) });
     },
     // Tout autre e-mail : type + données ; le modèle est rendu ICI (une seule source : email-modeles.js).
     async sendModele({ to, type, donnees }) {

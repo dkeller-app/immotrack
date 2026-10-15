@@ -12,7 +12,8 @@ import { elConfigure, lireObjet, contactProprietaire } from './el-supabase.js';
 import { entetes, ctxLien, appel, lireJson, nomSur, jsonErreur, inactif, recevoirDepot, limiteDebit, MENTION_IA_LIEN, EL_ASSET_VERSION } from './espace-locataire.js';
 import { fournisseurActif } from './ai/provider.js';
 import { makeSender } from './email-sender.js';
-import { consommer, reglesProprietaire } from './email-limites.js';
+import { modeleEmail } from './email-modeles.js';
+import { consommer, reglesProprietaire, debitEmail } from './email-limites.js';
 
 // Même numéro que la page du locataire (el.css et lien-commun.js sont partagés) : jamais une URL ?v= déjà servie.
 const codePostal = (adresse) => { const m = /\b(\d{5})\b/.exec(String(adresse || '')); return m ? m[1] : ''; };
@@ -146,7 +147,7 @@ export function registerEspaceArtisanProprietaire(app, { requireSupabaseUser, se
   app.post('/ar/notifier', async (c) => {
     const auth = await requireSupabaseUser(c);
     if (auth.error) return auth.error;
-    if (!(await limiteDebit(c, 'arn:' + auth.userId))) return jsonErreur(c, 429, 'limite');
+    if (!(await limiteDebit(c, 'arn:' + auth.userId)) || !(await debitEmail(c.env, 'arn:' + auth.userId))) return jsonErreur(c, 429, 'limite');
     const b = await lireJson(c, 4096);
     if (!b || !UUID.test(String(b.acces_id || '')) || !JETON_RE.test(String(b.jeton || ''))) return jsonErreur(c, 400, 'invalide');
     if (!elConfigure(c.env) || !c.env.SUPABASE_ANON_KEY) return jsonErreur(c, 503, 'el_inactif');
@@ -154,10 +155,12 @@ export function registerEspaceArtisanProprietaire(app, { requireSupabaseUser, se
     const contact = await contactProprietaire(c.env, jwt, b.acces_id, await empreinteJeton(b.jeton), fetch, 'ar_acces_contact');
     if (!contact) return jsonErreur(c, 403, 'interdit');
     if (!contact.email) return jsonErreur(c, 409, 'sans_email');
-    if (!(await consommer(c.env.SESSIONS_KV, reglesProprietaire('arn', b.acces_id, auth.userId)))) return jsonErreur(c, 429, 'limite');
+    const donnees = { bailleur: contact.bailleur, lien: new URL(c.req.url).origin + '/a#' + b.jeton };
+    if (!modeleEmail('invitation_artisan', donnees)) return jsonErreur(c, 400, 'invalide');   // AVANT de compter
+    if (!(await consommer(c.env.SESSIONS_KV, reglesProprietaire('arn', b.acces_id, auth.userId), undefined, { siErreur: true }))) return jsonErreur(c, 429, 'limite');
     const s = sender || makeSender(c.env);
-    const out = await s.sendModele({ to: contact.email, type: 'invitation_artisan', donnees: { bailleur: contact.bailleur, lien: new URL(c.req.url).origin + '/a#' + b.jeton } });
+    const out = await s.sendModele({ to: contact.email, type: 'invitation_artisan', donnees });
     if (out.error === 'modele') return jsonErreur(c, 400, 'invalide');
-    return c.json({ envoye: !!out.sent, mode: out.dev ? 'dev' : 'resend' }, 200);
+    return c.json({ envoye: !!out.sent, mode: out.dev ? 'dev' : 'resend', ...(out.error === 'quota' ? { raison: 'quota' } : {}) }, 200);
   });
 }

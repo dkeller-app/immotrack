@@ -18,9 +18,9 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 // ─── Signature à distance ───
-async function session(email) {
+async function session(email, createdBy = null) {
   const { sessionId } = await createSession(env, {
-    bailRef: 'LOG-014', pdfBytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3]),
+    bailRef: 'LOG-014', pdfBytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3]), createdBy,
     signers: [{ emailHash: await emailHash(email), role: 'locataire', ordre: 1 }],
   });
   const html = await (await SELF.fetch(`https://relay.test/s/${sessionId}`)).text();
@@ -48,6 +48,19 @@ describe('signature à distance : code par e-mail (verify-email)', () => {
     for (let i = 0; i < LIMITES.OTP_SIGNATAIRE_HEURE; i++) await verif(a, 'sig3@example.test');
     expect((await verif(a, 'sig3@example.test')).status).toBe(429);
     expect((await verif(b, 'sig3@example.test')).status).toBe(200);
+  });
+  it(`plafond par compte créateur : ${LIMITES.OTP_COMPTE_JOUR} codes par jour, toutes sessions confondues`, async () => {
+    const createur = crypto.randomUUID();
+    const n = Math.ceil(LIMITES.OTP_COMPTE_JOUR / LIMITES.OTP_SIGNATAIRE_HEURE) + 1;
+    const sessions = [];
+    for (let i = 0; i < n; i++) sessions.push(await session(`cpt${i}@example.test`, createur));
+    let ok = 0, refus = 0;
+    for (let i = 0; i < n; i++) for (let k = 0; k < LIMITES.OTP_SIGNATAIRE_HEURE; k++) {
+      const r = await verif(sessions[i], `cpt${i}@example.test`);
+      if (r.status === 200) ok++; else if (r.status === 429) refus++;
+    }
+    expect(ok).toBe(LIMITES.OTP_COMPTE_JOUR);
+    expect(refus).toBe(n * LIMITES.OTP_SIGNATAIRE_HEURE - LIMITES.OTP_COMPTE_JOUR);
   });
   it('mode dev : ni l\'adresse ni le code dans les journaux', async () => {
     const s = await session('sig4@example.test');
@@ -78,7 +91,7 @@ describe('espace locataire : code de l\'accord (/api/el/accord/code)', () => {
     const sender = { sendModele: async (m) => { envoyes.push(m); return { sent: true }; } };
     const mini = new Hono(); registerEspaceLocataireRoutes(mini, { sender });
     const jeton = 'C'.repeat(40) + Math.random().toString(36).slice(2, 5).padEnd(3, 'x');
-    const E2 = { ...E, EL_CODE_ACCORD: 'true', EMAIL_MODE: 'resend' };
+    const E2 = { ...E, EL_CODE_ACCORD: 'true', EMAIL_MODE: 'resend', RESEND_API_KEY: 'cle-de-test', EMAIL_FROM: 'ne-pas-repondre@notifications.propryo.fr' };
     const appel = () => mini.request('/api/el/accord/code', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-El-Jeton': jeton, to: 'pirate@evil.test' }, body: JSON.stringify({ to: 'pirate@evil.test' }) }, E2);
     for (let i = 0; i < LIMITES.CODE_ACCORD_HEURE; i++) {
       const r = await appel();
@@ -95,7 +108,7 @@ describe('espace locataire : code de l\'accord (/api/el/accord/code)', () => {
   it('envoi impossible → 502 « envoi » ; quota global atteint → 429 « limite »', async () => {
     identite();
     repond('el_contact', { email: 'loc.panne@example.test' }, 2);
-    const E2 = { ...E, EL_CODE_ACCORD: 'true', EMAIL_MODE: 'resend' };
+    const E2 = { ...E, EL_CODE_ACCORD: 'true', EMAIL_MODE: 'resend', RESEND_API_KEY: 'cle-de-test', EMAIL_FROM: 'ne-pas-repondre@notifications.propryo.fr' };
     const jeton = 'D'.repeat(40) + Math.random().toString(36).slice(2, 5).padEnd(3, 'x');
     const h = { 'Content-Type': 'application/json', 'X-El-Jeton': jeton };
     const panne = new Hono(); registerEspaceLocataireRoutes(panne, { sender: { sendModele: async () => ({ sent: false, error: 'reseau' }) } });

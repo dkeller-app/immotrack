@@ -6,7 +6,7 @@ import { createToken, verifyToken } from './tokens.js';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { generateCode, hashCode, verifyCode, otpUsable, OTP_TTL_MS } from './otp.js';
 import { makeSender, modeEmail } from './email-sender.js';
-import { marge, compter, consommer, parHeure, parJour, LIMITES } from './email-limites.js';
+import { marge, compter, consommer, parHeure, parJour, jourUTC, debitEmail, LIMITES } from './email-limites.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession, getOwnerEpoch, bumpOwnerEpoch } from './storage.js';
 import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta, validateSignPayload } from './validate.js';
 import { stampSignedPdf } from './sign-stamp.js';
@@ -17,7 +17,7 @@ import {
 } from './candidatures.js';
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
 import { registerAiRoutes } from './ai/routes.js';
-import { registerEspaceLocataireRoutes, registerEspaceLocataireProprietaire, entetesEspace } from './espace-locataire.js';
+import { registerEspaceLocataireRoutes, registerEspaceLocataireProprietaire, entetesEspace, ipHash } from './espace-locataire.js';
 import { registerEspaceArtisanRoutes, registerEspaceArtisanProprietaire } from './espace-artisan.js';
 import { registerAiPublicRoutes } from './ai/public.js';
 import { registerDeuxDDocRoutes } from './deux-d-doc-confiance.js';
@@ -119,7 +119,7 @@ app.post('/sessions', async (c) => {
   }
 
   const { sessionId } = await createSession(c.env, {
-    bailRef: meta.bailRef, pdfBytes, signers,
+    bailRef: meta.bailRef, pdfBytes, signers, bailleur: meta.bailleur,
     createdBy: gate.userId          // preuve de propriété durable (cf. mintOwnerToken / reclaim)
   });
   const ownerToken = await mintOwnerToken(c.env, sessionId);
@@ -193,15 +193,22 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   const email = body && typeof body.email === 'string' ? body.email.trim().slice(0, 254) : '';
   const signer = guard.session.signers[guard.session.currentIndex];
   // Limites (chantier EMAILS) : quiconque a le lien de signature peut appeler cette route. Clés = session + rang du
-  // signataire, jamais l'adresse. Anti-oracle : 10 adresses refusées par heure ; anti-rafale : 5 codes par heure, 10 par jour.
+  // signataire (+ condensat d'IP du jour pour les échecs), jamais l'adresse.
+  //  - verrou atomique de débit (binding EMAIL_RATE) : une rafale parallèle ne passe pas entre deux lectures KV ;
+  //  - anti-oracle : 10 adresses refusées par heure et par IP (un tiers ne bloque pas le vrai signataire ailleurs),
+  //    50 par heure pour la session ;
+  //  - anti-rafale : 5 codes par heure, 10 par jour pour le signataire, 20 par jour pour le compte créateur des sessions
+  //    (un compte de la bêta peut créer des sessions avec des adresses de son choix). Vérifiées AVANT de comparer
+  //    l'adresse : une fois le quota de codes épuisé, bonne et mauvaise adresse reçoivent la même réponse (pas d'oracle).
   const kv = c.env.SESSIONS_KV, sig = `${sessionId}:${guard.session.currentIndex}`;
-  const echecs = [parHeure('sigv:echec:' + sig, LIMITES.VERIF_EMAIL_ECHECS_HEURE)];
-  if (!(await marge(kv, echecs))) return c.json({ ok: false, error: 'limite' }, 429);
+  if (!(await debitEmail(c.env, 'sigv:' + sig))) return c.json({ ok: false, error: 'limite' }, 429);
+  const echecs = [parHeure(`sigv:echec:${sig}:${await ipHash(c)}`, LIMITES.VERIF_EMAIL_ECHECS_HEURE), parHeure('sigv:echec:' + sig, LIMITES.VERIF_EMAIL_ECHECS_SESSION_HEURE)];
+  const reglesCode = [parHeure('sigv:code:h:' + sig, LIMITES.OTP_SIGNATAIRE_HEURE), parJour('sigv:code:j:' + sig, LIMITES.OTP_SIGNATAIRE_JOUR)];
+  if (guard.session.createdBy) reglesCode.push(parJour(`sigv:compte:${guard.session.createdBy}:${jourUTC()}`, LIMITES.OTP_COMPTE_JOUR));
+  if (!(await marge(kv, echecs)) || !(await marge(kv, reglesCode))) return c.json({ ok: false, error: 'limite' }, 429);
   const match = timingSafeEqualStr(await emailHash(email), signer.emailHash);
   if (!match) { await compter(kv, echecs); return c.json({ ok: false }); }
-  if (!(await consommer(kv, [parHeure('sigv:code:h:' + sig, LIMITES.OTP_SIGNATAIRE_HEURE), parJour('sigv:code:j:' + sig, LIMITES.OTP_SIGNATAIRE_JOUR)]))) {
-    return c.json({ ok: false, error: 'limite' }, 429);
-  }
+  if (!(await consommer(kv, reglesCode))) return c.json({ ok: false, error: 'limite' }, 429);
 
   // emailVerifiedAt = email CONNU (preuve existante, conservée). L'OTP ci-dessous prouve en plus
   // que le signataire CONTRÔLE la boîte (otpVerifiedAt, posé à verify-otp).
@@ -211,7 +218,7 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   const h = await hashCode(sessionId, code);
   // Même règle que makeSender : hors EMAIL_MODE=resend, le code est affiché (mode test), jamais envoyé.
   await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS, modeEmail(c.env) === 'resend' ? 'email' : 'ecran-test');
-  const sent = await makeSender(c.env).send({ to: email, code });
+  const sent = await makeSender(c.env).send({ to: email, code, bailleur: guard.session.bailleur || '' });
   // Audit point 7 : en mode resend, un échec d'envoi (ni sent ni devCode) doit remonter une erreur
   // explicite — sinon le signataire attend un code jamais reçu, sans recours. ok:false : la page ne doit pas dire
   // « code envoyé » (sign.js lit ok ET otpSent).
@@ -661,7 +668,10 @@ app.onError((err, c) => {
   const chemin = new URL(c.req.url).pathname;
   if (!(chemin.startsWith('/api/el/') || chemin === '/l' || chemin.startsWith('/api/ar/') || chemin === '/a')) {
     if (err && typeof err.getResponse === 'function') return err.getResponse();
-    console.error(err);
+    // Routes qui manipulent une adresse, un code ou un jeton (e-mails, signature) : message tronqué, jamais l'erreur brute.
+    if (chemin.startsWith('/el/') || chemin.startsWith('/ar/') || chemin.startsWith('/api/sessions/') || chemin === '/sessions') {
+      console.warn('[relais] erreur', chemin.split('/').slice(0, 2).join('/'), err && err.name ? String(err.name).slice(0, 40) : 'inconnue');
+    } else console.error(err);
     return c.text('Internal Server Error', 500);
   }
   console.warn('[relais] espace locataire : erreur', err && err.message ? String(err.message).slice(0, 120) : 'inconnue');

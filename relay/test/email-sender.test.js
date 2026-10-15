@@ -179,12 +179,26 @@ describe('modèles : vouvoiement, expéditeur réel, RGPD, sobriété', () => {
     expect(modeleEmail('otp_signature', { code: '000123' }).texte).toContain('000123');
   });
   it('données variables : échappées dans le HTML, sans retour à la ligne, bornées', () => {
-    const m = modeleEmail('document', { bailleur: '<b>SCI</b> "Dupont"\r\nBcc: x@y', titre: '<img src=x onerror=alert(1)>' + 'z'.repeat(400) });
+    const m = modeleEmail('document', { bailleur: '<b>SCI</b> "Dupont"\r\nBcc: x@y', titre: 'Quittance <img src=x onerror=alert(1)> ' + 'z'.repeat(400) });
     expect(m.html).not.toMatch(/<b>SCI|<img src=x/);
     expect(m.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
     expect(m.texte).not.toMatch(/\r|Bcc: x@y\n/);
     expect(m.texte.split('\n')[0].length).toBeLessThan(160);
-    expect(m.texte).not.toContain('z'.repeat(201));
+    expect(m.texte).not.toContain('z'.repeat(121));
+  });
+  it('anti-hameçonnage : un texte libre qui ressemble à un lien ou à une adresse n\'est pas repris', () => {
+    for (const titre of ['Voir evil.com', 'https://evil.example', 'www.evil.fr', 'ecrire a pirate@evil.fr', 'Bail.pdf']) {
+      const m = modeleEmail('document', { bailleur: 'SCI Dupont', titre });
+      expect(m.texte).toMatch(/disponible : document\./);
+    }
+    expect(modeleEmail('document', { titre: 'Avenant n° 2 du 01.10.2026' }).texte).toMatch(/Avenant n° 2 du 01\.10\.2026/);
+    const b = modeleEmail('message', { bailleur: 'Banque-securite.com' });
+    expect(b.texte).not.toMatch(/securite\.com/);
+    expect(b.texte).toMatch(/^De la part de votre bailleur via Propryo/);
+  });
+  it('statut d\'un signalement : seulement une étape connue', () => {
+    expect(modeleEmail('signalement', { statut: 'Terminé' }).texte).toMatch(/a avancé : Terminé\./);
+    expect(modeleEmail('signalement', { statut: 'Cliquez ici vite' }).texte).toMatch(/a avancé\./);
   });
   it('adresse de réponse configurée : le pied de page le dit', () => {
     expect(modeleEmail('message', D, { repondre: true }).texte).toMatch(/parviennent à l'équipe Propryo, pas à SCI Dupont/);
@@ -221,7 +235,7 @@ describe('limites d\'envoi (compteurs à fenêtre fixe)', () => {
   it('règles du propriétaire : par lien (heure, jour) et par compte (jour)', () => {
     const r = reglesProprietaire('eln', 'acces-1', 'user-1', Date.UTC(2026, 9, 15));
     expect(r.map((x) => [x.cle, x.max, x.fenetre])).toEqual([
-      ['eln:lien:h:acces-1', 3, 3600], ['eln:lien:j:acces-1', 10, 86400], ['eln:compte:user-1:2026-10-15', 30, 86400],
+      ['eln:lien:h:acces-1', 3, 3600], ['eln:lien:j:acces-1', 10, 86400], ['email:compte:user-1:2026-10-15', 40, 86400],
     ]);
   });
   it('sans KV (tests isolés) : jamais bloquant', async () => {

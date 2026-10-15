@@ -9,9 +9,23 @@
 // Objets FIXES : jamais de nom, de montant ni de code dans l'objet (visible sur l'écran verrouillé d'un téléphone et
 // dans les aperçus). Toute donnée variable est bornée, nettoyée (pas de retour à la ligne) et échappée dans le HTML.
 
+import { ETAPES_LOCATAIRE } from '../../js/core/incident-circuit.js';
+
 export const TYPES_MODELES = Object.freeze(['otp_signature', 'code_accord', 'invitation', 'document', 'message', 'signalement', 'invitation_artisan']);
 
 const ligne = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+// Anti-hameçonnage : un texte libre (nom de SCI, titre de document) qui ressemble à une adresse web ou e-mail, ou qui
+// porte un numéro de téléphone, n'est pas repris — un compte de la bêta ne peut pas faire porter un lien ou un numéro de
+// son choix par un e-mail signé Propryo.
+const RESSEMBLE_LIEN = /(?:[a-z][a-z0-9+.-]*:\/\/|www\.|@|[a-z0-9-]+\.(?:[a-z]{2,24})(?![a-z0-9]))/i;
+const RESSEMBLE_TEL = /(?:\+|\b)(?:\d[\s.\-]?){9,}/;
+const libre = (v, max) => { const s = ligne(v, max); return RESSEMBLE_LIEN.test(s) || RESSEMBLE_TEL.test(s) ? '' : s; };
+// Titre d'un document : seulement les familles de titres fabriquées par l'app (js/app/espace-locataire-app.js, documents
+// publiés) — jamais une phrase libre. Sinon « document ».
+const TITRE_RE = /^(?:Quittance|Bail|Avenant|État des lieux|Décompte de régularisation|Justificatif|Attestation|Diagnostic|Avis d'échéance|Règlement|Lettre|Révision)\b/i;
+const titreSur = (v) => { const s = libre(v, 120); return TITRE_RE.test(s) ? s : ''; };
+// Statut d'un signalement : seulement l'une des étapes montrées au locataire (jamais un texte libre).
+const STATUTS = new Set(ETAPES_LOCATAIRE.map((e) => e.lbl));
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 // https seulement (http accepté pour le relais local `wrangler dev`, qui n'envoie rien : mode dev).
 const LIEN_RE = /^(?:https:\/\/[^\s"'<>\\]{1,2000}|http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?\/[^\s"'<>\\]{0,2000})$/;
@@ -24,12 +38,14 @@ const MOTIFS = {
 };
 
 function piedDePage(bailleur, motif, repondre, artisan) {
-  const qui = bailleur || (artisan ? 'le propriétaire' : 'le bailleur');
+  // Formes grammaticales distinctes quand le nom est inconnu : « par le bailleur », « Le bailleur est… », « au bailleur ».
+  const nom = artisan ? 'propriétaire' : 'bailleur';
+  const par = bailleur || 'le ' + nom, sujet = bailleur || 'Le ' + nom, a = bailleur ? 'à ' + bailleur : 'au ' + nom;
   const lignes = [
-    `Vous recevez cet e-mail à cette adresse ${motif}. Il est envoyé par Propryo, l'outil de gestion locative utilisé par ${qui}, pour son compte.`,
-    `${qui.charAt(0).toUpperCase() + qui.slice(1)} est responsable de vos données : pour toute question à leur sujet (accès, rectification, opposition), adressez-vous directement à ${qui}.`,
+    `Vous recevez cet e-mail à cette adresse ${motif}. Il est envoyé par Propryo, l'outil de gestion locative utilisé par ${par}, pour son compte.`,
+    `${sujet} est responsable de vos données : pour toute question à leur sujet (accès, rectification, opposition), adressez-vous directement ${a}.`,
     repondre
-      ? `Les réponses à cet e-mail parviennent à l'équipe Propryo, pas à ${qui}.`
+      ? `Les réponses à cet e-mail parviennent à l'équipe Propryo, pas ${a}.`
       : 'Message automatique : merci de ne pas répondre, la réponse ne serait pas lue.',
   ];
   return lignes;
@@ -71,7 +87,7 @@ const LIEN_PERSONNEL = 'Ce lien est personnel : ne le transférez pas.';
  * (EMAIL_REPLY_TO) est configurée. Retourne { objet, texte, html } ou null (type inconnu, lien ou code invalide).
  */
 export function modeleEmail(type, d = {}, opts = {}) {
-  const bailleur = ligne(d.bailleur, 120);
+  const bailleur = libre(d.bailleur, 120);
   const repondre = !!opts.repondre;
   const lien = d.lien == null ? '' : String(d.lien);
   const lienOk = LIEN_RE.test(lien);
@@ -100,14 +116,14 @@ export function modeleEmail(type, d = {}, opts = {}) {
       ] });
     case 'document':
       return assembler({ objet: 'Un document est disponible dans votre espace locataire', bailleur, motif: MOTIFS.bail, repondre, blocs: [
-        { p: `Un nouveau document est disponible : ${ligne(d.titre, 200) || 'document'}.` }, { p: AVIS_LIEN_PERSO },
+        { p: `Un nouveau document est disponible : ${titreSur(d.titre) || 'document'}.` }, { p: AVIS_LIEN_PERSO },
       ] });
     case 'message':
       return assembler({ objet: 'Nouveau message dans votre espace locataire', bailleur, motif: MOTIFS.bail, repondre, blocs: [
         { p: `${bailleur || 'Votre bailleur'} vous a répondu dans votre espace locataire.` }, { p: AVIS_LIEN_PERSO },
       ] });
     case 'signalement': {
-      const statut = ligne(d.statut, 40);
+      const statut = STATUTS.has(ligne(d.statut, 40)) ? ligne(d.statut, 40) : '';
       return assembler({ objet: 'Votre signalement a avancé', bailleur, motif: MOTIFS.bail, repondre, blocs: [
         { p: 'Un problème que vous avez signalé a avancé' + (statut ? ` : ${statut}` : '') + '.' }, { p: AVIS_LIEN_PERSO },
       ] });

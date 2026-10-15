@@ -7,7 +7,7 @@ import {
 // SEULE preuve de propriété durable : l'ownerToken, lui, n'existe qu'en un exemplaire côté app
 // et un écrasement rendrait un résultat signé irrécupérable (§6 de l'audit 2026-07-15).
 // Jamais renvoyé au client ; sert uniquement à autoriser POST /api/sessions/:id/reclaim.
-export async function createSession(env, { bailRef, pdfBytes, signers, createdBy }) {
+export async function createSession(env, { bailRef, pdfBytes, signers, createdBy, bailleur }) {
   const sessionId = randomHex(32); // 256 bits
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_SECONDS * 1000);
@@ -28,6 +28,8 @@ export async function createSession(env, { bailRef, pdfBytes, signers, createdBy
     bailRef,
     provider: 'native',
     createdBy: createdBy || null,
+    // Nom du bailleur (facultatif, fourni par l'app) : « De la part de <bailleur> via Propryo » dans l'e-mail du code.
+    bailleur: typeof bailleur === 'string' ? bailleur.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 120) : '',
     createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),
     status: 'pending',
