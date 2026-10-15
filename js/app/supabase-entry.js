@@ -917,7 +917,17 @@ async function boot() {
     rpc: async (fn, args) => { if (!_IC_RPC.includes(fn)) throw new Error('fonction hors circuit incident'); const { data, error } = await client.rpc(fn, args); if (error) throw Object.assign(new Error(error.message), { code: error.code }); return data },
   }
 
+  // PREMIERS-PAS (étape « Inviter un associé ») : nombre d'invitations déjà créées dans l'espace propre (RLS manager),
+  // lu UNE fois après l'affichage, jamais dans le chemin de connexion. null si indisponible.
+  async function _compterInvitations () {
+    if (!_cloudEspaceId) return null
+    const { count, error } = await client.from('invitations').select('token', { count: 'exact', head: true }).eq('espace_id', _cloudEspaceId)
+    if (error) return null
+    return count || 0
+  }
+
   window.__immoPartage = {
+    compterInvitations: _compterInvitations,
     listMembers: _listMembers,
     listEntites: _listEntites,
     createInvite: _createInvite,

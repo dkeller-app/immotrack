@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.744';
+const IMMOTRACK_VERSION = '15.748';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7658,11 +7658,13 @@ function rAccueil() {
   // ── MOBILE-REFONTE lot 1 — Accueil calme sur TÉLÉPHONE (≤767px). PC + tablette inchangés
   //    (le Pilotage reste la vue ≥768). Branche ici, avant _renderPilotage.
   var _accEl = el('p-accueil');
-  if (_isPhone()) { if(_accEl) _accEl.classList.add('accm-on'); try { _renderAccueilPhone(ctx); return; } catch(e) { console.warn('[accueilPhone]', e); if(_accEl) _accEl.classList.remove('accm-on'); } }
+  if (_isPhone()) { if(_accEl) _accEl.classList.add('accm-on'); try { _renderAccueilPhone(ctx); try{ if (window.PremiersPas) window.PremiersPas.carte(); }catch(e){} return; } catch(e) { console.warn('[accueilPhone]', e); if(_accEl) _accEl.classList.remove('accm-on'); } }
   else if (_accEl) { _accEl.classList.remove('accm-on'); }
   _renderPilotage(ctx);
   try{ _pilWireClicks(); }catch(e){}
   try{ _renderInboxSurfaces(); }catch(e){}
+  // PREMIERS-PAS (docs/CDC-PREMIERS-PAS.md) : carte « Premiers pas » + visite guidée, module js/app/premiers-pas-app.js.
+  try{ if (window.PremiersPas) window.PremiersPas.carte(); }catch(e){}
 }
 
 // ── MOBILE-REFONTE — helper breakpoint UNIQUE (téléphone ≤767 ; tablette = PC). L'EDL garde
@@ -8467,6 +8469,7 @@ function setParamsTab(tab, el2) {
   if(tab==='rules')  rParamsRules();
   if(tab==='profile') rParamsProfile(); // v15.04 USER-PROFILE-FILTERS Phase 4
   if(tab==='candidatures' && typeof rParamsCandidatures==='function') rParamsCandidatures(); // VERIF-DOCUMENTS lot 4
+  if(tab==='artisans' && window.IncCircuit && typeof window.IncCircuit.parametres==='function') window.IncCircuit.parametres('tp-artisans'); // PREMIERS-PAS D3
 }
 
 function loadBailTemplateEditor() {

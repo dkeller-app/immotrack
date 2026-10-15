@@ -327,41 +327,56 @@ function editer(id) { etat.edition = id == null ? 'nouveau' : String(id); aller(
 function vueCarnet(inc) {
   const a = etat.edition === 'nouveau' ? IC.nouvelArtisan({ entity: (entiteDe(inc) || {}).nom || inc.entity || '', metiers: [etat.filtreMetier || metierDe(inc)].filter(Boolean) }) : artisanDe(etat.edition)
   if (!a) return vueArtisan(inc)
-  const metiers = Object.entries(IN().NAF_METIERS)
   return {
     titre: etat.edition === 'nouveau' ? 'Ajouter un artisan' : 'Fiche de l\'artisan', sub: a.entity ? 'Carnet de ' + a.entity : 'Carnet',
-    body: `<div class="inc-g2"><div class="inc-f"><label class="inc-lb" for="inc-a-nom">Entreprise *</label><input class="inp" id="inc-a-nom" value="${esc(a.nom)}"></div>
+    body: formArtisan(a),
+    foot: `${etat.edition !== 'nouveau' ? `<button type="button" class="btn bs" onclick="IncCircuit.supprimerArtisan()">${ico('trash', 14)} Retirer du carnet</button>` : ''}<button type="button" class="btn bs" onclick="_incGo('artisan')">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.enregistrerArtisan()">Enregistrer</button>`,
+  }
+}
+// Formulaire d'un artisan du carnet : le même dans un incident et dans Paramètres › Artisans et plafond (PREMIERS-PAS D3).
+// `structures` (Paramètres, ajout, plusieurs structures) : choix de la structure dont c'est le carnet.
+function formArtisan(a, structures) {
+  const metiers = Object.entries(IN().NAF_METIERS)
+  const choixStructure = Array.isArray(structures) && structures.length > 1
+    ? `<div class="inc-f"><label class="inc-lb" for="inc-a-ent">Carnet de la structure</label><select class="inp" id="inc-a-ent">${structures.map((n) => `<option value="${esc(n)}"${n === a.entity ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></div>`
+    : ''
+  return `${choixStructure}<div class="inc-g2"><div class="inc-f"><label class="inc-lb" for="inc-a-nom">Entreprise *</label><input class="inp" id="inc-a-nom" value="${esc(a.nom)}"></div>
       <div class="inc-f"><label class="inc-lb" for="inc-a-siret">SIRET <span class="inc-opt">— facultatif</span></label><input class="inp" id="inc-a-siret" inputmode="numeric" value="${esc(a.siret)}"></div></div>
       <div class="inc-g2"><div class="inc-f"><label class="inc-lb" for="inc-a-tel">Téléphone</label><input class="inp" id="inc-a-tel" inputmode="tel" value="${esc(a.tel)}"></div>
       <div class="inc-f"><label class="inc-lb" for="inc-a-mail">E-mail</label><input class="inp" id="inc-a-mail" inputmode="email" value="${esc(a.email)}"></div></div>
       <div class="inc-f"><span class="inc-lb">Métiers</span><div class="inc-chips">${metiers.map(([k, x]) => `<label class="inc-chip"><input type="checkbox" name="inc-a-met" value="${esc(k)}"${a.metiers.includes(k) ? ' checked' : ''}><span>${esc(x.lbl)}</span></label>`).join('')}</div></div>
       <label class="inc-check"><input type="checkbox" id="inc-a-auto"${a.prevenirAuto ? ' checked' : ''}> <span>Prévenir directement cet artisan quand un incident de ces métiers est signalé</span></label>
       <div class="inc-f"><label class="inc-lb" for="inc-a-note">Note privée <span class="inc-opt">— visible de la structure et de ses associés seulement, jamais publiée</span></label><textarea class="inp" id="inc-a-note" rows="3" maxlength="${IC.NOTE_MAX}">${esc(a.notePrivee)}</textarea></div>
-      ${a.nom ? `<a class="btn bs bb" href="${esc(IC.lienAvisEnLigne(a.nom, a.commune))}" target="_blank" rel="noopener noreferrer">${ico('external', 13)} Voir les avis en ligne</a>` : ''}`,
-    foot: `${etat.edition !== 'nouveau' ? `<button type="button" class="btn bs" onclick="IncCircuit.supprimerArtisan()">${ico('trash', 14)} Retirer du carnet</button>` : ''}<button type="button" class="btn bs" onclick="_incGo('artisan')">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.enregistrerArtisan()">Enregistrer</button>`,
-  }
+      ${a.nom ? `<a class="btn bs bb" href="${esc(IC.lienAvisEnLigne(a.nom, a.commune))}" target="_blank" rel="noopener noreferrer">${ico('external', 13)} Voir les avis en ligne</a>` : ''}`
 }
-function enregistrerArtisan() {
+/** Enregistre le formulaire d'un artisan (`portee` = la couche qui le porte). true si enregistré. */
+function enregistrerArtisanDans(portee, edition, entityNouveau) {
   const v = (id) => ((document.getElementById(id) || {}).value || '').trim()
-  const metiers = [...document.querySelectorAll('#ov-incident input[name="inc-a-met"]:checked')].map((x) => x.value)
-  if (!v('inc-a-nom')) { toast('Indiquer le nom de l\'entreprise.', 'warn'); return }
+  const metiers = [...document.querySelectorAll(portee + ' input[name="inc-a-met"]:checked')].map((x) => x.value)
+  if (!v('inc-a-nom')) { toast('Indiquer le nom de l\'entreprise.', 'warn'); return false }
   const champs = { nom: v('inc-a-nom'), siret: v('inc-a-siret'), tel: v('inc-a-tel'), email: v('inc-a-mail'), metiers, notePrivee: (document.getElementById('inc-a-note') || {}).value || '', prevenirAuto: !!(document.getElementById('inc-a-auto') || {}).checked }
   if (champs.email && !IC.nouvelArtisan({ email: champs.email }).email) toast('E-mail non reconnu : non enregistré.', 'warn', 4500)
-  const st = etatInc(), inc = st ? incidentDe(st.id) : null
-  if (etat.edition === 'nouveau') {
-    const a = IC.nouvelArtisan({ ...champs, entity: (inc && ((entiteDe(inc) || {}).nom || inc.entity)) || '', source: 'libre' }, new Date().toISOString())
+  if (edition === 'nouveau') {
+    const a = IC.nouvelArtisan({ ...champs, entity: entityNouveau || '', source: 'libre' }, new Date().toISOString())
     a.id = G('nid') ? W.nid() : Date.now(); artisans().push(a); persisterArtisan(a, 'create')
   } else {
-    const a = artisanDe(etat.edition); if (!a) return
+    const a = artisanDe(edition); if (!a) return false
     Object.assign(a, IC.nouvelArtisan({ ...a, ...champs }, a.creeLe), { id: a.id }); persisterArtisan(a)
   }
-  toast('Carnet mis à jour.'); aller('artisan')
+  toast('Carnet mis à jour.')
+  return true
 }
-function supprimerArtisan() {
-  const a = artisanDe(etat.edition); if (!a) return
-  if (G('confirm2') && !W.confirm2('Retirer ' + a.nom + ' du carnet ?\n\nLes incidents passés gardent son nom. Il ne sera plus proposé ni prévenu.')) return
-  a._deleted = true; a._deletedAt = new Date().toISOString(); persisterArtisan(a, 'delete'); toast('Artisan retiré du carnet.'); aller('artisan')
+function enregistrerArtisan() {
+  const st = etatInc(), inc = st ? incidentDe(st.id) : null
+  if (enregistrerArtisanDans('#ov-incident', etat.edition, inc && ((entiteDe(inc) || {}).nom || inc.entity))) aller('artisan')
 }
+function retirerArtisan(id) {
+  const a = artisanDe(id); if (!a) return false
+  if (G('confirm2') && !W.confirm2('Retirer ' + a.nom + ' du carnet ?\n\nLes incidents passés gardent son nom. Il ne sera plus proposé ni prévenu.')) return false
+  a._deleted = true; a._deletedAt = new Date().toISOString(); persisterArtisan(a, 'delete'); toast('Artisan retiré du carnet.')
+  return true
+}
+function supprimerArtisan() { if (retirerArtisan(etat.edition)) aller('artisan') }
 
 // ─────────────────────────── Envoi de la demande (D6, D13, D14) ───────────────────────────
 function cheminComplet(key, inc) {
@@ -481,11 +496,18 @@ async function ouvrirPhotos(incId) {
 
 // ─────────────────────────── Plafond (D1, D2, D4) ───────────────────────────
 function vuePlafond(inc) {
-  const ent = entiteDe(inc), r = reglagesDe(inc), metiers = Object.entries(IN().NAF_METIERS)
-  const devis = QP().TEXTES['devis-2017'] && G('_incCite') ? W._incCite(Object.assign({ id: 'devis-2017' }, QP().TEXTES['devis-2017'])) : ''
+  const ent = entiteDe(inc)
   return {
     titre: 'Plafond d\'intervention directe', sub: ent ? ent.nom + ' · réglage propre à cette structure' : 'Structure de l\'incident',
-    body: `<div class="inc-note">${ico('info', 13)} En dessous de ce montant, l'artisan prévenu par Propryo intervient sans attendre de réponse : son devis, déposé sur sa page, est accepté automatiquement au nom de ${esc(ent ? ent.nom : 'la structure')}. Au-dessus, le devis arrive ici pour être accepté ou refusé en 1 clic.</div>
+    body: plafondCorps(ent),
+    foot: `<button type="button" class="btn bs" onclick="_incGo('fiche')">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.validerPlafond()">${ico('check', 14)} Valider le plafond</button>`,
+  }
+}
+// Corps du réglage du plafond d'UNE structure : le même dans un incident et dans Paramètres › Artisans et plafond (D3).
+function plafondCorps(ent) {
+  const r = IC.normaliserReglages((ent || {}).incidentReglages), metiers = Object.entries(IN().NAF_METIERS)
+  const devis = QP().TEXTES['devis-2017'] && G('_incCite') ? W._incCite(Object.assign({ id: 'devis-2017' }, QP().TEXTES['devis-2017'])) : ''
+  return `<div class="inc-note">${ico('info', 13)} En dessous de ce montant, l'artisan prévenu par Propryo intervient sans attendre de réponse : son devis, déposé sur sa page, est accepté automatiquement au nom de ${esc(ent ? ent.nom : 'la structure')}. Au-dessus, le devis arrive sur la fiche de l'incident pour être accepté ou refusé en 1 clic.</div>
       <div class="inc-f"><label class="inc-lb" for="inc-p-mt">Plafond par intervention, TTC, déplacement compris</label><input class="inp" id="inc-p-mt" inputmode="decimal" value="${esc(String(r.plafondTtc).replace('.', ','))}"></div>
       <details class="inc-det"${Object.keys(r.parMetier).length ? ' open' : ''}><summary>Par métier (facultatif)</summary><div class="inc-g2">${metiers.map(([k, x]) => `<div class="inc-f"><label class="inc-lb" for="inc-p-${esc(k)}">${esc(x.lbl)}</label><input class="inp" id="inc-p-${esc(k)}" data-metier="${esc(k)}" inputmode="decimal" placeholder="plafond général" value="${r.parMetier[k] != null ? esc(String(r.parMetier[k]).replace('.', ',')) : ''}"></div>`).join('')}</div></details>
       <div class="inc-guard neutre"><b>Urgence.</b> Mise en sécurité (couper, colmater, sécuriser une porte) toujours autorisée, limitée aux travaux strictement nécessaires, dans la limite du plafond. La réparation au-delà passe par un devis.</div>
@@ -493,24 +515,100 @@ function vuePlafond(inc) {
         <label class="inc-check"><input type="radio" name="inc-p-pieces" value="photo"${r.conserverPieces ? '' : ' checked'}> <span>Ne pas conserver, mais demander une photo de chaque pièce remplacée (preuve du constat)</span></label>
         <label class="inc-check"><input type="radio" name="inc-p-pieces" value="conserver"${r.conserverPieces ? ' checked' : ''}> <span>Conserver les pièces remplacées (l'artisan les laisse sur place)</span></label></div>
       <div class="inc-guard"><b>La règle du devis.</b> Le client est ${esc(ent ? ent.nom : 'le propriétaire')}, qui commande et paie ; le logement loué est le lieu d'exécution. Le devis reste dû avant les travaux, même sous le plafond.${devis}</div>
-      ${r.valideLe ? `<div class="inc-note pos">${ico('check', 13)} Validé le ${esc(fdh(r.valideLe))}.</div>` : `<div class="inc-note">${ico('info', 13)} Tant que le plafond n'est pas validé, tout devis passe par le propriétaire.</div>`}`,
-    foot: `<button type="button" class="btn bs" onclick="_incGo('fiche')">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.validerPlafond()">${ico('check', 14)} Valider le plafond</button>`,
-  }
+      ${r.valideLe ? `<div class="inc-note pos">${ico('check', 13)} Validé le ${esc(fdh(r.valideLe))}.</div>` : `<div class="inc-note">${ico('info', 13)} Tant que le plafond n'est pas validé, tout devis passe par le propriétaire.</div>`}`
 }
-function validerPlafond() {
-  const st = etatInc(), inc = st ? incidentDe(st.id) : null; if (!inc) return
-  const ent = entiteDe(inc); if (!ent) { toast('Structure de l\'incident introuvable : rattacher le bien à une structure.', 'warn', 5000); return }
-  const mt = IC.montant((document.getElementById('inc-p-mt') || {}).value)
-  if (mt == null || mt > IC.PLAFOND_MAX) { toast('Indiquer un montant en euros.', 'warn'); return }
+/** Lit le réglage dans la couche `portee` et le valide pour la structure `ent`. true si enregistré. */
+function appliquerPlafond(ent, portee) {
+  if (!ent) { toast('Structure introuvable : rattacher le bien à une structure.', 'warn', 5000); return false }
+  const mt = IC.montant((document.querySelector(portee + ' #inc-p-mt') || {}).value)
+  if (mt == null || mt > IC.PLAFOND_MAX) { toast('Indiquer un montant en euros.', 'warn'); return false }
   const parMetier = {}
-  document.querySelectorAll('#ov-incident input[data-metier]').forEach((i) => { const n = IC.montant(i.value); if (n != null) parMetier[i.getAttribute('data-metier')] = n })
-  const conserver = ((document.querySelector('#ov-incident input[name="inc-p-pieces"]:checked') || {}).value) === 'conserver'
-  ent.incidentReglages = IC.normaliserReglages({ plafondTtc: mt, parMetier, conserverPieces: conserver, valideLe: new Date().toISOString(), validePar: ((W.__immoUser && W.__immoUser.email) || '') })
+  document.querySelectorAll(portee + ' input[data-metier]').forEach((i) => { const n = IC.montant(i.value); if (n != null) parMetier[i.getAttribute('data-metier')] = n })
+  const conserver = ((document.querySelector(portee + ' input[name="inc-p-pieces"]:checked') || {}).value) === 'conserver'
+  ent.incidentReglages = IC.normaliserReglages({ plafondTtc: mt, parMetier, conserverPieces: conserver, valideLe: new Date().toISOString(), validePar: ((W.__immoCloudInfo && W.__immoCloudInfo.email) || '') })
   if (G('_stamp')) W._stamp(ent)
   if (G('_auditLog')) W._auditLog('update', 'entite', ent.id, ent.nom + ' : plafond d\'intervention ' + mt + ' € TTC')
   if (G('saveDB')) W.saveDB()
   toast('Plafond de ' + euros(mt) + ' TTC validé pour ' + ent.nom + '.', 'ok', 4500)
-  aller('fiche')
+  return true
+}
+function validerPlafond() {
+  const st = etatInc(), inc = st ? incidentDe(st.id) : null; if (!inc) return
+  if (appliquerPlafond(entiteDe(inc), '#ov-incident')) aller('fiche')
+}
+
+// ─────────────────────────── Paramètres › Artisans et plafond (PREMIERS-PAS D3) ───────────────────────────
+// Les deux réglages qui rendent le circuit d'un incident autonome n'étaient accessibles que depuis un incident ouvert.
+// Ici, hors incident : mêmes formulaires (plafondCorps, formArtisan), mêmes enregistrements (appliquerPlafond,
+// enregistrerArtisanDans, retirerArtisan) — rien de recopié.
+const structures = () => ((db() || {}).entites || []).filter(vivant)
+const entiteParId = (id) => structures().find((e) => String(e.id) === String(id)) || null
+const ap = { edition: null, hote: 'tp-artisans' }
+function coucheAp(titre, corps, pied) {
+  const old = document.getElementById('ov-ap'); if (old) old.remove()
+  document.body.insertAdjacentHTML('beforeend', `<div class="ov" id="ov-ap"><div class="modal" style="max-width:640px" role="dialog" aria-modal="true" aria-labelledby="ov-ap-t">
+    <div class="m-head"><h3 id="ov-ap-t">${esc(titre)}</h3><button type="button" class="m-close" aria-label="Fermer" onclick="IncCircuit.ap.fermer()">${ico('close', 18)}</button></div>
+    <div class="m-body">${corps}</div><div class="m-foot">${pied}</div></div></div>`)
+  if (G('openM')) W.openM('ov-ap')
+  const ov = document.getElementById('ov-ap')
+  ov.addEventListener('keydown', (k) => { if (k.key === 'Escape') { k.stopPropagation(); apFermer() } })
+  const f = ov.querySelector('input,select,textarea'); if (f) f.focus()
+}
+function apFermer() { const o = document.getElementById('ov-ap'); if (o) o.remove() }
+function apPlafond(entId) {
+  const ent = entiteParId(entId); if (!ent) return
+  coucheAp('Plafond d\'intervention · ' + ent.nom, plafondCorps(ent),
+    `<button type="button" class="btn bs" onclick="IncCircuit.ap.fermer()">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.ap.validerPlafond(${js(ent.id)})">${ico('check', 14)} Valider le plafond</button>`)
+}
+function apValiderPlafond(entId) { if (appliquerPlafond(entiteParId(entId), '#ov-ap')) { apFermer(); parametres() } }
+function apArtisan(id) {
+  const noms = structures().map((e) => e.nom)
+  ap.edition = id == null ? 'nouveau' : String(id)
+  const a = ap.edition === 'nouveau' ? IC.nouvelArtisan({ entity: noms[0] || '' }) : artisanDe(ap.edition)
+  if (!a) return
+  coucheAp(ap.edition === 'nouveau' ? 'Ajouter un artisan' : 'Fiche de l\'artisan', formArtisan(a, ap.edition === 'nouveau' ? noms : null),
+    `${ap.edition !== 'nouveau' ? `<button type="button" class="btn bs" onclick="IncCircuit.ap.retirer()">${ico('trash', 14)} Retirer du carnet</button>` : ''}<button type="button" class="btn bs" onclick="IncCircuit.ap.fermer()">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.ap.enregistrer()">Enregistrer</button>`)
+}
+function apEnregistrer() {
+  const choix = document.querySelector('#ov-ap #inc-a-ent')
+  const entite = choix ? choix.value : ((structures()[0] || {}).nom || '')
+  if (enregistrerArtisanDans('#ov-ap', ap.edition, entite)) { apFermer(); parametres() }
+}
+function apRetirer() { if (retirerArtisan(ap.edition)) { apFermer(); parametres() } }
+function parametres(hostId) {
+  if (hostId) ap.hote = hostId
+  const host = document.getElementById(ap.hote); if (!host || !IN()) return
+  const ents = structures()
+  const metierLbls = (a) => (a.metiers || []).map(metierLbl).join(', ')
+  const lignesPlafond = ents.map((e) => {
+    const r = IC.normaliserReglages(e.incidentReglages)
+    const etatTxt = r.valideLe ? `${euros(r.plafondTtc)} TTC par intervention · validé le ${fdate(r.valideLe)}` : 'Non validé : tout devis passe par le propriétaire.'
+    return `<li class="ap-ligne"><span class="ap-m"><b>${esc(e.nom)}</b><span class="ap-s${r.valideLe ? '' : ' a-faire'}">${esc(etatTxt)}</span></span><button type="button" class="btn bs bb" onclick="IncCircuit.ap.plafond(${js(e.id)})">${r.valideLe ? 'Modifier le plafond' : 'Fixer le plafond'}</button></li>`
+  }).join('')
+  const carnet = artisans().filter((a) => vivant(a))
+  const lignesCarnet = carnet.map((a) => `<li class="ap-ligne"><span class="ap-m"><b>${esc(a.nom)}</b><span class="ap-s">${esc([metierLbls(a), a.tel, a.entity ? 'carnet de ' + a.entity : ''].filter(Boolean).join(' · '))}</span></span><button type="button" class="btn bs bb" onclick="IncCircuit.ap.artisan(${js(a.id)})">Modifier</button></li>`).join('')
+  host.innerHTML = `<style>
+      #${ap.hote} .ap-wrap{max-width:860px}
+      #${ap.hote} .ap-intro{font-size:14px;color:var(--t2);margin:0 0 16px;line-height:1.5}
+      #${ap.hote} .ap-liste{list-style:none;margin:0 0 20px;padding:0;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur)}
+      #${ap.hote} .ap-ligne{display:flex;align-items:center;gap:12px;padding:12px 14px;flex-wrap:wrap}
+      #${ap.hote} .ap-ligne+.ap-ligne{border-top:1px solid var(--bor)}
+      #${ap.hote} .ap-m{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:2px}
+      #${ap.hote} .ap-m b{color:var(--t1);font-size:14.5px}
+      #${ap.hote} .ap-s{font-size:13px;color:var(--t2)}
+      #${ap.hote} .ap-s.a-faire{color:var(--t1);font-weight:600}
+      #${ap.hote} .ap-vide{padding:16px;font-size:14px;color:var(--t2);text-align:center;line-height:1.5}
+      #${ap.hote} .ap-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+      #${ap.hote} .ap-h .ct{margin:0;flex:1}
+      @media (max-width:767px){ #${ap.hote} .ap-ligne .btn{flex:1 1 100%;min-height:44px} #${ap.hote} .ap-h .btn{flex:1 1 100%;min-height:44px} }
+    </style><div class="ap-wrap">
+    <div class="ct mb12">${ico('wrench', 16)} Artisans et plafond</div>
+    <p class="ap-intro">Quand un locataire signale un incident, un artisan du carnet couvrant le métier reçoit la demande et intervient sous le plafond de la structure ; au-delà, son devis attend une validation.</p>
+    <div class="ap-h"><div class="ct" style="font-size:14px">Plafond d'intervention directe</div></div>
+    ${ents.length ? `<ul class="ap-liste">${lignesPlafond}</ul>` : '<div class="ap-liste"><div class="ap-vide">Aucune structure pour l\'instant : ajouter d\'abord un logement (la structure, SCI ou nom propre, se crée avec lui).</div></div>'}
+    <div class="ap-h"><div class="ct" style="font-size:14px">Carnet d'artisans</div>${ents.length ? `<button type="button" class="btn bp bb" onclick="IncCircuit.ap.artisan(null)">${ico('plus', 14)} Ajouter un artisan</button>` : ''}</div>
+    ${carnet.length ? `<ul class="ap-liste">${lignesCarnet}</ul>` : '<div class="ap-liste"><div class="ap-vide">Aucun artisan au carnet. Plombier, électricien, chauffagiste : un artisan ajouté ici est prévenu directement quand un incident de son métier est signalé.</div></div>'}
+  </div>`
 }
 
 // ─────────────────────────── Devis au-dessus du plafond (D3) ───────────────────────────
@@ -822,6 +920,8 @@ export function demarrer() {
     vues: { artisan: vueArtisan, choisir: vueChoisir, carnet: vueCarnet, plafond: vuePlafond, devis: vueDevis, 'facture-ia': vueFactureIa, valider: vueValider },
     envoyer, renvoyer, retirer, choisir, confirmerChoix, editer, enregistrerArtisan, supprimerArtisan, suggerer, validerPlafond, decider, lireDepot, deposerFacture,
     majValidation, valider, rattacher, rembourse, ouvrirDepot, ouvrirPhotos, apresImport,
+    // PREMIERS-PAS D3 : Paramètres › Artisans et plafond (hors incident)
+    parametres, ap: { plafond: apPlafond, validerPlafond: apValiderPlafond, artisan: apArtisan, enregistrer: apEnregistrer, retirer: apRetirer, fermer: apFermer },
     metier: (m) => { etat.filtreMetier = m; rerender() },
     toutVoir: (incId) => { const inc = incidentDe(incId); if (!inc) return; const s = etat.sugg.get(cleInc(inc) + '|' + (etat.filtreMetier || metierDe(inc))); if (s) { s.tout = true; rerender() } },
   }

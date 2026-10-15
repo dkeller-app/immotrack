@@ -17141,7 +17141,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.744 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.748 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -26935,6 +26935,8 @@ function rParamsProfile() {
         <button class="btn bp bb" onclick="saveGlobalParams()">${_uiIcon('save',14)} Enregistrer</button>
       </div>
     </div>`;
+  // PREMIERS-PAS : « Relancer la visite guidée », réaffichage de la liste, partage de la progression (D6).
+  try { if (window.PremiersPas) window.PremiersPas.profil(wrap); } catch(e) {}
 }
 
 function _profileToggleModule(moduleKey, on) {

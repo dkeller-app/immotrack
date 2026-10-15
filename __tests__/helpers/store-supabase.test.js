@@ -375,7 +375,7 @@ describe('SupabaseStore.persistConfig — écrit le sous-ensemble CONFIG (compl�
       entites: [{ nom: 'A' }], logements: [{ ref: 'F' }], baux: { 'F': {} }, mouvements: [{ id: 1 }],
       quittances: [], edl: [], documents: [], baux_historique: [], mrh: [{ id: 2 }], agenda: [{ id: 3 }],
       candidats: [{ id: 9 }], _modifiedAt: 'x',   // candidats = TABLE désormais → exclu du blob
-      params: { devise: 'EUR', bankAccounts: [{ iban: 'X' }], userProfile: { n: 'P' } },
+      params: { devise: 'EUR', bankAccounts: [{ iban: 'X' }], userProfile: { n: 'P' }, premiersPas: { v: 1, etapes: {} } },   // premiersPas : mesure de la bêta (CDC-PREMIERS-PAS D5)
       categories: ['Loyer'], irlTable: { 2026: 100 }, assurances: [{ id: 1, type: 'PNO' }],   // assurances BAILLEUR = config (pas de table)
       auditTrail: [{ a: 1 }], candidatLinks: { L: 't' },
     })
@@ -391,7 +391,7 @@ describe('SupabaseStore.persistConfig — écrit le sous-ensemble CONFIG (compl�
     expect(written.assurances).toEqual([{ id: 1, type: 'PNO' }])
     // blob PRIVÉ = clés propriétaire-privé
     expect(writtenPriv.auditTrail).toEqual([{ a: 1 }]); expect(writtenPriv.candidatLinks).toEqual({ L: 't' })
-    expect(writtenPriv.params).toEqual({ bankAccounts: [{ iban: 'X' }], userProfile: { n: 'P' } })
+    expect(writtenPriv.params).toEqual({ bankAccounts: [{ iban: 'X' }], userProfile: { n: 'P' }, premiersPas: { v: 1, etapes: {} } })
     expect(r.status).toBe('config-written')
   })
 

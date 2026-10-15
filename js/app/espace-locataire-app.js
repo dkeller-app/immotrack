@@ -671,6 +671,9 @@ export function demarrer() {
   W.EspaceLoc = { creer, renouveler, revoquer, documents, retirer, messages, joindre, repondre: (id) => repondre(id), ouvrirPiece,
     disponiblePourIncident, envoyerTexteIncident,
     // Liens actifs rattachés à la ligne cloud ACTUELLE du bail (re-datation / retrait de « signé hors Propryo » → nouvelle ligne).
+    // PREMIERS-PAS (étape « Ouvrir l'espace du locataire ») : accès émis dans l'espace PROPRE, révoqués compris
+    // (l'étape est faite dès le premier lien) ; null tant que les accès ne sont pas chargés.
+    nbAccesEmis: () => { if (!etat.charge) return null; const p = API() && API().espacePropre ? API().espacePropre() : null; return etat.acces.filter((x) => !p || !x.espace_id || x.espace_id === p).length },
     accesActifsDuBail: (ref) => { const b = ((db() || {}).baux || {})[ref]; if (!b || !vivant(b)) return 0; return accesDe(bailId(ref, b), jour(b.debut) || null).filter((x) => !x.revoque_le).length },
     publierMaintenant: async () => { toast('Publication en cours…', 'info'); await cycle(true); toast('Documents à jour.') } }
   cycle(true)

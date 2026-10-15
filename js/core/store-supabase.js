@@ -92,7 +92,8 @@ const extractConfig = db => {
 // par tout membre scopé) → vont dans `espace_config_private` (RLS is_full_member). Top-level en bloc +
 // sous-clés de `params`. Un membre scopé ne les reçoit pas (fail-closed : RLS renvoie 0 ligne).
 export const PRIVATE_CONFIG_KEYS = ['auditTrail', 'candidatLinks']
-export const PRIVATE_PARAM_KEYS = ['bankAccounts', 'userProfile']
+// premiersPas : progression de mise en route (docs/CDC-PREMIERS-PAS.md, D5) — mesure de la bêta, membres pleins seulement.
+export const PRIVATE_PARAM_KEYS = ['bankAccounts', 'userProfile', 'premiersPas']
 export const splitConfig = cfg => {
   const shared = {}, priv = {}
   for (const [k, v] of Object.entries(cfg || {})) {
