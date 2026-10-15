@@ -1774,6 +1774,8 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
   padding:6px 8px;background:var(--sur2);border-radius:5px;border-left:2px solid var(--bor);
 }
 .logf-equip-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:6px;border-top:1px solid var(--bor2)}
+/* RETOURS 15/10 (lot 2, point 4) — Mouvements : intertitre « Comptes et règles » (téléphone, « Filtrer » ouvert seulement) */
+#p-mouvements .mvf-sep{display:none;font:800 var(--fs-xs)/1.2 var(--font);text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
 /* RETOURS 15/10 (lot 2, point 3) — « + Assurance » : de qui est l'assurance ? (_assChoisir) */
 .ass-choix-q{margin:0 0 12px;font-size:var(--fs-md);color:var(--t2);line-height:1.45}
 .ass-choix{display:grid;gap:10px}

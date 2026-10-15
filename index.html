@@ -690,11 +690,11 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       </div>
 
       <!-- ⑦.6 — L'import bancaire par staging A ÉTÉ RETIRÉ de cette page. Les mouvements
-           passent uniquement par « 🏦 Importer banque » depuis Loyers & Mouvements, qui
+           passent uniquement par « Importer un relevé » depuis Mouvements, qui
            lit le fichier, montre ce qu'il a compris et laisse tout corriger avant d'importer. -->
       <div class="mu sm" style="padding:14px 16px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);line-height:1.6">
-        <b>🏦 Les relevés bancaires s'importent depuis « Loyers &amp; Mouvements »</b><br>
-        Le bouton <b>🏦 Importer banque</b> y lit le relevé (OFX ou Excel), montre ce qu'il a compris
+        <b>Les relevés bancaires s'importent depuis « Mouvements »</b><br>
+        Le bouton <b>Importer un relevé</b> y lit le relevé (OFX ou Excel), montre ce qu'il a compris
         (colonnes retenues, contrôle du solde, lignes écartées et pourquoi), détecte les doublons et
         laisse tout corriger avant d'enregistrer quoi que ce soit.
         <div style="margin-top:10px"><button class="btn bp" onclick="go('mouvements');_bankImportOpen()">🏦 Importer un relevé bancaire</button></div>
@@ -715,10 +715,14 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         <button class="btn bs bb mvf-adv" onclick="openMvDD('etat',this)" title="Filtrer ce qui demande une action"><span data-uic="warn"></span> État <span id="mvf-ind-etat" style="color:var(--acc)"></span>▼</button>
         <button class="btn bs bb mvf-adv" onclick="openMvDD('imm',this)" title="Filtrer par immeuble"><span data-uic="building"></span> Immeuble <span id="mvf-ind-imm" style="color:var(--acc)"></span>▼</button>
         <button class="btn bs bb mvf-adv" onclick="clearMvFilters()"><span data-uic="refresh"></span> Reset</button>
-        <button class="btn bs bb mvf-adv" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)"><span data-uic="download"></span> Importer banque</button>
-        <button class="btn bs bb mvf-adv" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo"><span data-uic="bank"></span> Mes comptes</button>
-        <button class="btn bs bb mvf-adv" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert"><span data-uic="settings"></span> Mes règles</button>
-        <button class="btn bp mvf-add" onclick="openNewMv()" style="margin-left:auto">+ Mouvement</button>
+        <!-- RETOURS 15/10 (lot 2, point 4) : l'import est le geste principal — « Importer un relevé » = LE bouton corail, à droite
+             sur PC, toujours visible au téléphone (jamais rangé derrière « Filtrer ») ; « + Mouvement » (saisie à la main) devient
+             secondaire. « Mes comptes » / « Mes règles » : secondaires, dans « Filtrer » au téléphone sous « Comptes et règles ». -->
+        <div class="mvf-sep" aria-hidden="true">Comptes et règles</div>
+        <button class="btn bs bb mvf-adv mvf-cr" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo"><span data-uic="bank"></span> Mes comptes</button>
+        <button class="btn bs bb mvf-adv mvf-cr" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert"><span data-uic="settings"></span> Mes règles</button>
+        <button class="btn bs bb mvf-add" onclick="openNewMv()" style="margin-left:auto" title="Saisir un mouvement à la main">+ Mouvement</button>
+        <button class="btn bp mvf-imp" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX, QFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…) : les mouvements se classent avec les règles"><span data-uic="download"></span> Importer un relevé</button>
       </div>
       <!-- Dropdown filtre multi-choix (style Excel) -->
       <div id="mv-col-filter-dd" style="display:none;position:fixed;z-index:9999;background:var(--bg);border:1px solid var(--bor);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:220px;max-width:300px;padding:10px">
@@ -4679,9 +4683,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=874def84" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=26a6ab0e" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=f80782f4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part1.js?v=5c195e5b" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=3ca72428" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=5274dfa2" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">

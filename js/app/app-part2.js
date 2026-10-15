@@ -29868,7 +29868,7 @@ function _bankAccountsRender() {
   if (!accounts.length) {
     body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:8px">
       <b>Aucun compte bancaire enregistré</b><br>
-      <span class="mu sm">Un compte sera créé automatiquement au 1er import bancaire — utiliser « 🏦 Importer banque ».</span>
+      <span class="mu sm">Un compte sera créé automatiquement au 1er import bancaire — utiliser « Importer un relevé ».</span>
     </div>`;
     return;
   }

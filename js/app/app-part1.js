@@ -12033,10 +12033,16 @@ function _ensureMvPhCss(){
     '@media(max-width:767px){',
     /* barre d\'outils mobile : recherche pleine largeur, contrôles avancés repliés derrière « Filtrer », CTA en évidence */
     '#p-mouvements .filters{gap:8px}',
-    '#p-mouvements #mvf-search{flex:1 1 100%;width:auto!important}',
-    '#p-mouvements .mvf-filter-btn{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}',
+    /* RETOURS 15/10 (lot 2, point 4) : 1re ligne recherche + « Filtrer » ; 2e ligne « Importer un relevé » (corail, large) puis
+       « + Mouvement » (secondaire, compact). Filtres ouverts : ils se déplient avant l'import ; « Comptes et règles » après. */
+    '#p-mouvements #mvf-search{flex:1 1 200px;width:auto!important;min-width:0}',
+    '#p-mouvements .mvf-filter-btn{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;min-height:44px}',
     '#p-mouvements .mvf-filter-btn.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,var(--bor))}',
-    '#p-mouvements .mvf-add{flex:1 1 auto;margin-left:0!important;min-height:42px}',
+    '#p-mouvements .mvf-imp{flex:1 1 auto;justify-content:center;margin-left:0!important;min-height:44px;order:1}',
+    '#p-mouvements .mvf-add{flex:0 0 auto;margin-left:0!important;min-height:44px;order:2}',
+    '#p-mouvements .mvf-sep{order:3}',
+    '#p-mouvements .mvf-cr{order:4}',
+    '#p-mouvements .filters.mvf-open .mvf-sep{display:block;flex:1 1 100%;margin-top:6px}',
     '#p-mouvements .mvf-adv{display:none}',
     '#p-mouvements .filters.mvf-open .mvf-adv{display:inline-flex}',
     '#p-mouvements .filters.mvf-open .mvf-adv.inp{display:block;flex:1 1 calc(50% - 4px);width:auto!important}',

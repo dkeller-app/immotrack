@@ -1,7 +1,7 @@
 
 // =================== IMPORT BANCAIRE ===================
 // ⑦.6 — LE STAGING DE MOUVEMENTS DE LA PAGE « IMPORT » A DISPARU, SANS RIEN LAISSER.
-// Les mouvements passent uniquement par l'import bancaire (bouton « Importer banque »
+// Les mouvements passent uniquement par l'import bancaire (bouton « Importer un relevé »
 // de la page Loyers & Mouvements) : deux portes d'entrée pour la même donnée, c'étaient
 // deux lectures de fichier, deux applications des règles et deux jeux de bugs.
 // `_stagingData`, `handleImport`, `importXLSXBank`, `renderStaging`, `validateImport`
