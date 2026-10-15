@@ -33219,6 +33219,7 @@ function _backupAgoLabel(ms) {
 
 // Choisir + mémoriser un dossier (geste utilisateur requis).
 async function _backupPickFolder() {
+  if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Dossier de sauvegarde')) return;
   if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne permet pas le choix de dossier — utiliser le mode zip', 'warn', 5000); return; }
   try {
     const h = await window.showDirectoryPicker({ id: 'propryo-backup', mode: 'readwrite' });
@@ -33310,6 +33311,7 @@ const _BK_ZIP64_LIMIT = 3.8 * 1024 * 1024 * 1024;   // garde-fou : storedZip est
 
 // Orchestrateur. trigger = 'manuel' | 'auto'.
 async function _backupRun(trigger) {
+  if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Sauvegarde', trigger !== 'manuel')) return;
   const mode = _backupMode();
   if (mode === 'mobile') return;
   if (_backupRunning) return;
@@ -33520,6 +33522,7 @@ function _renderBackupCard() {
 // ── Auto-check au chargement (cadence + nouveau) ─────────────────────────────
 async function _backupAutoCheck() {
   try {
+    if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Sauvegarde', true)) return;
     if (_backupMode() === 'mobile') return;
     const _bk = window._bk;
     if (!_bk) return;   // module pas encore chargé (http-server requis) — silencieux
@@ -33587,6 +33590,7 @@ function _backupDismissBanner() {
 const _BK_REMINDER_MS = 7 * 86400000;
 async function _backupReminderCheck() {
   try {
+    if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Sauvegarde', true)) return;
     if (window.__immoSupabaseMode) return;   // BANDEAU-SAUVEGARDE-CLOUD (13/07) : pas de rappel « planifie une sauvegarde » en mode cloud (backup serveur quotidien)
     if (_backupMode() === 'mobile') return;                                 // sauvegarde = depuis un PC
     if (localStorage.getItem('immo_backup_reminder_off') === '1') return;   // opt-out définitif
@@ -33633,6 +33637,7 @@ function _backupReminderOff() {
 let _backupRestoreDir = null;   // dossier courant de la modale (résout le fichier au clic)
 
 async function _backupRestoreOpen() {
+  if (typeof _demoGesteIndisponible === 'function' && _demoGesteIndisponible('Restauration depuis le dossier de sauvegarde')) return;
   if (_backupMode() === 'mobile') { showToast('Restauration depuis un PC uniquement', 'warn', 5000); return; }
   if (typeof window.showDirectoryPicker !== 'function') { showToast('Ce navigateur ne lit pas les dossiers — utiliser « Importer JSON »', 'warn', 6000); return; }
   let dir = await _backupLoadFolder();
@@ -34472,7 +34477,7 @@ function confirmReset() {
     const got = prompt(`Pour confirmer, taper exactement : ${expected}`);
     if(got !== expected) { showToast('Reset annulé (confirmation incorrecte)','warn'); return; }
   } else {
-    if(!confirm2('🧪 Mode TEST — Effacer toute la base sandbox ? (la prod ne sera pas touchée)')) return;
+    if(!confirm2((typeof _isDemoMode !== 'undefined' && _isDemoMode) ? 'Effacer toute la base de la démonstration ? « Recharger la démo » la remet ensuite (les vraies données ne sont pas touchées).' : '🧪 Mode TEST — Effacer toute la base sandbox ? (la prod ne sera pas touchée)')) return;
     if(!confirm2('Dernière confirmation : effacer TOUTES les données du sandbox ?')) return;
   }
   localStorage.removeItem(KEY); DB={}; initDB(); showToast('Base réinitialisée'); rExport();

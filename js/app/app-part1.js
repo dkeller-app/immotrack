@@ -187,6 +187,9 @@ const _isTestMode = (function() {
 const _isDemoMode = (function() {
   try { return /[?&]demo=1/.test(location.search || ''); } catch(e){ return false; }
 })();
+// FERMÉ PAR DÉFAUT : ?demo=1 sans le cloisonnement du <head> (window.__immoDemo n'est posé qu'APRÈS tous les
+// cloisonnements ; s'il manque, le script du <head> a déjà arrêté la page) → l'app ne démarre pas.
+if (_isDemoMode && (typeof window === 'undefined' || window.__immoDemo !== true)) throw new Error('[DEMO] cloisonnement du stockage absent : démonstration arrêtée');
 const _NS_TEST = _isDemoMode ? '_demo_' : '_test_';
 const KEY = _isTestMode ? _NS_TEST + 'immotrack_v4' : 'immotrack_v4';
 // P1.3 (audit sync cloud 2026-07-12, cause C-C) : boot CLOUD = page SERVIE (http/https) hors harnais de
@@ -275,10 +278,43 @@ function _injectDemoBanner() {
   try { if (!localStorage.getItem(_lsKey('demo_charge'))) _loadDemoDataset(); } catch(e) {}
 }
 
+// COMPTE DÉMO : un geste qui sortirait des données du navigateur (dossier de sauvegarde, restauration depuis ce dossier)
+// est indisponible en démonstration — message clair, ou rien (silencieux) pour les vérifications automatiques.
+function _demoGesteIndisponible(quoi, silencieux) {
+  if (!_isDemoMode) return false;
+  if (!silencieux && typeof showToast === 'function') showToast(quoi + ' : indisponible dans la démonstration (rien ne sort du navigateur).', 'info', 5000);
+  return true;
+}
+// COMPTE DÉMO : « Recharger la démo » vide aussi les bases IndexedDB DE LA DÉMO (photos ajoutées, file de l'IA, vidéos,
+// filets) — vidées magasin par magasin (une suppression de base attendrait la fermeture des connexions ouvertes).
+// En démo, indexedDB.databases() ne liste que les bases demo__ (script du <head>). Jamais appelé hors démo.
+async function _demoViderIndexedDB() {
+  if (!_isDemoMode || typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return;
+  let liste = [];
+  try { liste = await indexedDB.databases(); } catch(e) { return; }
+  for (const d of liste) {
+    if (!d || !/^demo__/.test(String(d.name))) continue;
+    await new Promise((res) => {
+      try {
+        const r = indexedDB.open(d.name);
+        r.onsuccess = () => {
+          const db = r.result; const st = Array.from(db.objectStoreNames || []);
+          if (!st.length) { db.close(); res(); return; }
+          const tx = db.transaction(st, 'readwrite'); st.forEach(s => tx.objectStore(s).clear());
+          tx.oncomplete = tx.onerror = tx.onabort = () => { db.close(); res(); };
+        };
+        r.onerror = r.onblocked = () => res();
+      } catch(e) { res(); }
+    });
+  }
+}
+
 // Chargeur UNIQUE du jeu de données démo (mode ?demo=1 ET bouton du sandbox). Le jeu de données vit dans
 // js/app/demo-dataset.js, chargé à la demande (aucun poids pour les vrais comptes). Il est écrit tel quel dans le
 // miroir local de CE namespace (`_demo_` ou `_test_`, jamais les vraies clés) puis la page RECHARGE : initDB repasse
-// alors toutes ses migrations et ses défauts sur ces données, exactement comme au démarrage d'un vrai compte.
+// alors ses migrations (sauf celles dont le marqueur `_done` est gardé) et ses défauts, comme au démarrage d'un vrai compte.
+// SANDBOX (?sandbox=1) : comportement d'avant conservé — ni fichiers écrits (son IndexedDB est celle de l'appareil),
+// ni clés effacées ; seule la base est remplacée.
 function _loadDemoDataset() {
   if (!_isTestMode) { console.warn('[DEMO] _loadDemoDataset refusé hors mode test/démo'); return; }
   const charger = () => new Promise((res, rej) => {
@@ -291,10 +327,13 @@ function _loadDemoDataset() {
   });
   charger().then(async (ds) => {
     const { db, fichiers, nuage } = ds.construire();
-    // Binaires (photos d'EDL, PDF des pièces) → IndexedDB, comme une vraie pièce jointe. En démo, la base IndexedDB
-    // est elle aussi cloisonnée (préfixe demo__, script du <head>).
-    for (const k of Object.keys(fichiers || {})) {
-      if (fichiers[k]) { try { await _idbPut(k, fichiers[k]); } catch(e) { console.warn('[DEMO] IndexedDB', k, e); } }
+    // Binaires (photos d'EDL, PDF des pièces) → IndexedDB, comme une vraie pièce jointe : en DÉMO seulement, où la base
+    // IndexedDB est cloisonnée (préfixe demo__, script du <head>) et d'abord vidée de ce que la séance a ajouté.
+    if (_isDemoMode) {
+      await _demoViderIndexedDB();
+      for (const k of Object.keys(fichiers || {})) {
+        if (fichiers[k]) { try { await _idbPut(k, fichiers[k]); } catch(e) { console.warn('[DEMO] IndexedDB', k, e); } }
+      }
     }
     // ORDRE (audit) : rien n'est effacé tant que la nouvelle base n'est pas écrite ET relue. Un échec d'écriture
     // (quota) lève ici → l'espace et la base en mémoire restent intacts, le marqueur n'est pas posé.
@@ -307,7 +346,7 @@ function _loadDemoDataset() {
     // Puis on repart d'un espace propre : clés de CE namespace seulement, sauf la base qu'on vient d'écrire et les
     // marqueurs de migration (pas de toast « Migration… » à chaque rechargement).
     const toDel = [];
-    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(_NS_TEST) && k !== KEY && !/_done$/.test(k)) toDel.push(k); }
+    if (_isDemoMode) for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(_NS_TEST) && k !== KEY && !/_done$/.test(k)) toDel.push(k); }
     toDel.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
     try {
       // Nuage FICTIF de la démo (espace locataire, liens d'artisan) : son plan est semé au prochain démarrage par

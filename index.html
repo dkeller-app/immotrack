@@ -26,10 +26,9 @@
         des entreprises), qui ne reçoivent que des données fictives. L'INSEE est exclu : un indice IRL publié après le
         jour figé changerait les montants de la démo. fetch / XMLHttpRequest / WebSocket /
         EventSource / sendBeacon sont filtrés : une requête refusée échoue comme une coupure réseau.
-     Le marqueur window.__immoDemo est lu par l'app (js/core/demo-mode.js) pour ses messages « indisponible en démo ». -->
-<script>(function(){try{
-  if(!/[?&]demo=1/.test(location.search||'')) return;
-  window.__immoDemo = true;
+     Le marqueur window.__immoDemo n'est posé qu'APRÈS tous les cloisonnements (lu par app-part1.js, main.js → js/app/demo-app.js,
+     js/core/ia-client.js). FERMÉ PAR DÉFAUT : si un cloisonnement échoue, la page s'arrête avec un message (aucune donnée lue ni écrite). -->
+<script>(function(){if(!/[?&]demo=1/.test(location.search||'')) return;try{
   var DEMO_JOUR=[2026,9,5];   /* 05/10/2026 (mois 0-indexé) */
   var R=Date, n=new R(R.now());
   var off=new R(DEMO_JOUR[0],DEMO_JOUR[1],DEMO_JOUR[2]).getTime()-new R(n.getFullYear(),n.getMonth(),n.getDate()).getTime();
@@ -76,7 +75,12 @@
     FP.deleteDatabase=function(n){ return idel.call(this,nm(n)); };
     if(FP.databases){ var idb=FP.databases; FP.databases=function(){ return idb.call(this).then(function(l){ return (l||[]).filter(function(d){ return d&&String(d.name).indexOf(Q)===0; }); }); }; }
   }
-}catch(e){}})();</script>
+  if(!(SP&&LS&&FP)) throw new Error('cloisonnement indisponible');
+  window.__immoDemo = true;
+}catch(e){
+  try{ document.write('<p style="font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:48px auto;padding:0 16px">La démonstration ne peut pas démarrer sur ce navigateur : le stockage isolé n\'est pas disponible. Aucune donnée n\'a été lue ni écrite.</p>'); }catch(_){}
+  try{ window.stop(); }catch(_){}
+}})();</script>
 <script>/* Document express venu de propryo.fr : réception par postMessage (aucune donnée dans l'URL ni l'historique). Accepté seulement depuis propryo.fr / www.propryo.fr ET l'onglet qui a ouvert l'app. Purge à chaque chargement. Traité par js/app/doc-express.js. */(function(){try{var K='imsb-doc-express',T=30*60*1000,ls=localStorage;function montrer(){var n=document.getElementById('imsb-doc-note');if(n){n.hidden=false;}else{document.addEventListener('DOMContentLoaded',montrer);}}try{var r=JSON.parse(ls.getItem(K)||'null');if(r&&(!r.doc||!(Date.now()-r.t<T)))ls.removeItem(K);}catch(e){try{ls.removeItem(K);}catch(_){}}try{if(ls.getItem(K))montrer();}catch(e){}if(!/[?&]doc=attente(&|$)/.test(location.search)||!window.opener)return;var O=['https://propryo.fr','https://www.propryo.fr'],n=0,fini=false;function annoncer(){if(fini)return;O.forEach(function(o){try{window.opener.postMessage({propryo:'doc-pret'},o);}catch(e){}});if(++n<60)setTimeout(annoncer,500);}window.addEventListener('message',function(ev){if(fini||O.indexOf(ev.origin)<0||ev.source!==window.opener)return;var d=ev.data;if(!d||d.propryo!=='doc'||!d.doc||typeof d.doc!=='object'||typeof d.doc.type!=='string')return;fini=true;var s='';try{s=JSON.stringify(d.doc);}catch(e){}if(!s||s.length>20000){try{window.opener.postMessage({propryo:'doc-refus',raison:'taille'},ev.origin);}catch(e){}return;}try{ls.setItem(K,JSON.stringify({doc:d.doc,t:Date.now()}));window.opener.postMessage({propryo:'doc-recu'},ev.origin);montrer();}catch(e){}});annoncer();}catch(e){}})();</script>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
@@ -4672,8 +4676,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=c3df4fc9" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=64d53bac" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=b548b153" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=a22855c5" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=a9753314" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

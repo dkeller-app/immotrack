@@ -20,7 +20,7 @@ const lire = (p) => readFileSync(resolve(ROOT, p), 'utf8').replace(/\r/g, '')
 let HTML, P1, ENTRY, MAIN, SCRIPT_DEMO
 beforeAll(() => {
   HTML = lire('index.html'); P1 = lire('js/app/app-part1.js'); ENTRY = lire('js/app/supabase-entry.js'); MAIN = lire('js/main.js')
-  const i = HTML.indexOf("<script>(function(){try{\n  if(!/[?&]demo=1/.test(location.search||'')) return;")
+  const i = HTML.indexOf("<script>(function(){if(!/[?&]demo=1/.test(location.search||'')) return;try{")
   if (i < 0) throw new Error('script démo du <head> introuvable')
   SCRIPT_DEMO = HTML.slice(i + '<script>'.length, HTML.indexOf('</script>', i))
 })
@@ -65,6 +65,15 @@ describe('script du <head> HORS démo : aucun effet', () => {
       expect(n.localStorage.getItem('immotrack_v4')).toBe('{"vrai":1}')
     })
   }
+})
+
+describe('script du <head> : fermé par défaut', () => {
+  it('cloisonnement impossible (pas d\'IndexedDB) → aucun marqueur démo, message et page arrêtée', () => {
+    const n = navigateur('?demo=1'); delete n.w.IDBFactory; let arret = 0, ecrit = ''
+    n.w.stop = () => { arret++ }; n.w.document = { write: (h) => { ecrit += h } }
+    executer(n)
+    expect(n.w.__immoDemo).toBeUndefined(); expect(arret).toBe(1); expect(ecrit).toMatch(/Aucune donnée n'a été lue ni écrite/)
+  })
 })
 
 describe('script du <head> EN démo (?demo=1)', () => {
@@ -147,11 +156,18 @@ describe('parité des détections du mode test / démo', () => {
 
 describe('namespaces et chargeur', () => {
   const ns = (search) => {
-    const ctx = { location: { pathname: '/index.html', search, protocol: 'https:' } }; vm.createContext(ctx)
+    const ctx = { location: { pathname: '/index.html', search, protocol: 'https:' }, window: { __immoDemo: /demo=1/.test(search) ? true : undefined } }; vm.createContext(ctx)
     const bloc = P1.slice(P1.indexOf('const _isTestMode = (function()'), P1.indexOf('function _lsKey(k)'))
     vm.runInContext(bloc.replace(/const _CLOUD_BOOT[^\n]*\n/, '') + '\n' + extraireFonction(P1, '_lsKey') + ';this.r={KEY,ns:_NS_TEST,k:_lsKey("x")};', ctx)
     return ctx.r
   }
+  it('fermé par défaut : ?demo=1 sans le cloisonnement du <head> → l\'app ne démarre pas', () => {
+    const bloc = P1.slice(P1.indexOf('const _isTestMode = (function()'), P1.indexOf('function _lsKey(k)'))
+    for (const w of [{}, { __immoDemo: 'vrai' }]) {
+      const ctx = { location: { pathname: '/index.html', search: '?demo=1', protocol: 'https:' }, window: w }; vm.createContext(ctx)
+      expect(() => vm.runInContext(bloc.replace(/const _CLOUD_BOOT[^\n]*\n/, ''), ctx)).toThrow(/cloisonnement/)
+    }
+  })
   it('démo → _demo_ ; sandbox → _test_ ; prod → clés nues', () => {
     expect(ns('?demo=1')).toEqual({ KEY: '_demo_immotrack_v4', ns: '_demo_', k: '_demo_x' })
     expect(ns('?sandbox=1')).toEqual({ KEY: '_test_immotrack_v4', ns: '_test_', k: '_test_x' })
@@ -181,12 +197,13 @@ describe('namespaces et chargeur', () => {
       window: { __demoDataset: { construire: () => ({ db, fichiers: { demo_edl_1: 'data:x' }, nuage: { acces: [] } }) } },
       location: { reload: () => { recharge++ } }, alert: (e) => { throw new Error('alerte : ' + e) },
       _isTestMode: true, _isDemoMode: true, _NS_TEST: '_demo_', KEY: '_demo_immotrack_v4', IMMOTRACK_VERSION: 't', DB: {},
-      _lsKey: (k) => '_demo_' + k, _idbPut: async (k, v) => { idb.push(k) }, _miroirEcrire: (json) => { m.set('_demo_immotrack_v4', json); return true } }
+      _lsKey: (k) => '_demo_' + k, _idbPut: async (k, v) => { idb.push(k) }, _miroirEcrire: (json) => { m.set('_demo_immotrack_v4', json); return true },
+      _demoViderIndexedDB: async () => { idb.push('VIDÉE') } }
     vm.createContext(ctx)
     vm.runInContext(extraireFonction(P1, '_loadDemoDataset') + ';_loadDemoDataset();', ctx)
     await new Promise((r) => setTimeout(r, 20))
     expect(recharge).toBe(1)
-    expect(idb).toEqual(['demo_edl_1'])
+    expect(idb).toEqual(['VIDÉE', 'demo_edl_1'])   // bases demo__ vidées AVANT d'écrire les fichiers du jeu
     expect(JSON.parse(m.get('_demo_immotrack_v4'))).toEqual(db)
     expect(m.get('immotrack_v4')).toBe('VRAI'); expect(m.get('immo-supabase-auth')).toBe('jeton'); expect(m.get('_test_immotrack_v4')).toBe('SANDBOX')
     expect(m.has('_demo_demo_nuage')).toBe(false)                 // le nuage fictif sera resemé au démarrage
@@ -202,12 +219,27 @@ describe('namespaces et chargeur', () => {
     const ctx = { localStorage, console: { info() {}, warn() {}, error() {} }, JSON, Object, Error, Promise, Date,
       window: { __demoDataset: { construire: () => ({ db: { logements: [{}] }, fichiers: {} }) } }, location: { reload: () => { recharge++ } }, alert: (e) => { alerte = e },
       _isTestMode: true, _isDemoMode: true, _NS_TEST: '_demo_', KEY: '_demo_immotrack_v4', IMMOTRACK_VERSION: 't', DB: {}, _lsKey: (k) => '_demo_' + k,
-      _idbPut: async () => {}, _miroirEcrire: () => { throw new Error('QuotaExceededError') } }
+      _idbPut: async () => {}, _demoViderIndexedDB: async () => {}, _miroirEcrire: () => { throw new Error('QuotaExceededError') } }
     vm.createContext(ctx)
     vm.runInContext(extraireFonction(P1, '_loadDemoDataset') + ';_loadDemoDataset();', ctx)
     await new Promise((r) => setTimeout(r, 20))
     expect(recharge).toBe(0); expect(alerte).toMatch(/Quota/)
     expect(m.get('_demo_immotrack_v4')).toBe('ANCIENNE'); expect(m.get('_demo_demo_nuage')).toBe('{}')
+  })
+  it('SANDBOX (?sandbox=1) : comportement d\'avant — ni fichier IndexedDB (celle de l\'appareil), ni clé effacée, ni nuage', async () => {
+    const m = new Map([['_test_immotrack_v4', 'ANCIENNE'], ['_test_immotrack_theme_mode', 'dark'], ['immotrack_v4', 'VRAI']])
+    const localStorage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), key: (i) => [...m.keys()][i] ?? null, get length() { return m.size } }
+    let recharge = 0; const idb = []
+    const ctx = { localStorage, console: { info() {}, warn() {}, error() {} }, JSON, Object, Error, Promise, Date,
+      window: { __demoDataset: { construire: () => ({ db: { logements: [{}] }, fichiers: { demo_edl_1: 'data:x' }, nuage: { acces: [] } }) } }, location: { reload: () => { recharge++ } }, alert: (e) => { throw new Error(e) },
+      _isTestMode: true, _isDemoMode: false, _NS_TEST: '_test_', KEY: '_test_immotrack_v4', IMMOTRACK_VERSION: 't', DB: {}, _lsKey: (k) => '_test_' + k,
+      _idbPut: async (k) => { idb.push(k) }, _demoViderIndexedDB: async () => { idb.push('VIDÉE') }, _miroirEcrire: (json) => { m.set('_test_immotrack_v4', json); return true } }
+    vm.createContext(ctx)
+    vm.runInContext(extraireFonction(P1, '_loadDemoDataset') + ';_loadDemoDataset();', ctx)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(recharge).toBe(1); expect(idb).toEqual([])
+    expect(m.get('_test_immotrack_theme_mode')).toBe('dark'); expect(m.get('immotrack_v4')).toBe('VRAI')
+    expect(m.has('_test_demo_nuage_plan')).toBe(false)
   })
   it('refusé hors mode test (prod) : rien n\'est chargé', () => {
     let lu = false
