@@ -105,6 +105,26 @@ describe('regrouperEntretiens — migration', () => {
     regrouperEntretiens(db, { now: NOW })
     expect(db.equipements.A).toEqual({ POELE_GRAN: { lastDate: '2026-09-01', interv: 'Z' } })
   })
+  it('relecture Fable B2 — fiche regroupée présente mais saisie PLUS RÉCENTE sur une ancienne clé : reportée, jamais perdue', () => {
+    const db = { equipements: { A: { POELE_GRAN: { lastDate: '2025-10-01', interv: 'X', notes: 'n' }, POELE_GRAN_RAM: { lastDate: '2026-10-20', interv: 'Ramoneur Y' } } } }
+    regrouperEntretiens(db, { now: NOW })
+    const f = db.equipements.A.POELE_GRAN
+    expect(f.lastDate).toBe('2026-10-20'); expect(f.interv).toBe('Ramoneur Y')
+    expect(f.notes).toContain("Repris d'une saisie « ramonage » du 20/10/2026")
+    expect(f.regroupeDe.saisieTardive_ramonage.interv).toBe('Ramoneur Y')
+    expect(db.equipements.A.POELE_GRAN_RAM).toBeUndefined()
+  })
+  it('relecture Fable B1 — rappels de la NOUVELLE clé créés avant la migration (logement migré) retirés pour régénération ; pas aux passages suivants', () => {
+    const db = { equipements: { A: { POELE_GRAN_ENT: { lastDate: '2025-11-12' } } }, agenda: [
+      { id: 1, auto: true, autoKey: 'EQUIP:A:POELE_GRAN:2026-03-01', titre: 'Entretien + ramonage poêle à granulés — A' },
+      { id: 2, auto: true, autoKey: 'EQUIP:B:POELE_GRAN:2026-03-01', titre: 'Entretien + ramonage poêle à granulés — B' },
+    ] }
+    regrouperEntretiens(db, { now: NOW })
+    expect(db.agenda.map(e => e.id)).toEqual([2])
+    db.agenda.push({ id: 3, auto: true, autoKey: 'EQUIP:A:POELE_GRAN:2026-11-12', titre: 'Entretien + ramonage poêle à granulés — A' })
+    expect(regrouperEntretiens(db, { now: NOW }).change).toBe(false)
+    expect(db.agenda.map(e => e.id)).toEqual([2, 3])
+  })
   it('base vide ou absente : aucun changement, aucune erreur', () => {
     expect(regrouperEntretiens({}).change).toBe(false)
     expect(regrouperEntretiens(null).change).toBe(false)

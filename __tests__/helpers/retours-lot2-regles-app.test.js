@@ -27,7 +27,7 @@ function extraire(nom) {
 const FONCTIONS = ['escHtml', 'fd', '_bankRuleSave', '_bankRuleErreurs', '_bankRuleCandidate', '_bankRuleMontantDepuisSaisieDraft',
   '_bankRuleErrMsgs', '_bankRuleErrMsg', '_bankRuleApplyToSourceMv', '_bankRuleAppliquerAuMv', '_bankRuleRattacherCompte',
   '_bankRuleProposerApplication', '_bankRuleApplRender', '_bankRuleApplCase', '_bankRuleApplTout', '_bankRuleApplFermer',
-  '_bankRuleApplValider', '_bankRuleAfterChange', '_bankImportActif', '_bankLoyerCC', '_bankAutreRegleTxt', '_logLabel',
+  '_bankRuleApplValider', '_bankRuleApplPiedHtml', '_bankRuleApplMajPied', '_bankRuleAfterChange', '_bankImportActif', '_bankLoyerCC', '_bankAutreRegleTxt', '_logLabel',
   '_logFindParRef', '_logNomRepli', '_ccImmeuble', '_bankRuleStatut', '_bankRuleStatutHtml']
 
 function app() {
@@ -189,5 +189,40 @@ describe('c) mouvement sans compte (D7)', () => {
     const { A, DB } = scenario()
     expect(A.call('_bankRuleRattacherCompte', 1, 7777)).toBe(false)
     expect(DB.mouvements[0]._bankAccountId).toBe(9001)
+  })
+})
+
+describe('relectures (Fable A3 / A4 / A5)', () => {
+  it('A3 — modification depuis la fiche d\'un mouvement CLASSÉ À LA MAIN : pas appliqué directement, proposé décoché', () => {
+    const { A, DB } = scenario()
+    DB.mouvements[0]._classeMain = true
+    A.call('_bankRuleSave')
+    expect(DB.mouvements[0]).toMatchObject({ qui: '', imm: 'Les Tanneurs', _classeMain: true })
+    const st = A.api.get('_bankRuleAppl')
+    const x = st.groupes.autrement.find(e => e.id === 1)
+    expect(x && x.raison).toBe('main')
+    expect(st.coches.has('1')).toBe(false)
+    expect(A.toasts.some(t => /classé à la main, n'a pas été modifié/.test(t.msg))).toBe(true)
+    A.call('_bankRuleApplFermer')
+    expect(A.ouverts).toEqual([1])
+  })
+  it('A4 — mouvement sans compte : pas rattaché si la règle ne le couvre pas', () => {
+    const { A, DB } = scenario()
+    const m5 = DB.mouvements[4]
+    A.api.set('_bankRuleDraft', { id: '', chips: ['VIR'], mots: ['DURAND'], saisis: [], ref: '', sens: 'cr', compte: '9001',
+      compteFixe: false, compteOrigine: 'aucun', montantUi: { type: 'none', valeur: '', min: '', max: '' }, exceptions: [], exNew: [],
+      cat: 'Loyers encaissés', qui: 'D-101', imm: '', cc: '', bdc: false, historique: false,
+      src: { date: m5.date, libelle: m5.lib, credit: 803.65, debit: 0 }, srcIndex: -1, srcMvId: 5, mvSansCompte: true })
+    A.call('_bankRuleSave')
+    expect(m5._bankAccountId).toBeUndefined()
+    expect(m5.cat).toBe('')
+  })
+  it('A5 — le journal « appliquée à N mouvements » est écrit dans l\'opération annulable (avant son enregistrement)', () => {
+    const { A } = scenario()
+    A.call('_bankRuleSave')
+    const n = A.journal.length
+    A.call('_bankRuleApplValider')
+    const ajout = A.journal.slice(n)
+    expect(ajout.at(-1)).toEqual(['update', 'import-rule', 'rg_1', 'appliquée à 2 mouvements déjà enregistrés (sur confirmation)'])
   })
 })

@@ -27,7 +27,7 @@ function extraire(src, marqueur) {
 const fn = (src, nom, asy = false) => extraire(src, (asy ? 'async ' : '') + 'function ' + nom + '(')
 const NOMS1 = [['_bailEtatSig'], ['_bailScanDocsExternes'], ['_bailScanExterne'], ['_bailPiecesExternes'], ['_bailPiecesPapier'], ['_bailCautionEtat'],
   ['_bailCautionDetenue'], ['_bailScansExternesOrphelins'], ['_bailScanFmtTaille'], ['_bailScanExterneDeposer', 1], ['_bailExterneApresSave', 1],
-  ['_bailScanExterneSupprimerDoc', 1], ['_bailPiecePapierEcrire'], ['_bailAuteurCourant'], ['escHtml'], ['fd']]
+  ['_bailScanExterneSupprimerDoc', 1], ['_bailPiecePapierEcrire'], ['_bailCautionsPapierSuivreDebut'], ['_bailLogementDe'], ['_bailAuteurCourant'], ['escHtml'], ['fd']]
 const NOMS2 = [['_bailPiecesFicheHtml']]
 
 const SIGNED_AT = '2025-02-25T12:00:00.000Z'
@@ -35,11 +35,11 @@ const EXT = (extra = {}) => ({ ref: 'P-202', debut: '2025-03-01', garant: 'Miche
 const doc = (o) => ({ id: 1, parentType: 'bail', parentId: 'P-202', parentRef: 'P-202', logRef: 'P-202', category: 'bail', nature: 'bail-signe-externe', bailSignedAt: SIGNED_AT, bailDebut: '2025-03-01', uploadedAt: '2026-10-15T08:00:00Z', name: 's.pdf', originalName: 's.pdf', size: 1200, cloudKey: 'k', ...o })
 const F = (name, mime = 'application/pdf') => ({ name, mime, size: 2048, dataB64: 'data:' + mime + ';base64,QQ==' })
 
-function monde({ baux = { 'P-202': EXT() }, documents = [], reponses = [] } = {}) {
+function monde({ baux = { 'P-202': EXT() }, documents = [], reponses = [], logements = [{ ref: 'P-202', imm: 'Résidence du Parc' }] } = {}) {
   const calls = [], toasts = [], confirms = []
   let nid = 100
   const sb = {
-    DB: { baux, documents }, window: { BailSignatureEtat: BSE, BailPiecesExternes: BPX }, calls, toasts, confirms,
+    DB: { baux, documents, logements }, window: { BailSignatureEtat: BSE, BailPiecesExternes: BPX }, calls, toasts, confirms,
     v: () => '', el: () => null,
     showToast: (m, t) => toasts.push([m, t]), confirm2: (m) => { confirms.push(m); return reponses.length ? reponses.shift() : true },
     saveDB: () => { calls.push('saveDB') }, _refreshAfterMutation: () => calls.push('refresh'), _stamp: () => {}, _auditLog: () => calls.push('audit'),
@@ -61,7 +61,7 @@ describe('après l\'enregistrement : les autres pièces en attente', () => {
   it('acte de cautionnement (photo) + avenant déposés, typés, rattachés à la déclaration ; état remis à zéro', async () => {
     const w = monde()
     w.window._bailExtAutres = { ajouts: [
-      { k: 'caution:1', piece: 'caution', garantIdx: 1, fichier: F('caution.jpg', 'image/jpeg') },
+      { k: 'caution:michel faure', piece: 'caution', garantIdx: 1, garantNom: 'Michel Faure', fichier: F('caution.jpg', 'image/jpeg') },
       { k: 'x:1', piece: 'avenant', pieceLibelle: 'Avenant n° 1', fichier: F('av1.pdf') },
     ], retraits: [], papier: {} }
     await w._bailExterneApresSave('P-202', { action: 'declarer' })
@@ -73,8 +73,8 @@ describe('après l\'enregistrement : les autres pièces en attente', () => {
     expect(w._bailCautionDetenue('P-202')).toBe(true)
   })
   it('un second acte pour le même garant REMPLACE le premier (emplacement unique) ; le bail signé n\'est pas touché', async () => {
-    const w = monde({ documents: [doc({ id: 1 }), doc({ id: 2, piece: 'caution', garantIdx: 1, name: 'v1.pdf' })] })
-    w.window._bailExtAutres = { ajouts: [{ k: 'caution:1', piece: 'caution', garantIdx: 1, fichier: F('v2.pdf') }], retraits: [], papier: {} }
+    const w = monde({ documents: [doc({ id: 1 }), doc({ id: 2, piece: 'caution', garantIdx: 1, garantNom: 'Michel Faure', name: 'v1.pdf' })] })
+    w.window._bailExtAutres = { ajouts: [{ k: 'caution:michel faure', piece: 'caution', garantIdx: 1, garantNom: 'Michel Faure', fichier: F('v2.pdf') }], retraits: [], papier: {} }
     await w._bailExterneApresSave('P-202', { action: null })
     expect(w.DB.documents.find(d => d.id === 2)._deleted).toBe(true)
     expect(w.DB.documents.find(d => d.id === 1)._deleted).toBeUndefined()
@@ -88,19 +88,37 @@ describe('après l\'enregistrement : les autres pièces en attente', () => {
     expect(w.DB.documents.find(d => d.id === 3)._deleted).toBe(true)
     expect(w._bailPiecesExternes('P-202').filter(d => d.piece === 'annexe').map(d => d.originalName).sort()).toEqual(['b.pdf', 'c.pdf'])
   })
-  it('« Je l\'ai en papier » (D2) : noté dans la configuration de l\'espace, clé = bail ; la caution est détenue', async () => {
+  it('« Je l\'ai en papier » (D2) : noté sur le LOGEMENT (partagé avec la SCI), clé = début du bail + nom ; la caution est détenue', async () => {
     const w = monde()
-    w.window._bailExtAutres = { ajouts: [], retraits: [], papier: { 1: true } }
+    w.window._bailExtAutres = { ajouts: [], retraits: [], papier: { 'michel faure': { on: true, nom: 'Michel Faure', idx: 1 } } }
     await w._bailExterneApresSave('P-202', { action: 'declarer' })
-    expect(Object.keys(w.DB.bailPiecesPapier)).toEqual(['P-202|2025-03-01'])
-    expect(w.DB.bailPiecesPapier['P-202|2025-03-01']['caution:1'].par).toBe('Didier')
+    const log = w.DB.logements[0]
+    expect(Object.keys(log.cautionsPapier)).toEqual(['2025-03-01|michel faure'])
+    expect(log.cautionsPapier['2025-03-01|michel faure']).toMatchObject({ par: 'Didier', nom: 'Michel Faure' })
+    expect(w.DB.bailPiecesPapier).toBeUndefined()
     expect(w.calls).toContain('saveDB')
     expect(w._bailCautionDetenue('P-202')).toBe(true)
     expect(w._bailCautionEtat('P-202').garants[0].source).toBe('papier')
+    // date de début corrigée : la mention suit le bail
+    expect(w._bailCautionsPapierSuivreDebut('P-202', '2025-03-01', '2025-03-15')).toBe(true)
+    expect(Object.keys(log.cautionsPapier)).toEqual(['2025-03-15|michel faure'])
+    w.DB.baux['P-202'].debut = '2025-03-15'
     // le retirer
-    expect(w._bailPiecePapierEcrire('P-202', w.DB.baux['P-202'], 1, false)).toBe(true)
-    expect(w.DB.bailPiecesPapier['P-202|2025-03-01']).toBeUndefined()
+    expect(w._bailPiecePapierEcrire('P-202', w.DB.baux['P-202'], { idx: 1, nom: 'Michel Faure' }, false)).toBe(true)
+    expect(log.cautionsPapier).toEqual({})
     expect(w._bailCautionDetenue('P-202')).toBe(false)
+  })
+  it('garant remplacé : l\'acte de l\'ancien garant ne compte pas pour le nouveau', async () => {
+    const w = monde({ baux: { 'P-202': EXT({ garant: 'Nouveau Garant' }) }, documents: [doc({ id: 9, piece: 'caution', garantIdx: 1, garantNom: 'Michel Faure', name: 'c.pdf', originalName: 'c.pdf' })] })
+    expect(w._bailCautionDetenue('P-202')).toBe(false)
+    const h = w._bailPiecesFicheHtml('P-202', w.DB.baux['P-202'])
+    expect(h).toContain('Acte de cautionnement — Michel Faure')
+    expect(h).toMatch(/n(&#39;|&#x27;|')est plus garant de ce bail/)
+    expect(h).toContain('Acte de cautionnement — Nouveau Garant')
+  })
+  it('caution signée dans Propryo (bail.signatures.garant) : détenue', () => {
+    const b = EXT(); b.signatures = Object.assign({}, b.signatures, { garant: { signedAt: 'x' } })
+    expect(monde({ baux: { 'P-202': b } })._bailCautionDetenue('P-202')).toBe(true)
   })
   it('bail qui n\'est pas (ou plus) déclaré hors Propryo : rien n\'est déposé', async () => {
     const w = monde({ baux: { 'P-202': { ref: 'P-202', debut: '2025-03-01' } } })
@@ -113,7 +131,7 @@ describe('après l\'enregistrement : les autres pièces en attente', () => {
 describe('re-déclaration : les pièces de la déclaration précédente, en une seule question', () => {
   it('bail + acte de cautionnement proposés ensemble, rattachés avec leur type', async () => {
     const b = EXT(); b.signatures = BSE.declarerSignatureExterne(b, { date: '2025-02-26', now: '2026-10-15T08:00:00Z' })
-    const w = monde({ baux: { 'P-202': b }, documents: [doc({ id: 1 }), doc({ id: 2, piece: 'caution', garantIdx: 1, name: 'c.pdf', originalName: 'c.pdf' })] })
+    const w = monde({ baux: { 'P-202': b }, documents: [doc({ id: 1 }), doc({ id: 2, piece: 'caution', garantIdx: 1, garantNom: 'Michel Faure', name: 'c.pdf', originalName: 'c.pdf' })] })
     await w._bailExterneApresSave('P-202', { action: 'redater' })
     expect(w.confirms).toHaveLength(1)
     expect(w.confirms[0]).toMatch(/Des pièces de la déclaration précédente/)
@@ -132,7 +150,7 @@ describe('fiche › Documents : rendu des pièces', () => {
     expect(h).toContain('Acte de cautionnement — Michel Faure')
     expect(h).toContain('Je l\'ai en papier')
     expect(h).toContain('+ Ajouter une pièce')
-    w._bailPiecePapierEcrire('P-202', w.DB.baux['P-202'], 1, true)
+    w._bailPiecePapierEcrire('P-202', w.DB.baux['P-202'], { idx: 1, nom: 'Michel Faure' }, true)
     h = w._bailPiecesFicheHtml('P-202', w.DB.baux['P-202'])
     expect(h).toContain('détenu en papier')
     expect(h).toContain('Annuler « papier »')
@@ -151,7 +169,7 @@ describe('fiche › Documents : rendu des pièces', () => {
 describe('branchements', () => {
   it('la migration des pièces tourne au démarrage', () => {
     const boot = P3.slice(P3.indexOf('function _bootDataJobs()'), P3.indexOf('function _bootDataJobs()') + 12000)
-    expect(boot).toMatch(/BailPiecesExternes\.migrerPiecesExternes\(DB\.documents \|\| \[\]\)/)
+    expect(boot).toMatch(/BailPiecesExternes\.migrerPiecesExternes\(DB\.documents \|\| \[\], d => d\._espaceId == null/)
   })
   it('la fiche › Documents appelle le rendu des pièces pour un bail hors Propryo', () => {
     expect(fn(P2, '_renderLogFichePanelDocuments')).toContain('_sigExt ? _bailPiecesFicheHtml(ref, bail) : \'\'')

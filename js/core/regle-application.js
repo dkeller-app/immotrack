@@ -56,6 +56,7 @@ export function classeMainApresEdition(avant, apres) {
 
 export const RAISONS = {
   'a-classer': 'à classer',
+  affecte: 'déjà affecté',
   'non-affecte': 'sans affectation',
   'ancienne-version': 'classé par cette règle',
   main: 'classé à la main',
@@ -94,14 +95,21 @@ export function mouvementsConcernes(rule, o = {}) {
     const el = { id: m.id, mv: m, patch: r.patch, avant, apres, raison: '' }
     const traces = Array.isArray(m._rules) ? m._rules.map(String) : []
     const sansAff = !avant.qui && !avant.imm && !avant.compteurCcId
+    const affChange = ['qui', 'imm', 'compteurCcId'].some(k => avant[k] !== apres[k])
     if (m._splitGroup) { el.raison = 'decoupe'; out.autrement.push(el) }
     else if (m._classeMain) { el.raison = 'main'; out.autrement.push(el) }
-    else if (!avant.cat) { el.raison = 'a-classer'; out.aClasser.push(el) }
+    // Sans catégorie : « à classer »… sauf si une affectation, posée sans la règle, serait remplacée (relecture Fable A1).
+    else if (!avant.cat) { if (!sansAff && affChange) { el.raison = 'affecte'; out.autrement.push(el) } else { el.raison = 'a-classer'; out.aClasser.push(el) } }
     else if (sansAff && avant.cat === apres.cat) { el.raison = 'non-affecte'; out.aClasser.push(el) }
     else if (trace && traces.includes(trace)) {
-      // Trace de cette règle : « classé par cette règle » SEULEMENT si le classement est encore celui de l'ancienne version.
+      // Trace de cette règle : « classé par cette règle » SEULEMENT si le classement est encore celui de l'ancienne version
+      // ET si chaque champ que la nouvelle version change était posé par l'ancienne (une affectation faite à la main sur un
+      // mouvement que l'ancienne règle ne classait qu'en catégorie n'est pas « par cette règle » — relecture Fable A1).
       const old = ancienne ? _bankRulePatchMouvement(ancienne, m, { account: acc, loyerCC: o.loyerCC }) : null
-      if (old && old.ok && memeClassement(avant, classementApres(m, old.patch, o.logements))) { el.raison = 'ancienne-version'; out.parRegle.push(el) }
+      const poses = new Set(old && old.ok ? Object.keys(old.patch || {}) : [])
+      if (poses.has('qui') || poses.has('compteurCcId')) { poses.add('qui'); poses.add('imm'); poses.add('compteurCcId') }
+      const changes = CHAMPS.filter(k => avant[k] !== apres[k])
+      if (old && old.ok && memeClassement(avant, classementApres(m, old.patch, o.logements)) && changes.every(k => poses.has(k))) { el.raison = 'ancienne-version'; out.parRegle.push(el) }
       else { el.raison = 'retouche'; out.autrement.push(el) }
     }
     else if (traces.some(t => t !== trace)) { el.raison = 'autre-regle'; out.autrement.push(el) }

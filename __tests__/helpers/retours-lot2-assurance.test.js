@@ -21,7 +21,8 @@ describe('onglet Entretien & assurances : un seul bouton', () => {
     expect(rend).toContain('>+ Assurance</button>')
     expect(rend).not.toContain('+ Assurance habitation')
     expect(rend).not.toContain('+ Assurance ce logement')
-    expect(rend).toMatch(/onclick="_assChoisir\('\$\{_refA\}'\)"/)
+    // la référence passe par data-ref, jamais concaténée dans le code de l'onclick
+    expect(rend).toContain('data-ref="${escHtml(ref)}" onclick="_assChoisir(this.dataset.ref)">+ Assurance</button>')
   })
   it('bouton secondaire : le seul corail de l\'onglet reste « Signaler un incident » (charte M-4)', () => {
     const btn = rend.match(/<button class="([^"]+)"[^>]*>\+ Assurance<\/button>/)

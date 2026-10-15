@@ -15627,7 +15627,7 @@ function _renderAssForLog(ref) {
   // RETOURS 15/10 (lot 2, point 3) : UN bouton, qui demande de qui est l'assurance (_assChoisir). Secondaire : le seul
   // bouton corail de l'onglet reste « Signaler un incident » (charte M-4).
   const addBtns = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      <button class="btn bs bb" onclick="_assChoisir('${_refA}')">+ Assurance</button>
+      <button class="btn bs bb" data-ref="${escHtml(ref)}" onclick="_assChoisir(this.dataset.ref)">+ Assurance</button>
     </div>`;
 
   const allItems = aliveMrh.map(m => renderItem(m, 'mrh'))
@@ -17917,9 +17917,11 @@ function _bailPiecesFicheHtml(ref, bail) {
   const ligne = (icone, titre, meta, acts, bdg) => '<div class="bpx-pc"><span class="bpx-ic">' + icone + '</span><span class="bpx-tx"><b>' + escHtml(titre)
     + (bdg ? '<span class="bpx-bdg pos">' + escHtml(bdg) + '</span>' : '') + '</b><small>' + escHtml(meta) + '</small></span><span class="bpx-acts">' + acts + '</span></div>';
   let h = '';
+  const pris = new Set();
   garants.forEach(g => {
-    const d = P.pieceA(pieces, 'caution', g.idx);
-    const p = papier['caution:' + g.idx];
+    const d = P.acteDuGarant(pieces, g);   // l'acte de CETTE personne (par son nom), jamais celui d'un autre garant
+    if (d) pris.add(d.id);
+    const p = papier[P.cleGarant(bail, g.nom)];
     const titre = 'Acte de cautionnement — ' + g.nom;
     if (d) h += ligne(ic(d), titre, (d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size),
       b('Ouvrir', 'data-act="ouvrir" data-doc="' + d.id + '"') + b('Remplacer', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
@@ -17928,9 +17930,11 @@ function _bailPiecesFicheHtml(ref, bail) {
     else h += ligne(_uiIcon('doc', 18), titre, 'Garant inscrit au bail · aucun fichier',
       b('Ajouter le fichier', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Je l\'ai en papier', 'data-act="papier" data-g="' + g.idx + '" data-on="1"'));
   });
-  pieces.filter(d => d.piece !== 'caution' || !garants.some(g => g.idx === Number(d.garantIdx))).forEach(d => {
-    h += ligne(ic(d), P.libellePiece(d, garants), (d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size),
-      b('Ouvrir', 'data-act="ouvrir" data-doc="' + d.id + '"') + b('Remplacer', 'data-act="deposer" data-piece="' + escHtml(d.piece) + '" data-doc="' + d.id + '" data-lib="' + escHtml(d.pieceLibelle || '') + '"' + (d.piece === 'caution' ? ' data-g="' + escHtml(d.garantIdx || 1) + '"' : '')) + b('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
+  // Actes d'une personne qui n'est plus garant (retirée, remplacée) : montrés à part, jamais comptés pour un autre garant.
+  pieces.filter(d => d.piece !== 'caution' || !pris.has(d.id)).forEach(d => {
+    const orphelin = d.piece === 'caution';
+    h += ligne(ic(d), P.libellePiece(d, garants), (d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size) + (orphelin ? ' · n\'est plus garant de ce bail' : ''),
+      b('Ouvrir', 'data-act="ouvrir" data-doc="' + d.id + '"') + (orphelin ? '' : b('Remplacer', 'data-act="deposer" data-piece="' + escHtml(d.piece) + '" data-doc="' + d.id + '" data-lib="' + escHtml(d.pieceLibelle || '') + '"')) + b('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
   });
   const types = P.PIECE_TYPES.filter(t => t.k !== 'bail' && t.k !== 'caution');
   return (h ? '<div class="bpx-pcs" style="margin-top:8px">' + h + '</div>' : '')
@@ -31710,7 +31714,7 @@ function _bankRulePreviewRender() {
     + (imp ? '<div class="brg-kpi"><b>' + nImport + '</b><span>ligne' + (nImport > 1 ? 's' : '') + ' de l\'import en cours classée' + (nImport > 1 ? 's' : '') + ' à l\'enregistrement</span></div>'
       + (nProt ? '<div class="brg-kpi"><b>' + nProt + '</b><span>déjà classée' + (nProt > 1 ? 's' : '') + ' à la main : laissée' + (nProt > 1 ? 's' : '') + ' telle' + (nProt > 1 ? 's' : '') + ' quelle' + (nProt > 1 ? 's' : '') + '</span></div>' : '')
       + '<div class="brg-kpi"><b>' + nOff + '</b><span>décochée' + (nOff > 1 ? 's' : '') + ' : à classer à la main</span></div>' : '')
-    + '<div class="brg-kpi info"><b>' + p.nBase + '</b><span>déjà en base sur ce compte — proposés après l\'enregistrement, <b style="display:inline;font:600 var(--fs-sm) var(--font)">sur confirmation</b> (rien ne change sans cocher)</span></div></div>';
+    + '<div class="brg-kpi info"><b>' + p.nBase + '</b><span>déjà en base sur ce compte — ceux dont le classement changerait seront proposés après l\'enregistrement, <b style="display:inline;font:600 var(--fs-sm) var(--font)">sur confirmation</b></span></div></div>';
   const recap = (d.srcMvId != null)
     ? '<div class="brg-hint">À l\'enregistrement : ce mouvement (ligne de départ) suit la règle, puis Propryo propose de l\'appliquer aux autres mouvements déjà en base qui correspondent, sur confirmation. Les prochains imports de ce compte la suivront.</div>'
     : '<div class="brg-hint">À l\'enregistrement : la ligne de départ suit la règle, les lignes cochées de l\'import en cours aussi (sauf celles déjà classées à la main, laissées telles quelles), puis les prochains imports de ce compte. Les mouvements déjà en base sont proposés ensuite, sur confirmation.</div>';
@@ -31803,10 +31807,15 @@ function _bankRuleSave() {
   const ancienne = base ? Object.assign({}, base) : null;
   if (idx >= 0) DB.importRules[idx] = rule; else DB.importRules.push(rule);
   if (typeof _stamp === 'function') _stamp(DB);
-  // D7 — mouvement de départ sans compte : il est rattaché au compte de la règle (choisi dans la fenêtre).
-  if (d.srcMvId != null && d.mvSansCompte) _bankRuleRattacherCompte(d.srcMvId, rule.compte);
-  // (a) Le mouvement enregistré d'où la règle est créée (ou modifiée) : mis à jour directement.
-  const mvRes = (d.srcMvId != null) ? _bankRuleApplyToSourceMv(rule, d.srcMvId) : null;
+  // D7 — mouvement de départ sans compte : il est rattaché au compte de la règle (choisi dans la fenêtre), seulement si la
+  // règle le couvre (relecture Fable A4).
+  if (d.srcMvId != null && d.mvSansCompte) _bankRuleRattacherCompte(d.srcMvId, rule.compte, rule);
+  // (a) Le mouvement enregistré d'où la règle est créée (ou modifiée) : mis à jour directement — SAUF en modification
+  // d'un mouvement classé à la main : il n'est jamais reclassé sans être montré, il apparaît décoché dans la proposition
+  // (relecture Fable A3).
+  const srcMv = d.srcMvId != null ? (DB.mouvements || []).find(x => x && !x._deleted && String(x.id) === String(d.srcMvId)) : null;
+  const srcMainGarde = !!(srcMv && srcMv._classeMain && idx >= 0);
+  const mvRes = (d.srcMvId != null && !srcMainGarde) ? _bankRuleApplyToSourceMv(rule, d.srcMvId) : null;
   saveDB();
   const motif = window._bankRuleMotif(rule);
   if (typeof _auditLog === 'function') _auditLog(idx >= 0 ? 'update' : 'create', 'import-rule', rule.id, 'motif="' + motif + '" compte=' + rule.compte + ' cat=' + (rule.cat || '—') + ' sens=' + (rule.sens || 'les deux'));
@@ -31815,6 +31824,7 @@ function _bankRuleSave() {
   const res = _bankRuleAfterChange(rule, d.srcIndex);
   const msg = [(idx >= 0 ? '✓ Règle « ' + motif + ' » enregistrée' : '✓ Règle « ' + motif + ' » créée')];
   if (mvRes && mvRes.msg) msg.push(mvRes.msg);
+  if (srcMainGarde) msg.push('ce mouvement, classé à la main, n\'a pas été modifié : il est proposé, décoché, avec les autres');
   if (res.reclasse) msg.push('les lignes de l\'import ont été reclassées');
   if (nExNouvelles) msg.push(nExNouvelles + (nExNouvelles > 1 ? ' lignes laissées hors règle (exceptions)' : ' ligne laissée hors règle (exception)'));
   if (res.sourceSuit === false) msg.push('la ligne de départ ne remplit pas ces critères : elle n\'a pas été modifiée');
@@ -31828,22 +31838,25 @@ function _bankRuleSave() {
   showToast(msg.join(' · '), warnMsg ? 'warn' : 'ok', (warnMsg || mvRes) ? 7000 : 3500);
   // Retour sur la fiche du mouvement, à jour (la fiche avait été fermée pour ouvrir la règle) — APRÈS la proposition
   // d'application aux autres mouvements, s'il y en a une.
+  const retourId = (mvRes && mvRes.mv) ? mvRes.mv.id : (srcMainGarde ? srcMv.id : null);
   const retourFiche = () => {
-    if (mvRes && mvRes.mv) {
+    if (retourId != null) {
       if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
-      if (typeof openEditMv === 'function') openEditMv(mvRes.mv.id);
+      if (typeof openEditMv === 'function') openEditMv(retourId);
     }
   };
-  if (!_bankRuleProposerApplication(rule, ancienne, d.srcMvId, retourFiche)) retourFiche();
+  if (!_bankRuleProposerApplication(rule, ancienne, srcMainGarde ? null : d.srcMvId, retourFiche)) retourFiche();
 }
 
 // D7 — rattache un mouvement sans compte au compte de la règle créée depuis lui (choisi dans la fenêtre). Jamais un
 // mouvement qui a déjà un compte. L'appelant enregistre.
-function _bankRuleRattacherCompte(mvId, compte) {
+function _bankRuleRattacherCompte(mvId, compte, rule) {
   const m = (DB.mouvements || []).find(x => x && !x._deleted && String(x.id) === String(mvId));
   if (!m || compte == null || compte === '' || (m._bankAccountId != null && m._bankAccountId !== '')) return false;
   const acc = (DB.params.bankAccounts || []).find(a => a && !a._deleted && String(a.id) === String(compte));
   if (!acc) return false;
+  // La règle doit couvrir le mouvement avec ce compte ; sinon il reste sans compte (rien n'est modifié en silence).
+  if (rule && !window._bankRulePatchMouvement(rule, Object.assign({}, m, { _bankAccountId: acc.id }), { account: acc, loyerCC: _bankLoyerCC }).ok) return false;
   const before = Object.assign({}, m);
   m._bankAccountId = acc.id;
   _stamp(m);
@@ -31905,7 +31918,10 @@ function _bankRuleProposerApplication(rule, ancienne, sourceId, apres) {
       logements: DB.logements || [], sourceId, loyerCC: _bankLoyerCC });
   } catch (e) { console.warn('[règle → mouvements existants]', e); return false; }
   if (!g || !g.total) return false;
-  const coches = new Set([...g.aClasser, ...g.parRegle].map(x => String(x.id)));
+  // Un mouvement d'une année antérieure (déclaration 2044 peut-être déjà faite) est proposé DÉCOCHÉ, et signalé.
+  const anCourant = String(new Date().getFullYear());
+  const anterieur = x => String((x.mv && x.mv.date) || '').slice(0, 4) < anCourant;
+  const coches = new Set([...g.aClasser, ...g.parRegle].filter(x => !anterieur(x)).map(x => String(x.id)));
   _bankRuleAppl = { ruleId: rule.id, motif: window._bankRuleMotif(rule), sens: rule.sens, compte: rule.compte, cree: !ancienne, groupes: g, coches, apres };
   let ov = el('ov-bank-rule-appl');
   if (!ov) {
@@ -31934,8 +31950,9 @@ function _bankRuleApplRender() {
   const cls = c => (c.cat ? escHtml(c.cat) : 'à classer') + ' · ' + escHtml(aff(c));
   const ligne = x => {
     const m = x.mv; const cr = (Number(m.cr) || 0) > 0; const id = String(x.id);
-    const raison = (x.raison && x.raison !== 'a-classer' && x.raison !== 'non-affecte' && x.raison !== 'ancienne-version')
-      ? '<span class="brg-appl-why">' + escHtml(window.RegleApplication.RAISONS[x.raison] || '') + '</span>' : '';
+    const raison = ((x.raison && x.raison !== 'a-classer' && x.raison !== 'non-affecte' && x.raison !== 'ancienne-version')
+      ? '<span class="brg-appl-why">' + escHtml(window.RegleApplication.RAISONS[x.raison] || '') + '</span>' : '')
+      + (String(m.date || '').slice(0, 4) < String(new Date().getFullYear()) ? '<span class="brg-appl-why">année ' + escHtml(String(m.date || '').slice(0, 4)) + '</span>' : '');
     return '<div class="brg-pvr"><label class="brg-cb"><input type="checkbox" data-id="' + escHtml(id) + '"' + (st.coches.has(id) ? ' checked' : '')
       + ' aria-label="Reclasser le mouvement du ' + escHtml(fd(m.date)) + ', ' + escHtml(m.lib || '') + '" onchange="_bankRuleApplCase(this.dataset.id,this.checked)"></label>'
       + '<span class="brg-l"><span>' + escHtml(fd(m.date)) + ' · ' + escHtml(m.lib || '') + raison + '</span>'
@@ -31958,22 +31975,35 @@ function _bankRuleApplRender() {
     + bloc('aClasser', 'À classer')
     + bloc('autrement', 'Classés autrement', 'Classés à la main, par une autre règle, ou découpés : laissés tels quels, sauf case cochée.')
     + bloc('parRegle', 'Déjà classés par cette règle', 'Classés par l\'ancienne version de la règle, jamais retouchés depuis.')
-    + '<div class="brg-alert info" style="margin-top:12px">Le reclassement compte dans Finances et la déclaration 2044. Il s\'annule juste après avec « Annuler », et chaque changement est noté au journal du mouvement.</div>';
-  const n = st.coches.size;
-  el('brg-appl-f').innerHTML = '<button class="btn bs" onclick="_bankRuleApplFermer()">Ne rien changer</button>'
-    + '<button class="btn bp" onclick="_bankRuleApplValider()"' + (n ? '' : ' disabled') + '>' + (n ? 'Reclasser ' + n + ' mouvement' + (n > 1 ? 's' : '') : 'Aucun mouvement coché') + '</button>';
+    + '<div class="brg-alert info" style="margin-top:12px">Le reclassement compte dans Finances et la déclaration 2044 : les mouvements des années précédentes sont décochés par défaut (déclaration peut-être déjà faite). Il s\'annule juste après avec « Annuler », et chaque changement est noté au journal du mouvement.</div>';
+  el('brg-appl-f').innerHTML = _bankRuleApplPiedHtml(st.coches.size);
 }
 function _bankRuleApplCase(id, on) {
   const st = _bankRuleAppl; if (!st) return;
   if (on) st.coches.add(String(id)); else st.coches.delete(String(id));
-  _bankRuleApplRender();
+  _bankRuleApplMajPied();   // pied et « Tout cocher » seulement : la case garde le focus (clavier, lecteur d'écran)
+}
+function _bankRuleApplPiedHtml(n) {
+  return '<button class="btn bs" onclick="_bankRuleApplFermer()">Ne rien changer</button>'
+    + '<button class="btn bp" onclick="_bankRuleApplValider()"' + (n ? '' : ' disabled') + '>' + (n ? 'Reclasser ' + n + ' mouvement' + (n > 1 ? 's' : '') : 'Aucun mouvement coché') + '</button>';
+}
+function _bankRuleApplMajPied() {
+  const st = _bankRuleAppl; if (!st) return;
+  const f = el('brg-appl-f'); if (f) f.innerHTML = _bankRuleApplPiedHtml(st.coches.size);
+  const b = el('brg-appl-b');
+  if (b && b.querySelectorAll) b.querySelectorAll('[data-g]').forEach(x => {
+    const arr = (st.groupes[x.dataset.g] || []).map(e => String(e.id));
+    x.textContent = arr.every(id => st.coches.has(id)) ? 'Tout décocher' : 'Tout cocher';
+  });
 }
 function _bankRuleApplTout(cle) {
   const st = _bankRuleAppl; if (!st || !st.groupes[cle]) return;
   const arr = st.groupes[cle].map(x => String(x.id));
   const tous = arr.every(id => st.coches.has(id));
   arr.forEach(id => { if (tous) st.coches.delete(id); else st.coches.add(id); });
-  _bankRuleApplRender();
+  const b = el('brg-appl-b');
+  if (b && b.querySelectorAll) b.querySelectorAll('input[type=checkbox][data-id]').forEach(c => { if (arr.includes(c.dataset.id)) c.checked = !tous; });
+  _bankRuleApplMajPied();
 }
 function _bankRuleApplFermer() {
   const st = _bankRuleAppl; _bankRuleAppl = null;
@@ -31985,17 +32015,21 @@ function _bankRuleApplValider() {
   const rule = window._bankRuleById(DB.importRules || [], st.ruleId);
   if (!rule) { showToast('Règle introuvable (supprimée entre-temps ?) : rien n\'a été reclassé.', 'err', 6000); _bankRuleApplFermer(); return; }
   const ids = new Set(st.coches);
-  let n = 0, ignores = 0;
+  let n = 0, ignores = 0, enregistre = true;
   _undoOp('Règle « ' + st.motif + ' » appliquée aux mouvements enregistrés', () => {
     (DB.mouvements || []).forEach(m => {
       if (!m || m._deleted || !ids.has(String(m.id))) return;
       const r = _bankRuleAppliquerAuMv(rule, m);   // revérifie la correspondance au moment d'appliquer
       if (r.ok && r.changed) n++; else ignores++;
     });
-    if (n) saveDB();
+    if (n) {
+      // Journal DANS l'opération annulable : « Annuler » le retire avec le reste (relecture Fable A5).
+      if (typeof _auditLog === 'function') _auditLog('update', 'import-rule', rule.id, 'appliquée à ' + n + ' mouvement' + (n > 1 ? 's' : '') + ' déjà enregistré' + (n > 1 ? 's' : '') + ' (sur confirmation)');
+      enregistre = saveDB() !== false;
+    }
   });
-  if (typeof _auditLog === 'function' && n) _auditLog('update', 'import-rule', rule.id, 'appliquée à ' + n + ' mouvement' + (n > 1 ? 's' : '') + ' déjà enregistré' + (n > 1 ? 's' : '') + ' (sur confirmation)');
   _bankRuleApplFermer();
+  if (n && !enregistre) { showToast('Le reclassement n\'a pas pu être enregistré (hors ligne ou lecture seule) : réessayer une fois la connexion revenue.', 'err', 8000); return; }
   if (typeof rMv === 'function' && el('mv-tbody')) rMv();
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
   if (n) _undoToast(n + ' mouvement' + (n > 1 ? 's' : '') + ' reclassé' + (n > 1 ? 's' : '') + ' selon la règle « ' + st.motif + ' »' + (ignores ? ' · ' + ignores + ' laissé' + (ignores > 1 ? 's' : '') + ' tel' + (ignores > 1 ? 's' : '') + ' quel' + (ignores > 1 ? 's' : '') + ' (déjà à jour ou plus concerné' + (ignores > 1 ? 's' : '') + ')' : ''), 'ok');
@@ -34205,6 +34239,7 @@ function _finAffecter(ids, kind, yr, mo) {
     if (!m) return;
     const before = Object.assign({}, m);
     m.qui = qui; m.imm = imm; m.compteurCcId = cc || '';
+    m._classeMain = true;   // RETOURS 15/10 (relecture Fable A2) : affecté à la main → jamais reclassé coché par une règle
     if (typeof _stamp === 'function') _stamp(m);
     if (typeof _auditLog === 'function') _auditLog('update', 'mouvement', m.id, m.lib || m.fac || String(m.id), before, m);
     n++;

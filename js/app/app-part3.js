@@ -1179,7 +1179,10 @@ function _bootDataJobs() {
   // Idempotente. Cœur pur testé : js/core/bail-pieces-externes.js.
   if (window.BailPiecesExternes && typeof window.BailPiecesExternes.migrerPiecesExternes === 'function') {
     try {
-      const _bp = window.BailPiecesExternes.migrerPiecesExternes(DB.documents || []);
+      // Documents d'un espace SCI tiers : laissés tels quels (lus comme « bail signé » de toute façon) — jamais d'écriture refusée
+      // en boucle chez un membre en lecture seule (relecture adverse 15/10).
+      const _propre = (typeof _optsEspacePropre === 'function') ? _optsEspacePropre().espacePropre : undefined;
+      const _bp = window.BailPiecesExternes.migrerPiecesExternes(DB.documents || [], d => d._espaceId == null || (_propre != null && String(d._espaceId) === String(_propre)));
       if (_bp.length) { _bp.forEach(d => _stamp(d)); saveDB(); }
     } catch(e) { console.warn('[migration pièces du bail hors Propryo]', e); }
   }

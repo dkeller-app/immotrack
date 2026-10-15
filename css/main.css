@@ -1791,7 +1791,7 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
 @media(max-width:767px){
   .bpx-pc{grid-template-columns:36px minmax(0,1fr)}
   .bpx-acts{grid-column:1/-1;justify-content:flex-start}
-  .bpx-acts .btn,.bpx-add .btn{min-height:44px}
+  .bpx-pc .bpx-acts .btn.bb,.bpx-add .btn.bs,.bpx-add .btn.bb{min-height:44px}
   .bpx-add select.inp,.bpx-add input.inp{flex:1 1 100%;font-size:16px;min-height:44px}
 }
 /* RETOURS 15/10 (lot 2, point 5) — « Appliquer aussi aux mouvements déjà enregistrés ? » (_bankRuleProposerApplication) */

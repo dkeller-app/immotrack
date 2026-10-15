@@ -104,3 +104,25 @@ describe('classementApres / classeMainApresEdition', () => {
     expect(memeClassement({ cat: 'A', lib: 'x' }, { cat: 'A', lib: 'y' })).toBe(true)
   })
 })
+
+describe('relecture Fable A1 — une affectation posée HORS de la règle n\'est jamais proposée cochée', () => {
+  const cat1 = Object.assign({}, v1, { qui: '', imm: '' })                 // ancienne version : catégorie seule
+  const avecAff = Object.assign({}, v1, { qui: 'D-101', imm: '' })        // nouvelle version : ajoute l'affectation
+  it('trace de la règle + affectation faite à la main (ancienne version sans affectation) → « retouché », décoché', () => {
+    const m = mv(20, { cat: 'Loyers encaissés', qui: 'D-102', imm: 'Les Tanneurs', _rules: ['rg_1'] })
+    const g = mouvementsConcernes(avecAff, opts({ mouvements: [m], ancienne: cat1 }))
+    expect(g.parRegle).toEqual([])
+    expect(g.autrement.map(x => [x.id, x.raison])).toEqual([[20, 'retouche']])
+  })
+  it('sans catégorie mais déjà affecté (drill Finances) → « déjà affecté », décoché', () => {
+    const m = mv(21, { cat: '', qui: 'D-102', imm: 'Les Tanneurs' })
+    const g = mouvementsConcernes(avecAff, opts({ mouvements: [m] }))
+    expect(g.aClasser).toEqual([])
+    expect(g.autrement.map(x => [x.id, x.raison])).toEqual([[21, 'affecte']])
+    expect(RAISONS.affecte).toBe('déjà affecté')
+  })
+  it('sans catégorie, affectation identique à celle de la règle → reste « à classer »', () => {
+    const m = mv(22, { cat: '', qui: 'D-101', imm: 'Les Tanneurs' })
+    expect(mouvementsConcernes(avecAff, opts({ mouvements: [m] })).aClasser.map(x => x.id)).toEqual([22])
+  })
+})
