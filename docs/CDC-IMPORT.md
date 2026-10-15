@@ -263,6 +263,18 @@ on classerait sans regarder). Le staging de mouvements de la page « Import » d
 **Le levier de volume, c'est la règle** : une fois « EDF » mémorisé, les lignes se classent seules,
 y compris dans l'import en cours (⑦.3).
 
+> **Décision Didier du 15/10/2026 (retours lot 2, point 5 — revient sur la décision n°3 du 06/10)** : après
+> l'enregistrement d'une règle (création ou modification), Propryo **propose** « Appliquer aussi aux N mouvements
+> déjà enregistrés ? ». Ce n'est pas une sélection multiple libre : la liste est **celle de la règle** (même compte,
+> mêmes critères, exceptions exclues), en trois groupes — *à classer* (cochés), *classés autrement* (à la main, par une
+> autre règle, découpés : **décochés** et signalés), *déjà classés par l'ancienne version de cette règle* (cochés).
+> Chaque ligne montre l'avant et l'après ; rien ne change sans « Reclasser N mouvements » ; une case décochée laisse le
+> mouvement tel quel (aucune exception créée) ; l'opération s'annule avec « Annuler » et chaque mouvement est
+> journalisé. Un mouvement classé à la main porte le marqueur `_classeMain` (fiche du mouvement, ligne d'import
+> retouchée) et n'est jamais proposé coché. Modifier une règle **depuis la fiche d'un mouvement** met aussi ce
+> mouvement à jour. Un mouvement **sans compte** peut servir de départ à une règle : le compte est demandé et le
+> mouvement y est rattaché. Code : `js/core/regle-application.js`, `_bankRuleProposerApplication` (app-part2).
+
 ### ⑦.7 · Où se gèrent les règles — deux accès, une seule liste
 
 - **Onglet Réglages** : la liste complète, conservée.

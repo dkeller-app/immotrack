@@ -11113,7 +11113,7 @@ function _mvRenderProvenance(m) {
       const r = (typeof window._bankRuleFindForTrace === 'function')
         ? window._bankRuleFindForTrace(DB.importRules || [], p, m._bankAccountId) : null;
       if (r && r.id) {
-        return '<a data-rid="' + escHtml(r.id) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(this.dataset.rid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(window._bankRuleMotif(r)) + ' »</a>';
+        return '<a data-rid="' + escHtml(r.id) + '" data-mvid="' + escHtml(m.id) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(this.dataset.rid,null,this.dataset.mvid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(window._bankRuleMotif(r)) + ' »</a>';
       }
       // Trace d'une règle supprimée : un identifiant ne dit rien à l'utilisateur, un motif si.
       const lisible = /^rg_/.test(String(p)) ? '' : '« ' + escHtml(p) + ' » ';
@@ -11121,9 +11121,10 @@ function _mvRenderProvenance(m) {
     });
     bits.push(_uiIcon('settings') + ' <b>Classé par ' + (links.length > 1 ? 'les règles' : 'la règle') + '</b> ' + links.join(', '));
   }
-  // D4 — créer une règle depuis un mouvement IMPORTÉ (le compte est celui du mouvement) :
-  // à l'enregistrement, ce mouvement — et lui seul — est mis à jour directement.
-  if (m._source === 'bank_import' && m._bankAccountId != null && m._bankAccountId !== '' && !m._deleted) {
+  // D4 — créer une règle depuis un mouvement : à l'enregistrement, ce mouvement est mis à jour directement, puis les
+  // autres mouvements concernés sont PROPOSÉS (sur confirmation). RETOURS 15/10 : aussi depuis un mouvement saisi à la main
+  // ou importé avant les comptes — la fenêtre de la règle demande alors le compte (D7).
+  if (!m._deleted) {
     // Phase 6a : « ✓ Règle enregistrée » (avec Modifier) quand une règle du même compte le couvre déjà ; sinon ce lien.
     const _pastille = (typeof _bankRuleStatutHtml === 'function') ? _bankRuleStatutHtml('mv', m.id) : '';
     if (_pastille) bits.push(_pastille);
@@ -11496,12 +11497,17 @@ async function saveMv() {
       // la PJ en silence. Quand le bloc ci-dessus a créé un nouveau document, `m.pjId` est présent
       // et gagne de toute façon (la préservation ne touche pas une clé déjà là).
       _preserverSaufChampsPilotes(m, DB.mouvements[i], _mvDocCleared ? ['pj', 'pjId'] : []);
+      // RETOURS 15/10 (lot 2, point 5) — la fiche change la catégorie ou l'affectation : le mouvement est « classé à la
+      // main ». Une règle appliquée plus tard aux mouvements enregistrés ne le proposera jamais coché
+      // (js/core/regle-application.js). Sans changement de classement, le marqueur existant est conservé tel quel.
+      if (window.RegleApplication && window.RegleApplication.classeMainApresEdition(DB.mouvements[i], m)) m._classeMain = true;
       _auditLog('update', 'mouvement', m.id, m.lib||m.fac||String(m.id), DB.mouvements[i], m);
       DB.mouvements[i]=m;
     }
   } else {
     // TRAVAUX : QUI PAIE ? — création par l'API unique (horodatage, audit AVANT le push, push).
     // saveDB / rafraîchissement restent ci-dessous, dans l'ordre d'origine (fermeture, liste).
+    if (m.cat) m._classeMain = true;   // RETOURS 15/10 : saisi et classé à la main
     _mvCreate(m, { save: false, refresh: false });
     // CDC-QUITTANCES-IRL I6/I13 — l'association automatique « ce paiement = cette quittance »
     // est SUPPRIMÉE : elle rattachait un mouvement au mois calendaire de sa date (7ᵉ moteur, C3)
