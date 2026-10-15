@@ -10267,9 +10267,12 @@ async function _mvDocOpenById(mvId) {
   if(!m) { showToast('Mouvement non trouvé','err'); return; }
   const pj = _mvPjResolve(m);
   if(!pj) { showToast('Aucune PJ sur ce mouvement','warn'); return; }
+  // Retours 15/10 — la fenêtre s'ouvre DANS le geste, avant toute attente (sinon bloquée comme popup).
+  const w = _mvDocFenetre();
+  if (!w) return;
 
   // Legacy : ouvrir direct
-  if (pj._legacy) { _mvDocOpenInWindow(pj); return; }
+  if (pj._legacy) { _mvDocOpenInWindow(pj, w); return; }
 
   // Nouveau format : récupérer le binaire depuis IDB, sinon depuis Supabase Storage (cloud).
   let dataB64 = null;
@@ -10281,15 +10284,50 @@ async function _mvDocOpenById(mvId) {
     try { dataB64 = await _downloadPhotoFromDrive(null, pj.idbKey, pj.cloudKey); if (dataB64 && pj.idbKey) try { await _idbPut(pj.idbKey, dataB64); } catch(e) {} } catch(e) { console.warn('[_mvDocOpenById] Storage fail', e); }
   }
   if (!dataB64) {
+    try { w.close(); } catch (e) {}
     showToast('Binaire PJ introuvable (cache local vide et absent du cloud).', 'err', 6000);
     return;
   }
-  _mvDocOpenInWindow({ name: pj.name, mime: pj.mime, dataB64 });
+  _mvDocOpenInWindow({ name: pj.name, mime: pj.mime, dataB64 }, w);
 }
 
-function _mvDocOpenInWindow(pj) {
+// Retours 15/10 (lot 1, point 4) — fenêtre ouverte dans le geste de l'utilisateur, avec un message d'attente
+// (le binaire peut venir du stockage en ligne). null si le navigateur la bloque (et on le dit).
+function _mvDocFenetre() {
   const w = window.open('', '_blank');
+  if (!w) { showToast('Fenêtre bloquée par le navigateur : autoriser les fenêtres (pop-up) pour Propryo.', 'err', 6000); return null; }
+  try { w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ouverture…</title></head><body style="font:15px system-ui,sans-serif;color:#555;display:flex;align-items:center;justify-content:center;min-height:90vh;margin:0">Ouverture du document…</body></html>'); w.document.close(); } catch (e) {}
+  return w;
+}
+
+// Retours 15/10 (lot 1, point 4) — PAGE BLANCHE à l'ouverture d'un bail / EDL signé hors Propryo (et de toute pièce
+// jointe de plus d'environ 1,5 Mo) : l'ancienne fenêtre affichait une iframe `data:application/pdf`, or Chrome plafonne
+// une URL à 2 Mo. Le binaire devient un Blob ouvert par une URL `blob:` courte (logique pure : js/core/doc-ouvrir.js).
+// `wPre` : fenêtre déjà ouverte dans le geste (_mvDocFenetre) ; sans elle, on l'ouvre ici (appel direct depuis un clic).
+function _mvDocOpenInWindow(pj, wPre) {
+  const D = (typeof window !== 'undefined') ? window.DocOuvrir : null;
+  if (D && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function' && typeof Blob !== 'undefined') {
+    const w = wPre || _mvDocFenetre();
+    if (!w) return;
+    let url;
+    const type = D.typeDocument(pj.dataB64, pj.mime, pj.name);
+    try { url = URL.createObjectURL(new Blob([D.dataUrlEnOctets(pj.dataB64)], { type })); }
+    catch (e) { try { w.close(); } catch (x) {} showToast('Document illisible : le fichier enregistré est endommagé.', 'err', 6000); return; }
+    if (D.modeOuverture(type) === 'telecharger') {
+      try { w.close(); } catch (e) {}
+      const a = document.createElement('a'); a.href = url; a.download = pj.name || 'document';
+      document.body.appendChild(a); a.click(); a.remove();
+    } else {
+      try { w.location.href = url; } catch (e) { try { w.close(); } catch (x) {} showToast('Ouverture du document impossible.', 'err', 6000); return; }
+    }
+    // L'URL reste valable le temps de consulter / télécharger depuis la visionneuse, puis est libérée.
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 30 * 60 * 1000);
+    return;
+  }
+  // Repli (module non chargé, file://) : ancien rendu, limité aux petits fichiers.
+  const w = wPre || window.open('', '_blank');
   if(!w) { showToast('Popup bloquée — autoriser les popups','err',5000); return; }
+  try { w.document.open(); } catch (e) {}
   const safeName = escHtml(pj.name || 'Document');
   if(/pdf/i.test(pj.mime || '') || /\.pdf$/i.test(pj.name || '')) {
     w.document.write(`<!DOCTYPE html><html><head><title>${safeName}</title><meta charset="utf-8"></head><body style="margin:0"><iframe src="${escHtml(pj.dataB64)}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);

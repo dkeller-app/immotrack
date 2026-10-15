@@ -17830,13 +17830,18 @@ async function _handleAttachmentDelete(docId) {
 async function _handleAttachmentOpen(docId) {
   const doc = (DB.documents||[]).find(d => d && !d._deleted && d.id === docId);
   if (!doc) { showToast('Document introuvable', 'err'); return; }
+  // Retours 15/10 (lot 1, point 4) — la fenêtre s'ouvre DANS le geste, avant d'attendre le binaire (IndexedDB
+  // ou stockage en ligne) : après une attente, le navigateur la bloque comme une fenêtre surgissante.
+  const w = _mvDocFenetre();
+  if (!w) return;
   const dataB64 = await _attachmentLoadBinary(doc);
   if (!dataB64) {
-    showToast('Binaire introuvable (IDB ni Drive)', 'err', 6000);
+    try { w.close(); } catch (e) {}
+    showToast('Document introuvable sur cet appareil et dans le stockage en ligne.', 'err', 6000);
     return;
   }
   // Réutilise _mvDocOpenInWindow qui gère PDF/image/fallback download
-  _mvDocOpenInWindow({ name: doc.originalName || doc.name, mime: doc.mime, dataB64 });
+  _mvDocOpenInWindow({ name: doc.originalName || doc.name, mime: doc.mime, dataB64 }, w);
 }
 
 // v15.01 Sprint 5C — LOG-PHOTOS galerie photos logement (Phase 3 plan PJ unifiées).
