@@ -4,7 +4,7 @@ import { computeSigId, sideOf } from '../public/sign/sigid.js';
 // le rafraîchissement navigateur. Sans ça, Safari (et autres) réutilisent le CSS/JS
 // en cache mémoire malgré `must-revalidate` lors d'un rechargement « doux ». À incrémenter
 // à chaque modif de sign.css ou sign.js tant qu'on n'a pas de hash de contenu (déploiement).
-const ASSET_VERSION = '8';
+const ASSET_VERSION = '9';   // 9 : messages « limite » et « envoi impossible » du code (chantier EMAILS)
 
 // Sérialise pour insertion dans <script> : échappe < pour neutraliser </script>.
 function jsonForScript(v) {

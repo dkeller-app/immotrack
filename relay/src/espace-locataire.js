@@ -8,7 +8,7 @@
 // (octets magiques, taille), e-mails (mode dev tant que le domaine n'est pas actif).
 import {
   JETON_RE, empreinteJeton, PIECES, PROBLEMES, URGENCES, ART21, ART23_JUSTIFICATIFS, ACCORD_VERSION, libelleAccord,
-  erreurSignalement, erreurMessage, typeReel, MIME_DE, DEPOT_MAX_OCTETS, modeleEmail, TYPES_EMAIL,
+  erreurSignalement, erreurMessage, typeReel, MIME_DE, DEPOT_MAX_OCTETS, TYPES_EMAIL,
   normaliserIaSignalement, normaliserContactSignalement,
 } from '../../js/core/espace-locataire.js';
 import { ETAPES_LOCATAIRE, ART_7E_WEEKEND, ART_7E_SOURCE, exigeAccordExpres } from '../../js/core/incident-circuit.js';
@@ -20,7 +20,9 @@ import { URGENCES as CONSIGNES_URGENCE, CONSIGNE_DANGER } from '../../js/core/qu
 import { elConfigure, rpc, lireObjet, deposerObjet, contactProprietaire, ElErreur } from './el-supabase.js';
 import { sha256hex } from './crypto-utils.js';
 import { generateCode, hashCode, verifyCode, OTP_TTL_MS, OTP_MAX_ATTEMPTS } from './otp.js';
-import { makeSender } from './email-sender.js';
+import { makeSender, emailsOperationnels } from './email-sender.js';
+import { modeleEmail } from './email-modeles.js';
+import { consommer, parHeure, parJour, reglesProprietaire, debitEmail, LIMITES } from './email-limites.js';
 
 export const EL_ASSET_VERSION = '3';   // 3 : assistant IA, créneau, résultat (0060) — el.js importe lien-commun.js
 
@@ -149,7 +151,8 @@ export async function recevoirDepot(c, { ticket, fin, nomEntete }) {
 }
 
 // ── OTP de l'accord (D10) : actif seulement si EL_CODE_ACCORD="true" ET EMAIL_MODE="resend" ──
-const codeAccordRequis = (env) => env.EL_CODE_ACCORD === 'true' && env.EMAIL_MODE === 'resend';
+// « E-mail actif » = mode resend ET configuration complète (clé, expéditeur) : sinon l'accord deviendrait impossible.
+const codeAccordRequis = (env) => env.EL_CODE_ACCORD === 'true' && emailsOperationnels(env);
 const masque = (m) => { const [u, d] = String(m).split('@'); return (u ? u[0] : '') + '•••@' + (d ? d[0] + '•••' + d.slice(d.lastIndexOf('.')) : ''); };
 
 export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
@@ -272,14 +275,15 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
     if (!r.v) return inactif(c);
     if (!r.v.email) return jsonErreur(c, 409, 'sans_email');
     const kv = c.env.SESSIONS_KV, cle = 'elotp:' + x.h;
-    const prev = await kv.get(cle, 'json');
-    const envois = prev && prev.fenetre > Date.now() - 3600_000 ? (prev.envois || 0) : 0;
-    if (envois >= 3) return jsonErreur(c, 429, 'limite');
+    // Déclenchable par quiconque détient le lien : 3 codes par heure et 6 par jour pour cet accès (destinataire = adresse
+    // du bail, lue en base ; jamais fournie par la page).
+    if (!(await debitEmail(c.env, 'elc:' + x.h))) return jsonErreur(c, 429, 'limite');
+    if (!(await consommer(kv, [parHeure('elc:h:' + x.h, LIMITES.CODE_ACCORD_HEURE), parJour('elc:j:' + x.h, LIMITES.CODE_ACCORD_JOUR)]))) return jsonErreur(c, 429, 'limite');
     const code = generateCode();
-    await kv.put(cle, JSON.stringify({ hash: await hashCode(x.h, code), exp: Date.now() + OTP_TTL_MS, essais: 0, envois: envois + 1, fenetre: envois ? prev.fenetre : Date.now() }), { expirationTtl: 3600 });
+    await kv.put(cle, JSON.stringify({ hash: await hashCode(x.h, code), exp: Date.now() + OTP_TTL_MS, essais: 0 }), { expirationTtl: 3600 });
     const s = sender || makeSender(c.env);
-    const out = await s.sendModele({ to: r.v.email, type: 'code_accord', objet: 'Code de confirmation', texte: `Bonjour,\n\nCode pour confirmer le choix sur la quittance électronique : ${code}\n\nValable 10 minutes. Ne le communiquer à personne.\n\n— Propryo` });
-    if (!out.sent) return jsonErreur(c, 502, 'envoi');
+    const out = await s.sendModele({ to: r.v.email, type: 'code_accord', donnees: { code } });
+    if (!out.sent) return jsonErreur(c, out.error === 'quota' ? 429 : 502, out.error === 'quota' ? 'limite' : 'envoi');
     return c.json({ envoye: true, a: masque(r.v.email) });
   });
 
@@ -310,12 +314,12 @@ export function registerEspaceLocataireRoutes(app, { sender = null } = {}) {
 // Le relais vérifie, avec le jeton du propriétaire (RLS par SCI), qu'il voit bien l'accès concerné.
 export function registerEspaceLocataireProprietaire(app, { requireSupabaseUser, sender = null }) {
   // État public (aucune donnée) : l'espace est-il branché, les e-mails partent-ils vraiment ?
-  app.get('/el/etat', (c) => c.json({ actif: elConfigure(c.env), emails: c.env.EMAIL_MODE === 'resend' }));
+  app.get('/el/etat', (c) => c.json({ actif: elConfigure(c.env), emails: emailsOperationnels(c.env) }));
 
   app.post('/el/notifier', async (c) => {
     const auth = await requireSupabaseUser(c);
     if (auth.error) return auth.error;
-    if (!(await limiteDebit(c, 'eln:' + auth.userId))) return jsonErreur(c, 429, 'limite');
+    if (!(await limiteDebit(c, 'eln:' + auth.userId)) || !(await debitEmail(c.env, 'eln:' + auth.userId))) return jsonErreur(c, 429, 'limite');
     const b = await lireJson(c, 4096);
     if (!b || !TYPES_EMAIL.includes(b.type)) return jsonErreur(c, 400, 'invalide');
     // Lien d'invitation reconstruit sur l'ORIGINE DU RELAIS (jamais un hôte fourni par le client).
@@ -329,10 +333,14 @@ export function registerEspaceLocataireProprietaire(app, { requireSupabaseUser, 
     const contact = c.env.SUPABASE_ANON_KEY ? await contactProprietaire(c.env, jwt, b.acces_id, empreinteInvitation) : null;
     if (!contact) return jsonErreur(c, 403, 'interdit');
     if (!contact.email) return jsonErreur(c, 409, 'sans_email');
-    const m = modeleEmail(b.type, { bailleur: String(contact.bailleur || '').slice(0, 120), lien, titre: String(b.titre || '').replace(/[\r\n]/g, ' ').slice(0, 200), statut: String(b.statut || '').replace(/[\r\n]/g, ' ').slice(0, 40) });
-    if (!m) return jsonErreur(c, 400, 'invalide');
+    // Limites d'envoi alignées sur /ar/notifier (relevé du 14/10) : par lien 3 / heure et 10 / jour, par compte 30 / jour.
+    const donnees = { bailleur: contact.bailleur, lien, titre: b.titre, statut: b.statut };   // bornées et nettoyées par le modèle
+    if (!modeleEmail(b.type, donnees)) return jsonErreur(c, 400, 'invalide');                 // AVANT de compter
+    // KV en échec : on laisse passer (verrous EL_RATE et EMAIL_RATE ci-dessus, plafonds du relais et du fournisseur).
+    if (!(await consommer(c.env.SESSIONS_KV, reglesProprietaire('eln', b.acces_id, auth.userId), undefined, { siErreur: true }))) return jsonErreur(c, 429, 'limite');
     const s = sender || makeSender(c.env);
-    const out = await s.sendModele({ to: contact.email, objet: m.objet, texte: m.texte, type: b.type });
-    return c.json({ envoye: !!out.sent, mode: out.dev ? 'dev' : 'resend' }, 200);
+    const out = await s.sendModele({ to: contact.email, type: b.type, donnees });
+    if (out.error === 'modele') return jsonErreur(c, 400, 'invalide');
+    return c.json({ envoye: !!out.sent, mode: out.dev ? 'dev' : 'resend', ...(out.error === 'quota' ? { raison: 'quota' } : {}) }, 200);
   });
 }

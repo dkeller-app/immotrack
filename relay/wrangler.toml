@@ -17,16 +17,24 @@ binding = "ASSETS"
 [vars]
 # URL publique du projet Supabase (pour récupérer la clé PUBLIQUE de vérif JWT via JWKS) — non secret.
 SUPABASE_URL = "https://xcbtashflclswyiyvfgn.supabase.co"
-# OTP email (vérification identité signataire).
-#   EMAIL_MODE = "dev"    → aucun envoi, le code est retourné/loggé (état par défaut tant qu'il n'y
-#                           a pas de domaine vérifié). Tout le flux est testable ainsi.
-#   EMAIL_MODE = "resend" → envoi réel via Resend. Bascule = changer cette var + redeploy.
-#   EMAIL_FROM  : expéditeur. Dev/test → "onboarding@resend.dev" ; prod → "code@propryo.fr".
-#   RESEND_API_KEY : SECRET, jamais ici → `npx wrangler secret put RESEND_API_KEY`.
+# ── E-MAILS (src/email-sender.js, src/email-modeles.js, src/email-limites.js) — guide : mockups/EMAILS/GUIDE-ACTIVATION.md ──
+# Ce qui part (en mode resend) : code de signature à distance, code de l'accord de quittance électronique, invitation à
+# l'espace locataire et avis (document, message, signalement), invitation de l'artisan.
+#   EMAIL_MODE = "dev"    → RIEN ne part (défaut). Le code de signature s'affiche à l'écran (« mode test ») ; les autres
+#                           e-mails ne sont pas envoyés. Rien de personnel n'est journalisé (type d'e-mail seulement).
+#   EMAIL_MODE = "resend" → envoi réel via Resend (domaine vérifié + clé). Bascule = changer cette ligne + deploy --keep-vars.
+#   EMAIL_FROM  : adresse d'envoi, sur le SOUS-DOMAINE vérifié chez Resend (recommandation Resend : envoyer depuis un
+#                 sous-domaine). Inutilisée tant que EMAIL_MODE = "dev".
+#   EMAIL_REPLY_TO (facultative) : adresse qui reçoit les réponses (choisie par Didier). Absente → « ne pas répondre »
+#                 est écrit dans chaque e-mail. Exemple : EMAIL_REPLY_TO = "contact@propryo.fr"
+#   EMAIL_QUOTA_JOUR (facultative) : plafond GLOBAL d'e-mails par jour, toutes routes (défaut 90 : offre gratuite Resend
+#                 = 100 / jour). Offre Pro : par exemple "1500".
+#   RESEND_API_KEY : SECRET, jamais ici → `npx.cmd wrangler secret put RESEND_API_KEY` (Didier seul).
+# Limites par lien / signataire / compte : src/email-limites.js (LIMITES).
 EMAIL_MODE = "dev"
-EMAIL_FROM = "onboarding@resend.dev"
+EMAIL_FROM = "ne-pas-repondre@notifications.propryo.fr"
 # OTP_REQUIRED = "true" → /signed refuse une signature sans OTP vérifié (garde serveur, audit point 9).
-# Défaut "false" pendant le staging ; flip à "true" à l'activation, AVEC EMAIL_MODE=resend + domaine.
+# Défaut "false" ; à passer à "true" EN DERNIER, après EMAIL_MODE="resend" vérifié par un vrai envoi (guide, étape 9).
 OTP_REQUIRED = "false"
 
 # ── SOCLE IA (dictée de l'état des lieux ; plus tard dossiers / travaux) — src/ai/ ──
@@ -70,6 +78,7 @@ SUPABASE_ANON_KEY = "sb_publishable_mu8HNkruDoElJY7QGAHW2w_5nPvfxZO"
 #   npx wrangler secret put EL_RELAIS_MOT_DE_PASSE
 # Sans ces deux secrets, /api/el/* répond 503 el_inactif. AUCUNE clé de service (service_role) ici.
 # Code à usage unique pour donner / retirer l'accord (D10) : seulement quand l'e-mail est actif (EMAIL_MODE=resend).
+# Ordre d'activation : EMAIL_MODE="resend" vérifié (guide, étape 8) → EL_CODE_ACCORD="true" → enfin OTP_REQUIRED="true".
 EL_CODE_ACCORD = "false"
 
 # Limite de débit de l'espace locataire (par IP) — binding Workers « ratelimit ». Si l'offre du compte le refuse au
@@ -79,3 +88,12 @@ name = "EL_RATE"
 type = "ratelimit"
 namespace_id = "1059"
 simple = { limit = 300, period = 60 }
+
+# Verrou de débit des E-MAILS (src/email-limites.js, debitEmail) — atomique, par cible (session de signature, lien du
+# locataire, compte) : une rafale parallèle ne passe pas entre deux lectures KV. Si l'offre le refuse au déploiement,
+# retirer ce bloc : les compteurs KV (heure / jour) et le plafond global restent en place.
+[[unsafe.bindings]]
+name = "EMAIL_RATE"
+type = "ratelimit"
+namespace_id = "1061"
+simple = { limit = 10, period = 60 }
