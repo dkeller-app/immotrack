@@ -115,13 +115,18 @@ describe('🟡10 — pièce jointe d\'un bail / EDL hors Propryo : contenu véri
     expect(await _pjExterneLire({ files: [fichier(PDF, 'application/pdf', 'gros.pdf', 11 * 1048576)] }, false)).toBeNull()
     expect(toasts.at(-1)[0]).toMatch(/trop lourd/)
   })
-  it('câblage : les 4 sélecteurs passent par _pjExterneLire ; accept sans image/* ni SVG', () => {
-    expect(extraireFonction(P1, '_bailExterneFichierPris')).toMatch(/_pjExterneLire\(input, false\)/)
-    expect(extraireFonction(P1, '_bailScanExterneChoisir')).toMatch(/_pjExterneLire\(inp, false\)/)
-    expect(extraireFonction(P1, '_bailScanExterneChoisir')).toMatch(/inp\.accept = 'application\/pdf';/)
+  it('câblage : les sélecteurs passent par _pjExterneLire ; accept sans image/* ni SVG', () => {
+    // RETOURS 15/10 (lot 2, D1) : les pièces du bail signé hors Propryo acceptent PDF ET photos matricielles.
+    expect(extraireFonction(P1, '_bailExterneFichierPris')).toMatch(/_pjExterneLire\(input, true\)/)
+    expect(extraireFonction(P1, '_bailExterneAutreFichierPris')).toMatch(/_pjExterneLire\(input, true\)/)
+    expect(extraireFonction(P1, '_bailScanExterneChoisir')).toMatch(/_bailPieceChoisir\(ref, \{ piece: 'bail' \}\)/)
+    expect(extraireFonction(P1, '_bailPieceChoisir')).toMatch(/_pjExterneLire\(inp, true\)/)
+    expect(extraireFonction(P1, '_bailPieceChoisir')).toMatch(/inp\.accept = _BAIL_PJ_ACCEPT;/)
+    expect(P1).toContain("const _BAIL_PJ_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';")
+    expect(HTML).toMatch(/id="b-externe-autre-file" accept="application\/pdf,image\/jpeg,image\/png,image\/webp"/)
     expect(extraireFonction(P2, '_edlExtFichierPris')).toMatch(/_pjExterneLire\(input, true\)/)
     expect(extraireFonction(P2, '_edlExtAjouterPj')).toMatch(/_pjExterneLire\(inp, true\)/)
-    expect(HTML).toMatch(/id="b-externe-file" accept="application\/pdf"/)
+    expect(HTML).toMatch(/id="b-externe-file" accept="application\/pdf,image\/jpeg,image\/png,image\/webp"/)
     expect(extraireFonction(P2, '_edlExtFormHtml')).toMatch(/id="edlx-file" accept="application\/pdf,image\/jpeg,image\/png,image\/webp"/)
   })
 })

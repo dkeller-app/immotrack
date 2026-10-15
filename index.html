@@ -162,6 +162,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/entretien-statut.js">
 <link rel="modulepreload" href="js/core/entretien-regroupement.js">
 <link rel="modulepreload" href="js/core/regle-application.js">
+<link rel="modulepreload" href="js/core/bail-pieces-externes.js">
 <link rel="modulepreload" href="js/core/pilotage-familles.js">
 <link rel="modulepreload" href="js/core/loyer-bareme.js">
 <link rel="modulepreload" href="js/core/bail-historique.js">
@@ -2001,13 +2002,18 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
             <span class="mu sm" id="b-externe-approx" style="display:none">Date approximative (date de début du bail)</span>
           </div>
           <div style="margin-top:12px">
-            <label class="mu sm" style="display:block;margin-bottom:4px"><b>Pièce jointe</b> (facultatif — ajoutable plus tard depuis la fiche du bail ou l'onglet Documents)</label>
+            <!-- RETOURS 15/10 (lot 2, point 1) : plusieurs pièces typées — le bail signé (ci-dessous), un acte de cautionnement par
+                 garant (fichier ou « Je l'ai en papier »), avenants, annexes, autres. PDF ou photo. Tout est déposé à l'enregistrement. -->
+            <label class="mu sm" style="display:block;margin-bottom:4px"><b>Pièces signées</b> — PDF ou photo (facultatif — ajoutables plus tard depuis la fiche du bail ou l'onglet Documents)</label>
+            <div class="mu sm" style="margin-bottom:4px">Bail signé</div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <div class="inp" id="b-externe-pj-nom" style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Aucun fichier</div>
-              <button class="btn bs" type="button" id="b-externe-pj-choisir" onclick="_bailExterneChoisirPj()">Choisir un PDF</button>
+              <div class="inp" id="b-externe-pj-nom" style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;overflow-wrap:anywhere">Aucun fichier</div>
+              <button class="btn bs" type="button" id="b-externe-pj-choisir" onclick="_bailExterneChoisirPj()">Choisir un fichier</button>
               <button class="btn bs" type="button" id="b-externe-pj-retirer" onclick="_bailExterneRetirerPj()" style="display:none">Retirer</button>
             </div>
-            <input type="file" id="b-externe-file" accept="application/pdf" style="display:none" onchange="_bailExterneFichierPris(this)">
+            <input type="file" id="b-externe-file" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="_bailExterneFichierPris(this)">
+            <div id="b-externe-autres" class="bpx" style="margin-top:10px"></div>
+            <input type="file" id="b-externe-autre-file" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="_bailExterneAutreFichierPris(this)">
           </div>
         </div>
       </div>
@@ -4684,9 +4690,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=598e7277" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=6493855d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=5274dfa2" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part1.js?v=db64ddae" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=b189c4c8" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part3.js?v=cbc2d385" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">

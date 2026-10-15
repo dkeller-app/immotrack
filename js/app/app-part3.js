@@ -1175,6 +1175,14 @@ function _bootDataJobs() {
   // démarrage, pas seulement à l'ouverture de Finances : l'Accueil et la fiche d'un bien lisent le même moteur.
   if (typeof _finMigrateCatAlias === 'function') { try { _finMigrateCatAlias(); } catch(e) { console.warn('[migration familles]', e); } }
   if (typeof _finMigrateAssuranceEmprunteur === 'function') { try { _finMigrateAssuranceEmprunteur(); } catch(e) { console.warn('[migration assurance emprunteur]', e); } }
+  // RETOURS 15/10 (lot 2, point 1) — bail signé hors Propryo : une pièce déposée avant ce lot (sans type) est le bail signé.
+  // Idempotente. Cœur pur testé : js/core/bail-pieces-externes.js.
+  if (window.BailPiecesExternes && typeof window.BailPiecesExternes.migrerPiecesExternes === 'function') {
+    try {
+      const _bp = window.BailPiecesExternes.migrerPiecesExternes(DB.documents || []);
+      if (_bp.length) { _bp.forEach(d => _stamp(d)); saveDB(); }
+    } catch(e) { console.warn('[migration pièces du bail hors Propryo]', e); }
+  }
   // RETOURS 15/10 (lot 2, point 2) — poêle à granulés et insert : les deux échéances « entretien » et « ramonage » deviennent
   // une seule (fiches d'intervention, pièces jointes, rappels d'agenda). Idempotente, rien n'est perdu (anciennes fiches gardées
   // dans `regroupeDe`). Cœur pur testé : js/core/entretien-regroupement.js. Rappels régénérés par agendaAutoSync.

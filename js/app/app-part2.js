@@ -17765,6 +17765,43 @@ async function _handleAttachmentOpen(docId) {
   _mvDocOpenInWindow({ name: doc.originalName || doc.name, mime: doc.mime, dataB64 });
 }
 
+// RETOURS 15/10 (lot 2, point 1) — bail signé hors Propryo : les AUTRES pièces dans la fiche (onglet Documents), actions
+// immédiates : une ligne « Acte de cautionnement » par garant inscrit (fichier, ou « Je l'ai en papier » — D2), les avenants,
+// annexes et autres pièces, puis « + Ajouter une pièce ». Le bail signé garde sa ligne au-dessus. PDF ou photo (D1).
+// Identifiants et types portés par des data-* (_bailPieceAction), jamais concaténés dans le code d'un onclick.
+function _bailPiecesFicheHtml(ref, bail) {
+  const P = window.BailPiecesExternes; if (!P) return '';
+  const garants = P.garantsDuBail(bail);
+  const pieces = _bailPiecesExternes(ref, bail).filter(d => d.piece && d.piece !== 'bail');
+  const papier = _bailPiecesPapier(ref, bail);
+  const r = escHtml(ref);
+  const b = (lbl, attrs) => '<button class="btn bs bb" type="button" data-ref="' + r + '" ' + attrs + ' onclick="_bailPieceAction(this)">' + lbl + '</button>';
+  const ic = d => _uiIcon(d && /^image\//.test(d.mime || '') ? 'camera' : 'doc', 18);
+  const ligne = (icone, titre, meta, acts, bdg) => '<div class="bpx-pc"><span class="bpx-ic">' + icone + '</span><span class="bpx-tx"><b>' + escHtml(titre)
+    + (bdg ? '<span class="bpx-bdg pos">' + escHtml(bdg) + '</span>' : '') + '</b><small>' + escHtml(meta) + '</small></span><span class="bpx-acts">' + acts + '</span></div>';
+  let h = '';
+  garants.forEach(g => {
+    const d = P.pieceA(pieces, 'caution', g.idx);
+    const p = papier['caution:' + g.idx];
+    const titre = 'Acte de cautionnement — ' + g.nom;
+    if (d) h += ligne(ic(d), titre, (d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size),
+      b('Ouvrir', 'data-act="ouvrir" data-doc="' + d.id + '"') + b('Remplacer', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
+    else if (p) h += ligne(_uiIcon('doc', 18), titre, 'Déclaré détenu le ' + fd(p.at) + ' · aucun fichier',
+      b('Ajouter le fichier', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Annuler « papier »', 'data-act="papier" data-g="' + g.idx + '" data-on="0"'), 'détenu en papier');
+    else h += ligne(_uiIcon('doc', 18), titre, 'Garant inscrit au bail · aucun fichier',
+      b('Ajouter le fichier', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Je l\'ai en papier', 'data-act="papier" data-g="' + g.idx + '" data-on="1"'));
+  });
+  pieces.filter(d => d.piece !== 'caution' || !garants.some(g => g.idx === Number(d.garantIdx))).forEach(d => {
+    h += ligne(ic(d), P.libellePiece(d, garants), (d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size),
+      b('Ouvrir', 'data-act="ouvrir" data-doc="' + d.id + '"') + b('Remplacer', 'data-act="deposer" data-piece="' + escHtml(d.piece) + '" data-doc="' + d.id + '" data-lib="' + escHtml(d.pieceLibelle || '') + '"' + (d.piece === 'caution' ? ' data-g="' + escHtml(d.garantIdx || 1) + '"' : '')) + b('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
+  });
+  const types = P.PIECE_TYPES.filter(t => t.k !== 'bail' && t.k !== 'caution');
+  return (h ? '<div class="bpx-pcs" style="margin-top:8px">' + h + '</div>' : '')
+    + '<div class="bpx-add"><select class="inp" aria-label="Type de la pièce à ajouter">' + types.map(t => '<option value="' + t.k + '">' + escHtml(t.l) + '</option>').join('') + '</select>'
+    + '<input class="inp" maxlength="120" placeholder="Nom de la pièce (facultatif)" aria-label="Nom de la pièce (facultatif)">'
+    + b('+ Ajouter une pièce', 'data-act="ajouter"') + '</div>';
+}
+
 // v15.01 Sprint 5C — LOG-PHOTOS galerie photos logement (Phase 3 plan PJ unifiées).
 // Distinct du sous-onglet Documents : ici on affiche les images en grid avec thumbnails
 // rendus depuis IDB (lazy). Click = lightbox plein écran. Upload multiple supporté.
@@ -17976,15 +18013,16 @@ function _renderLogFichePanelDocuments(log, ref) {
         <div class="logf-doc-info">
           <div class="logf-doc-name">${_sigExt ? 'Bail signé hors Propryo' : 'Bail signé'} — ${escHtml(bail.nom || (bail.locataires?.[0]?.nom) || '—')}</div>
           <div class="logf-doc-meta">Signé le ${escHtml(fd(_sigExt && bail.signatures.externe && bail.signatures.externe.date ? bail.signatures.externe.date : sigSign))}${(_sigExt && bail.signatures.externe && bail.signatures.externe.dateApprox) ? ' (date approximative)' : ''}${_scanExt ? ` · ${escHtml(_scanExt.originalName || _scanExt.name)} · ${_bailScanFmtTaille(_scanExt.size)}` : (_sigExt ? '' : (bail.debut?` · début ${escHtml(fd(bail.debut))}`:''))}</div>
-          ${_sigExt && !_scanExt ? '<div class="logf-doc-meta">Aucun PDF déposé (facultatif)</div>' : ''}
+          ${_sigExt && !_scanExt ? '<div class="logf-doc-meta">Bail signé : aucun fichier déposé (facultatif)</div>' : ''}
           ${_ddtFusionAlertTxt(bail) ? `<div class="logf-doc-alert">${_uiIcon('warn', 13)}<span>${escHtml(_ddtFusionAlertTxt(bail))}</span></div>` : ''}
+          ${_sigExt ? _bailPiecesFicheHtml(ref, bail) : ''}
         </div>
         <div class="logf-doc-actions">
           ${_sigExt ? (_scanExt
-            ? `<button class="btn bs bb" onclick="_bailScanExterneOuvrir('${_lyQ(ref)}')" title="Ouvrir le PDF du bail signé">Ouvrir</button>
-               <button class="btn bs bb" onclick="_bailScanExterneChoisir('${_lyQ(ref)}')" title="Remplacer le PDF">Remplacer</button>
-               <button class="btn bs bb" onclick="_bailScanExterneRetirerRef('${_lyQ(ref)}')" title="Retirer le PDF (le bail reste déclaré signé)">Retirer</button>`
-            : `<button class="btn bs bb" onclick="_bailScanExterneChoisir('${_lyQ(ref)}')" title="Ajouter le PDF du bail signé">Ajouter le PDF</button>`) : ''}
+            ? `<button class="btn bs bb" onclick="_bailScanExterneOuvrir('${_lyQ(ref)}')" title="Ouvrir le bail signé">Ouvrir</button>
+               <button class="btn bs bb" onclick="_bailScanExterneChoisir('${_lyQ(ref)}')" title="Remplacer le bail signé (PDF ou photo)">Remplacer</button>
+               <button class="btn bs bb" onclick="_bailScanExterneRetirerRef('${_lyQ(ref)}')" title="Retirer le bail signé (le bail reste déclaré signé)">Retirer</button>`
+            : `<button class="btn bs bb" onclick="_bailScanExterneChoisir('${_lyQ(ref)}')" title="Ajouter le bail signé, PDF ou photo (facultatif)">Ajouter le bail signé</button>`) : ''}
           ${_scanExt ? '' : `<button class="btn bs bb" onclick="previewSignedBailRef('${_lyQ(ref)}')" title="${_sigExt ? 'Aperçu du document établi à partir de la saisie (le bail signé est l\'exemplaire papier)' : 'Voir le bail tel que signé (snapshot figé)'}">${_uiIcon('eye')} Aperçu</button>`}
           ${cloudPdf?`<button class="btn bs bb" onclick="_openCloudBailPdf('${_lyQ(ref)}')" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF</button>`:''}
         </div>
@@ -17995,12 +18033,12 @@ function _renderLogFichePanelDocuments(log, ref) {
   } else {
     bailSection = `<div class="logf-doc-empty">Aucun bail actif sur ce logement.</div>`;
   }
-  // PDF d'une déclaration « signé hors Propryo » précédente (retirée ou re-datée) : conservé, jamais perdu, ouvrable ici.
+  // Pièce d'une déclaration « signé hors Propryo » précédente (retirée ou re-datée) : conservée, jamais perdue, ouvrable ici.
   if(bail && _isAlive(bail)) {
     bailSection += _bailScansExternesOrphelins(ref, bail).map(d => `<div class="logf-doc-card">
         <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 12h6M9 16h4"/>',22)}</div>
         <div class="logf-doc-info">
-          <div class="logf-doc-name">PDF d'une déclaration « signé hors Propryo » précédente</div>
+          <div class="logf-doc-name">${escHtml(window.BailPiecesExternes ? window.BailPiecesExternes.libellePiece(d, window.BailPiecesExternes.garantsDuBail(bail)) : 'Pièce')} — déclaration « signé hors Propryo » précédente</div>
           <div class="logf-doc-meta">Signé le ${escHtml(fd(String(d.bailSignedAt || '').slice(0,10)))} · ${escHtml(d.originalName || d.name)} · ${_bailScanFmtTaille(d.size)}</div>
         </div>
         <div class="logf-doc-actions"><button class="btn bs bb" onclick="_bailScanExterneOuvrirDoc(${d.id})">Ouvrir</button></div>
@@ -19494,7 +19532,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
         <div class="logf-bail-actions">
           ${(bail.signatures&&bail.signatures.remoteSession)?_renderRemoteSignBadge(bail,refSafe):((!complet)?`<button class="btn bs bb" onclick="openBailSignatureFlow('${refSafe}')" style="background:#16a34a;color:#fff" title="Signer le bail : présentiel, à distance, ou les deux — chacun son tour">${_uiIcon('sign')} Signer le bail</button>`:'')}
           ${/* §7 : ne pas doubler le PDF. Le badge « 🔒 Signé à distance » (remoteSession completed) expose DÉJÀ son propre « 📄 PDF signé » → on masque alors ce bouton générique (même fichier, même action). Présentiel (pas de remoteSession) : bouton conservé. */''}
-          ${(bail.signatures&&bail.signatures.mode==='externe')?(_bailScanExterne(ref,bail)?`<button class="btn bs bb" onclick="_bailScanExterneOuvrir('${refSafe}')" style="background:#0ea5e9;color:#fff" title="Ouvrir le PDF du bail signé hors Propryo">${_uiIcon('doc')} PDF du bail</button>`:`<button class="btn bs bb" onclick="_bailScanExterneChoisir('${refSafe}')" title="Ajouter le PDF du bail signé (facultatif)">${_uiIcon('doc')} Ajouter le PDF</button>`):''}
+          ${(bail.signatures&&bail.signatures.mode==='externe')?(_bailScanExterne(ref,bail)?`<button class="btn bs bb" onclick="_bailScanExterneOuvrir('${refSafe}')" style="background:#0ea5e9;color:#fff" title="Ouvrir le bail signé hors Propryo">${_uiIcon('doc')} Bail signé</button>`:`<button class="btn bs bb" onclick="_bailScanExterneChoisir('${refSafe}')" title="Ajouter le bail signé, PDF ou photo (facultatif)">${_uiIcon('doc')} Ajouter le bail signé</button>`):''}
           ${(bail.signatures&&bail.signatures.cloudPdfKey&&!(bail.signatures.remoteSession&&bail.signatures.remoteSession.status==='completed'))?`<button class="btn bs bb" onclick="_openCloudBailPdf('${refSafe}')" style="background:#0ea5e9;color:#fff" title="Ouvrir le PDF du bail signé">${_uiIcon('doc')} PDF du bail</button>`:''}
           ${(complet&&bail.signatures&&bail.signatures.cloudPdfKey)?`<button class="btn bs bb" onclick="_openBailPdfShareModal('${refSafe}')" style="background:#7c3aed;color:#fff" title="Partager le PDF signé (Copier / Email / SMS / WhatsApp / QR)">${_uiIcon('share')} Partager le PDF signé</button>`:''}
           <button class="btn bs bb" onclick="openBailMenu(event,'${refSafe}',true)" title="Plus d'actions (Modifier · Aperçu · Garant · Réinitialiser · Clôturer · Supprimer)" aria-label="Plus d'actions" style="font-weight:700">⋯ Plus</button>
