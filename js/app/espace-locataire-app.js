@@ -13,6 +13,7 @@
 // fois (D3). Toute écriture passe par la RLS par SCI (window.__immoEspaceLoc, supabase-entry.js).
 import * as EL from '../core/espace-locataire.js'
 import { bailLigneCle } from '../core/store-mapping.js'
+import { validationsDuLogement, estDeLEspacePropre } from '../core/regul-validation.js'
 
 const W = window
 const API = () => W.__immoEspaceLoc
@@ -438,8 +439,14 @@ function souhaites(t, emisLe) {
     }
   }
   // Décomptes validés + justificatifs (art. 23 : 6 mois après l'envoi)
-  for (const [k, v] of Object.entries(D.regulValidations || {})) {
-    const [imm, from, to] = k.split('|'); if (!v || !v.at || !from || !to || !log || log.imm !== imm) continue
+  // ALERTE-REGUL (14/10) : la validation est portée par le LOGEMENT (partagée par la SCI, js/core/regul-validation.js),
+  // plus par la configuration de l'espace propre. Périmètre inchangé : un logement rattaché à un immeuble.
+  // UN SEUL PUBLIEUR, le poste du PROPRIÉTAIRE de l'espace du logement (audit 15/10) : le décompte est calculé
+  // avec la configuration de l'espace propre (catégories, relevés de compteurs) — celle d'un associé peut
+  // différer, et le premier document publié l'emporte. Un associé valide ; le décompte part du poste du propriétaire.
+  const espOpts = G('_optsEspacePropre') ? W._optsEspacePropre() : {}
+  for (const p of (log && log.imm && estDeLEspacePropre(log, espOpts) ? validationsDuLogement(log) : [])) {
+    const from = p.du, to = p.au, v = { at: p.at }; if (!v.at) continue
     if (typeof W.computeRegul !== 'function') break
     let res = null; try { res = W.computeRegul(from, to) } catch (e) { res = null }
     const entries = (res && res.entries) || {}
