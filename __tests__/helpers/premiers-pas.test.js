@@ -223,12 +223,17 @@ describe('M · mesure et opposition (D6)', () => {
     const r = PP.majProgression(o, PP.etapesPremiersPas(D, ext0), T1)
     expect(r.pp.etapes).toEqual({}); expect(r.pp.termineLe).toBe(T1)
   })
-  it('M-3 reprise de la mesure : les dates repartent de maintenant (rien d\'inventé)', () => {
+  it('M-3 reprise de la mesure : déjà fait = « avant », la suite est datée normalement', () => {
     const o = PP.reglerMesure(PP.initialiser(rempli(), ext0, T0), false)
-    const m = PP.reglerMesure(o, true)
-    expect(m.mesure).toBe(true); expect(m.etapes).toEqual({})
-    const r = PP.majProgression(m, PP.etapesPremiersPas(rempli(), ext0), T1)
-    expect(r.pp.etapes.logement).toEqual({ le: T1 })
+    const m = PP.reglerMesure(o, true, PP.etapesPremiersPas(rempli(), ext0), T1)
+    expect(m.mesure).toBe(true)
+    // étapes déjà faites au retour : « avant » (pas de faux départ dans les statistiques)
+    expect(m.etapes.logement).toEqual({ le: T1, avant: true })
+    expect(m.etapes.plafond).toBeUndefined()
+    const D = rempli(); D.entites[0].incidentReglages = { valideLe: T1 }
+    const r = PP.majProgression(m, PP.etapesPremiersPas(D, ext0), jours(T1, 1))
+    expect(r.pp.etapes.plafond).toEqual({ le: jours(T1, 1) })
+    expect(r.pp.etapes.logement.avant).toBe(true)
   })
 })
 

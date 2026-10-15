@@ -9281,6 +9281,8 @@ function rParams() {
   rParamsRules(); rParamsBail(); _renderStockageCard();   // PC-REFONTE étape 3 : panneau Bail
   // v15.04 USER-PROFILE-FILTERS Phase 4 : rendu de l'onglet Profil utilisateur
   if (typeof rParamsProfile === 'function') rParamsProfile();
+  // PREMIERS-PAS D3 : l'onglet « Artisans » reste à jour au retour dans Paramètres.
+  try { if (window.IncCircuit && typeof window.IncCircuit.parametres === 'function') window.IncCircuit.parametres('tp-artisans'); } catch(e) {}
 }
 
 // v14.2 LOG-LISTE-CARDS Phase 1 : refonte vue Biens en cartes (Immeubles ↔ Logements).

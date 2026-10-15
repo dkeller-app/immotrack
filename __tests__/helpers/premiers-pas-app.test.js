@@ -80,6 +80,24 @@ describe('étapes cloud', () => {
   })
 })
 
+describe('cloud : première évaluation après les compteurs (statistiques justes pour les comptes antérieurs)', () => {
+  it('compteurs inconnus → pas encore de progression ; connus → étapes cloud déjà faites marquées « avant »', async () => {
+    globalThis._bootDataJobsDone = true; window.__immoSupabaseMode = true
+    DB.entites = [{ id: 1, nom: 'SCI A', type: 'SCI' }]; DB.logements = [{ ref: 'L1' }]; DB.baux = { L1: {} }
+    let n = 0
+    window.__immoPartage = { compterInvitations: async () => { n++; return 2 } }
+    expect(mod._pourTests.evaluer().pp).toBe(null)          // accès pas chargés, invitations pas lues
+    window.EspaceLoc = { nbAccesEmis: () => 1 }
+    expect(mod._pourTests.evaluer().pp).toBe(null)          // invitations pas encore lues
+    await new Promise((r) => setTimeout(r, 1400))           // lecture différée (1,2 s)
+    expect(n).toBe(1)
+    const pp = mod._pourTests.evaluer().pp
+    expect(pp.etapes.espace).toMatchObject({ avant: true })
+    expect(pp.etapes.associe).toMatchObject({ avant: true })
+    delete window.EspaceLoc; delete window.__immoPartage
+  })
+})
+
 describe('actions', () => {
   it('une action inconnue (ou injectée) n\'exécute rien', () => {
     mod.demarrer()

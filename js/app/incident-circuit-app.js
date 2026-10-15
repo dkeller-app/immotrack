@@ -351,10 +351,12 @@ function formArtisan(a, structures) {
 }
 /** Enregistre le formulaire d'un artisan (`portee` = la couche qui le porte). true si enregistré. */
 function enregistrerArtisanDans(portee, edition, entityNouveau) {
-  const v = (id) => ((document.getElementById(id) || {}).value || '').trim()
+  // Tout est lu DANS la couche qui porte le formulaire : la fiche d'incident fermée garde ses champs (mêmes id) dans le DOM.
+  const q = (id) => document.querySelector(portee + ' #' + id)
+  const v = (id) => ((q(id) || {}).value || '').trim()
   const metiers = [...document.querySelectorAll(portee + ' input[name="inc-a-met"]:checked')].map((x) => x.value)
   if (!v('inc-a-nom')) { toast('Indiquer le nom de l\'entreprise.', 'warn'); return false }
-  const champs = { nom: v('inc-a-nom'), siret: v('inc-a-siret'), tel: v('inc-a-tel'), email: v('inc-a-mail'), metiers, notePrivee: (document.getElementById('inc-a-note') || {}).value || '', prevenirAuto: !!(document.getElementById('inc-a-auto') || {}).checked }
+  const champs = { nom: v('inc-a-nom'), siret: v('inc-a-siret'), tel: v('inc-a-tel'), email: v('inc-a-mail'), metiers, notePrivee: (q('inc-a-note') || {}).value || '', prevenirAuto: !!(q('inc-a-auto') || {}).checked }
   if (champs.email && !IC.nouvelArtisan({ email: champs.email }).email) toast('E-mail non reconnu : non enregistré.', 'warn', 4500)
   if (edition === 'nouveau') {
     const a = IC.nouvelArtisan({ ...champs, entity: entityNouveau || '', source: 'libre' }, new Date().toISOString())
@@ -525,7 +527,7 @@ function appliquerPlafond(ent, portee) {
   const parMetier = {}
   document.querySelectorAll(portee + ' input[data-metier]').forEach((i) => { const n = IC.montant(i.value); if (n != null) parMetier[i.getAttribute('data-metier')] = n })
   const conserver = ((document.querySelector(portee + ' input[name="inc-p-pieces"]:checked') || {}).value) === 'conserver'
-  ent.incidentReglages = IC.normaliserReglages({ plafondTtc: mt, parMetier, conserverPieces: conserver, valideLe: new Date().toISOString(), validePar: ((W.__immoCloudInfo && W.__immoCloudInfo.email) || '') })
+  ent.incidentReglages = IC.normaliserReglages({ plafondTtc: mt, parMetier, conserverPieces: conserver, valideLe: new Date().toISOString(), validePar: ((W.__immoUser && W.__immoUser.email) || '') })
   if (G('_stamp')) W._stamp(ent)
   if (G('_auditLog')) W._auditLog('update', 'entite', ent.id, ent.nom + ' : plafond d\'intervention ' + mt + ' € TTC')
   if (G('saveDB')) W.saveDB()
@@ -541,11 +543,18 @@ function validerPlafond() {
 // Les deux réglages qui rendent le circuit d'un incident autonome n'étaient accessibles que depuis un incident ouvert.
 // Ici, hors incident : mêmes formulaires (plafondCorps, formArtisan), mêmes enregistrements (appliquerPlafond,
 // enregistrerArtisanDans, retirerArtisan) — rien de recopié.
-const structures = () => ((db() || {}).entites || []).filter(vivant)
-const entiteParId = (id) => structures().find((e) => String(e.id) === String(id)) || null
+// Structures de l'espace PROPRE seulement : une SCI partagée par un autre (peut-être en lecture seule) se règle par son
+// propriétaire ; ses associés en écriture gardent le réglage depuis un incident, comme avant.
+const espacePropre = () => { try { const a = W.__immoIncidentCircuit; return a && a.pret() ? a.espacePropre() : null } catch (e) { return null } }
+const structures = () => { const p = espacePropre(); return ((db() || {}).entites || []).filter((e) => vivant(e) && (!p || e._espaceId == null || e._espaceId === p)) }
+const entiteParNom = (nom) => structures().find((e) => e.nom === nom) || null
 const ap = { edition: null, hote: 'tp-artisans' }
 function coucheAp(titre, corps, pied) {
   const old = document.getElementById('ov-ap'); if (old) old.remove()
+  // Fiche d'incident FERMÉE : ses champs (mêmes id, mêmes <label for>) restent dans le DOM. On vide son corps (il est
+  // redessiné à chaque ouverture par openIncident → _incRender) pour qu'aucun id ne soit en double.
+  const fi = document.getElementById('ov-incident')
+  if (fi && fi.classList.contains('hidden')) { const c = fi.querySelector('#inc-body'); if (c) c.innerHTML = '' }
   document.body.insertAdjacentHTML('beforeend', `<div class="ov" id="ov-ap"><div class="modal" style="max-width:640px" role="dialog" aria-modal="true" aria-labelledby="ov-ap-t">
     <div class="m-head"><h3 id="ov-ap-t">${esc(titre)}</h3><button type="button" class="m-close" aria-label="Fermer" onclick="IncCircuit.ap.fermer()">${ico('close', 18)}</button></div>
     <div class="m-body">${corps}</div><div class="m-foot">${pied}</div></div></div>`)
@@ -555,12 +564,12 @@ function coucheAp(titre, corps, pied) {
   const f = ov.querySelector('input,select,textarea'); if (f) f.focus()
 }
 function apFermer() { const o = document.getElementById('ov-ap'); if (o) o.remove() }
-function apPlafond(entId) {
-  const ent = entiteParId(entId); if (!ent) return
+function apPlafond(entNom) {
+  const ent = entiteParNom(entNom); if (!ent) return
   coucheAp('Plafond d\'intervention · ' + ent.nom, plafondCorps(ent),
-    `<button type="button" class="btn bs" onclick="IncCircuit.ap.fermer()">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.ap.validerPlafond(${js(ent.id)})">${ico('check', 14)} Valider le plafond</button>`)
+    `<button type="button" class="btn bs" onclick="IncCircuit.ap.fermer()">Annuler</button><button type="button" class="btn bp" onclick="IncCircuit.ap.validerPlafond(${js(ent.nom)})">${ico('check', 14)} Valider le plafond</button>`)
 }
-function apValiderPlafond(entId) { if (appliquerPlafond(entiteParId(entId), '#ov-ap')) { apFermer(); parametres() } }
+function apValiderPlafond(entNom) { if (appliquerPlafond(entiteParNom(entNom), '#ov-ap')) { apFermer(); parametres() } }
 function apArtisan(id) {
   const noms = structures().map((e) => e.nom)
   ap.edition = id == null ? 'nouveau' : String(id)
@@ -583,9 +592,10 @@ function parametres(hostId) {
   const lignesPlafond = ents.map((e) => {
     const r = IC.normaliserReglages(e.incidentReglages)
     const etatTxt = r.valideLe ? `${euros(r.plafondTtc)} TTC par intervention · validé le ${fdate(r.valideLe)}` : 'Non validé : tout devis passe par le propriétaire.'
-    return `<li class="ap-ligne"><span class="ap-m"><b>${esc(e.nom)}</b><span class="ap-s${r.valideLe ? '' : ' a-faire'}">${esc(etatTxt)}</span></span><button type="button" class="btn bs bb" onclick="IncCircuit.ap.plafond(${js(e.id)})">${r.valideLe ? 'Modifier le plafond' : 'Fixer le plafond'}</button></li>`
+    return `<li class="ap-ligne"><span class="ap-m"><b>${esc(e.nom)}</b><span class="ap-s${r.valideLe ? '' : ' a-faire'}">${esc(etatTxt)}</span></span><button type="button" class="btn bs bb" onclick="IncCircuit.ap.plafond(${js(e.nom)})">${r.valideLe ? 'Modifier le plafond' : 'Fixer le plafond'}</button></li>`
   }).join('')
-  const carnet = artisans().filter((a) => vivant(a))
+  const p = espacePropre()
+  const carnet = artisans().filter((a) => vivant(a) && (!p || a._espaceId == null || a._espaceId === p))
   const lignesCarnet = carnet.map((a) => `<li class="ap-ligne"><span class="ap-m"><b>${esc(a.nom)}</b><span class="ap-s">${esc([metierLbls(a), a.tel, a.entity ? 'carnet de ' + a.entity : ''].filter(Boolean).join(' · '))}</span></span><button type="button" class="btn bs bb" onclick="IncCircuit.ap.artisan(${js(a.id)})">Modifier</button></li>`).join('')
   host.innerHTML = `<style>
       #${ap.hote} .ap-wrap{max-width:860px}

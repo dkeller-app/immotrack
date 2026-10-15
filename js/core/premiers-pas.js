@@ -140,9 +140,12 @@ export const afficher = (pp, maintenant) => { const n = { ...pp, afficheLe: main
 
 // ─────────────────────────── M · Mesure (D6) ───────────────────────────
 /** Opposition : on efface dates, date de création et compteur ; seul le fonctionnement de l'écran reste. */
-export function reglerMesure(pp, oui) {
+// Retour à la mesure (état de la liste fourni) : les étapes DÉJÀ faites sont marquées « avant », comme à la première évaluation —
+// elles ne gonflent pas les statistiques de la bêta.
+export function reglerMesure(pp, oui, etat, maintenant) {
   const n = { ...pp, mesure: !!oui, etapes: {}, visite: { ...((pp && pp.visite) || {}) } }
-  if (!oui) { delete n.creeLe; delete n.visite.relances; delete n.visite.le }
+  if (!oui) { delete n.creeLe; delete n.visite.relances; delete n.visite.le; return n }
+  for (const s of ((etat && etat.liste) || [])) if (s.fait) n.etapes[s.id] = { le: maintenant, avant: true }
   return n
 }
 

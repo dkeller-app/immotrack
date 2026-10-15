@@ -42,9 +42,22 @@ function lireInvitationsPlusTard() {
   if (!P || typeof P.compterInvitations !== 'function') return
   ext.lectureInvitations = true
   setTimeout(() => {
-    P.compterInvitations().then((n) => { if (typeof n === 'number' && n !== ext.invitations) { ext.invitations = Math.max(n, ext.invitations || 0); rafraichir() } }).catch(() => {})
-  }, 3000)
+    P.compterInvitations().then((n) => { ext.invitationsLues = true; if (typeof n === 'number' && n !== ext.invitations) { ext.invitations = Math.max(n, ext.invitations || 0) } rafraichir() }).catch(() => { ext.invitationsLues = true })
+  }, 1200)
 }
+// En cloud, la PREMIÈRE évaluation attend les deux compteurs (accès locataire chargés ~1,5 s après la connexion,
+// invitations lues ensuite) : sinon un compte antérieur verrait ses étapes cloud datées « maintenant », sans « avant »,
+// et fausserait les statistiques. Au plus ATTENTE_MAX ms, puis on évalue avec ce qui est connu (jamais bloquant).
+const ATTENTE_MAX = 12000
+function comptesConnus(x) {
+  if (!x.cloud || W.__immoDemo) return true
+  if (!ext.attenteDepuis) ext.attenteDepuis = Date.now()
+  if (Date.now() - ext.attenteDepuis > ATTENTE_MAX) return true
+  const partage = W.__immoPartage && typeof W.__immoPartage.compterInvitations === 'function'
+  return x.accesLocataire !== null && (!partage || ext.invitationsLues === true)
+}
+let _attente = null
+function reessayerBientot() { if (_attente) return; _attente = setTimeout(() => { _attente = null; rafraichir() }, 1500) }
 // Une invitation créée maintenant coche l'étape aussitôt (sans attendre la lecture).
 function brancherInvitation() {
   const P = W.__immoPartage
@@ -61,10 +74,13 @@ function brancherInvitation() {
 // ─────────────────────────── Progression (D5, D6) ───────────────────────────
 let _ecriture = false
 function lirePP() { const D = db(); return (D && D.params && D.params.premiersPas) || null }
-function enregistrer(pp) {
+// `memoireSeule` : étape intermédiaire de la visite — gardée en mémoire, écrite avec le prochain enregistrement
+// (évite de réécrire toute la configuration du compte à chaque « Suivant »).
+function enregistrer(pp, memoireSeule) {
   const D = db(); if (!D || _ecriture) return
   if (!D.params) D.params = {}
   D.params.premiersPas = pp
+  if (memoireSeule) return
   if (W.__immoHorsLigne || lectureSeule() || !G('saveDB')) return   // gardé en mémoire ; réécrit au prochain affichage en ligne
   _ecriture = true
   try { W.saveDB({ autosave: true, quoi: 'premiers-pas' }) } catch (e) { console.warn('[premiers-pas] enregistrement', e && e.message) } finally { _ecriture = false }
@@ -77,6 +93,7 @@ function evaluer() {
   let pp = lirePP()
   if (!pp) {
     if (!donneesPretes() || W.__immoHorsLigne) return { etat, pp: null, x }
+    if (!comptesConnus(x)) { lireInvitationsPlusTard(); reessayerBientot(); return { etat, pp: null, x } }
     pp = PP.initialiser(D, x, maintenant())
     enregistrer(pp)
     return { etat, pp, x }
@@ -106,13 +123,14 @@ const CSS = `
 .pp-btn.lien{border-color:transparent;background:none;color:var(--t2);padding:0 8px}
 .pp-btn:active{transform:translateY(1px)}
 .pp-btn:focus-visible,.pp-chip:focus-visible,#pp-tour .pp-bub:focus-visible,.pp-demo button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-.pp-chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.pp-chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 11px;border-radius:999px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 .pp-chip .d,.pp-row .d{border-radius:50%;border:2px solid var(--t3);flex:none;display:grid;place-items:center}
 .pp-chip .d{width:16px;height:16px}
 .pp-chip.ok{color:var(--t1);background:var(--pos-soft);border-color:transparent}
 .pp-chip.ok .d,.pp-row.ok .d{background:var(--pos);border-color:var(--pos)}
 .pp-chip .d svg{width:10px;height:10px;stroke:#fff;stroke-width:3;fill:none}
 .pp-chip.next{border-color:var(--acc);color:var(--t1)}
+@media (pointer:coarse){ .pp-chip,.pp-btn{min-height:44px} }
 @media (min-width:1101px){ #pp-carte .pp-l1{flex-wrap:nowrap} #pp-carte .pp-act{flex:none} }
 @media (min-width:768px) and (max-width:1100px){ #pp-carte .pp-act{order:2;margin-left:auto} #pp-carte .pp-chips{order:3;flex:1 1 100%} }
 .accm #pp-carte{margin:6px 0 14px;padding:14px}
@@ -157,7 +175,7 @@ const CSS = `
 #pp-tour .pp-f{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
 #pp-tour .pp-f .sp{flex:1}
 #pp-tour .pp-demo{margin-top:10px;font-size:13px;color:var(--t2)}
-#pp-tour .pp-demo button{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--t1);text-decoration:underline;cursor:pointer;min-height:32px}
+#pp-tour .pp-demo button{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--t1);text-decoration:underline;cursor:pointer;min-height:40px}
 @media (max-width:767px){
   #pp-tour .pp-bub{left:12px!important;right:12px;width:auto}
   #pp-tour .pp-f .pp-btn{min-height:44px;flex:1 1 auto}
@@ -195,6 +213,7 @@ let _dernier = null
 function carte() {
   try {
     styles()
+    lireInvitationsPlusTard(); brancherInvitation()
     const ev = evaluer(); _dernier = ev
     const D = db()
     const montrer = ev && ev.pp && PP.listeVisible(D, ev.x) && PP.doitAfficherListe(ev.pp, ev.etat, maintenant())
@@ -216,7 +235,6 @@ function carte() {
       // Compte sans logement : le bandeau de chiffres (tous à 0) cède sa place à la carte (D9, Accueil dans 900 px).
       if (strip) strip.style.display = sansLogement ? 'none' : ''
     }
-    lireInvitationsPlusTard(); brancherInvitation()
     lancerSiBesoin(ev)
   } catch (e) { console.warn('[premiers-pas] carte', e && e.message) }
 }
@@ -293,7 +311,8 @@ function afficher() {
 }
 function reglerMesure(oui) {
   const pp = lirePP(); if (!pp) return
-  enregistrer(PP.reglerMesure(pp, !!oui))
+  const ev = evaluer()
+  enregistrer(PP.reglerMesure(pp, !!oui, ev && ev.etat, maintenant()))
   toast(oui ? 'Progression de mise en route partagée avec Propryo.' : 'Progression de mise en route non partagée : les dates enregistrées sont effacées.', 'ok', 4500)
 }
 
@@ -324,10 +343,12 @@ function lancerSiBesoin(ev) {
   const login = document.getElementById('imsb-overlay'); if (login && visible(login)) return
   if (document.querySelector('.ov:not(.hidden)')) return
   _lance = true
-  setTimeout(() => { try { if (pageCourante() === 'accueil') visite(PP.etapeDeReprise(lirePP())) } catch (e) { /* jamais bloquant */ } }, 600)
+  // Revérifié au moment de lancer : une couche ouverte entre-temps (fil rouge, popup) ou l'écran de connexion passe avant.
+  setTimeout(() => { try { const lg = document.getElementById('imsb-overlay'); if (_cur < 0 && pageCourante() === 'accueil' && !document.querySelector('.ov:not(.hidden)') && !(lg && visible(lg)) && PP.doitLancerVisite(lirePP())) visite(PP.etapeDeReprise(lirePP())) } catch (e) { /* jamais bloquant */ } }, 600)
 }
 function relancer() {
   const pp = lirePP()
+  _lance = true   // la relance lance elle-même la visite : pas de second départ par la carte
   if (pp) enregistrer(PP.visiteRelancer(pp, maintenant()))
   if (pageCourante() !== 'accueil' && G('go')) W.go('accueil')
   setTimeout(() => visite(1), 350)
@@ -338,7 +359,7 @@ function visite(i) {
   i = Math.max(0, Math.min(n, i | 0))
   if (_cur < 0) _focusAvant = document.activeElement
   _cur = i
-  const pp = lirePP(); if (pp) enregistrer(PP.visiteEtape(pp, i, maintenant()))
+  const pp = lirePP(); if (pp) enregistrer(PP.visiteEtape(pp, i, maintenant()), pp.visite && pp.visite.etat === 'en_cours')
   const st = PP.VISITE[i]
   const zs = zones(st.k)
   if (zs[0]) zs[0].scrollIntoView({ block: 'center' })
@@ -435,7 +456,7 @@ function profil(wrap) {
       <div class="pp-prof"><p>${montre ? 'Liste affichée sur l’accueil.' : 'Liste masquée sur l’accueil.'} ${esc(etatTxt)}</p>
         ${montre ? '' : `<button type="button" class="btn bs bb" onclick="PremiersPas.afficher()">${ico('eye', 14)} Afficher la liste sur l’accueil</button>`}
         <label><input type="checkbox"${pp.mesure !== false ? ' checked' : ''} onchange="PremiersPas.mesure(this.checked)"> <span>Partager la progression de mise en route avec Propryo</span></label>
-        <div class="pp-info">Propryo enregistre dans le compte les étapes de mise en route faites et leur date, pour mesurer la prise en main pendant la bêta. Aucun outil de mesure extérieur, aucune donnée de locataire. Décocher efface les dates déjà enregistrées.</div>
+        <div class="pp-info">Propryo enregistre dans le compte les étapes de mise en route faites et leur date, pour mesurer la prise en main pendant la bêta. Aucun outil de mesure extérieur, aucune donnée de locataire. Décocher efface les dates des étapes et n’en enregistre plus ; seul reste ce qui sert à l’affichage (liste masquée, visite passée, fin de la mise en route).</div>
       </div>`)
   } catch (e) { console.warn('[premiers-pas] profil', e && e.message) }
 }
@@ -448,6 +469,8 @@ export function demarrer() {
   W.PremiersPas = { carte, liste, fermerListe, faire, masquer, afficher, relancer, visite, fin, profil, mesure: reglerMesure }
   document.addEventListener('keydown', clavier, true)
   W.addEventListener('resize', () => { if (_cur >= 0) placer() })
+  // Un défilement sous le voile (téléphone) décalerait les zones percées : on les replace.
+  document.addEventListener('scroll', () => { if (_cur >= 0) placer() }, true)
   // L'Accueil a pu être rendu avant le chargement de ce module, ou avant que les données du compte soient chargées
   // (cloud : hydratation) : on réessaie quelques secondes, puis plus rien (aucune minuterie permanente).
   if (pageCourante() === 'accueil') carte()

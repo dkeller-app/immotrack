@@ -2477,8 +2477,12 @@ function _undoUndo() {
   const entry = _undoStack.pop();
   _undoSuppressCapture = true;
   // Wipe + restore DB en place (préserve la ref globale `DB`)
+  // PREMIERS-PAS : la progression de mise en route (dates, visite, opposition à la mesure) n'est pas une donnée qu'on
+  // annule — elle est gardée telle quelle à travers la restauration (sinon « Annuler » effacerait une opposition RGPD).
+  const _ppGarde = (DB.params && DB.params.premiersPas) ? DB.params.premiersPas : null;
   Object.keys(DB).forEach(k => delete DB[k]);
   Object.assign(DB, entry.snapshot);
+  if (_ppGarde) { if (!DB.params) DB.params = {}; DB.params.premiersPas = _ppGarde; }
   // Rafraîchir _undoLastSnapshot pour qu'il reflète l'état restauré
   _undoLastSnapshot = _undoSnapshot();
   saveDB();

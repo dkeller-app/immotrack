@@ -1249,6 +1249,9 @@ function _bootDataJobs() {
   // reliquat qui bloque la purge IndexedDB au logout (20/35 docs, forensique 12/07). No-op hors cloud
   // (garde interne __immoCloudUpload) et si rien à pousser ; throttlé.
   setTimeout(() => { try { if (typeof _drvUploadPendingAttachments === 'function') _drvUploadPendingAttachments(); } catch(e) { console.warn('[catchup PJ]', e); } }, 4000);
+  // PREMIERS-PAS : les données du compte sont là (après l'hydratation en cloud) → la carte « Premiers pas » et la
+  // visite d'un compte neuf peuvent enfin être évaluées (l'Accueil a été rendu AVANT ce drapeau).
+  setTimeout(() => { try { if (typeof currentPage !== 'undefined' && currentPage === 'accueil' && window.PremiersPas) window.PremiersPas.carte(); } catch(e) {} }, 0);
 }
 window.addEventListener('DOMContentLoaded', ()=>{
   // v15.73 — Sauvegarde le footer ORIGINAL du modal bail (cible : openBail/openBailHist).
