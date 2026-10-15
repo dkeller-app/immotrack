@@ -311,7 +311,8 @@ describe('_bankRuleBuild — modèle et validations', () => {
       cat: 'Charges de copropriété', imm: 'Ferrette' }, { newId: () => 'rg_fixe', now: NOW });
     expect(b.ok).toBe(true);
     expect(b.rule).toMatchObject({
-      id: 'rg_fixe', mots: ['SARAR', 'SYNDIC'], motsLibres: ['TRAV', 'EAUX'], pattern: 'SARAR SYNDIC TRAV EAUX',
+      // relecture ciblée A1 : un morceau n'est jamais redécoupé (« TRAV EAUX » reste une sous-chaîne)
+      id: 'rg_fixe', mots: ['SARAR', 'SYNDIC'], motsLibres: ['TRAV EAUX'], pattern: 'SARAR SYNDIC TRAV EAUX',
       sens: 'db', compte: 'CIC', montant: null, exceptions: [], cat: 'Charges de copropriété',
       qui: '', imm: 'Ferrette', compteurCcId: '', bailleurDuCompte: false, _modifiedAt: NOW, _createdAt: NOW,
     });
@@ -349,7 +350,8 @@ describe('_bankRuleBuild — modèle et validations', () => {
     _bankMigrateRules(rules, { now: NOW });
     const hist = rules[0];
     const d = _bankRuleToDraft(hist);
-    expect(d).toMatchObject({ historique: true, compteAChoisir: true, mots: [], motsLibres: ['EDF', 'CLIENTS'] });
+    // relecture ciblée A1 : le motif historique reste UN morceau (sous-chaîne, comme avant la refonte)
+    expect(d).toMatchObject({ historique: true, compteAChoisir: true, mots: [], motsLibres: ['EDF CLIENTS'] });
     // Le compte est exigé à l'enregistrement.
     expect(_bankRuleBuild(d, { base: hist }).errors).toContain('compte');
     d.compte = 'CIC';
@@ -359,7 +361,8 @@ describe('_bankRuleBuild — modèle et validations', () => {
     expect(b.rule.compteAChoisir).toBeUndefined();
     expect(b.rule.extra).toBe('gardé');
     expect(_bankRuleIsV2(b.rule)).toBe(true);
-    expect(_bankRuleMatch(b.rule, L('PRLV CLIENTS EDF', -1), 'CIC')).toBe(true);   // désormais sans ordre
+    expect(_bankRuleMatch(b.rule, L('PRLV EDF CLIENTS', -1), 'CIC')).toBe(true);
+    expect(_bankRuleMatch(b.rule, L('PRLV CLIENTS EDF', -1), 'CIC')).toBe(false);  // A1 : aucun élargissement silencieux
     expect(_bankRuleMatch(b.rule, L('PRLV EDF CLIENTS', -1), 'CA')).toBe(false);   // et du seul compte choisi
   });
 

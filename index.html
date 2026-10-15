@@ -1244,9 +1244,9 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         <div class="flex-b mb12">
           <div>
             <div class="ct" style="margin-bottom:2px"><span data-uic="sliders"></span> Règles de remplissage automatique</div>
-            <div class="mu sm">À l'import bancaire, si le libellé contient le motif, les champs sélectionnés sont pré-remplis. Les règles s'appliquent dans l'ordre.</div>
+            <div class="mu sm">À l'import bancaire, si le libellé contient tous les mots d'une règle, sa catégorie et son affectation sont proposées.</div>
           </div>
-          <button class="btn bp bb" onclick="addImportRule()">+ Règle</button>
+          <button class="btn bp bb" onclick="addImportRule()">+ Nouvelle règle</button>
         </div>
         <div id="import-rules-list"></div>
         <div class="mu sm mt12" style="padding:8px 12px;background:var(--sur2);border-radius:var(--r)">
@@ -4605,14 +4605,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- IMPORT BANCAIRE — mirror généré depuis js/core/bank-import.js.
      Remplace la RÉPLIQUE INLINE des helpers _bank* qui vivait dans ce fichier
      (bug 3 du CDC-IMPORT : moteur en double, divergence garantie à terme). -->
-<script src="js/helpers/bank-import.global.js?v=642c9e3b" defer></script>
+<script src="js/helpers/bank-import.global.js?v=be5fd2a2" defer></script>
 <!-- DÉLAI DE RESTITUTION DU DG (art. 22) — mirror généré depuis js/core/dg-delai.js : window.DgDelai. -->
 <script src="js/helpers/dg-delai.global.js?v=dea32378" defer></script>
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
 <script src="js/app/app-part1.js?v=17285dc0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=c62deca7" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part2.js?v=c1179535" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=a9753314" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
@@ -4837,7 +4837,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div id="import-rules-list-modal"></div>
     </div>
     <div class="m-foot">
-      <button class="btn bp" onclick="_bankRuleOpen(-1,null)">+ Règle</button>
+      <button class="btn bp" onclick="_bankRuleOpen(-1,null)">+ Nouvelle règle</button>
       <button class="btn bs" onclick="closeM('ov-bank-rules')">Fermer</button>
     </div>
   </div>

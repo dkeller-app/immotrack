@@ -10383,7 +10383,7 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .brg-chip--saisi em{font:800 var(--fs-xs)/1 var(--font);letter-spacing:.07em;text-transform:uppercase;color:var(--acc2);background:var(--acc-soft);padding:3px 6px;border-radius:var(--rp);font-style:normal}
 .brg-chip--saisi[aria-pressed="true"]{border-color:var(--acc)}
 .brg-chip--saisi[aria-pressed="true"] em{background:var(--acc);color:var(--cta-text)}
-.brg-x{min-width:44px;width:44px;min-height:44px;border:1px dashed var(--acc);border-left:0;border-radius:0 var(--rp) var(--rp) 0;background:var(--sur2);cursor:pointer;color:var(--t2);font-size:var(--fs-md)}
+.brg-x{min-width:44px;width:auto;padding:0 10px;white-space:nowrap;min-height:44px;border:1px dashed var(--acc);border-left:0;border-radius:0 var(--rp) var(--rp) 0;background:var(--sur2);cursor:pointer;color:var(--t2);font-size:var(--fs-sm)}
 .brg-x:hover{background:var(--neg-soft);color:var(--neg)}
 .brg-free{margin-top:10px;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px dashed var(--acc);border-radius:var(--r);background:var(--sur2)}
 .brg-free[hidden]{display:none}

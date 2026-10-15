@@ -26710,6 +26710,7 @@ function _bankRulesFusionner(idA, idB) {
   const ia = window._bankRuleIdxById(DB.importRules, idA), ib = window._bankRuleIdxById(DB.importRules, idB);
   if (ia < 0 || ib < 0) { showToast('Règle introuvable', 'err'); return; }
   const f = window._bankRulesFuse(DB.importRules[ia], DB.importRules[ib]);
+  if (!confirm2('Fusionner les deux règles ?\n\n« ' + window._bankRuleMotif(f.garder) + ' » est conservée, « ' + window._bankRuleMotif(f.retirer) + ' » est supprimée. Les mouvements déjà classés ne changent pas.')) return;
   const ig = window._bankRuleIdxById(DB.importRules, f.garder.id), ir = window._bankRuleIdxById(DB.importRules, f.retirer.id);
   _stamp(f.garder);
   DB.importRules[ig] = f.garder;
@@ -29364,7 +29365,12 @@ function _bankToggleInvert() {
   if (_bankRead.meta && _bankRead.meta.balance) _bankRead.meta.balance.inverted = _bankRead.invert;
   // Le sens ayant changé, les propositions et les doublons doivent être recalculés.
   if (_bankImportLines && _bankImportLines.length) {
-    _bankImportFinalizePreview(_bankImportLines.map(l => { const { isDuplicate, duplicateOf, duplicateReason, ...rest } = l; return rest; }), _bankReviewFmt, '');
+    // Relecture adverse (intégration v15.744) : le sens a changé → le classement non retouché à la main
+    // est VIDÉ puis rejoué (règles puis propositions) par le chemin unique `_bankReclassify`
+    // (`_bankReclassifyPrepare`, pur, testé). Sans cela, une règle refondue qui ne définit que la
+    // catégorie gardait l'affectation de l'ancienne proposition et la présentait comme « règle ».
+    _bankImportLines = _bankImportLines.map(l => { const { isDuplicate, duplicateOf, duplicateReason, ...rest } = l; return rest; });
+    _bankReclassify(null, -1);
   } else {
     _bankImportRenderPreview(_bankReviewFmt, '');
   }
@@ -31037,9 +31043,12 @@ function _bankRuleOpen(ref, fromLine, fromMvId) {
   if (r) {
     // Modifier : les mots entiers de la règle sont les puces (cochées), ses mots saisis des puces « saisi ».
     const dr = window._bankRuleToDraft(r);
+    // Compte de la règle supprimé des Réglages : le compte redevient à choisir (sélecteur).
+    const compteVivant = !!dr.compte && (DB.params.bankAccounts || []).some(a => a && !a._deleted && String(a.id) === String(dr.compte));
     _bankRuleDraft = { id: String(r.id), chips: dr.mots.slice(), mots: dr.mots.slice(),
       saisis: dr.motsLibres.map(w => ({ w, on: true })), freeOpen: false, freeVal: '', ref: '',
-      sens: dr.sens, compte: dr.compte ? String(dr.compte) : '', compteFixe: !!dr.compte, compteOrigine: dr.compte ? 'regle' : 'aucun',
+      sens: dr.sens, compte: compteVivant ? String(dr.compte) : '', compteFixe: compteVivant, compteOrigine: compteVivant ? 'regle' : 'aucun',
+      compteSupprime: !!dr.compte && !compteVivant,
       montantUi: _bankRuleMontantUi(dr.montant), exceptions: dr.exceptions, exNew: [],
       cat: dr.cat, qui: dr.qui, imm: dr.imm, cc: dr.compteurCcId, bdc: dr.bailleurDuCompte, historique: dr.historique,
       src: null, srcIndex: -1, srcMvId: null };
@@ -31120,7 +31129,8 @@ function _bankRuleRender() {
     compteHtml = '<select class="brg-inp" aria-label="Compte de la règle" onchange="_bankRuleSet(\'compte\',this.value)"><option value="">— choisir le compte (obligatoire) —</option>'
       + accounts.map(a => '<option value="' + escHtml(a.id) + '"' + (String(d.compte) === String(a.id) ? ' selected' : '') + '>' + accLbl(a) + '</option>').join('')
       + '</select>'
-      + (d.historique && d.id ? '<div class="brg-alert warn">Règle sans compte : elle s\'applique pour l\'instant à tous les comptes. Choisir son compte pour l\'enregistrer.</div>'
+      + (d.compteSupprime ? '<div class="brg-alert warn">Le compte de cette règle a été supprimé des Réglages : la règle ne s\'applique plus. Choisir un compte pour l\'enregistrer.</div>'
+        : d.historique && d.id ? '<div class="brg-alert warn">Règle sans compte : elle s\'applique pour l\'instant à tous les comptes. Choisir son compte pour l\'enregistrer.</div>'
         : '<p class="brg-hint">Création à froid : seul cas où le compte se choisit ici.</p>');
   }
   body.innerHTML = src
@@ -31133,7 +31143,7 @@ function _bankRuleRender() {
         +   '<div class="brg-fb" id="brg-fb" role="status"></div></div>'
         + '<div class="brg-motif" id="brg-motif"></div>'
         + '<p class="brg-hint"><b>Comment ça se lit :</b> tous les mots (puces cochées + mots saisis) doivent figurer dans le libellé, n\'importe où, dans n\'importe quel ordre, sans tenir compte des majuscules ni des accents. Une puce cochée est cherchée comme mot du libellé ; <b>un mot saisi est cherché comme morceau de mot</b> : « ELEC » attrape « ELECTRICITE ». Aucun mot n\'est choisi automatiquement.</p>'
-        + (d.historique && d.id ? '<p class="brg-hint">Règle d\'avant la refonte : une fois enregistrée, ses mots seront cherchés dans n\'importe quel ordre.</p>' : ''))
+        + (d.historique && d.id ? '<p class="brg-hint">Règle d\'avant la refonte : son motif reste cherché tel quel (mots côte à côte, dans cet ordre). Pour l\'assouplir, retirer le motif saisi et cliquer les mots du libellé.</p>' : ''))
     + sec(2, 'Sens du mouvement', '<div class="brg-seg" role="group" aria-label="Sens">' + seg('db', 'Dépense') + seg('cr', 'Recette') + seg('', 'Les deux') + '</div>'
         + '<p class="brg-hint">Sans le sens, une règle « EDF » attrape aussi le remboursement de trop-perçu et le classe en charge.</p>')
     + sec(3, 'Condition de montant <span class="brg-bdg">facultative</span>', '<div id="brg-mont"></div>')
@@ -31185,7 +31195,7 @@ function _bankRuleRenderMotif() {
   const cochee = w => d.mots.some(x => _bankRuleNorm(x) === _bankRuleNorm(w));
   let h = d.chips.map((w, i) => '<button type="button" class="brg-chip" data-i="' + i + '" aria-pressed="' + cochee(w) + '" onclick="_bankRuleChip(this.dataset.i)">' + escHtml(w) + '</button>').join('');
   h += d.saisis.map((f, i) => '<span class="brg-chipf"><button type="button" class="brg-chip brg-chip--saisi" data-i="' + i + '" aria-pressed="' + !!f.on + '" onclick="_bankRuleSaisiToggle(this.dataset.i)">' + escHtml(f.w) + ' <em>saisi</em></button>'
-    + '<button type="button" class="brg-x" data-i="' + i + '" aria-label="Supprimer le mot saisi ' + escHtml(f.w) + '" onclick="_bankRuleSaisiSuppr(this.dataset.i)">✕</button></span>').join('');
+    + '<button type="button" class="brg-x" data-i="' + i + '" aria-label="Supprimer le mot saisi ' + escHtml(f.w) + '" onclick="_bankRuleSaisiSuppr(this.dataset.i)">✕ Retirer</button></span>').join('');
   h += '<button type="button" class="brg-chip brg-chip--add" id="brg-add" aria-expanded="' + !!d.freeOpen + '" aria-controls="brg-free" onclick="_bankRuleFreeToggle()">+ mot</button>';
   host.innerHTML = h;
   const mots = d.chips.filter(cochee);
@@ -31372,6 +31382,7 @@ function _bankRuleErrMsgs(errors) {
   if (e.includes('montant')) out.push('La condition de montant est incomplète ou illisible : saisir un montant (ex. 150,00) ou choisir « Aucune condition ».');
   if (e.includes('montant-recette')) out.push('« = loyer CC » ne vaut que pour une recette : choisir le sens « Recette ».');
   if (e.includes('montant-logement')) out.push('« = loyer CC » demande un logement affecté (étape 5 : catégorie et affectation).');
+  if (e.includes('rien')) out.push('Rien à appliquer : choisir une catégorie ou une affectation (étape 5).');
   return out.length ? out : (e.length ? ['Règle invalide.'] : []);
 }
 function _bankRuleErrMsg(errors) { return _bankRuleErrMsgs(errors).join(' '); }
@@ -31382,6 +31393,7 @@ function _bankRuleErreurs(d) {
   const b = window._bankRuleBuild(_bankRuleCandidate(d), { base: null });
   if (!b.ok) errs.push(...b.errors);
   if (m.invalide && !errs.includes('montant')) errs.push('montant');
+  if (!d.cat && !d.bdc && !d.qui && !d.imm && !d.cc) errs.push('rien');   // relecture adverse : « ✓ Règle enregistrée » sans effet
   return errs;
 }
 
@@ -31594,7 +31606,7 @@ function _bankRuleApplyToSourceMv(rule, mvId) {
   }
   _stamp(m);
   if (typeof _auditLog === 'function') _auditLog('update', 'mouvement', m.id, (m.lib || String(m.id)) + ' (règle « ' + window._bankRuleMotif(rule) + ' »)', before, m);
-  return { ok: true, mv: m, acc, msg: 'le mouvement a été mis à jour' };
+  return { ok: true, mv: m, acc, msg: 'le mouvement a été mis à jour' + ((before.qui && !String(before.qui).startsWith('SCI:') && before.qui !== m.qui) ? ' (logement « ' + _logLabel(before.qui) + ' » remplacé par l\'affectation de la règle)' : '') };
 }
 
 function _bankRuleDelete() {

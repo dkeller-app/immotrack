@@ -1080,6 +1080,17 @@ function _bankRuleTokens(rule) {
   return { mots: uniq(rule && rule.mots), libres: uniq(rule && rule.motsLibres) };
 }
 
+/**
+ * Le mot figure-t-il dans le texte entouré de séparateurs RÉELS (pas le début ni la fin du texte) ?
+ * Sert à comparer un mot entier à un motif historique (sous-chaîne) : en bord de motif, la ligne
+ * peut coller d'autres lettres au mot (relecture ciblée B1).
+ */
+function _bankMotInterne(texte, motNorm) {
+  const w = String(motNorm || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!w) return false;
+  return new RegExp('[^\\p{L}\\p{N}]' + w + '(?=[^\\p{L}\\p{N}])', 'u').test(String(texte || ''));
+}
+
 /** Le mot (normalisé) figure-t-il COMME MOT ENTIER dans le libellé normalisé ? (lettres et chiffres Unicode) */
 function _bankMotEntier(libNorm, motNorm) {
   const w = String(motNorm || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1218,13 +1229,20 @@ export function _bankRuleBuild(draft, opts = {}) {
   const mots = clean(d.mots, false);
   const motsNorm = new Set(mots.map(_bankNormTxt));
   // Un mot saisi identique à une puce cochée est redondant (le mot entier est plus strict).
-  const motsLibres = clean(d.motsLibres, true).filter(w => !motsNorm.has(_bankNormTxt(w)));
+  // Relecture ciblée A1 : un morceau n'est JAMAIS redécoupé — la fenêtre n'accepte qu'un mot sans
+  // espace, seul le motif d'une règle historique (« LOYER DUPONT ») en contient, et il doit rester
+  // une sous-chaîne (comportement d'avant la refonte).
+  const motsLibres = clean(d.motsLibres, false).filter(w => !motsNorm.has(_bankNormTxt(w)));
   if (!mots.length && !motsLibres.length) errors.push('mots');
   const compte = (d.compte != null && d.compte !== '') ? String(d.compte) : '';
   if (!compte) errors.push('compte');
   const sens = (d.sens === 'cr' || d.sens === 'db') ? d.sens : '';
   const bdc = !!d.bailleurDuCompte;
-  const qui = bdc ? '' : String(d.qui || '');
+  // Relecture ciblée B4 : logement et compteur collectif s'excluent (le compteur l'emporte, comme
+  // `_bankRulePrefill` et le filet de l'import) — sinon deux règles d'affectation effective
+  // identique seraient vues « en conflit » et la ligne resterait à classer.
+  const cc = bdc ? '' : String(d.compteurCcId || '');
+  const qui = (bdc || cc) ? '' : String(d.qui || '');
   const nm = _bankRuleNormMontant(d.montant);
   if (nm.error) errors.push(nm.error);
   else if (nm.montant && nm.montant.type === 'loyerCC') {
@@ -1244,7 +1262,7 @@ export function _bankRuleBuild(draft, opts = {}) {
     cat: String(d.cat || ''),
     qui,
     imm: bdc ? '' : String(d.imm || ''),
-    compteurCcId: bdc ? '' : String(d.compteurCcId || ''),
+    compteurCcId: cc,
     bailleurDuCompte: bdc,
     _modifiedAt: now,
   });
@@ -1265,7 +1283,10 @@ export function _bankRuleToDraft(rule) {
   return {
     id: r.id || '',
     mots: v2 ? (r.mots || []).slice() : [],
-    motsLibres: v2 ? (r.motsLibres || []).slice() : String(r.pattern || '').trim().split(/\s+/).filter(Boolean),
+    // Relecture ciblée A1 : le motif historique reste UN seul morceau (« LOYER DUPONT », mots côte à
+    // côte, dans cet ordre) — le découper en mots cherchés n'importe où élargissait la règle en
+    // silence au réenregistrement (« DUPONT MARTIN LOYER GARAGE » rangé en loyer du logement).
+    motsLibres: v2 ? (r.motsLibres || []).slice() : (String(r.pattern || '').trim() ? [String(r.pattern).trim().replace(/\s+/g, ' ')] : []),
     sens: r.sens || '', compte: r.compte || '',
     montant: r.montant ? Object.assign({}, r.montant) : null,
     exceptions: (Array.isArray(r.exceptions) ? r.exceptions : []).map(e => Object.assign({}, e)),
@@ -1326,7 +1347,10 @@ export function _bankMigrateRules(rules, opts = {}) {
   const used = new Set(rules.map(r => r && r.id).filter(Boolean).map(String));
   rules.forEach((r, i) => {
     if (!r || typeof r !== 'object' || r._deleted || r.id) { skipped++; return; }
-    let id = 'rg_' + _bankHashStable(i + '|' + _bankRuleContenuStable(r));
+    // Relecture ciblée A2 : contenu SEUL (sans la position) — une règle ajoutée ou supprimée plus haut
+    // sur un appareil ne décale plus les identifiants des suivantes ; deux règles identiques sont
+    // départagées par le suffixe « -n », dans l'ordre de la liste.
+    let id = 'rg_' + _bankHashStable(_bankRuleContenuStable(r));
     for (let n = 2; used.has(id); n++) id = id.replace(/-\d+$/, '') + '-' + n;
     used.add(id);
     r.id = id;
@@ -1482,7 +1506,10 @@ function _bankRuleCovers(a, b) {
   const bText = bLegacy ? _bankNormTxt(b.pattern) : '';
   if (!ta.mots.length && !ta.libres.length) return false;
   if (bLegacy && !bText) return false;
-  const motOk = w => tb.mots.includes(w) || (bLegacy && _bankMotEntier(bText, w));
+  // Relecture ciblée B1 : un motif historique est une SOUS-CHAÎNE — « PRLV EDF » attrape
+  // « PRLV EDFENR ». Un mot entier de `a` ne le couvre que s'il y est entouré de séparateurs
+  // DANS le motif lui-même (« SEPA » dans « PRLV SEPA EDF ») ; jamais en bord de motif.
+  const motOk = w => tb.mots.includes(w) || (bLegacy && _bankMotInterne(bText, w));
   const libreOk = s => tb.mots.some(x => x.includes(s)) || tb.libres.some(x => x.includes(s)) || (bLegacy && bText.includes(s));
   return ta.mots.every(motOk) && ta.libres.every(libreOk);
 }
@@ -1497,6 +1524,20 @@ function _bankRulePlusLarge(a, b) {
   if (_bankRuleCovers(a, b)) return a;
   if (_bankRuleCovers(b, a)) return b;
   return a;
+}
+
+/** Une exception de `garder` porte-t-elle sur une ligne que `retirer` attrape ? (relecture ciblée B2) */
+function _bankRuleExclutCeQueClasse(garder, retirer) {
+  const ex = Array.isArray(garder && garder.exceptions) ? garder.exceptions : [];
+  return ex.some(e => {
+    if (!e) return false;
+    if ((retirer.exceptions || []).some(x => x && x.cle === e.cle)) return false;   // l'autre l'exclut aussi : rien n'est perdu
+    const m = Math.abs(Number(e.montant) || 0);
+    const ligne = { libelle: e.libelle || '', date: e.date || '', credit: e.sens === 'cr' ? m : 0, debit: e.sens === 'cr' ? 0 : m };
+    // montant « = loyer CC » : valeur inconnue ici → la ligne est réputée attrapée (prudence : pas de fusion)
+    const r = (retirer.montant && retirer.montant.type === 'loyerCC') ? Object.assign({}, retirer, { montant: null }) : retirer;
+    return _bankRuleMatch(Object.assign({}, r, { exceptions: [] }), ligne, retirer.compte || '');
+  });
 }
 
 /** « Garder les deux » a-t-il été choisi pour cette paire (dans un sens ou dans l'autre) ? */
@@ -1525,7 +1566,11 @@ export function _bankRulesDuplicates(rules) {
       if (_bankRuleGardeLesDeux(a, b)) continue;            // « Garder les deux » : le signal ne revient pas
       if (!_bankRuleCovers(a, b) && !_bankRuleCovers(b, a)) continue;
       const garder = _bankRulePlusLarge(a, b);
-      out.push({ a, b, garder, retirer: garder === a ? b : a });
+      const retirer = garder === a ? b : a;
+      // Relecture ciblée B2 : la fusion réunit les exceptions ; si la règle gardée exclut une ligne
+      // que l'autre classe, la fusion lui ferait perdre son classement → ce n'est pas un doublon.
+      if (_bankRuleExclutCeQueClasse(garder, retirer)) continue;
+      out.push({ a, b, garder, retirer });
     }
   }
   return out;
