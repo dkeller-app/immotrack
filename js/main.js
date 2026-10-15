@@ -109,6 +109,9 @@ import { bailHistCle, nouvelIdArchive } from './core/store-mapping.js';
 import { duMois, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
+import { regrouperEntretiens } from './core/entretien-regroupement.js';   // RETOURS 15/10 lot 2 — poêle / insert : une échéance
+import * as RegleApplication from './core/regle-application.js';   // RETOURS 15/10 lot 2 — règle → mouvements existants, sur confirmation
+import * as BailPiecesExternes from './core/bail-pieces-externes.js';   // RETOURS 15/10 lot 2 — pièces du bail signé hors Propryo
 import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES, FAMILLES_SI_NON_VIDES as _PIL_SI_NON_VIDES } from './core/pilotage-familles.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
@@ -526,6 +529,9 @@ window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupat
 // le LISENT au lieu d'aller chercher « le dernier bail » chacune à sa façon.
 window.loyerDuLotA = loyerDuLotA;
 window.computeEntretienStatut = computeEntretienStatut;   // KPI Lot 0 — statut d'entretien (12 obligations)
+window.EntretienRegroupement = { regrouperEntretiens };   // migration de démarrage (_bootDataJobs)
+window.RegleApplication = RegleApplication;   // _bankRuleProposerApplication, saveMv (marqueur « classé à la main »)
+window.BailPiecesExternes = BailPiecesExternes;   // pièces du bail hors Propryo, prédicat « caution détenue » (_bailCautionDetenue)
 window.computePilotageFamilles = computePilotageFamilles; // KPI Lot 1 — agrégateur des 8 familles
 window.pilotagePay = pilotagePay;                         // KPI audit §1 — pastille paiement == bulle Impayés
 window._PIL_FAMILLES = _PIL_FAMILLES;

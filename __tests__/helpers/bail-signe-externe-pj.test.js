@@ -191,10 +191,10 @@ describe('_bailExterneApresSave — dépôt APRÈS l\'enregistrement', () => {
 
 describe('modale « Modifier le bail » — affichage du fichier en attente', () => {
   const dom = () => ({ 'b-externe-pj-nom': { textContent: '' }, 'b-externe-pj-choisir': { textContent: '' }, 'b-externe-pj-retirer': { style: {} }, 'b-edit-ref': { value: 'D-101' } })
-  it('aucun fichier → « Choisir un PDF », « Retirer » masqué', () => {
+  it('aucun fichier → « Choisir un fichier » (PDF ou photo, RETOURS 15/10 D1), « Retirer » masqué', () => {
     const d = dom(); const w = monde({ dom: d }); w._bailExternePjAfficher()
     expect(d['b-externe-pj-nom'].textContent).toBe('Aucun fichier')
-    expect(d['b-externe-pj-choisir'].textContent).toBe('Choisir un PDF')
+    expect(d['b-externe-pj-choisir'].textContent).toBe('Choisir un fichier')
     expect(d['b-externe-pj-retirer'].style.display).toBe('none')
   })
   it('fichier en attente → nom · taille, « Remplacer » + « Retirer »', () => {
@@ -228,11 +228,11 @@ describe('branchement dans le vrai code', () => {
   })
   it('Documents › Bail : Ouvrir / Remplacer / Retirer (avec PDF), « Ajouter le PDF » (sans) ; PDF précédents listés', () => {
     const D = extraire(P2, 'function _renderLogFichePanelDocuments(')
-    for (const m of ['_bailScanExterneOuvrir(', '_bailScanExterneChoisir(', '_bailScanExterneRetirerRef(', 'Ajouter le PDF', '_bailScansExternesOrphelins(ref, bail)']) expect(D, m).toContain(m)
+    for (const m of ['_bailScanExterneOuvrir(', '_bailScanExterneChoisir(', '_bailScanExterneRetirerRef(', 'Ajouter le bail signé', '_bailScansExternesOrphelins(ref, bail)', '_bailPiecesFicheHtml(ref, bail)']) expect(D, m).toContain(m)
   })
   it('menu du bail : Ouvrir / Remplacer / Retirer / Ajouter (téléphone compris)', () => {
     const M = extraire(P1, 'function openBailMenu(')
-    for (const m of ['Ouvrir le PDF du bail signé', 'Remplacer le PDF du bail signé', 'Retirer le PDF du bail signé', 'Ajouter le PDF du bail signé']) expect(M, m).toContain(m)
+    for (const m of ['Ouvrir le bail signé', 'Remplacer le bail signé', 'Retirer le bail signé', 'Ajouter le bail signé (PDF ou photo)']) expect(M, m).toContain(m)
   })
   it('l\'état en attente est remis à zéro à l\'ouverture du formulaire (pas de fichier d\'un autre bail)', () => {
     expect(extraire(P1, 'function _bailRenderSignatureDateField(')).toMatch(/_bailExtFichier = null; _bailExtRetirer = false;/)

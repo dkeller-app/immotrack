@@ -112,8 +112,11 @@ describe('I · _mvCreate : mêmes enregistrements, même séquence d\'effets', (
       const a = monter(SRC_AVANT, { DB: dbBase(), form: formNouveau, avecModule });
       const b = monter(SRC_APRES, { DB: dbBase(), form: formNouveau, avecModule });
       await a.f.saveMv(); await b.f.saveMv();
-      expect(JSON.stringify(b.DB)).toBe(JSON.stringify(a.DB));
-      expect(b.ev).toEqual(a.ev);
+      // RETOURS 15/10 (lot 2, point 5) : seul ajout voulu — un mouvement saisi et classé à la main porte _classeMain.
+      expect(b.DB.mouvements[1]._classeMain).toBe(true);
+      const sansMarqueur = x => JSON.parse(JSON.stringify(x).replace(/\\*"_classeMain\\*":true,?/g, ''));
+      expect(JSON.stringify(sansMarqueur(b.DB))).toBe(JSON.stringify(a.DB));
+      expect(sansMarqueur(b.ev)).toEqual(JSON.parse(JSON.stringify(a.ev)));
       expect(a.DB.mouvements).toHaveLength(2);
       expect(a.ev.map((e) => e[0])).toEqual(['audit', 'push', 'saveDB', 'closeM', 'rMv', 'refresh', 'toast', 'repartition']);
     });

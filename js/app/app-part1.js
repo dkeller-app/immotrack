@@ -1834,6 +1834,11 @@ const AGENDA_CATS = {
 
 // Règles d'entretiens avec bases légales exactes
 // Chaque règle : { key, cat, label, base, intervalYears, intervalMonths?, rappels, condFn(bail) }
+// RETOURS 15/10 (lot 2, point 2) — poêles et inserts : entretien ET ramonage obligatoires au moins tous les 12 mois depuis le
+// 01/10/2023 (décret 2023-641, C. santé publ. art. R. 1331-14 à R. 1331-26), faits par le même professionnel dans la même visite
+// → UNE échéance « Entretien + ramonage ». Les anciennes clés POELE_GRAN_ENT/RAM et INSERT_ENT/RAM sont migrées au démarrage
+// (js/core/entretien-regroupement.js). Chaudières fioul / bois : régime des chaudières (C. env. R. 224-41-4 s.), échéances séparées.
+const _BASE_POELE_INSERT = 'Entretien et ramonage au moins tous les 12 mois (code de la santé publique, art. R. 1331-16 et R. 1331-19, décret 2023-641, depuis le 01/10/2023). Ramonage : le règlement sanitaire départemental ou un arrêté local peut en exiger 2 par an. Entretien : selon la notice du fabricant.';
 const EQUIP_RULES = [
   { key:'CHAUDIERE_GAZ',  cat:'CHAUDIERE', label:'Entretien chaudière gaz',         icon:'🔥',
     base:'Décret 2009-649 — 1×/an obligatoire. Pas de ramonage pour le gaz.',
@@ -1850,21 +1855,16 @@ const EQUIP_RULES = [
   { key:'RAMONAGE_BOIS',  cat:'RAMONAGE',  label:'Ramonage conduit bois/granulés',   icon:'🏠',
     base:'RSD — 1×/an (certains arrêtés locaux : 2×/an)',
     intervalYears:1, rappels:[30], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.bois) },
-  { key:'POELE_BOIS_RAM', cat:'RAMONAGE',  label:'Ramonage poêle à bois',            icon:'🏠',
-    base:'RSD — 1×/an minimum (certains arrêtés locaux : 2×/an)',
-    intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleBois) },
-  { key:'POELE_GRAN_ENT', cat:'CHAUDIERE', label:'Entretien poêle granulés',          icon:'🔥',
-    base:'Recommandation fabricant — 1×/an minimum',
+  // Clé conservée (D5 : libellé seulement, pas de migration de données) ; l'entretien du poêle à bois est aussi obligatoire (R. 1331-16).
+  { key:'POELE_BOIS_RAM', cat:'RAMONAGE',  label:'Entretien + ramonage poêle à bois', icon:'🏠',
+    base:_BASE_POELE_INSERT,
+    intervalYears:1, rappels:[30,7], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleBois) },
+  { key:'POELE_GRAN',     cat:'RAMONAGE',  label:'Entretien + ramonage poêle à granulés', icon:'🏠',
+    base:_BASE_POELE_INSERT,
     intervalYears:1, rappels:[30,7], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleGran) },
-  { key:'POELE_GRAN_RAM', cat:'RAMONAGE',  label:'Ramonage poêle granulés',           icon:'🏠',
-    base:'RSD — 1×/an (granulés : faibles dépôts, vérifier arrêté local)',
-    intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleGran) },
-  { key:'INSERT_ENT',     cat:'CHAUDIERE', label:'Entretien insert/foyer fermé',      icon:'🔥',
-    base:'Recommandation annuelle — contrôle joints, vitrocéramique, tirage',
+  { key:'INSERT',         cat:'RAMONAGE',  label:'Entretien + ramonage insert / foyer fermé', icon:'🏠',
+    base:_BASE_POELE_INSERT,
     intervalYears:1, rappels:[30,7], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.insert) },
-  { key:'INSERT_RAM',     cat:'RAMONAGE',  label:'Ramonage insert/foyer fermé',       icon:'🏠',
-    base:'RSD — 1×/an (certains arrêtés locaux : 2×/an pour foyers à bois)',
-    intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.insert) },
   { key:'CHEMINEE_RAM',   cat:'RAMONAGE',  label:'Ramonage cheminée ouverte',         icon:'🏠',
     base:'RSD — 1×/an minimum (certains arrêtés locaux : 2×/an)',
     intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.cheminee) },
@@ -10357,7 +10357,10 @@ function _mvDocOpenInWindow(pj, wPre) {
   if(/pdf/i.test(pj.mime || '') || /\.pdf$/i.test(pj.name || '')) {
     w.document.write(`<!DOCTYPE html><html><head><title>${safeName}</title><meta charset="utf-8"></head><body style="margin:0"><iframe src="${escHtml(pj.dataB64)}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);
   } else if(/image/i.test(pj.mime || '')) {
-    w.document.write(`<!DOCTYPE html><html><head><title>${safeName}</title><meta charset="utf-8"></head><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${escHtml(pj.dataB64)}" alt="${safeName}" style="max-width:100%;max-height:100vh"></body></html>`);
+    // RETOURS 15/10 (D1) — photo LISIBLE : affichée en entier sans déformation (proportions gardées, jamais agrandie au-delà
+    // de sa taille réelle, donc nette), orientation de l'appareil respectée ; un clic (ou Entrée) passe à la taille réelle pour
+    // lire le détail, avec défilement ; zoom au doigt permis au téléphone.
+    w.document.write(`<!DOCTYPE html><html><head><title>${safeName}</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#111}body{min-height:100vh;display:flex;align-items:center;justify-content:center}img{display:block;max-width:100vw;max-height:100vh;width:auto;height:auto;object-fit:contain;image-orientation:from-image;cursor:zoom-in}body.reel{display:block}body.reel img{max-width:none;max-height:none;cursor:zoom-out;margin:0 auto}</style></head><body><img src="${escHtml(pj.dataB64)}" alt="${safeName}" tabindex="0" title="Cliquer pour voir en taille réelle" onclick="document.body.classList.toggle('reel')" onkeydown="if(event.key==='Enter')document.body.classList.toggle('reel')"></body></html>`);
   } else {
     // Fallback : déclenche le téléchargement
     const a = w.document.createElement('a');
@@ -11180,7 +11183,7 @@ function _mvRenderProvenance(m) {
       const r = (typeof window._bankRuleFindForTrace === 'function')
         ? window._bankRuleFindForTrace(DB.importRules || [], p, m._bankAccountId) : null;
       if (r && r.id) {
-        return '<a data-rid="' + escHtml(r.id) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(this.dataset.rid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(window._bankRuleMotif(r)) + ' »</a>';
+        return '<a data-rid="' + escHtml(r.id) + '" data-mvid="' + escHtml(m.id) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(this.dataset.rid,null,this.dataset.mvid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(window._bankRuleMotif(r)) + ' »</a>';
       }
       // Trace d'une règle supprimée : un identifiant ne dit rien à l'utilisateur, un motif si.
       const lisible = /^rg_/.test(String(p)) ? '' : '« ' + escHtml(p) + ' » ';
@@ -11188,9 +11191,10 @@ function _mvRenderProvenance(m) {
     });
     bits.push(_uiIcon('settings') + ' <b>Classé par ' + (links.length > 1 ? 'les règles' : 'la règle') + '</b> ' + links.join(', '));
   }
-  // D4 — créer une règle depuis un mouvement IMPORTÉ (le compte est celui du mouvement) :
-  // à l'enregistrement, ce mouvement — et lui seul — est mis à jour directement.
-  if (m._source === 'bank_import' && m._bankAccountId != null && m._bankAccountId !== '' && !m._deleted) {
+  // D4 — créer une règle depuis un mouvement : à l'enregistrement, ce mouvement est mis à jour directement, puis les
+  // autres mouvements concernés sont PROPOSÉS (sur confirmation). RETOURS 15/10 : aussi depuis un mouvement saisi à la main
+  // ou importé avant les comptes — la fenêtre de la règle demande alors le compte (D7).
+  if (!m._deleted) {
     // Phase 6a : « ✓ Règle enregistrée » (avec Modifier) quand une règle du même compte le couvre déjà ; sinon ce lien.
     const _pastille = (typeof _bankRuleStatutHtml === 'function') ? _bankRuleStatutHtml('mv', m.id) : '';
     if (_pastille) bits.push(_pastille);
@@ -11563,12 +11567,17 @@ async function saveMv() {
       // la PJ en silence. Quand le bloc ci-dessus a créé un nouveau document, `m.pjId` est présent
       // et gagne de toute façon (la préservation ne touche pas une clé déjà là).
       _preserverSaufChampsPilotes(m, DB.mouvements[i], _mvDocCleared ? ['pj', 'pjId'] : []);
+      // RETOURS 15/10 (lot 2, point 5) — la fiche change la catégorie ou l'affectation : le mouvement est « classé à la
+      // main ». Une règle appliquée plus tard aux mouvements enregistrés ne le proposera jamais coché
+      // (js/core/regle-application.js). Sans changement de classement, le marqueur existant est conservé tel quel.
+      if (window.RegleApplication && window.RegleApplication.classeMainApresEdition(DB.mouvements[i], m)) m._classeMain = true;
       _auditLog('update', 'mouvement', m.id, m.lib||m.fac||String(m.id), DB.mouvements[i], m);
       DB.mouvements[i]=m;
     }
   } else {
     // TRAVAUX : QUI PAIE ? — création par l'API unique (horodatage, audit AVANT le push, push).
     // saveDB / rafraîchissement restent ci-dessous, dans l'ordre d'origine (fermeture, liste).
+    if (m.cat) m._classeMain = true;   // RETOURS 15/10 : saisi et classé à la main
     _mvCreate(m, { save: false, refresh: false });
     // CDC-QUITTANCES-IRL I6/I13 — l'association automatique « ce paiement = cette quittance »
     // est SUPPRIMÉE : elle rattachait un mouvement au mois calendaire de sa date (7ᵉ moteur, C3)
@@ -12100,10 +12109,16 @@ function _ensureMvPhCss(){
     '@media(max-width:767px){',
     /* barre d\'outils mobile : recherche pleine largeur, contrôles avancés repliés derrière « Filtrer », CTA en évidence */
     '#p-mouvements .filters{gap:8px}',
-    '#p-mouvements #mvf-search{flex:1 1 100%;width:auto!important}',
-    '#p-mouvements .mvf-filter-btn{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}',
+    /* RETOURS 15/10 (lot 2, point 4) : 1re ligne recherche + « Filtrer » ; 2e ligne « Importer un relevé » (corail, large) puis
+       « + Mouvement » (secondaire, compact). Filtres ouverts : ils se déplient avant l'import ; « Comptes et règles » après. */
+    '#p-mouvements #mvf-search{flex:1 1 200px;width:auto!important;min-width:0}',
+    '#p-mouvements .mvf-filter-btn{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;min-height:44px}',
     '#p-mouvements .mvf-filter-btn.on{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,var(--bor))}',
-    '#p-mouvements .mvf-add{flex:1 1 auto;margin-left:0!important;min-height:42px}',
+    '#p-mouvements .mvf-imp{flex:1 1 auto;justify-content:center;margin-left:0!important;min-height:44px;order:1}',
+    '#p-mouvements .mvf-add{flex:0 0 auto;margin-left:0!important;min-height:44px;order:2}',
+    '#p-mouvements .mvf-sep{order:3}',
+    '#p-mouvements .mvf-cr{order:4}',
+    '#p-mouvements .filters.mvf-open .mvf-sep{display:block;flex:1 1 100%;margin-top:6px}',
     '#p-mouvements .mvf-adv{display:none}',
     '#p-mouvements .filters.mvf-open .mvf-adv{display:inline-flex}',
     '#p-mouvements .filters.mvf-open .mvf-adv.inp{display:block;flex:1 1 calc(50% - 4px);width:auto!important}',
@@ -12727,10 +12742,10 @@ function openBailMenu(evt, ref, full) {
   if (bail && bail.signatures && bail.signatures.mode === 'externe') {
     const _sc = _bailScanExterne(ref, bail);
     if (_sc) {
-      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneOuvrir('${refEsc}')">${_uiIcon('doc')}Ouvrir le PDF du bail signé</button>`);
-      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneChoisir('${refEsc}')">${_uiIcon('refresh')}Remplacer le PDF du bail signé…</button>`);
-      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneRetirerRef('${refEsc}')">${_uiIcon('trash')}Retirer le PDF du bail signé</button>`);
-    } else items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneChoisir('${refEsc}')">${_uiIcon('doc')}Ajouter le PDF du bail signé…</button>`);
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneOuvrir('${refEsc}')">${_uiIcon('doc')}Ouvrir le bail signé</button>`);
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneChoisir('${refEsc}')">${_uiIcon('refresh')}Remplacer le bail signé…</button>`);
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneRetirerRef('${refEsc}')">${_uiIcon('trash')}Retirer le bail signé</button>`);
+    } else items.push(`<button class="bmp-item" onclick="_closeBienMenus();_bailScanExterneChoisir('${refEsc}')">${_uiIcon('doc')}Ajouter le bail signé (PDF ou photo)…</button>`);
   }
   if (bail && bail.signatures && bail.signatures.signedAt) {
     items.push(`<button class="bmp-item" onclick="_closeBienMenus();resetBailSignatures('${refEsc}')" style="color:#92400e">${_uiIcon('refresh')}${bail.signatures.mode === 'externe' ? 'Retirer « signé hors Propryo »…' : 'Réinitialiser les signatures…'}</button>`);
@@ -15896,6 +15911,7 @@ function _bailRenderSignatureDateField(bail) {
   window._bailExtCtx = { etat: st.etat, signedDay: st.date || '' };
   _bailExtFichier = null; _bailExtRetirer = false;   // PJ en attente : propre à CE formulaire
   window._bailExtOrigine = null; window._bailExtEtatRelais = null; window._bailExtPurge = null;   // contexte « session expirée » : propre à CE formulaire
+  window._bailExtAutres = null;   // RETOURS 15/10 : autres pièces en attente, propres à CE formulaire
   const _fi = el('b-externe-file'); if(_fi) _fi.value = '';
   _bailExtApprox = !!(sg.externe && sg.externe.dateApprox);
   const fg = el('b-externe-fg'), chk = el('b-externe');
@@ -15954,6 +15970,7 @@ function _bailExterneToggle() {
   if(editW) editW.style.display = verrouille ? 'none' : '';
   if(lockW) lockW.style.display = verrouille ? '' : 'none';
   if(on && !inp.value && ctx.signedDay) inp.value = ctx.signedDay;
+  if(on && typeof _bailExterneAutresAfficher === 'function') _bailExterneAutresAfficher();   // RETOURS 15/10 : autres pièces
   if(!inp.dataset.extBound) {   // modifier la date à la main : elle n'est plus « approximative »
     inp.dataset.extBound = '1';
     inp.addEventListener('input', function(){ _bailExtApprox = false; _bailExterneApproxAfficher(); });
@@ -15985,13 +16002,44 @@ function _bailScanDocsExternes(ref, bail) {
       && String(d.parentRef) === bare && String(d._espaceId != null ? d._espaceId : '') === esp)
     .sort((a, b) => String(b.uploadedAt || '').localeCompare(String(a.uploadedAt || '')));
 }
-// Le PDF de la déclaration COURANTE : document vivant le plus récent, même ref, même signedAt, même espace.
+// Le BAIL SIGNÉ de la déclaration COURANTE : document vivant le plus récent, même ref, même signedAt, même espace, pièce « bail »
+// (RETOURS 15/10 : une déclaration a plusieurs pièces ; un document sans type, déposé avant, est le bail).
 function _bailScanExterne(ref, bail) {
   const b = bail || (DB.baux && DB.baux[ref]);
   const s = b && b.signatures;
   if (!s || s.mode !== 'externe' || !s.signedAt) return null;
-  return _bailScanDocsExternes(ref, b).find(d => d.bailSignedAt === s.signedAt) || null;
+  return _bailScanDocsExternes(ref, b).find(d => d.bailSignedAt === s.signedAt && (!d.piece || d.piece === 'bail')) || null;
 }
+// RETOURS 15/10 (lot 2, point 1) — TOUTES les pièces de la déclaration courante (bail, actes de cautionnement, avenants,
+// annexes, autres), triées (js/core/bail-pieces-externes.js).
+function _bailPiecesExternes(ref, bail) {
+  const b = bail || (DB.baux && DB.baux[ref]);
+  const s = b && b.signatures;
+  if (!s || s.mode !== 'externe' || !s.signedAt || !window.BailPiecesExternes) return [];
+  return window.BailPiecesExternes.piecesDeclaration(_bailScanDocsExternes(ref, b), s.signedAt);
+}
+// Actes de cautionnement détenus EN PAPIER (D2) : sur le LOGEMENT (partagé avec la SCI, comme les validations de régul),
+// logement.cautionsPapier[début du bail | nom du garant] = { at, par, nom }.
+function _bailLogementDe(ref) {
+  const r = (typeof _logFindParRef === 'function') ? _logFindParRef(ref) : null;
+  return r ? r.log : ((DB.logements || []).find(l => l && !l._deleted && l.ref === String(ref).split('@@')[0]) || null);
+}
+function _bailPiecesPapier(ref, bail) {
+  const log = _bailLogementDe(ref);
+  const m = log && log.cautionsPapier;
+  return (m && typeof m === 'object') ? m : {};
+}
+// PRÉDICAT POUR L'ACCUEIL (la matrice est refaite par un autre chantier) : « caution détenue pour ce bail » = chaque garant
+// inscrit au bail a son acte de cautionnement : déposé (fichier), déclaré détenu en papier, ou signé dans Propryo
+// (bail.signatures.garant, la source lue aujourd'hui par la matrice). Rend aussi l'état détaillé, garant par garant.
+function _bailCautionEtat(ref, bail) {
+  const b = bail || (DB.baux && DB.baux[ref]);
+  const P = window.BailPiecesExternes;
+  if (!b || !P) return { etat: 'na', garants: [] };
+  return P.etatCaution({ bail: b, pieces: _bailPiecesExternes(ref, b), papier: _bailPiecesPapier(ref, b),
+    signatureGarant: !!(b.signatures && b.signatures.garant) });
+}
+function _bailCautionDetenue(ref, bail) { return _bailCautionEtat(ref, bail).etat === 'detenue'; }
 // PDF d'une déclaration PRÉCÉDENTE (retirée ou re-datée) : conservé, jamais perdu, proposé à la réutilisation.
 function _bailScansExternesOrphelins(ref, bail) {
   const s = bail && bail.signatures;
@@ -16003,16 +16051,27 @@ function _bailScanFmtTaille(n) {
   n = Number(n) || 0;
   return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko';
 }
-// Dépose (ou remplace) le PDF de la déclaration courante. Le bail n'est JAMAIS modifié ; un échec laisse le bail déclaré signé.
-async function _bailScanExterneDeposer(ref, fichier) {
+// Dépose (ou remplace) une PIÈCE de la déclaration courante — par défaut le bail signé. `meta` (RETOURS 15/10) :
+// { piece:'bail'|'caution'|'avenant'|'annexe'|'autre', garantNom + garantIdx (caution), pieceLibelle (nom libre), remplaceId
+// (pièce multiple remplacée) }. Le bail et l'acte de cautionnement d'UN garant (la personne, par son nom) sont uniques : un
+// nouveau dépôt remplace l'ancien.
+// Le bail n'est JAMAIS modifié ; un échec laisse le bail déclaré signé.
+async function _bailScanExterneDeposer(ref, fichier, meta) {
   const bail = DB.baux && DB.baux[ref];
   if (!bail || _bailEtatSig(bail).etat !== 'externe' || !fichier) return false;
   const bare = String(ref).split('@@')[0];
-  const ancien = _bailScanExterne(ref, bail);   // lu AVANT le dépôt : le nouveau document n'est pas encore marqué
+  const mt = meta || {};
+  const piece = mt.piece || 'bail';
+  // lu AVANT le dépôt : le nouveau document n'est pas encore marqué
+  const ancien = mt.remplaceId != null ? ((DB.documents || []).find(d => d && !d._deleted && d.id === mt.remplaceId) || null)
+    : (piece === 'bail' ? _bailScanExterne(ref, bail)
+      : (piece === 'caution' && window.BailPiecesExternes ? window.BailPiecesExternes.acteDuGarant(_bailPiecesExternes(ref, bail), { idx: Number(mt.garantIdx || 1), nom: mt.garantNom || '' }) : null));
   let doc;
   try { doc = await _attachmentSaveForEntity({ type: 'bail', id: bare, ref: bare, logRef: bare, category: 'bail' }, fichier); }
-  catch (e) { showToast('Le bail est bien enregistré comme signé hors Propryo, mais le dépôt du PDF a échoué (' + ((e && e.message) || 'erreur') + '). Le déposer plus tard depuis la fiche du bail ou l\'onglet Documents.', 'err', 9000); return false; }
-  Object.assign(doc, { nature: 'bail-signe-externe', bailSignedAt: bail.signatures.signedAt, bailDebut: bail.debut || '', _modifiedAt: new Date().toISOString() });
+  catch (e) { showToast('Le bail est bien enregistré comme signé hors Propryo, mais le dépôt de la pièce a échoué (' + ((e && e.message) || 'erreur') + '). La déposer plus tard depuis la fiche du bail ou l\'onglet Documents.', 'err', 9000); return false; }
+  Object.assign(doc, { nature: 'bail-signe-externe', piece, bailSignedAt: bail.signatures.signedAt, bailDebut: bail.debut || '', _modifiedAt: new Date().toISOString() });
+  if (piece === 'caution') { doc.garantIdx = Number(mt.garantIdx || 1); if (String(mt.garantNom || '').trim()) doc.garantNom = String(mt.garantNom).trim().slice(0, 120); }
+  if (piece !== 'bail' && piece !== 'caution' && String(mt.pieceLibelle || '').trim()) doc.pieceLibelle = String(mt.pieceLibelle).trim().slice(0, 120);
   if (bail._espaceId != null) doc._espaceId = bail._espaceId;   // routage du partage SCI, comme les entrées de journal
   if (ancien && ancien.id !== doc.id) await _attachmentDelete(ancien.id);   // remplacé : tombstone de l'ancien (jamais réécrit) ; le fichier cloud reste
   else saveDB();
@@ -16020,7 +16079,7 @@ async function _bailScanExterneDeposer(ref, fichier) {
 }
 function _bailScanExterneOuvrir(ref) {
   const d = _bailScanExterne(ref);
-  if (!d) { showToast('Aucun PDF déposé pour ce bail', 'warn'); return; }
+  if (!d) { showToast('Aucun bail signé déposé pour ce bail', 'warn'); return; }
   if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(d.id);
 }
 function _bailScanExterneOuvrirDoc(docId) { if (typeof _handleAttachmentOpen === 'function') _handleAttachmentOpen(docId); }
@@ -16053,20 +16112,80 @@ async function _pjExterneLire(input, images) {
   const i = url.indexOf(',');
   return { name: f.name, mime, size: f.size, dataB64: 'data:' + mime + ';base64,' + (i >= 0 ? url.slice(i + 1) : '') };
 }
-// Ajouter / remplacer APRÈS COUP (fiche du bail, onglet Documents).
-function _bailScanExterneChoisir(ref) {
+// Ajouter / remplacer APRÈS COUP (fiche du bail, onglet Documents). RETOURS 15/10 (D1) : PDF ou photo, pour toutes les pièces.
+const _BAIL_PJ_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
+function _bailScanExterneChoisir(ref) { _bailPieceChoisir(ref, { piece: 'bail' }); }
+// Une pièce : { piece, garantIdx, pieceLibelle, remplaceId }. Le contenu est vérifié (_pjExterneLire : PDF ou photo matricielle).
+function _bailPieceChoisir(ref, meta) {
   const bail = DB.baux && DB.baux[ref];
   if (!bail || _bailEtatSig(bail).etat !== 'externe') { showToast('Ce bail n\'est pas déclaré signé hors Propryo', 'warn'); return; }
-  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf';
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = _BAIL_PJ_ACCEPT;
   inp.onchange = async function () {
-    let f = null; try { f = await _pjExterneLire(inp, false); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+    let f = null; try { f = await _pjExterneLire(inp, true); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
     if (!f) return;
-    if (await _bailScanExterneDeposer(ref, f)) {
-      showToast('PDF du bail déposé.', 'ok', 4000);
+    if (await _bailScanExterneDeposer(ref, f, meta)) {
+      showToast(((meta && meta.piece) || 'bail') === 'bail' ? 'Bail signé déposé.' : 'Pièce déposée.', 'ok', 4000);
       if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
     }
   };
   inp.click();
+}
+// Fiche / onglet Documents : boutons portés par des data-* (jamais un nom ou un identifiant concaténé dans le code d'un onclick).
+function _bailPieceAction(btn) {
+  const d = btn && btn.dataset; if (!d) return;
+  const ref = d.ref;
+  if (d.act === 'ouvrir') { _bailScanExterneOuvrirDoc(Number(d.doc)); return; }
+  if (d.act === 'retirer') { _bailPieceRetirerDoc(ref, Number(d.doc)); return; }
+  // Garant désigné par son rang dans le bail ENREGISTRÉ : son nom est relu ici (la personne, jamais le seul rang).
+  const garant = d.g ? (window.BailPiecesExternes ? window.BailPiecesExternes.garantsDuBail(DB.baux && DB.baux[ref]) : []).find(g => g.idx === Number(d.g)) : null;
+  if (d.act === 'papier') { if (garant) _bailPiecePapier(ref, garant, d.on === '1'); return; }
+  if (d.act === 'deposer') { _bailPieceChoisir(ref, { piece: d.piece, garantIdx: garant ? garant.idx : undefined, garantNom: garant ? garant.nom : undefined, remplaceId: d.doc ? Number(d.doc) : undefined, pieceLibelle: d.lib || '' }); return; }
+  if (d.act === 'ajouter') {
+    const box = btn.closest('.bpx-add');
+    const type = box && box.querySelector('select') ? box.querySelector('select').value : 'autre';
+    const lib = box && box.querySelector('input') ? box.querySelector('input').value : '';
+    _bailPieceChoisir(ref, { piece: type, pieceLibelle: lib });
+  }
+}
+async function _bailPieceRetirerDoc(ref, docId) {
+  const d = (DB.documents || []).find(x => x && !x._deleted && x.id === docId);
+  if (!d) return;
+  if (!confirm2(_bailScanExterneRetraitMsg(d))) return;
+  await _bailScanExterneSupprimerDoc(d);
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  showToast('Pièce retirée', 'ok', 4000);
+}
+// D2 — « Je l'ai en papier » / annuler, pour l'acte de cautionnement d'un garant ({ idx, nom }). Écriture immédiate (fiche).
+function _bailPiecePapier(ref, garant, on) {
+  const bail = DB.baux && DB.baux[ref];
+  if (!bail || !garant) return;
+  if (_bailPiecePapierEcrire(ref, bail, garant, on)) {
+    saveDB();
+    if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+    showToast(on ? 'Acte de cautionnement noté : détenu en papier.' : 'Mention « détenu en papier » retirée.', 'ok', 4000);
+  }
+}
+// Écrit sur le LOGEMENT (horodaté → partagé avec la SCI) ; clé = début du bail + nom du garant. L'appelant enregistre.
+function _bailPiecePapierEcrire(ref, bail, garant, on) {
+  const P = window.BailPiecesExternes; if (!P || !bail || !garant || !String(garant.nom || '').trim()) return false;
+  const log = _bailLogementDe(ref); if (!log) return false;
+  const k = P.cleGarant(bail, garant.nom);
+  const m = (log.cautionsPapier && typeof log.cautionsPapier === 'object') ? Object.assign({}, log.cautionsPapier) : {};
+  if (on) { if (m[k]) return false; m[k] = { at: new Date().toISOString().slice(0, 10), par: _bailAuteurCourant() || '', nom: String(garant.nom).trim() }; }
+  else { if (!m[k]) return false; delete m[k]; }
+  log.cautionsPapier = m;
+  _stamp(log);
+  if (typeof _auditLog === 'function') _auditLog('update', 'bail', String(ref).split('@@')[0], 'acte de cautionnement de ' + String(garant.nom).trim() + ' ' + (on ? 'détenu en papier' : '« détenu en papier » retiré'));
+  return true;
+}
+// La date de début du bail change (correction) : les actes détenus en papier suivent le bail. L'appelant enregistre.
+function _bailCautionsPapierSuivreDebut(ref, ancienDebut, nouveauDebut) {
+  const P = window.BailPiecesExternes; if (!P || !ancienDebut || ancienDebut === nouveauDebut) return false;
+  const log = _bailLogementDe(ref); if (!log || !log.cautionsPapier) return false;
+  const m = Object.assign({}, log.cautionsPapier);
+  if (!P.suivreDebut(m, ancienDebut, nouveauDebut)) return false;
+  log.cautionsPapier = m; _stamp(log);
+  return true;
 }
 // Retire un PDF de bail externe. Le fichier envoyé au cloud est conservé (aucune suppression côté cloud). Si l'envoi n'a PAS abouti
 // (pas de cloudKey), la copie locale est le SEUL exemplaire : le document est retiré de la liste (tombstone) mais le binaire local reste.
@@ -16082,7 +16201,8 @@ async function _bailScanExterneSupprimerDoc(d) {
   return true;
 }
 function _bailScanExterneRetraitMsg(d) {
-  return 'Retirer le PDF du bail signé hors Propryo (' + (d.originalName || d.name) + ') ?\n\nLe bail reste déclaré signé. '
+  const quoi = (!d.piece || d.piece === 'bail') ? 'le bail signé hors Propryo' : 'cette pièce du bail signé hors Propryo';
+  return 'Retirer ' + quoi + ' (' + (d.originalName || d.name) + ') ?\n\nLe bail reste déclaré signé. '
     + (d.cloudKey ? 'Le fichier déjà envoyé au cloud est conservé (preuve).' : 'Ce fichier n\'a pas encore été envoyé au cloud : sa copie locale est conservée sur cet appareil.');
 }
 async function _bailScanExterneRetirerRef(ref) {
@@ -16091,12 +16211,12 @@ async function _bailScanExterneRetirerRef(ref) {
   if (!confirm2(_bailScanExterneRetraitMsg(d))) return;
   await _bailScanExterneSupprimerDoc(d);
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
-  showToast('PDF du bail retiré', 'ok', 4000);
+  showToast('Bail signé retiré (le bail reste déclaré signé)', 'ok', 4000);
 }
 // Modale « Modifier le bail » : le fichier est mis EN ATTENTE, déposé après l'enregistrement.
 function _bailExterneChoisirPj() { const i = el('b-externe-file'); if(i) i.click(); }
 async function _bailExterneFichierPris(input) {
-  let f = null; try { f = await _pjExterneLire(input, false); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+  let f = null; try { f = await _pjExterneLire(input, true); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
   if (!f) return;
   _bailExtFichier = f; _bailExtRetirer = false;
   _bailExternePjAfficher();
@@ -16119,16 +16239,123 @@ function _bailExternePjAfficher() {
   let txt = 'Aucun fichier', has = false;
   if (_bailExtFichier) { txt = '\ud83d\udcce ' + _bailExtFichier.name + ' \u00b7 ' + _bailScanFmtTaille(_bailExtFichier.size); has = true; }
   else if (exist) { txt = '\ud83d\udcce ' + (exist.originalName || exist.name) + ' \u00b7 ' + _bailScanFmtTaille(exist.size); has = true; }
-  else if (_bailExtRetirer) txt = 'Aucun fichier (le PDF sera retiré à l\'enregistrement)';
+  else if (_bailExtRetirer) txt = 'Aucun fichier (le fichier sera retiré à l\'enregistrement)';
   nom.textContent = txt;
-  if (bc) bc.textContent = has ? 'Remplacer' : 'Choisir un PDF';
+  if (bc) bc.textContent = has ? 'Remplacer' : 'Choisir un fichier';
   if (br) br.style.display = has ? '' : 'none';
+}
+
+// ── RETOURS 15/10 (lot 2, point 1) — les AUTRES pièces dans la modale (actes de cautionnement, avenants, annexes, autres) ──
+// Même principe que le bail signé : tout est EN ATTENTE, appliqué après l'enregistrement du bail (_bailExterneApresSave).
+// window._bailExtAutres = { ajouts:[{ k, piece, garantIdx, garantNom, pieceLibelle, fichier }], retraits:[docId],
+//                            papier:{ <nom normalisé>: { on, nom, idx } } } — un acte de cautionnement suit la PERSONNE (son nom).
+function _bailExtAutresEtat() {
+  if (!window._bailExtAutres) window._bailExtAutres = { ajouts: [], retraits: [], papier: {} };
+  return window._bailExtAutres;
+}
+// Garants saisis dans le formulaire (mode « Garant(s) ») : rang = position (1 → garant, 2 → garant2, comme saveBail).
+function _bailExtGarantsForm() {
+  if (typeof _garMode === 'function' && _garMode('b') && _garMode('b') !== 'garant') return [];
+  const l = (typeof _bailGarantsDom === 'function') ? _bailGarantsDom() : [];
+  return l.map((g, i) => ({ idx: i + 1, nom: String(g.nom || '').trim() })).filter(g => g.nom);
+}
+function _bailExterneAutresAfficher() {
+  const host = el('b-externe-autres'); if (!host) return;
+  const P = window.BailPiecesExternes; if (!P) { host.innerHTML = ''; return; }
+  const st = _bailExtAutresEtat();
+  const r = v('b-edit-ref'); const b = r ? DB.baux[r] : null;
+  const existantes = (b ? _bailPiecesExternes(r, b) : []).filter(d => d.piece && d.piece !== 'bail' && !st.retraits.includes(d.id));
+  const papierStocke = b ? _bailPiecesPapier(r, b) : {};
+  const garants = _bailExtGarantsForm();
+  // Valeurs en cours de « + Ajouter une pièce » : gardées d'un rendu à l'autre (le rendu suit la frappe du nom d'un garant).
+  const selAvant = host.querySelector('.bpx-add select'), libAvant = host.querySelector('.bpx-add input');
+  const typeGarde = selAvant ? selAvant.value : '', libGarde = libAvant ? libAvant.value : '';
+  const debutForm = (el('b-debut') && el('b-debut').value) || (b && b.debut) || '';
+  const taille = f => _bailScanFmtTaille(f.size);
+  const btn = (lbl, attrs) => '<button class="btn bs bb" type="button" ' + attrs + ' onclick="_bailExtAutreAct(this)">' + lbl + '</button>';
+  const ligne = (titre, meta, acts, bdg) => '<div class="bpx-pc"><span class="bpx-ic">' + _uiIcon('doc', 18) + '</span><span class="bpx-tx"><b>' + escHtml(titre)
+    + (bdg ? '<span class="bpx-bdg pos">' + escHtml(bdg) + '</span>' : '') + '</b><small>' + escHtml(meta) + '</small></span><span class="bpx-acts">' + acts + '</span></div>';
+  let h = '';
+  const pris = new Set();
+  garants.forEach(g => {
+    const n = P.normNom(g.nom), k = 'caution:' + n;
+    const att = st.ajouts.find(a => a.k === k);
+    const ex = P.acteDuGarant(existantes, g);
+    if (ex) pris.add(ex.id);
+    const pap = (n in st.papier) ? !!st.papier[n].on : !!papierStocke[P.cleGarant({ debut: debutForm }, g.nom)];
+    const titre = 'Acte de cautionnement — ' + g.nom;
+    const gAttr = 'data-g="' + g.idx + '" data-nom="' + escHtml(g.nom) + '"';
+    if (att) h += ligne(titre, att.fichier.name + ' · ' + taille(att.fichier) + ' (déposé à l\'enregistrement)', btn('Retirer', 'data-act="annuler" data-k="' + escHtml(k) + '"'));
+    else if (ex) h += ligne(titre, (ex.originalName || ex.name) + ' · ' + taille(ex), btn('Remplacer', 'data-act="choisir" data-piece="caution" ' + gAttr) + btn('Retirer', 'data-act="retirer" data-doc="' + ex.id + '"'));
+    else if (pap) h += ligne(titre, 'Aucun fichier', btn('Choisir un fichier', 'data-act="choisir" data-piece="caution" ' + gAttr) + btn('Annuler « papier »', 'data-act="papier" ' + gAttr + ' data-on="0"'), 'détenu en papier');
+    else h += ligne(titre, 'Garant inscrit au bail · aucun fichier', btn('Choisir un fichier', 'data-act="choisir" data-piece="caution" ' + gAttr) + btn('Je l\'ai en papier', 'data-act="papier" ' + gAttr + ' data-on="1"'));
+  });
+  // Acte d'une personne qui n'est plus garant (retirée, remplacée) : montré, jamais compté pour un autre garant.
+  existantes.filter(d => d.piece === 'caution' && !pris.has(d.id)).forEach(d => {
+    h += ligne(P.libellePiece(d, garants), (d.originalName || d.name) + ' · ' + taille(d) + ' · n\'est plus garant de ce bail', btn('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
+  });
+  existantes.filter(d => d.piece !== 'caution').forEach(d => {
+    h += ligne(P.libellePiece(d, garants), (d.originalName || d.name) + ' · ' + taille(d), btn('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
+  });
+  st.ajouts.filter(a => a.piece !== 'caution').forEach(a => {
+    h += ligne(P.libellePiece(a, garants), a.fichier.name + ' · ' + taille(a.fichier) + ' (déposé à l\'enregistrement)', btn('Retirer', 'data-act="annuler" data-k="' + escHtml(a.k) + '"'));
+  });
+  const types = P.PIECE_TYPES.filter(t => t.k !== 'bail' && t.k !== 'caution');
+  host.innerHTML = (h ? '<div class="bpx-pcs">' + h + '</div>' : '')
+    + '<div class="bpx-add"><select class="inp" aria-label="Type de la pièce à ajouter">' + types.map(t => '<option value="' + t.k + '">' + escHtml(t.l) + '</option>').join('') + '</select>'
+    + '<input class="inp" maxlength="120" placeholder="Nom de la pièce (facultatif)" aria-label="Nom de la pièce (facultatif)">'
+    + '<button class="btn bs" type="button" data-act="ajouter" onclick="_bailExtAutreAct(this)">+ Ajouter une pièce</button></div>';
+  const selApres = host.querySelector('.bpx-add select'), libApres = host.querySelector('.bpx-add input');
+  if (selApres && typeGarde && [...selApres.options].some(o => o.value === typeGarde)) selApres.value = typeGarde;
+  if (libApres && libGarde) libApres.value = libGarde;
+}
+function _bailExtAutreAct(btn) {
+  const d = btn && btn.dataset; if (!d) return;
+  const st = _bailExtAutresEtat();
+  const inp = el('b-externe-autre-file');
+  if (d.act === 'annuler') { st.ajouts = st.ajouts.filter(a => a.k !== d.k); }
+  else if (d.act === 'retirer') {
+    const doc = (DB.documents || []).find(x => x && !x._deleted && x.id === Number(d.doc));
+    if (doc && !confirm2(_bailScanExterneRetraitMsg(doc) + '\n\n(Le retrait est effectif à l\'enregistrement du bail.)')) return;
+    if (!st.retraits.includes(Number(d.doc))) st.retraits.push(Number(d.doc));
+  }
+  else if (d.act === 'papier') { const P = window.BailPiecesExternes; if (P && d.nom) st.papier[P.normNom(d.nom)] = { on: d.on === '1', nom: d.nom, idx: Number(d.g) || 1 }; }
+  else if (d.act === 'choisir' || d.act === 'ajouter') {
+    if (!inp) return;
+    let cible;
+    if (d.act === 'choisir') cible = { piece: d.piece, garantIdx: Number(d.g), garantNom: d.nom || '' };
+    else {
+      const box = btn.closest('.bpx-add');
+      cible = { piece: box.querySelector('select').value, pieceLibelle: box.querySelector('input').value };
+    }
+    inp.dataset.cible = JSON.stringify(cible);
+    inp.value = '';
+    inp.click();
+    return;
+  }
+  _bailExterneAutresAfficher();
+}
+async function _bailExterneAutreFichierPris(input) {
+  let f = null; try { f = await _pjExterneLire(input, true); } catch (e) { showToast('Fichier illisible.', 'err'); return; }
+  if (!f) return;
+  let c = {}; try { c = JSON.parse(input.dataset.cible || '{}'); } catch (e) { c = {}; }
+  const st = _bailExtAutresEtat();
+  const piece = ['caution', 'avenant', 'annexe', 'autre'].includes(c.piece) ? c.piece : 'autre';
+  const P = window.BailPiecesExternes;
+  const k = piece === 'caution' ? 'caution:' + (P ? P.normNom(c.garantNom) : String(c.garantIdx || 1)) : 'x:' + Date.now() + ':' + st.ajouts.length;
+  st.ajouts = st.ajouts.filter(a => a.k !== k);
+  st.ajouts.push({ k, piece, garantIdx: piece === 'caution' ? (Number(c.garantIdx) || 1) : undefined, garantNom: piece === 'caution' ? String(c.garantNom || '').trim() : undefined,
+    pieceLibelle: String(c.pieceLibelle || '').trim().slice(0, 120), fichier: f });
+  try { input.value = ''; } catch (e) {}
+  _bailExterneAutresAfficher();
 }
 // Après l'enregistrement du bail : dépôt / remplacement / retrait du PDF, et proposition de réutiliser le PDF d'une déclaration précédente.
 async function _bailExterneApresSave(ref, ext) {
   const f = _bailExtFichier, retirer = _bailExtRetirer;
   const purge = window._bailExtPurge;
+  const autres = window._bailExtAutres || null;   // RETOURS 15/10 : actes de cautionnement, avenants, annexes, autres (en attente)
   _bailExtFichier = null; _bailExtRetirer = false; window._bailExtOrigine = null; window._bailExtEtatRelais = null; window._bailExtPurge = null;
+  window._bailExtAutres = null;
   const bail = DB.baux && DB.baux[ref];
   // Déclaration enregistrée depuis une session à distance : purge GARDÉE (état relu juste avant le DELETE). Signée entre-temps →
   // la déclaration est abandonnée et la signature récupérée ; suppression en échec → marqueur + nouvel essai (🟠1 / 🟠2).
@@ -16141,12 +16368,47 @@ async function _bailExterneApresSave(ref, ext) {
   let touche = false;
   if (f) touche = await _bailScanExterneDeposer(ref, f);
   else if (retirer) { const d = _bailScanExterne(ref, bail); if (d) { await _bailScanExterneSupprimerDoc(d); touche = true; } }
-  else if (ext && (ext.action === 'declarer' || ext.action === 'redater') && !_bailScanExterne(ref, bail)) {
-    const orph = _bailScansExternesOrphelins(ref, bail)[0];
-    if (orph && confirm2('Un PDF de la déclaration précédente est déjà déposé (' + (orph.originalName || orph.name) + ').\n\nLe rattacher à cette déclaration ?')) {
-      const data = await _attachmentLoadBinary(orph);
-      if (data) { touche = await _bailScanExterneDeposer(ref, { name: orph.originalName || orph.name, mime: orph.mime, size: orph.size, dataB64: data }); if (touche) await _attachmentDelete(orph.id); }
-      else showToast('Fichier précédent introuvable : le déposer de nouveau.', 'warn', 6000);
+  // Les AUTRES pièces en attente : retraits, dépôts (acte de cautionnement d'un garant = emplacement unique, remplacé), papier.
+  if (autres) {
+    for (const id of autres.retraits || []) {
+      const d = (DB.documents || []).find(x => x && !x._deleted && x.id === id);
+      if (d) { await _bailScanExterneSupprimerDoc(d); touche = true; }
+    }
+    for (const a of autres.ajouts || []) {
+      if (await _bailScanExterneDeposer(ref, a.fichier, { piece: a.piece, garantIdx: a.garantIdx, garantNom: a.garantNom, pieceLibelle: a.pieceLibelle })) touche = true;
+    }
+    let papierTouche = false;
+    for (const k of Object.keys(autres.papier || {})) {
+      const p = autres.papier[k];
+      if (p && typeof _bailPiecePapierEcrire === 'function' && _bailPiecePapierEcrire(ref, bail, { idx: p.idx, nom: p.nom }, !!p.on)) papierTouche = true;
+    }
+    if (papierTouche) { saveDB(); touche = true; }
+  }
+  // Re-déclaration : les pièces de la déclaration précédente (même bail) sont proposées à la réutilisation, en UNE question.
+  if (!f && !retirer && ext && (ext.action === 'declarer' || ext.action === 'redater')) {
+    const courantes = (typeof _bailPiecesExternes === 'function') ? _bailPiecesExternes(ref, bail) : [];
+    const libre = d => {
+      if (!d.piece || d.piece === 'bail') return !_bailScanExterne(ref, bail);
+      if (d.piece === 'caution') return !courantes.some(c => c.piece === 'caution' && ((c.garantNom && d.garantNom) ? c.garantNom === d.garantNom : Number(c.garantIdx) === Number(d.garantIdx)));
+      return true;
+    };
+    const vus = new Set();
+    const orphs = _bailScansExternesOrphelins(ref, bail).filter(d => {
+      const e = (!d.piece || d.piece === 'bail') ? 'bail' : (d.piece === 'caution' ? 'caution:' + (d.garantNom || d.garantIdx) : 'doc:' + d.id);
+      if (vus.has(e) || !libre(d)) return false;
+      vus.add(e); return true;
+    });
+    const nom = d => (window.BailPiecesExternes ? window.BailPiecesExternes.libellePiece(d, window.BailPiecesExternes.garantsDuBail(bail)) + ' : ' : '') + (d.originalName || d.name);
+    if (orphs.length && confirm2((orphs.length > 1 ? 'Des pièces de la déclaration précédente sont déjà déposées' : 'Une pièce de la déclaration précédente est déjà déposée')
+      + ' (' + orphs.map(nom).join(' ; ') + ').\n\n' + (orphs.length > 1 ? 'Les rattacher' : 'La rattacher') + ' à cette déclaration ?')) {
+      for (const orph of orphs) {
+        const data = await _attachmentLoadBinary(orph);
+        if (data) {
+          const ok = await _bailScanExterneDeposer(ref, { name: orph.originalName || orph.name, mime: orph.mime, size: orph.size, dataB64: data },
+            orph.piece && orph.piece !== 'bail' ? { piece: orph.piece, garantIdx: orph.garantIdx, garantNom: orph.garantNom, pieceLibelle: orph.pieceLibelle } : undefined);
+          if (ok) { await _attachmentDelete(orph.id); touche = true; }
+        } else showToast('Fichier précédent introuvable (' + (orph.originalName || orph.name) + ') : le déposer de nouveau.', 'warn', 6000);
+      }
     }
   }
   if (touche && typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
@@ -16792,6 +17054,8 @@ function renderBailGarants(garants) {
         <div class="fg"><label>Lieu de naissance</label><input class="inp gar-lieu" data-i="${i}" value="${escHtml(g.lieu||'')}"></div>
       </div>
     </div>`).join('');
+  // RETOURS 15/10 : bail signé hors Propryo → une ligne « Acte de cautionnement » par garant
+  if (typeof _bailExterneAutresAfficher === 'function' && el('b-externe') && el('b-externe').checked) _bailExterneAutresAfficher();
   // Cap visuel : max 2 garants (cohérent avec le schéma legacy garant + garant2)
   const btn = el('b-add-garant-btn');
   if(btn) btn.style.display = (garants.length >= 2) ? 'none' : '';
@@ -16944,6 +17208,8 @@ document.addEventListener('DOMContentLoaded', () => { try { _visaleMount('b'); _
 // rien, rafraîchit le contrôle Visale.
 function _bailGarantieToggle(){
   if (_garMode('b') === 'visale') _visaleCtrl('b');
+  // RETOURS 15/10 : une ligne « Acte de cautionnement » par garant saisi (bail signé hors Propryo)
+  if (typeof _bailExterneAutresAfficher === 'function' && el('b-externe') && el('b-externe').checked) _bailExterneAutresAfficher();
 }
 
 function addGarant() {
@@ -17384,7 +17650,10 @@ function saveBail() {
     return { prev: DB.baux[ref], existait: Object.prototype.hasOwnProperty.call(DB.baux, ref), log: lg0 ? JSON.parse(JSON.stringify(lg0)) : null,
       logIdx: lg0 ? DB.logements.indexOf(lg0) : -1, bareme: JSON.parse(JSON.stringify(DB.loyerBareme || [])), nEvents: (DB.bailEvents || []).length };
   })() : null;
+  const _debutAvant = (DB.baux[ref] && !DB.baux[ref]._deleted) ? DB.baux[ref].debut : null;
   DB.baux[ref] = bail;
+  // RETOURS 15/10 : la date de début corrigée, les actes de cautionnement détenus en papier suivent le bail (logement).
+  if (_debutAvant && bail.debut && _debutAvant !== bail.debut && typeof _bailCautionsPapierSuivreDebut === 'function') _bailCautionsPapierSuivreDebut(ref, _debutAvant, bail.debut);
   if (_resetSignaturesAfterSave) {
     delete DB.baux[ref].signatures;
     showToast('🔄 Signatures réinitialisées (composition changée — bail à re-signer)', 'warn', 6000);

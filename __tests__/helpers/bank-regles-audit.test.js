@@ -51,7 +51,7 @@ function extraire(nom) {
 }
 const FONCTIONS = ['escHtml', 'fd',
   '_bankRuleSave', '_bankRuleErreurs', '_bankRuleCandidate', '_bankRuleMontantDepuisSaisieDraft', '_bankRuleErrMsgs', '_bankRuleErrMsg',
-  '_bankRuleApplyToSourceMv', '_bankRuleAfterChange', '_bankReclassify', '_bankImportFinalizePreview', '_bankApplyRule',
+  '_bankRuleApplyToSourceMv', '_bankRuleAppliquerAuMv', '_bankRuleRattacherCompte', '_bankRuleProposerApplication', '_bankRuleAfterChange', '_bankReclassify', '_bankImportFinalizePreview', '_bankApplyRule',
   '_bankApplyHeuristic', '_bankLoyerCC', '_bankImportActif', '_bankRulePreviewRender', '_bankRuleCtx', '_bankRuleExceptionsHtml',
   '_bankRuleAutresApercuHtml', '_bankAutresReglesHtml', '_bankAutreRegleTxt', '_bankRuleMotsLibelle', '_bankRulesCarteHtml',
   '_bankRulesAffTxt', '_logLabel', '_logFindParRef', '_logNomRepli', '_bankRuleMontantTxt', '_ccImmeuble', '_bankRuleLigneCase', '_bankRulePanelHtml', '_bankRuleRefForTrace'];

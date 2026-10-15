@@ -107,11 +107,15 @@ Tous validés. Aucun écart écarté.
 
 Garde-fous. Un chantier qui touche à l'un de ces points sort du CDC.
 
-- **Aucun contrôle ne change de place** dans la barre du haut (CDC ⑨.4).
+- **Aucun contrôle ne change de place** dans la barre du haut (CDC ⑨.4). *Exception décidée par Didier le 15/10/2026
+  (retours lot 2, point 4) : l'import est le geste principal — « Importer un relevé » (ex-« Importer banque ») devient
+  **le** bouton corail, à droite sur PC, en grand sur la 2ᵉ ligne au téléphone (jamais derrière « Filtrer ») ;
+  « + Mouvement » passe en secondaire (`bs bb`) ; « Mes comptes » / « Mes règles » restent secondaires (au téléphone,
+  dans « Filtrer » sous « Comptes et règles »).*
 - **Aucun calcul ne change.** Le « solde » reste supprimé — additionner un dépôt de garantie, un loyer, du capital de prêt et des charges récupérables ne produit rien d'interprétable (CDC ⑨.3). Les totaux restent une **somme de contrôle**, Finances reste maître des KPI.
 - **Les 7 colonnes restent les 7 colonnes** : Date · Libellé · Catégorie · Affectation · Montant · Facture · Actions. Le CSS mobile les positionne par `nth-child` (`css/main.css:2509-2552`) — tout déplacement de colonne casse le mobile dans le même geste.
 - **Pas de sélection multiple, pas de tableau éditable** (CDC ⑦.6).
-- **Pas d'import bancaire par staging sur cette page** — il passe par « Importer banque » (CDC ⑦.6).
+- **Pas d'import bancaire par staging sur cette page** — il passe par « Importer un relevé » (CDC ⑦.6).
 - Les tokens clairs et sombres de `css/main.css` **sont déjà conformes** à la charte (dark : `css/main.css:155-200`). Le problème n'est pas la palette, ce sont les composants qui ne l'utilisent pas. **Ne pas retoucher les palettes.**
 - `index.html` doit rester en **CRLF** (le tooling le reflippe LF → casse la parité `data-defaults`).
 

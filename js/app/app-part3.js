@@ -1,7 +1,7 @@
 
 // =================== IMPORT BANCAIRE ===================
 // ⑦.6 — LE STAGING DE MOUVEMENTS DE LA PAGE « IMPORT » A DISPARU, SANS RIEN LAISSER.
-// Les mouvements passent uniquement par l'import bancaire (bouton « Importer banque »
+// Les mouvements passent uniquement par l'import bancaire (bouton « Importer un relevé »
 // de la page Loyers & Mouvements) : deux portes d'entrée pour la même donnée, c'étaient
 // deux lectures de fichier, deux applications des règles et deux jeux de bugs.
 // `_stagingData`, `handleImport`, `importXLSXBank`, `renderStaging`, `validateImport`
@@ -1175,6 +1175,26 @@ function _bootDataJobs() {
   // démarrage, pas seulement à l'ouverture de Finances : l'Accueil et la fiche d'un bien lisent le même moteur.
   if (typeof _finMigrateCatAlias === 'function') { try { _finMigrateCatAlias(); } catch(e) { console.warn('[migration familles]', e); } }
   if (typeof _finMigrateAssuranceEmprunteur === 'function') { try { _finMigrateAssuranceEmprunteur(); } catch(e) { console.warn('[migration assurance emprunteur]', e); } }
+  // RETOURS 15/10 (lot 2, point 1) — bail signé hors Propryo : une pièce déposée avant ce lot (sans type) est le bail signé.
+  // Idempotente. Cœur pur testé : js/core/bail-pieces-externes.js.
+  if (window.BailPiecesExternes && typeof window.BailPiecesExternes.migrerPiecesExternes === 'function') {
+    try {
+      // Documents d'un espace SCI tiers : laissés tels quels (lus comme « bail signé » de toute façon) — jamais d'écriture refusée
+      // en boucle chez un membre en lecture seule (relecture adverse 15/10).
+      const _propre = (typeof _optsEspacePropre === 'function') ? _optsEspacePropre().espacePropre : undefined;
+      const _bp = window.BailPiecesExternes.migrerPiecesExternes(DB.documents || [], d => d._espaceId == null || (_propre != null && String(d._espaceId) === String(_propre)));
+      if (_bp.length) { _bp.forEach(d => _stamp(d)); saveDB(); }
+    } catch(e) { console.warn('[migration pièces du bail hors Propryo]', e); }
+  }
+  // RETOURS 15/10 (lot 2, point 2) — poêle à granulés et insert : les deux échéances « entretien » et « ramonage » deviennent
+  // une seule (fiches d'intervention, pièces jointes, rappels d'agenda). Idempotente, rien n'est perdu (anciennes fiches gardées
+  // dans `regroupeDe`). Cœur pur testé : js/core/entretien-regroupement.js. Rappels régénérés par agendaAutoSync.
+  if (window.EntretienRegroupement && typeof window.EntretienRegroupement.regrouperEntretiens === 'function') {
+    try {
+      const _rg = window.EntretienRegroupement.regrouperEntretiens(DB, { stamp: _stamp });
+      if (_rg.change) { saveDB(); if (typeof agendaAutoSync === 'function') { try { agendaAutoSync(); } catch(e2) {} } }
+    } catch(e) { console.warn('[migration entretien + ramonage]', e); }
+  }
   // ALERTE-REGUL (14/10) — migration douce : les validations de régul de l'ancien stockage (DB.regulValidations,
   // configuration de l'espace propre, jamais partagée) passent sur les LOGEMENTS du groupe validé (espace propre
   // seulement) → partagées par la SCI. EN DEUX TEMPS : copie d'abord (la clé reste, au cas où l'envoi d'un logement
