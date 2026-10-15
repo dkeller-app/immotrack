@@ -4677,8 +4677,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=c2147246" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=f1b3370f" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=980431fa" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=8acfc188" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=4fcb59e6" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
@@ -5289,6 +5289,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
  * Elle passe à la ligne, en entier (M-7 zéro débordement, M-14 jamais de troncature). */
 @media(max-width:767px){.hl-nextchip{white-space:normal}}
 .hl-lnk{font-size:12px;color:var(--acc);font-weight:700;cursor:pointer}
+.hl-lnk.hl-lnk-neg{color:var(--neg)}
+/* Téléphone : les gestes d'une carte d'historique restent des cibles de 44 px (charte M-x). */
+@media(max-width:767px){.hl-foot .hl-lnk{display:inline-flex;align-items:center;gap:4px;min-height:44px}}
 /* ── accordéons « un bail = un chapitre » (HISTORIQUE-BAIL-ONGLET) ── */
 .hbc{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
 .hbc-head{display:flex;align-items:center;gap:12px;padding:11px 15px;cursor:pointer;user-select:none;flex-wrap:wrap}

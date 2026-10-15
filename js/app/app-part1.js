@@ -24228,6 +24228,25 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   const futureApplication = dateEffetIso > todayLocal;
   const ancienHC = log.hc;                   // capturé AVANT toute mutation (M1 audit)
   if (!DB.irlHistorique) DB.irlHistorique = [];
+  // RETOURS 15/10 (lot 1, point 2) — GARDE ANTI-DOUBLON : même lot + même indice + même date
+  // d'effet = la même révision (double clic, deux appareils, rejeu). Aucune nouvelle entrée : la
+  // révision déjà enregistrée fait foi et sa lettre s'ouvre. Cas réel : 4 cartes identiques, dont
+  // 3 bloquées « en attente » à vie. Module pur testé : js/core/irl-revision.js.
+  const _IRd = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  const _deja = (_IRd && typeof _IRd.revisionDejaEnregistree === 'function')
+    ? _IRd.revisionDejaEnregistree(DB.irlHistorique, { ref, irlVigueur: _iVig?.key || '', dateEffet: dateEffetIso }) : null;
+  if (_deja) {
+    const _memeMontant = Math.round(Number(_deja.nouveauHC) * 100) === Math.round(Number(newHC) * 100);
+    showToast(_memeMontant
+      ? `Cette révision est déjà enregistrée (${fmt(_deja.ancienHC)} → ${fmt(_deja.nouveauHC)} au ${fd(dateEffetIso)}) : rien n'a été ajouté.`
+      : `Une révision au même indice et à la même date d'effet est déjà enregistrée (${fmt(_deja.ancienHC)} → ${fmt(_deja.nouveauHC)} au ${fd(dateEffetIso)}) : elle est conservée. Pour la remplacer, la supprimer depuis l'historique du bail, puis valider à nouveau.`,
+      _memeMontant ? 'info' : 'warn', 9000);
+    if (typeof _auditLog === 'function') _auditLog('irl-doublon-refuse', 'bail', ref, `${ref} · ${_iVig?.key || ''} eff. ${dateEffetIso}`);
+    refreshAllIRL(); _rPeriodPage();
+    try { if (typeof rLogFiche === 'function' && currentPage === 'log-fiche') rLogFiche(); } catch (e) {}
+    try { previewIRLLetter(ref); } catch (e) { console.warn('[IRL] lettre (révision déjà enregistrée)', e); }
+    return;
+  }
   DB.irlHistorique.push({
     date:            todayLocal,            // = date du clic / d'envoi de la lettre
     ref,
@@ -24286,6 +24305,9 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
 // est arrivée (pendingApply=true + dateApplication <= today). Idempotent.
 function _applyPendingIRLRevisions() {
   if (!DB.irlHistorique || !Array.isArray(DB.irlHistorique)) return 0;
+  // RETOURS 15/10 (lot 1, point 2) — les doublons existants sont nettoyés AVANT d'appliquer : un
+  // doublon « en attente » d'une révision déjà appliquée ne doit plus jamais rester bloqué.
+  _irlDedoublonnerJournal();
   // Constat 7 — date LOCALE : `toISOString()` rendait la veille en France (minuit local = 22/23 h
   // UTC), l'effet au 01/10 ne s'appliquait que le 02/10.
   const todayIso = _todayIsoLocal();
@@ -24338,6 +24360,30 @@ function _applyPendingIRLRevisions() {
     }
   }
   return applied;
+}
+
+// RETOURS 15/10 (lot 1, point 2) — MIGRATION DE DONNÉES idempotente : une seule entrée vivante par
+// (lot, indice, date d'effet), l'appliquée gardée ; les autres en tombstone horodaté portant
+// `_doublonDe` (rien n'est effacé, propagation cloud). Ne touche ni log.hc ni le barème. Les groupes
+// aux montants DIFFÉRENTS ne sont pas tranchés ici (décision humaine : « Supprimer cette révision »).
+// Appelée par _applyPendingIRLRevisions (démarrage, rendu de Loyers, correction de date d'effet) :
+// mêmes gardes que lui (hors ligne / lecture seule → rien n'est écrit).
+function _irlDedoublonnerJournal() {
+  const IR = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  if (!IR || typeof IR.dedoublonnerRevisions !== 'function' || !Array.isArray(DB.irlHistorique)) return 0;
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) return 0;
+  const r = IR.dedoublonnerRevisions(DB.irlHistorique, new Date().toISOString());
+  if (r.divergents.length) console.warn('[IRL doublons] révisions de même indice et même date d\'effet aux montants différents — non tranchées :', r.divergents);
+  if (!r.retirees.length) return 0;
+  DB.irlHistorique = r.irlHistorique;
+  if (typeof _auditLog === 'function') {
+    const parLot = {};
+    r.retirees.forEach(x => { const k = String(x.cle).split('|')[0]; parLot[k] = (parLot[k] || 0) + 1; });
+    Object.keys(parLot).forEach(k => _auditLog('irl-doublons-retires', 'bail', k, `${parLot[k]} doublon(s) de révision IRL retiré(s)`));
+  }
+  console.info('[IRL doublons] ' + r.retirees.length + ' doublon(s) retiré(s) (tombstone _doublonDe)');
+  saveDB();
+  return r.retirees.length;
 }
 
 // Renoncer à la révision IRL courante (isApplicable=true, pas encore dejaApplique)

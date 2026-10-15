@@ -214,8 +214,8 @@ export function construireHistoriqueBail(input) {
   }
 
   // ── Révisions IRL / renonciations (rattachées par date d'effet puis date de validation).
-  for (const h of (i.irlHistorique || [])) {
-    if (!h || h._deleted || _nr(h.ref) !== want) continue;
+  (i.irlHistorique || []).forEach((h, idx) => {
+    if (!h || h._deleted || _nr(h.ref) !== want) return;
     const date = _ymd(h.date) || _ymd(h.dateRevision);
     const effet = _ymd(h.dateEffet) || _ymd(h.dateApplication) || _ymd(h.dateRevision) || date;
     const c = _byRange(effet) || _byRange(date);
@@ -231,10 +231,10 @@ export function construireHistoriqueBail(input) {
         ancienHC: Number(h.ancienHC) || 0, nouveauHC: Number(h.nouveauHC) || 0,
         diff: Number(h.diff) || 0, irlRef: h.irlRef || '', irlVigueur: h.irlVigueur || '',
         pendingApply: !!h.pendingApply, future: !!(today && effet > today),
-        dateEffetAjustee: !!h.dateEffetAjustee, horsBail
+        dateEffetAjustee: !!h.dateEffetAjustee, horsBail, idx
       }, date);
     }
-  }
+  });
 
   // ── AVENANT-REFONTE lot 2 (29/09) — avenants du REGISTRE (journal DB.baux_evenements, type 'avenant').
   //    Les brouillons n'ont rien modifié : pas de carte. Un avenant ancien (trace 'avenant' de

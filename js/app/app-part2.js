@@ -15044,8 +15044,15 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // « Historique » de l'IRL disparaît, la trace vit là où vit le loyer : sur le bail.
     // IRL-REVISION R6 — la lettre de CETTE révision (son entrée du journal), pas celle du cycle en cours.
     const lettre = `<span class="hl-lnk" onclick="_irlLettreEvt('${refSafe}','${_lyQ(ev.date || '')}','${_lyQ(ev.effet || '')}')" title="Ré-ouvrir la lettre de révision">${_uiIcon('mail')} Revoir la lettre</span>`;
+    // RETOURS 15/10 (lot 1, point 2) — « Supprimer cette révision » : bail COURANT, et seulement quand
+    // la suppression est possible (pas sous une révision plus récente qui s'appuie sur ce loyer).
+    let suppr = '';
+    if (c.statut==='courant' && ev.idx!=null && typeof _histoIrlSupprAnalyse==='function') {
+      const _an = _histoIrlSupprAnalyse(ev.idx, ev.effet, ev.nouveauHC);
+      if (_an && _an.ok) suppr = `<span class="hl-lnk hl-lnk-neg" role="button" tabindex="0" onclick="_histoIrlSupprimer(${Number(ev.idx)},'${_lyQ(ev.effet || '')}',${Number(ev.nouveauHC) || 0})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">${_uiIcon('trash')} Supprimer cette révision</span>`;
+    }
     const corr = (c.statut==='courant')
-      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${_lyQ(ev.date)}','${_lyQ(ev.effet)}')">${_uiIcon('edit')} Corriger la date d'effet</span></div>`
+      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${_lyQ(ev.date)}','${_lyQ(ev.effet)}')">${_uiIcon('edit')} Corriger la date d'effet</span>${suppr}</div>`
       : `<div class="hl-foot">${lettre}</div>`;
     return `<div class="hl-card" data-dot="d-irl"><div class="tt"><h4>Révision IRL validée</h4><span class="hl-badge b-irl">IRL${ev.irlVigueur?' '+escHtml(String(ev.irlVigueur).replace(/\s.*$/,'')):''}</span>${etat}${hb}</div>
       <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}${corr}</div>`;
@@ -15223,6 +15230,99 @@ function _histoIrlCorrSave(){
   _histoIrlCorrCtx = null;
   rLogFiche();
   showToast('Date d\'effet corrigée','ok');
+}
+
+// ── RETOURS 15/10 (lot 1, point 2) — « Supprimer cette révision » depuis l'historique du bail.
+// Logique pure testée : js/core/irl-revision.js (analyserSuppressionRevision / supprimerRevision).
+// L'entrée part en tombstone (jamais effacée), une trace « correction » est posée dans l'historique
+// du bail, et la confirmation (non bloquante : l'utilisateur décide) dit l'effet exact. Une révision
+// APPLIQUÉE supprimée ne modifie jamais les mois déjà quittancés.
+function _histoIrlSupprInput(idx, effet, nouveauHC){
+  const h = (DB.irlHistorique || [])[idx];
+  const ref = h ? h.ref : '';
+  const bail = (DB.baux && DB.baux[ref] && !DB.baux[ref]._deleted) ? DB.baux[ref] : null;
+  const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === ref);
+  return {
+    irlHistorique: DB.irlHistorique || [], bareme: DB.loyerBareme || [], ref, index: idx,
+    todayIso: _todayIsoLocal(), nowIso: new Date().toISOString(),
+    dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm === 'function' ? _dernierMoisQuittanceYm(ref) : null) || '',
+    bailDebut: (bail && bail.debut) || '', logHc: log ? log.hc : null,
+    chRepli: (bail && bail.ch != null && bail.ch !== '') ? bail.ch : (log ? log.ch : 0),
+    attendu: { dateEffet: effet, nouveauHC }
+  };
+}
+function _histoIrlSupprAnalyse(idx, effet, nouveauHC){
+  const IR = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  if (!IR || typeof IR.analyserSuppressionRevision !== 'function') return null;
+  try { return IR.analyserSuppressionRevision(_histoIrlSupprInput(idx, effet, nouveauHC)); } catch (e) { return null; }
+}
+function _histoIrlSupprimer(idx, effet, nouveauHC){
+  const IR = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  if (!IR || typeof IR.supprimerRevision !== 'function') { showToast('Module indisponible (rafraîchir la page)', 'err'); return; }
+  const inp = _histoIrlSupprInput(idx, effet, nouveauHC);
+  const a = IR.analyserSuppressionRevision(inp);
+  if (!a.ok) { showToast(a.erreur, 'err', 7000); return; }
+  const e = a.entree, ref = inp.ref;
+  const lib = `${fmt(e.ancienHC)} → ${fmt(e.nouveauHC)} au ${fd(a.effet)}`;
+  const moisFr = ym => (window.ymToMoisFr ? window.ymToMoisFr(ym) : ym);
+  let msg;
+  if (a.nature === 'doublon') {
+    const j = a.jumelle;
+    msg = `Supprimer cette révision IRL de ${_logLabelRef(ref)} (${lib}) ?\n\n`
+      + `Une autre révision au ${fd(a.effet)} reste enregistrée (${fmt(j.ancienHC)} → ${fmt(j.nouveauHC)}) : le loyer, le barème et les quittances ne changent pas. Seule cette entrée disparaît de l'historique.`;
+  } else if (a.nature === 'programmee') {
+    msg = `Supprimer la révision programmée de ${_logLabelRef(ref)} (${lib}) ?\n\n`
+      + `Le loyer reste à ${fmt(e.ancienHC)} : le nouveau loyer ne s'appliquera pas.\n`
+      + `Si la lettre a déjà été envoyée, prévenir le locataire.\n`
+      + `La révision de ce cycle redevient à faire (article 17-1 : un an pour la demander).`;
+  } else {
+    msg = `Supprimer la révision appliquée de ${_logLabelRef(ref)} (${lib}) ?\n\n`
+      + (a.moisQuittancesConserves
+        ? `Les mois déjà quittancés (jusqu'à ${moisFr(inp.dernierMoisQuittanceYm)}) ne changent pas : les quittances émises font foi, au loyer révisé.\n`
+        : `Aucun mois n'est quittancé depuis la date d'effet : aucune quittance émise n'est concernée.\n`)
+      + `À partir du ${fd(a.reprise)}, le loyer redevient ${fmt(e.ancienHC)}.\n`
+      + `Si la lettre a été envoyée, prévenir le locataire.\n`
+      + `La révision de ce cycle redevient à faire (article 17-1 : un an pour la demander).`;
+  }
+  if (!confirm2(msg)) return;
+  const r = IR.supprimerRevision(inp);
+  if (!r.ok) { showToast(r.erreur, 'err', 7000); return; }
+  DB.irlHistorique = r.irlHistorique;
+  DB.loyerBareme = r.bareme;
+  const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === ref);
+  if (log && r.nature !== 'doublon') {
+    if (r.logHc != null) {
+      log.hc = r.logHc;
+      if (DB.baux[ref] && !DB.baux[ref]._deleted) DB.baux[ref].hc = r.logHc;
+      if (typeof _pushLoyerTheoFromLive === 'function') _pushLoyerTheoFromLive(log);
+    }
+    // Clé de cycle : seulement si c'était celle de la révision supprimée.
+    if (String(log.irlDerniereApplication || '').slice(0, 10) === String(e.dateRevision || '').slice(0, 10)) {
+      log.irlDerniereApplication = r.marqueCycle;
+      if (DB.baux[ref] && !DB.baux[ref]._deleted) DB.baux[ref].irlDerniereApplication = r.marqueCycle;
+    }
+    // La trace d'un forçage (gel/DPE/cycle éteint) posée pour CE cycle tombe avec lui (cf. _irlAnnulerProgrammee).
+    const t = (typeof _irlForcage === 'function') ? _irlForcage(ref) : null;
+    if (t && String(t.cycle || '').slice(0, 10) === String(e.dateRevision || '').slice(0, 10) && DB.params && DB.params.irlForcee) {
+      delete DB.params.irlForcee[String(ref)];
+    }
+    delete log.irlLettreEnvoyee; delete log.irlLettreEnvoyeeDate; delete log.irlLettreEnvoyeePour;
+  }
+  if (log) _stamp(log);
+  if (DB.baux[ref] && !DB.baux[ref]._deleted) _stamp(DB.baux[ref]);
+  if (!DB.bailEvents) DB.bailEvents = [];
+  DB.bailEvents.push(_stamp({ ref, bailDebut: (DB.baux[ref] && DB.baux[ref].debut) || '',
+    date: _todayIsoLocal(), type: 'correction',
+    motif: r.nature === 'doublon' ? 'Doublon de révision IRL supprimé' : 'Révision IRL supprimée',
+    avant: r.nature === 'doublon' ? null : Number(e.nouveauHC), apres: r.nature === 'doublon' ? null : Number(e.ancienHC),
+    dateEffet: r.nature === 'doublon' ? a.effet : r.reprise,
+    detail: `Révision IRL ${lib} supprimée${r.nature === 'appliquee' && r.moisQuittancesConserves ? ' — mois quittancés inchangés' : ''}` }));
+  if (typeof _auditLog === 'function') _auditLog('irl-supprimee', 'bail', ref, `${ref} · ${lib} (${r.nature})`);
+  saveDB(); refreshAllIRL(); _rPeriodPage();
+  try { if (typeof rLogFiche === 'function' && currentPage === 'log-fiche') rLogFiche(); } catch (err) {}
+  showToast(r.nature === 'doublon' ? 'Doublon supprimé — loyer inchangé'
+    : (r.nature === 'programmee' ? `Révision supprimée — loyer maintenu à ${fmt(e.ancienHC)}`
+      : `Révision supprimée — loyer de ${fmt(e.ancienHC)} à partir du ${fd(r.reprise)}`), 'ok', 6000);
 }
 
 function openHistoCorrPeriode(ref, presetDebut){
