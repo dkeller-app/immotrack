@@ -11084,3 +11084,6 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 #ov-el-msg .el-att{margin-top:6px}
 #ov-el-msg textarea.inp{width:100%;font-size:16px}
 #ov-el-msg .el-pj{display:inline-block;font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:var(--rp);background:var(--sur3);color:var(--t2);margin:6px 6px 0 0}
+/* RETOURS 15/10 (lot 1, point 3) — fenêtre « Renseigner / Vérifier ce mouvement » au téléphone : les gestes du pied
+ * (Précédent, Écarter ce mouvement, Passer, Mémoriser la règle, Valider) sont des cibles de 44 px (charte mobile). */
+@media(max-width:767px){#bank-mv-foot .btn{min-height:44px}}
