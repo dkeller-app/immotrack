@@ -5437,6 +5437,8 @@ function _edlVoixFile() {
 /** La dictée est-elle proposée ? (modules chargés, IA active, EDL non signé, écriture permise) */
 function _edlVoixDispo() {
   if (!_evxM()) return false;
+  // COMPTE DÉMO : le bouton est MONTRÉ (la brique existe) ; le geste affiche un message clair au lieu d'enregistrer (_edlVoixDemo).
+  if (typeof _isDemoMode !== 'undefined' && _isDemoMode) return !(typeof _appReadOnly !== 'undefined' && _appReadOnly) && !_edlVoixSigne();
   if (_EVX.actif == null) _EVX.actif = _edlVoixActifCache();
   if (_EVX.actif !== true) return false;
   if (typeof _appReadOnly !== 'undefined' && _appReadOnly) return false;
@@ -5607,14 +5609,24 @@ function _edlVoixFermer() {
 }
 
 // ── Dicter ──
+// COMPTE DÉMO (?demo=1) : pas de compte connecté, donc pas de relais — la dictée n'enregistre rien (aucun micro ouvert,
+// aucun envoi) et le dit en clair, plutôt qu'une erreur « Session à renouveler ». Hors démo : sans effet.
+function _edlVoixDemo() {
+  if (typeof _isDemoMode === 'undefined' || !_isDemoMode) return false;
+  const M = _evxM(); const m = M ? M.IaClient.messageErreur('demo') : null;
+  showToast(m ? m.titre + ' : ' + m.texte : 'Indisponible dans la démonstration.', 'info', 7000);
+  return true;
+}
 function _edlVoixDicter(pi) {
   const M = _evxM(); if (!M || !_edlVoixDispo() || !_edlP[pi]) return;
+  if (_edlVoixDemo()) return;
   _EVX.ctx = { cible: 'piece', pi, pieceNom: _edlP[pi].nom || 'Pièce' };
   if (!_edlVoixNoticeVue()) { _edlVoixAfficher(M.EdlVoixVues.vueNotice(M.IaTransparence.notice(), { ic: _evxIc }), 'notice'); return; }
   _edlVoixDemarrer();
 }
 function _edlVoixDicterCompteurs() {
   const M = _evxM(); if (!M || !_edlVoixDispo()) return;
+  if (_edlVoixDemo()) return;
   _EVX.ctx = { cible: 'compteurs', pi: -1, pieceNom: 'Compteurs' };
   if (!_edlVoixNoticeVue()) { _edlVoixAfficher(M.EdlVoixVues.vueNotice(M.IaTransparence.notice(), { ic: _evxIc }), 'notice'); return; }
   _edlVoixDemarrer();
@@ -17128,7 +17140,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.741 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.743 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }

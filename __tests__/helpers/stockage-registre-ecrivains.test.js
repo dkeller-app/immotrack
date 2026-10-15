@@ -88,7 +88,7 @@ function decouper(expr, sep) {
 const RESOLUTIONS_MANUELLES = {
   // Popup de signature (code GÉNÉRÉ en chaîne, repli « Path 2 » quand l'opener est perdu) :
   // `var _BAIL_LS_KEY=` + JSON.stringify(KEY) → le miroir lui-même, dans son namespace.
-  '_BAIL_LS_KEY': ['immotrack_v4', '_test_immotrack_v4'],
+  '_BAIL_LS_KEY': ['immotrack_v4', '_test_immotrack_v4', '_demo_immotrack_v4'],
   // js/app/supabase-entry.js : `import { MIROIR_KEY as MIRROR_KEY } from '../core/offline-boot.js'`.
   'MIRROR_KEY': [MIROIR_KEY],
   // js/app/supabase-entry.js : `_offlineBoot = await import('../core/offline-boot.js')`.
@@ -196,7 +196,7 @@ function resoudre(expr, a, pos, profondeur = 0) {
   let m;
   if ((m = expr.match(/^'([^'\\]*)'$/)) || (m = expr.match(/^"([^"\\]*)"$/))) return [m[1]];
   if ((m = expr.match(/^`([^`$\\]*)`$/))) return [m[1]];
-  if ((m = expr.match(/^_lsKey\(\s*(['"])([^'"]*)\1\s*\)$/))) return [m[2], '_test_' + m[2]];
+  if ((m = expr.match(/^_lsKey\(\s*(['"])([^'"]*)\1\s*\)$/))) return [m[2], '_test_' + m[2], '_demo_' + m[2]];   // COMPTE DÉMO : namespace `_demo_` (?demo=1)
   if (Object.prototype.hasOwnProperty.call(RESOLUTIONS_MANUELLES, expr)) return RESOLUTIONS_MANUELLES[expr];
   const q = decouper(expr, ' ? ');
   if (q.length === 2) {
@@ -426,8 +426,8 @@ describe('G1 — le détecteur SAIT ÉCHOUER (sources synthétiques des audits)'
     ]));
     expect(e.map(x => (x.cles || []).slice().sort())).toEqual([
       ['_test_immotrack_v4_ecrit_at', 'immotrack_v4_ecrit_at'],
-      ['_test_immo_menu_on', 'immo_menu_on'],
-      ['_test_immo_appareil_id', 'immo_appareil_id'],
+      ['_demo_immo_menu_on', '_test_immo_menu_on', 'immo_menu_on'],
+      ['_demo_immo_appareil_id', '_test_immo_appareil_id', 'immo_appareil_id'],
     ]);
     expect(fautesS3(e)).toEqual([]);
   });

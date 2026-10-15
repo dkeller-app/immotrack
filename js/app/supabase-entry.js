@@ -29,7 +29,7 @@ import { cheminFichierCandidatValide, estCleNue } from '../core/candidature-purg
 const FLAG = (() => {
   try {
     const path = (location.pathname || '').toLowerCase()
-    const inSandbox = /[?&]sandbox=1/.test(location.search || '')
+    const inSandbox = /[?&](sandbox|demo)=1/.test(location.search || '')   // ?demo=1 : compte démo local (aucun cloud)
     const served = location.protocol === 'http:' || location.protocol === 'https:'
     // HARNAIS DE TEST — les pages index-test*.html / ?sandbox=1 restent en mode legacy/démo isolé
     // (storage local _test_*). Le module cloud y est INERTE : aucun login, aucun réseau. Même détection

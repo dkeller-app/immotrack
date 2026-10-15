@@ -47,10 +47,10 @@ export const ECRITURES_REMONTEES_PAR_F1 = Object.freeze(['edl', 'edl-photo', 'ed
 const echap = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Clé exacte, en prod seulement (clés écrites sans `_lsKey`). */
 const exacte = k => new RegExp('^' + echap(k) + '$');
-/** Clé exacte, dans les deux namespaces (clés écrites via `_lsKey` : `_test_` en sandbox). */
-const deuxNs = k => new RegExp('^(_test_)?' + echap(k) + '$');
-/** Préfixe, dans les deux namespaces (le suffixe porte un libellé ou une date). */
-const prefixe = k => new RegExp('^(_test_)?' + echap(k) + '.+$');
+/** Clé exacte, dans tous les namespaces (clés écrites via `_lsKey` : `_test_` en sandbox, `_demo_` en démonstration ?demo=1). */
+const deuxNs = k => new RegExp('^(_test_|_demo_)?' + echap(k) + '$');
+/** Préfixe, dans tous les namespaces (le suffixe porte un libellé ou une date). */
+const prefixe = k => new RegExp('^(_test_|_demo_)?' + echap(k) + '.+$');
 
 /**
  * Le registre. L'ORDRE COMPTE : la première règle qui reconnaît la clé
@@ -74,6 +74,11 @@ export const REGISTRE = [
   { motif: exacte(ESPACES_KEY), classe: 'etat', note: 'espaces autorisés hors ligne', exemples: ['immotrack_v4_espaces'] },
   { motif: exacte(MIRROR_TAG_KEY), classe: 'etat', note: 'propriétaire du miroir (RGPD)', exemples: ['immotrack_v4_tag'] },
   { motif: deuxNs('immotrack_archi_v1_done'), classe: 'etat', note: 'marqueur de migration', exemples: ['immotrack_archi_v1_done'] },
+  // COMPTE DÉMO (?demo=1 ; aussi le bouton du sandbox pour demo_charge) : jeu de données déjà chargé, et le nuage FICTIF
+  // de la démo (espace locataire, liens d'artisan) tenu en local : plan à semer, puis tables simulées. Jamais en prod.
+  { motif: deuxNs('demo_charge'), classe: 'etat', note: 'jeu de données démo déjà chargé', exemples: ['_demo_demo_charge', '_test_demo_charge'] },
+  { motif: deuxNs('demo_nuage_plan'), classe: 'etat', note: 'démonstration : plan du nuage fictif à semer', exemples: ['_demo_demo_nuage_plan'] },
+  { motif: deuxNs('demo_nuage'), classe: 'etat', note: 'démonstration : nuage fictif (tables simulées, local)', exemples: ['_demo_demo_nuage'] },
   { motif: deuxNs('immotrack_archi_v4b_done'), classe: 'etat', note: 'marqueur de migration', exemples: ['immotrack_archi_v4b_done'] },
   { motif: deuxNs('immo_appareil_id'), classe: 'etat', note: 'identité de l’appareil (EDL)', exemples: ['immo_appareil_id'] },
   { motif: exacte('immo_backup_lastAt'), classe: 'etat', note: 'sauvegarde de sécurité : dernière réussite', exemples: ['immo_backup_lastAt'] },
