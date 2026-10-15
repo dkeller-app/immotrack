@@ -33,7 +33,7 @@ function monter(DB, appels = []) {
   const STD = new Function(tranche('const STD_CATEGORIES = [', '\n];') + '\nreturn STD_CATEGORIES;')();
   const src = [
     tranche('const _FIN_FAMILLE_GROUPES = [', '\n];'),
-    ...['_finStdByLigne', '_finCatMere', '_finChargeHf', '_finLotCatRole', '_finFamilleEffet', '_finMereOptionsHtml',
+    ...['_finStdByLigne', '_finCatMere', '_finChargeHf', '_fin250Genre', '_finLotCatRole', '_finFamilleEffet', '_finMereOptionsHtml',
       '_finFamilleEffetHtml', '_finRattacheCategorie', '_setCustomCatFamille', '_finCatsRetireesUtilisees', '_finMonthly'].map(corps)
   ].join('\n');
   const stdParNom = (nom) => STD.find(c => c.nom === nom);
@@ -72,11 +72,11 @@ describe('La liste des familles — groupée selon l’effet RÉEL sur le cash-f
     expect(par.horsFiscal.sort()).toEqual(['Charges récupérables (eau, énergie…)', 'Divers (non déductible)', 'Frais bancaires', 'Prêt',
       'Travaux de construction / agrandissement (non déductible)'].sort());
     expect(par.horsCf.sort()).toEqual(['Acompte de charges (départ)', 'Acquisition / cession de bien', 'CCA / distribution SCI',
-      'Dépôt de garantie (reçu / restitué)', "Prêt — Intérêts d'emprunt", 'Virement interne (non déclarable)',
-      // REGLES-REFONTE D1 (Didier 06/10) : 24e famille, ligne 250 comme les intérêts → hors cash-flow comme eux
-      // (le 1er test vérifie que la liste suit le moteur ; limite connue notée au BACKLOG pour la session Finances).
-      'Prêt — Assurance emprunteur'].sort());
-    expect(par.declaree.length).toBe(9);
+      'Dépôt de garantie (reçu / restitué)', "Prêt — Intérêts d'emprunt", 'Virement interne (non déclarable)'].sort());
+    // 15/10 (Didier) : « Prêt — Assurance emprunteur » est une VRAIE sortie d'argent → dépenses déclarées (250),
+    // au cash-flow (le 1er test vérifie que la liste suit le moteur).
+    expect(par.declaree).toContain('Prêt — Assurance emprunteur');
+    expect(par.declaree.length).toBe(10);   // + « Prêt — Assurance emprunteur » (15/10 : cash-flow ET ligne 250)
     expect(par.declaree.every(n => STD.find(c => c.nom === n).ligne2044)).toBe(true);
   });
 

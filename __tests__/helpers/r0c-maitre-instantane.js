@@ -22,13 +22,14 @@ import { jeuMultiLots, catLigne, isEcheance, isRecupCharge } from './r0c-jeux.js
 /** Empreinte d'une sortie complète du moteur (months + annual + byLot + bornes) : sha256 du JSON. */
 const empreinte = (r) => createHash('sha256').update(JSON.stringify(r)).digest('hex');
 /**
- * Deux postes ont été ajoutés au moteur APRÈS la prise de cette photo (05/10, décision Didier) :
- * `construction` (travaux d'agrandissement) et `nonDeductible` (dépenses non déductibles), comptés
+ * Trois postes ont été ajoutés au moteur APRÈS la prise de cette photo (décisions Didier) :
+ * `construction` (travaux d'agrandissement) et `nonDeductible` (dépenses non déductibles), le 05/10,
+ * puis `assuranceEmprunteur` (assurance de prêt prélevée à part), le 15/10 — comptés
  * dans les charges et le cash-flow. Aucun jeu ne contient ces catégories, ils y valent donc 0 — on
  * les retire QUAND ILS VALENT 0, pour que la photo d'avant reste la référence à l'octet.
  * Un poste NON NUL n'est jamais retiré : il ferait échouer la comparaison, comme il le doit.
  */
-const NOUVEAUX_POSTES = ['construction', 'nonDeductible'];
+const NOUVEAUX_POSTES = ['construction', 'nonDeductible', 'assuranceEmprunteur'];
 const sansNouveauxPostesNuls = (v) => {
   if (Array.isArray(v)) return v.map(sansNouveauxPostesNuls);
   if (!v || typeof v !== 'object') return v;

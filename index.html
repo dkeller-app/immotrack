@@ -1749,9 +1749,10 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <button type="button" class="btn bs fc-tab" data-t="1" onclick="_finCreditTab(1)"><span data-uic="calc"></span> Calculer depuis le prêt</button>
       <button type="button" class="btn bs fc-tab" data-t="2" onclick="_finCreditTab(2)">📄 Importer</button>
     </div>
+    <div id="fc-deja"></div>
     <div class="fc-pane" data-p="0">
       <div class="fg"><label>Total des intérêts d'emprunt payés (exercice) €</label><input class="inp" type="number" step="0.01" id="fc-int" placeholder="ex. 6651"></div>
-      <div class="mu sm">💡 C'est ce qui sera demandé pour la 2044. Le bouton crée le mouvement « Prêt — Intérêts d'emprunt », à vérifier puis à enregistrer (intérêts + frais d'emprunt : dossier, hypothèque, cautionnement, agios, assurance emprunteur).</div>
+      <div class="mu sm">💡 C'est ce qui sera demandé pour la 2044. Le bouton crée le mouvement « Prêt — Intérêts d'emprunt », à vérifier puis à enregistrer (intérêts + frais d'emprunt : dossier, hypothèque, cautionnement, agios ; l'assurance emprunteur seulement si elle n'est pas déjà enregistrée à part en « Prêt — Assurance emprunteur »).</div>
     </div>
     <div class="fc-pane" data-p="1" style="display:none">
       <div class="fg"><label>Bien / prêt</label><input class="inp" id="fc-bien" placeholder="ex. Appartement Victor Hugo"></div>
@@ -4671,14 +4672,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- IMPORT BANCAIRE — mirror généré depuis js/core/bank-import.js.
      Remplace la RÉPLIQUE INLINE des helpers _bank* qui vivait dans ce fichier
      (bug 3 du CDC-IMPORT : moteur en double, divergence garantie à terme). -->
-<script src="js/helpers/bank-import.global.js?v=a4647d21" defer></script>
+<script src="js/helpers/bank-import.global.js?v=478dc520" defer></script>
 <!-- DÉLAI DE RESTITUTION DU DG (art. 22) — mirror généré depuis js/core/dg-delai.js : window.DgDelai. -->
 <script src="js/helpers/dg-delai.global.js?v=dea32378" defer></script>
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=42bf7c9d" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=454cba84" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=8bd83738" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=77fc61f4" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=6b5a492c" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

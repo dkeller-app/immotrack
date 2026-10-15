@@ -9850,6 +9850,9 @@ function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
  * l'achat d'un bien, les apports d'associés, les dépôts de garantie et les virements internes — et
  * leurs alias (une catégorie perso hérite de sa famille, GO Didier 06/10).
  *
+ * « Prêt — Assurance emprunteur » (250, prélevée à part) est une CHARGE : le moteur la compte dans
+ * `b.assuranceEmprunteur`, inclus dans `b.charges` et le cash-flow (décision Didier 15/10).
+ *
  * Les intérêts d'emprunt (250) rendent null. Le moteur les met dans `b.interets`, qui n'entre
  * NI dans `b.charges` NI dans `cashflowReel` (`finances-monthly.js:297,301`) : c'est une donnée
  * de déclaration, pas un flux de compte — y compris pour qui saisit ses intérêts sans jamais
@@ -9870,6 +9873,7 @@ function _finLotCatRole(cat) {
   if (mere.gestionCharge) return 'charge';      // réel, hors 2044
   if (mere.recup) return 'charge';              // charges récupérables directes : transit locataire
   if (typeof _finChargeHf === 'function' && _finChargeHf(cat)) return 'charge'; // agrandissement, dépenses non déductibles, alias compris (05-06/10)
+  if (typeof _fin250Genre === 'function' && _fin250Genre(cat) === 'assurance') return 'charge'; // assurance emprunteur prélevée à part (15/10)
   const ln = mere.ligne2044;
   if (!ln || ln === '250') return null;
   if (ln === '211') return 'loyer';
@@ -11406,6 +11410,9 @@ async function saveMv() {
     showToast('« Qui » et « Compteur lié » sont exclusifs — vider l\'un des deux','err',4500);
     return;
   }
+  // 15/10 — ligne 250 (intérêts / assurance emprunteur) : alerte de double compte, jamais bloquante.
+  if (typeof _fin250ConfirmerSaisie === 'function'
+      && !_fin250ConfirmerSaisie({ cat: v('mv-cat'), date: v('mv-date') || td(), qui: _qui, imm: v('mv-imm').trim() }, eid || null)) return;
   // PJ attachée AVANT ce save : `m` est reconstruit de zéro et ne la porte pas. C'est le seul
   // état qui permette de tombstoner correctement un document remplacé ou retiré.
   const _mvOldPjId = eid ? (((DB.mouvements || []).find(x => x && x.id === parseInt(eid)) || {}).pjId) : null;

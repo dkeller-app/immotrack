@@ -53,7 +53,10 @@ function charger(alias) {
   // `_finChargeHf` (poste de cash-flow hors 2044) : la VRAIE fonction de l'app, sur le stub de mère.
   const iH = html.indexOf('function _finChargeHf('), jH = html.indexOf('\n}', iH);
   if (iH === -1 || jH === -1) throw new Error('_finChargeHf introuvable — le test ne teste plus rien');
-  const src = html.slice(iH, jH + 2) + '\n' + html.slice(i, j + fin.length) + '\n' + html.slice(iN, jN + fNet.length);
+  // `_fin250Genre` (ligne 250 : intérêts / assurance emprunteur, 15/10) : la VRAIE fonction, sur le même stub.
+  const iG = html.indexOf('function _fin250Genre('), jG = html.indexOf('\n}', iG);
+  if (iG === -1 || jG === -1) throw new Error('_fin250Genre introuvable — le test ne teste plus rien');
+  const src = html.slice(iH, jH + 2) + '\n' + html.slice(iG, jG + 2) + '\n' + html.slice(i, j + fin.length) + '\n' + html.slice(iN, jN + fNet.length);
   const STD = referentiel();
   const _finCatMere = (nom) => {
     if (!nom) return null;
@@ -104,8 +107,10 @@ describe('_finLotCatRole — le référentiel répond, jamais le libellé', () =
     // les intérêts dans `b.interets`, qui n'entre ni dans `charges` ni dans `cashflowReel`.
     expect(M._finLotCatRole('Prêt')).toBe('charge');
     expect(M._finLotCatRole("Prêt — Intérêts d'emprunt")).toBe(null);
-    // D1 : l'assurance emprunteur prélevée à part suit les intérêts (ligne 250), pas l'échéance.
-    expect(M._finLotCatRole('Prêt — Assurance emprunteur')).toBe(null);
+    // 15/10 (Didier) : l'assurance emprunteur prélevée à part n'est dans AUCUNE échéance — vraie sortie
+    // d'argent, comptée par le moteur (`b.assuranceEmprunteur`, dans `charges`) : une charge du lot.
+    expect(M._finLotCatRole('Prêt — Assurance emprunteur')).toBe('charge');
+    expect(M._finLotCatRole('Assurance crédit CNP')).toBe(null);   // sans famille : hors résultat, comme le moteur
   });
 
   it('les frais bancaires SONT une charge — c’est la seule entrée qui porte `gestionCharge`', () => {

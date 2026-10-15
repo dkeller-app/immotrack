@@ -257,7 +257,7 @@ describe('R7 — barre latérale : les entités triées par leurs RECETTES, lues
     _finWindows: () => { fenetres++; return null; },
     Math, Number, String, Object, Array, Date, parseInt, JSON, Map, Set,
   });
-  const NOMS = ['_v4TopEntities', '_finRecettesDe', '_finMonthly', '_finCatMere', '_finChargeHf', '_finStdByLigne'];
+  const NOMS = ['_v4TopEntities', '_finRecettesDe', '_finMonthly', '_finCatMere', '_finChargeHf', '_fin250Genre', '_finStdByLigne'];
   beforeEach(() => { fenetres = 0; });
 
   it('ordre = recettes du moteur (loyers + recettes diverses) ; dépôt et apport ignorés', () => {

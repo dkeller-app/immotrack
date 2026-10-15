@@ -104,7 +104,7 @@ describe('Le branchement RÉEL de l’app — `_finMonthly` lu dans le code, ré
     expect(iS, 'référentiel introuvable').toBeGreaterThan(-1);
     const STD = new Function(html.slice(iS, jS + 3) + '\nreturn STD_CATEGORIES;')();
     // Les VRAIES fonctions : moteur branché, mère (alias + replis legacy) et poste hors 2044.
-    const src = ['_finStdByLigne', '_finCatMere', '_finChargeHf', '_finMonthly'].map(n => {
+    const src = ['_finStdByLigne', '_finCatMere', '_finChargeHf', '_fin250Genre', '_finMonthly'].map(n => {
       const s = corps(n); expect(s, n + ' introuvable').toBeTruthy(); return s;
     }).join('\n');
 

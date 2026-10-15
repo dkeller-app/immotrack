@@ -11263,6 +11263,7 @@ function _default2044Mapping() {
     // 2) Fallback regex pour les catégories custom utilisateur
     const k = c.toLowerCase();
     if(/loyer/.test(k))                                 m[c] = '211';
+    else if(_finEstNomAssurancePret(k))             m[c] = '250';   // 15/10 : assurance de prêt (famille fixée par _finMigrateAssuranceEmprunteur)
     else if(/pr[êe]t|emprunt|int[ée]r[êe]t/.test(k))    m[c] = '250';
     else if(/r[ée]nov.*[ée]nerg|[ée]nerg.*r[ée]nov/.test(k)) m[c] = '224bis';
     else if(/assurance/.test(k))                        m[c] = '223';
@@ -32122,6 +32123,36 @@ function _finChargeHf(catNom) {
   const mere = _finCatMere(catNom);
   return (mere && mere.chargeHf) || null;
 }
+// Ligne 250 de la 2044 — LE décideur du genre d'une catégorie (alias compris, par la famille mère) :
+// 'assurance' = « Prêt — Assurance emprunteur » (prélevée à part : flux du cash-flow ET ligne 250),
+// 'interets' = toute autre famille de la ligne 250 (intérêts de l'attestation : ligne 250 seulement),
+// null sinon. Lu par le moteur (`_finMonthly`), la fiche du lot (`_finLotCatRole`), le détail des
+// lignes (`_finDrillLigne`) et l'alerte de double compte (`_fin250Alerte`). Décision Didier 15/10.
+function _fin250Genre(catNom) {
+  const mere = _finCatMere(catNom);
+  if (!mere || mere.ligne2044 !== '250') return null;
+  return mere.nom === 'Prêt — Assurance emprunteur' ? 'assurance' : 'interets';
+}
+// 15/10 (Didier) — une catégorie PERSO dont le nom désigne une assurance de prêt (« Assurance crédit »,
+// « Assurance prêt CNP »…) et qui n'a été rattachée à AUCUNE famille par l'utilisateur (ni alias, ni
+// mapping validé) tombait, par le repli regex de _default2044Mapping, en « Primes d'assurance (PNO) »
+// (223) — hors de sa vraie ligne. Migration de DONNÉES (idempotente) : elle reçoit la famille
+// « Prêt — Assurance emprunteur ». Un choix explicite de l'utilisateur n'est jamais modifié.
+function _finEstNomAssurancePret(nom) { return /assurances?.*(cr[ée]dit|pr[êe]t|emprunt)|emprunteur/i.test(String(nom || '')); }   // déclaration hoistée (lue aussi par _default2044Mapping)
+function _finMigrateAssuranceEmprunteur() {
+  const noms = new Set([...(DB.categories || []), ...(DB.mouvements || []).filter(m => m && !m._deleted && m.cat).map(m => m.cat)]);
+  let n = 0;
+  noms.forEach(cat => {
+    if (!cat || _stdCategoryByName(cat)) return;
+    if ((DB.catAlias || {})[cat] || (DB.catMapping || {})[cat] != null) return;   // choix de l'utilisateur : intouché
+    if (!_finEstNomAssurancePret(cat)) return;
+    if (!DB.catAlias) DB.catAlias = {};
+    DB.catAlias[cat] = 'Prêt — Assurance emprunteur'; n++;
+    if (DB.params && DB.params.legal2044Mapping && DB.params.legal2044Mapping[cat] != null) DB.params.legal2044Mapping[cat] = '250';
+  });
+  if (n && typeof saveDB === 'function') saveDB();
+  return n;
+}
 // Migration one-shot : catMapping {nom: ligne2044|'__ignore'} → catAlias {nom: mère}.
 // Idempotente, silencieuse (les valeurs avaient déjà été VALIDÉES par l'utilisateur —
 // même sémantique, exprimée sur la mère au lieu de la ligne).
@@ -32492,6 +32523,7 @@ function rFinances() {
   // impossible : migration one-shot du legacy, puis rattachement BLOQUANT (le modal se rouvre
   // tant qu'une catégorie flotte : des montants déjà saisis resteraient invisibles sinon).
   _finMigrateCatAlias();
+  _finMigrateAssuranceEmprunteur();   // 15/10 : après la conversion des choix validés (jamais écrasés)
   const _unmapped = _finUnmappedCats();
   const _mapBanner = '';
   if (_unmapped.length) {
@@ -32755,7 +32787,8 @@ function _finWindows(yr, scope) {
   if (typeof window._finWindowConstat !== 'function') return null;
   // H-7 : un mouvement d'INTÉRÊTS (ligne 250, souvent daté 31/12) est une donnée annuelle, pas
   // un flux — il n'étend JAMAIS la fenêtre de constat (sinon décembre s'ouvre toute l'année).
-  const _horsConstat = (mv) => { const r = _finCatLigne(mv && mv.cat); return !!(r && r.ligne2044 === '250'); };
+  // L'assurance emprunteur (250 aussi) est, elle, un FLUX daté (15/10) : elle compte comme les autres.
+  const _horsConstat = (mv) => _fin250Genre(mv && mv.cat) === 'interets';
   const constat = window._finWindowConstat({
     year: yr, mouvements: DB.mouvements || [],
     filtreMouvement: (mv) => !_horsConstat(mv) && (!scope || window._finScopeWeightCore(scope, mv) > 0)
@@ -32855,6 +32888,7 @@ function _finMonthly(yr, scope, win) {
     // M-1 : les résolveurs passent par la catégorie MÈRE — un alias de « Prêt » est une
     // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).
     isEcheance: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.nom === 'Prêt'); },   // « 1 ligne = mensualité entière » (convention user)
+    isAssuranceEmprunteur: m => _fin250Genre(m && m.cat) === 'assurance',   // 15/10 : cash-flow ET 2044 (250), datée
     isGestionCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.gestionCharge); }, // frais bancaires (réel mais hors 2044)
     chargeHorsFiscal: m => _finChargeHf(m && m.cat), // travaux d'agrandissement, dépenses non déductibles (05/10), alias compris (06/10)
     isRecupCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
@@ -32914,6 +32948,8 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     ...(((a && a.recettesDiverses) || 0) !== 0 ? [R('Recettes diverses <span class="b4-x">parking, GLI, indemnités… (ligne 213, imposable)</span>', o => o.recettesDiverses, { kind: 'recettesDiverses' })] : []),
     { grp: 'Charges propriétaire <span class="b4-x">(à charge du propriétaire — non récupérables)</span>' },
     R('Prêt <span class="b4-x">capital + intérêts — mensualité entière' + _pretSub + '</span>', o => o.pret, { charge: true, kind: 'pret' }),
+    // 15/10 (Didier) : l'assurance de prêt prélevée à part est une vraie sortie d'argent (absente de l'échéance).
+    ...(_visible('assuranceEmprunteur') ? [R('Assurance emprunteur <span class="b4-x">prélevée à part de l\'échéance — 2044 ligne 250</span>', o => o.assuranceEmprunteur, { charge: true, kind: 'assuranceEmprunteur' })] : []),
     R('Taxe foncière', o => o.taxe, { charge: true, kind: 'taxeFonciere' }),
     R('Travaux &amp; entretien', o => o.travaux, { charge: true, kind: 'travaux' }),
     R('Honoraires &amp; gestion', o => o.honoraires, { charge: true, kind: 'honoraires' }),
@@ -33205,6 +33241,50 @@ function _amortYear(montant, tauxPct, dureeAns, debutISO, yr) {
   }
   return { interets: Math.round(iY), capital: Math.round(cY), restant: Math.max(0, Math.round(restantEnd)) };
 }
+// ── Ligne 250 : alerte de double compte (décision Didier 15/10) ─────────────────────────────────
+// Quand des intérêts d'emprunt (attestation de la banque) ou une assurance emprunteur sont saisis alors
+// que l'autre est DÉJÀ compté pour l'année (et le bien) : dire quels mouvements, quel total, et le
+// risque — l'attestation inclut souvent l'assurance. Jamais bloquant : l'utilisateur décide.
+// Les pièces viennent du helper pur `_ligne250DejaComptee` (finances-monthly.js) ; aucun montant
+// de Finances n'est recalculé ici.
+function _fin250Deja(yr, garder, exclId) {
+  if (typeof window._ligne250DejaComptee !== 'function') return null;
+  return window._ligne250DejaComptee({ mouvements: DB.mouvements || [], year: yr, genre: _fin250Genre, garder, exclId });
+}
+// Texte (brut, non échappé) de l'alerte, ou '' s'il n'y a rien à dire. `genreSaisi` : 'interets' |
+// 'assurance' | null (assistant : on ne sait pas encore ce qui sera saisi → toute pièce compte).
+function _fin250AlerteTexte(d, genreSaisi, yr) {
+  if (!d || !d.lignes.length) return '';
+  const pertinent = genreSaisi === 'assurance' ? d.lignes.filter(l => l.genre === 'interets') : d.lignes;
+  if (!pertinent.length) return '';
+  const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
+  const dfr = s => s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4);
+  const liste = pertinent.slice(0, 6).map(l => '• ' + dfr(l.date) + ' · ' + (l.lib || '(sans libellé)') + ' · ' + l.cat + ' · ' + f(l.montant));
+  if (pertinent.length > 6) liste.push('• … et ' + (pertinent.length - 6) + ' autre(s)');
+  const tot = pertinent.reduce((t, l) => t + l.montant, 0);
+  return 'Intérêts d\'emprunt et assimilés (2044, ligne 250) déjà comptés pour ' + yr + ' :\n' + liste.join('\n')
+    + '\nTotal déjà compté : ' + f(Math.round(tot * 100) / 100) + '.'
+    + '\nL\'attestation annuelle de la banque inclut souvent l\'assurance emprunteur : ne pas la saisir deux fois.';
+}
+// Assistant « Renseigner les intérêts d'emprunt » : encart informatif (périmètre de la page Finances).
+function _finCreditDejaRender() {
+  const host = el('fc-deja'); if (!host) return;
+  const yr = _finCreditYr();
+  const scope = (typeof _finEntScope === 'function') ? _finEntScope(_finPageEnt(), _finActiveImm()) : null;
+  const d = _fin250Deja(yr, m => !scope || _finScopeWeight(scope, m) > 0);
+  const t = _fin250AlerteTexte(d, null, yr);
+  host.innerHTML = t ? '<div class="note" style="border-left:3px solid var(--warn);background:var(--sur2);padding:10px 12px;margin-bottom:12px;font-size:12.5px;white-space:pre-line">' + escHtml(t) + '</div>' : '';
+}
+// Enregistrement d'un mouvement de la ligne 250 (formulaire) : même bien, même année. Rend true
+// pour enregistrer (rien à dire, ou l'utilisateur confirme), false si l'utilisateur revient au formulaire.
+function _fin250ConfirmerSaisie(m, exclId) {
+  const g = _fin250Genre(m && m.cat);
+  if (!g || !m.date) return true;
+  const yr = String(m.date).slice(0, 4);
+  const memeBien = x => (m.qui ? x.qui === m.qui : (m.imm ? (x.imm === m.imm && !x.qui) : true));
+  const t = _fin250AlerteTexte(_fin250Deja(yr, memeBien, exclId), g, yr);
+  return !t || confirm2(t + '\n\nEnregistrer quand même ?');
+}
 function _finCreditYr() {
   return (el('fin-year') && el('fin-year').value) ? parseInt(el('fin-year').value, 10) : new Date().getFullYear();   // F-1 : défaut unique = exercice en cours
 }
@@ -33220,6 +33300,7 @@ function _finCreditTab(n) {
 }
 function _finCreditOpen() {
   _finCreditTab(0);
+  _finCreditDejaRender();
   openM('ov-fincredit');
 }
 function _finCreditCalc() {
@@ -33285,6 +33366,7 @@ function _finDrillLigne(kind, yr, mo) {
     construction: { titre: 'Travaux d\'agrandissement (non déductibles)', rec: false, test: () => false }, // matché par _finChargeHf dans la boucle
     nonDeductible: { titre: 'Dépenses non déductibles', rec: false, test: () => false },            // matché par _finChargeHf dans la boucle
     pret:         { titre: 'Prêt — échéances (capital + intérêts)', rec: false, test: () => false }, // B4 : matché par m.cat === 'Prêt' (mensualité entière)
+    assuranceEmprunteur: { titre: 'Assurance emprunteur (prélevée à part)', rec: false, test: () => false }, // 15/10 : matché par _fin250Genre dans la boucle
     provisions:   { titre: 'Provisions de charges encaissées', prov: true, rec: false, test: () => false }, // #2 : part CH du loyer 211
     recup:        { titre: 'Charges récupérables avancées (récupérables)', rec: false, test: () => false }, // #2 : 229/230 copro + flag recup — part restée à charge EXCLUE (L-5)
     recupACharge: { titre: 'Charges récupérables restées à la charge du propriétaire (225)', rec: false, test: () => false }, // L-5 : vacance / sans bail / non récupérable
@@ -33354,6 +33436,7 @@ function _finDrillLigne(kind, yr, mo) {
         ? (_isRecupMv && _finIsRecupACharge(m))
         : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
            || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
+           || (kind === 'assuranceEmprunteur' && _fin250Genre(m.cat) === 'assurance')
            || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));                // L-5 : « Autres » inclut le resté-à-charge (total = ligne)
       if (!ok) return;
       // v15.398 (BUG-PRET-REMBOURSEMENT) : crédits/ristournes inclus → drill = total ligne P&L (db−cr).
@@ -33393,6 +33476,7 @@ function _finDrillLigne(kind, yr, mo) {
           : (kind === 'recupACharge') ? (_isRecupMv && _finIsRecupACharge(m))
           : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
            || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
+           || (kind === 'assuranceEmprunteur' && _fin250Genre(m.cat) === 'assurance')
              || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));
         if (!ok) return; // parité avec la boucle rows (CFE/TLV/pret/L-5)
         t += ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w;
@@ -33506,8 +33590,9 @@ function _finDrillLigne(kind, yr, mo) {
       (DB.mouvements || []).forEach(m2 => {
         if (!m2 || m2._deleted || !m2.date || !m2.date.startsWith(yr)) return;
         const w2 = _finScopeWeight(scope, m2); if (!w2) return;
-        const r2 = _finCatLigne(m2.cat);
-        if (r2 && r2.ligne2044 === '250') _intAn += ((Number(m2.db) || 0) - (Number(m2.cr) || 0)) * w2;
+        // « dont intérêts » de l'échéance : les intérêts seulement — l'assurance prélevée à part n'est
+        // pas dans l'échéance (ligne « Assurance emprunteur » du tableau, 15/10).
+        if (_fin250Genre(m2.cat) === 'interets') _intAn += ((Number(m2.db) || 0) - (Number(m2.cr) || 0)) * w2;
       });
       _intAn = Math.round(_intAn * 100) / 100;
       body += '<div class="note">' + (_intAn > 0

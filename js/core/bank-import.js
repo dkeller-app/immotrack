@@ -2331,6 +2331,9 @@ export function _bankMatchHeuristic(line, ctx = {}) {
   // rémunérations », « Autres » — qui n'existent PAS dans STD_CATEGORIES → ces mouvements ne mappaient
   // aucune ligne 2044 (nonMappes) = sous-déclaration silencieuse. Corrigé ici.
   const KEYWORDS = [
+    // 15/10 (Didier) : une assurance de PRÊT (prélevée à part) n'est pas une PNO — ligne 250, cash-flow.
+    // AVANT la règle « assurance » générale (sinon « PRLV CNP ASSURANCES PRET » partait en 223).
+    { rx: /\b(assurances? (de |du )?(pret|credit|emprunt)|assurance emprunteur|emprunteur|cnp|cardif)\b/i, cat: 'Prêt — Assurance emprunteur', confidence: 0.8, src: 'Mot-clé assurance emprunteur' },
     { rx: /\b(assurance|axa|maaf|matmut|aviva|allianz|maif|groupama|gli)\b/i, cat: 'Primes d\'assurance (PNO, GLI)', confidence: 0.85, src: 'Mot-clé assurance' },
     // Frais bancaires (tenue de compte) → catégorie dédiée ; péage/carburant → Divers (tout hors 2044, couvert par le forfait 222).
     { rx: /\b(frais bancaires|tenue de compte|cotisation carte|frais de compte|commission d.intervention|abonnement compte)\b/i, cat: 'Frais bancaires', confidence: 0.72, src: 'Mot-clé frais bancaires (forfait 222)' },

@@ -100,6 +100,17 @@ export function _avantBorne(lignes, borne, opts) {
  *   - catLigne(cat) → {ligne2044, type} | null (cf _finCatLigne)
  *   - loyerDue(qui, ym) → {hc, ch} (dû proraté du mois, cascade cumulative, cf _finBailHcChAt)
  *   - isEcheance(m) → bool (mouvement = échéance de prêt, en prod : m.cat === 'Prêt')
+ *   - isAssuranceEmprunteur(m) → bool (catégorie « Prêt — Assurance emprunteur », alias compris)
+ *
+ * Prêt, intérêts et assurance emprunteur (décision Didier 15/10) :
+ *   - l'ÉCHÉANCE (« Prêt ») est un flux : `pret`, dans `charges` et le cash-flow, JAMAIS dans la 2044
+ *     (elle contient le capital) ;
+ *   - les INTÉRÊTS (« Prêt — Intérêts d'emprunt », attestation annuelle de la banque) sont une donnée
+ *     de déclaration DÉJÀ PAYÉE dans l'échéance : `interets`, dans `base2044` (ligne 250), JAMAIS
+ *     dans `charges` (sinon comptés deux fois au cash-flow), répartis au prorata des échéances (H-7) ;
+ *   - l'ASSURANCE EMPRUNTEUR prélevée À PART de l'échéance est une vraie sortie d'argent qui n'est
+ *     dans aucune échéance : `assuranceEmprunteur`, dans `charges` (cash-flow) ET dans `base2044`
+ *     (ligne 250), à sa date réelle (pas de répartition H-7).
  *
  * @param {Object} input
  * @param {Object} [input.window] fenêtre de finances-window.js — LA forme à utiliser :
@@ -115,6 +126,8 @@ export function _computeFinancesMonthly(input) {
   const scopeWeight = i.scopeWeight || (() => 1);
   const catLigne = i.catLigne || (() => null);
   const isEcheance = i.isEcheance || (() => false);
+  // Assurance emprunteur prélevée à part (décision Didier 15/10) : défaut = aucune (parité historique).
+  const isAssuranceEmprunteur = i.isAssuranceEmprunteur || (() => false);
   const isGestionCharge = i.isGestionCharge || (() => false); // frais bancaires (seule catégorie à porter le drapeau) : charge proprio HORS 2044
   // Dépenses réelles HORS 2044 qui doivent peser sur le cash-flow (décision Didier 05/10 : « toutes
   // dépenses ou recettes doivent figurer dans cash flow ») : rend 'construction' (travaux
@@ -179,6 +192,7 @@ export function _computeFinancesMonthly(input) {
     nonAffecte: 0,                     // H-2 : encaissements de loyer SANS lot rattaché (comptés au total, détail faux)
     recupACharge: 0,                   // L-5 : charges récupérables restées à ta charge (sous-ensemble de `autres`)
     pret: 0, taxe: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, gestionHF: 0, recup: 0, interets: 0,
+    assuranceEmprunteur: 0,            // 15/10 : assurance de prêt prélevée à part — cash-flow ET 2044 (250), datée
     construction: 0, nonDeductible: 0,   // dépenses réelles hors 2044 (05/10) — dans les charges, jamais dans base2044
     charges: 0, reel: 0, recupSolde: 0, cashflowNet: 0, cashflowReel: 0, base2044: 0,
     _loyerByLot: null   // { qui → total encaissé du mois } — cascadé au finalize (non exporté)
@@ -201,7 +215,8 @@ export function _computeFinancesMonthly(input) {
       // H-7 : les intérêts d'emprunt (250) sont une donnée ANNUELLE, pas un flux — datés 31/12
       // ils restaient invisibles toute l'année (constat 26). On les capte pour les répartir.
       const r0 = catLigne(mv.cat);
-      if (r0 && r0.ligne2044 === '250') {
+      // L'assurance emprunteur est un FLUX daté (comme toute dépense) : hors fenêtre, elle attend son mois.
+      if (r0 && r0.ligne2044 === '250' && !isAssuranceEmprunteur(mv)) {
         const w0 = scopeWeight(scope, mv);
         if (w0) intHorsFenetre += ((Number(mv.db) || 0) - (Number(mv.cr) || 0)) * w0;
       }
@@ -214,6 +229,9 @@ export function _computeFinancesMonthly(input) {
 
     // Échéance de prêt (cat « Prêt ») = mensualité entière → ligne « Prêt » (jamais via catLigne).
     if (isEcheance(mv)) { b.pret += (db - cr) * w; return; }
+    // Assurance emprunteur prélevée à part : vraie sortie d'argent, absente de toute échéance → seau
+    // propre, compté au cash-flow ET en base 2044 (ligne 250), à sa date (pas de répartition H-7).
+    if (isAssuranceEmprunteur(mv)) { b.assuranceEmprunteur += (db - cr) * w; return; }
     // Frais bancaires (flag gestionCharge — seule catégorie du référentiel à le porter) : charge
     // propriétaire RÉELLE mais HORS base 2044. Captée avant catLigne (qui renverrait null).
     if (isGestionCharge(mv)) { b.gestionHF += (db - cr) * w; return; }
@@ -427,13 +445,14 @@ export function _computeFinancesMonthly(input) {
   // (2) Champs dérivés (loyersHC/provisions/avance déjà posés : par cascade au mois, par somme à l'année).
   const finalizeDerived = b => {
     b.charges = b.pret + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres + b.gestionHF   // charges propriétaire : prêt entier + frais bancaires
-      + b.construction + b.nonDeductible;                                                          // + dépenses réelles hors 2044 (05/10)
+      + b.construction + b.nonDeductible                                                           // + dépenses réelles hors 2044 (05/10)
+      + b.assuranceEmprunteur;                                                                     // + assurance de prêt prélevée à part (15/10)
     b.reel = b.loyersHC + b.recettesDiverses - b.charges;             // résultat propre (loyers HC + recettes diverses 213 − charges)
     b.recupSolde = b.provisions - b.recup;                            // transit locataire : + trop-perçu / − bailleur a avancé
     b.cashflowNet = b.reel;                                           // ton résultat propre (hors transit locataire)
     b.cashflowReel = b.reel + b.recupSolde;                           // vrai cash sur le compte (transit inclus)
-    b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
+    b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.assuranceEmprunteur + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus ; 250 = intérêts + assurance emprunteur
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'assuranceEmprunteur', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -443,7 +462,7 @@ export function _computeFinancesMonthly(input) {
   // Agrégat annuel (Σ des mois — loyersHC/provisions/avance inclus, PAS de re-cascade)
   const annual = Object.assign({ ym: yr, mo: 0 }, blank());
   months.forEach(b => {
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets']
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'assuranceEmprunteur']
       .forEach(k => { annual[k] += b[k]; });   // retard : Σ des résidus mensuels = dette ouverte de fin de période
   });
   finalizeDerived(annual);
@@ -452,6 +471,39 @@ export function _computeFinancesMonthly(input) {
   // Les bornes effectivement appliquées sont RENDUES : l'appelant (et les tests) peuvent
   // vérifier quelle fenêtre a réellement piloté le calcul, au lieu de le supposer.
   return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0, lastMonth, dueMonth, lotsEnRetard, byLot };
+}
+
+/**
+ * Ligne 250 de la 2044 (« intérêts d'emprunt et frais accessoires ») — ce qui est DÉJÀ compté pour une
+ * année : sert l'alerte de double compte quand l'utilisateur saisit des intérêts (attestation de la
+ * banque, qui inclut souvent l'assurance emprunteur) ou une assurance alors que l'autre existe déjà.
+ * Pur : l'appelant injecte le genre (`genre(cat)` → 'interets' | 'assurance' | null, par la famille
+ * mère) et le filtre de bien (`garder(mv)`). N'agrège RIEN pour Finances (le moteur reste seul juge
+ * des montants) : c'est une liste de pièces, avec leur total, pour un message.
+ * @param {{mouvements:Array, year:(string|number), genre:function, garder?:function, exclId?:*}} input
+ * @returns {{lignes:Array<{id:*, date:string, lib:string, cat:string, genre:string, montant:number}>,
+ *            total:number, totalInterets:number, totalAssurance:number}}
+ */
+export function _ligne250DejaComptee(input) {
+  const i = input || {};
+  const yr = String(i.year);
+  const genre = i.genre || (() => null);
+  const garder = i.garder || (() => true);
+  const round2 = n => Math.round(n * 100) / 100;
+  const lignes = [];
+  (Array.isArray(i.mouvements) ? i.mouvements : []).forEach(mv => {
+    if (!mv || mv._deleted || !mv.date || String(mv.date).slice(0, 4) !== yr) return;
+    if (i.exclId != null && String(mv.id) === String(i.exclId)) return;
+    const g = genre(mv.cat);
+    if (g !== 'interets' && g !== 'assurance') return;
+    if (!garder(mv)) return;
+    const montant = round2((Number(mv.db) || 0) - (Number(mv.cr) || 0));
+    if (Math.abs(montant) < 0.005) return;
+    lignes.push({ id: mv.id, date: String(mv.date).slice(0, 10), lib: String(mv.lib || ''), cat: String(mv.cat || ''), genre: g, montant });
+  });
+  lignes.sort((a, b) => a.date.localeCompare(b.date));
+  const somme = g => round2(lignes.filter(l => !g || l.genre === g).reduce((t, l) => t + l.montant, 0));
+  return { lignes, total: somme(null), totalInterets: somme('interets'), totalAssurance: somme('assurance') };
 }
 
 /**
