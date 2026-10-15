@@ -127,6 +127,8 @@ import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL
 import * as IrlRevision from './core/irl-revision.js';
 // Retours 15/10 (lot 1, point 4) — ouvrir une pièce jointe sans page blanche (Blob au lieu d'une iframe data:).
 import * as DocOuvrir from './core/doc-ouvrir.js';
+// Retours 15/10 (lot 1, point 5) — « Faire une quittance » ouvre le lot demandé, jamais le 1er lot du filtre d'entité.
+import { lotQuittanceAOuvrir } from './core/quittance-porte.js';
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges, referenceForfaitCharges } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
@@ -627,7 +629,8 @@ window._bailHistoEnVigueur = bailHistoEnVigueur;
 window._bailModifDetecterChangements = detecterChangementsFinanciers;
 window._bailModifDateEffetDefaut = dateEffetModifDefaut;
 window._bailModifRedaterIRL = redaterRevisionIRL;
-window.DocOuvrir = DocOuvrir;   // ouverture des pièces jointes (PDF / image) par URL blob:
+window.DocOuvrir = DocOuvrir;
+window.lotQuittanceAOuvrir = lotQuittanceAOuvrir;   // ouverture des pièces jointes (PDF / image) par URL blob:
 window.IrlRevision = IrlRevision;   // IRL-REVISION : entreeValideeDuCycle / revDepuisEntree / annulerRevisionProgrammee
 window._bailModifBorneMinEffet = borneMinEffetBareme;
 

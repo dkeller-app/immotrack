@@ -2025,11 +2025,13 @@ function _qeQui() {
     || (typeof window !== 'undefined' && window._authEmail) || 'l’utilisateur de cet espace';
 }
 
-/** Les lots quittançables (a un bail, courant ou archivé) — la pile de la porte globale. */
-function _qeLots() {
+/** Les lots quittançables (a un bail, courant ou archivé) — la pile de la porte globale, limitée au filtre
+ *  d'entité ; `{ tous: true }` : tout le parc (un lot DEMANDÉ s'ouvre quel que soit le filtre). */
+function _qeLots(o) {
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const tous = !!(o && o.tous);
   return (DB.logements || []).filter(alive)
-    .filter(l => (typeof _logInEnt !== 'function') || _logInEnt(l))
+    .filter(l => tous || (typeof _logInEnt !== 'function') || _logInEnt(l))
     .filter(l => l.locataire || _findBailByRefTolerant(l.ref));
 }
 
@@ -2041,14 +2043,24 @@ function _openFaireQuittance(ref) {
   if (typeof window === 'undefined' || typeof window.moisRailLot !== 'function') {
     showToast("Module Loyers non chargé — ouvrir l'app via http (npx http-server)", 'err', 6000); return;
   }
-  const lots = _qeLots();
-  if (!lots.length) {
-    showToast("Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 5000);
+  // RETOURS 15/10 (lot 1, point 5) — un lot DEMANDÉ (fiche du logement, ligne de Loyers) s'ouvre LUI-MÊME,
+  // quel que soit le filtre d'entité en haut à gauche. Avant : absent du filtre, il était remplacé en silence
+  // par le 1er lot du filtre — la quittance d'un lot en nom propre s'ouvrait sur un lot de la SCI filtrée.
+  // Le filtre ne restreint que la liste de la porte globale. Règle pure testée : js/core/quittance-porte.js.
+  const refsDe = (arr) => arr.map(l => l.ref);
+  const choix = (typeof window.lotQuittanceAOuvrir === 'function')
+    ? window.lotQuittanceAOuvrir({ ref, lotsPerimetre: refsDe(_qeLots()), lotsQuittancables: refsDe(_qeLots({ tous: true })) })
+    : null;
+  if (!choix || !choix.ok) {
+    const motif = choix ? choix.motif : 'aucun-bail';
+    showToast(motif === 'sans-bail' ? 'Aucun bail sur ce logement : pas de quittance à faire.'
+      : motif === 'perimetre-vide' ? 'Aucun bail en cours pour le bailleur choisi en haut à gauche : changer de bailleur pour faire une quittance.'
+        : "Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 6000);
     return;
   }
   // D27 — plus de PILE ni d'enchaînement « lot suivant » : on ouvre UN lot. Entré sans `ref`
   // (porte globale), on demande lequel plutôt que d'en imposer un.
-  const want = (ref && lots.some(l => l.ref === ref)) ? ref : lots[0].ref;
+  const want = choix.ref;
   _qe.libre = false; _qe.saisie = null;
   _qeSetLot(want);
   _qe.pick = !ref;                        // porte globale : on choisit son lot
