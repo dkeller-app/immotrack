@@ -1,4 +1,19 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.747 (15/10, pilotage Desktop, GO Didier)** — **Premiers pas** (`feat/premiers-pas`, 68d5c15e ; 338 fichiers / 8 114 tests verts ; 2 relectures Opus « SÛR après corrections » ; geste réel 30/30 sur PC, tablette et téléphone). CDC : `docs/CDC-PREMIERS-PAS.md`.
+  - **Carte « Premiers pas »** en tête de l'accueil, 8 étapes cochées automatiquement : logement, bail, relevé, règle, plafond, artisan, espace locataire, associé. Elle se masque, puis disparaît 7 jours après la fin.
+  - **Visite guidée** : bulle de bienvenue + 6 étapes ; Échap = passée ; relance depuis Mon profil ; lien vers `?demo=1`.
+  - **Paramètres › Artisans** : plafond et carnet d'artisans hors incident.
+  - **Mesure de la bêta** : `DB.params.premiersPas`, avec opposition dans Mon profil ; script `scripts/premiers-pas-stats.mjs` ; registre RGPD traitement n° 11.
+
+  **Restes** :
+  - smoke Didier sur un compte NEUF ;
+  - `validePar` du plafond toujours vide : `window.__immoUser` n'est jamais défini (défaut existant du circuit incident) ;
+  - l'invitation à installer l'app au téléphone recouvre les pieds de couche et ajoute un 2e bouton corail.
+
+  **Fiches de paie** (`feat/regles-paie`) : phase 1 rendue.
+  - Lecture locale pdf.js : 0 faux « À vérifier » sur 1 056 bulletins synthétiques.
+  - Règle B3 à retirer : faux positifs sur les apprentis.
+  - 4 décisions attendent le GO de Didier.
 > 🚦 **MAIN = v15.746 (15/10, pilotage Desktop, GO Didier)** — **Retours du 15/10, lot 2** (`fix/retours-15-10-lot2`, aac8916e, 336 fichiers / 8 060 tests verts, relecture Opus SÛR + Fable argent/migrations SÛR après corrections) :
   - **pièces du bail signé hors Propryo** : bail, un acte de cautionnement par garant (rattaché à la personne), avenant, annexe ; PDF et photos ; « Je l'ai en papier » enregistré sur le logement (partagé SCI) ; prédicat `_bailCautionDetenue` pour l'accueil ;
   - **poêle à granulés, insert, poêle à bois** : une seule échéance « Entretien + ramonage » (R. 1331-16 / R. 1331-19), migration au démarrage ;
