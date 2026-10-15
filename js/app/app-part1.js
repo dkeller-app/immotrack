@@ -9854,7 +9854,7 @@ function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
  * `b.assuranceEmprunteur`, inclus dans `b.charges` et le cash-flow (décision Didier 15/10).
  *
  * Les intérêts d'emprunt (250) rendent null. Le moteur les met dans `b.interets`, qui n'entre
- * NI dans `b.charges` NI dans `cashflowReel` (`finances-monthly.js:297,301`) : c'est une donnée
+ * NI dans `b.charges` NI dans `cashflowReel` (`finances-monthly.js`, `finalizeDerived`) : c'est une donnée
  * de déclaration, pas un flux de compte — y compris pour qui saisit ses intérêts sans jamais
  * saisir d'échéance « Prêt ». La fiche ne perd donc aucune charge que le moteur compterait.
  *
@@ -11412,7 +11412,7 @@ async function saveMv() {
   }
   // 15/10 — ligne 250 (intérêts / assurance emprunteur) : alerte de double compte, jamais bloquante.
   if (typeof _fin250ConfirmerSaisie === 'function'
-      && !_fin250ConfirmerSaisie({ cat: v('mv-cat'), date: v('mv-date') || td(), qui: _qui, imm: v('mv-imm').trim() }, eid || null)) return;
+      && !_fin250ConfirmerSaisie({ cat: v('mv-cat'), date: v('mv-date') || td(), qui: _qui, imm: v('mv-imm').trim(), db: pf('mv-db'), cr: pf('mv-cr') }, eid || null)) return;
   // PJ attachée AVANT ce save : `m` est reconstruit de zéro et ne la porte pas. C'est le seul
   // état qui permette de tombstoner correctement un document remplacé ou retiré.
   const _mvOldPjId = eid ? (((DB.mouvements || []).find(x => x && x.id === parseInt(eid)) || {}).pjId) : null;

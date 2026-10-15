@@ -32138,19 +32138,32 @@ function _fin250Genre(catNom) {
 // mapping validé) tombait, par le repli regex de _default2044Mapping, en « Primes d'assurance (PNO) »
 // (223) — hors de sa vraie ligne. Migration de DONNÉES (idempotente) : elle reçoit la famille
 // « Prêt — Assurance emprunteur ». Un choix explicite de l'utilisateur n'est jamais modifié.
-function _finEstNomAssurancePret(nom) { return /assurances?.*(cr[ée]dit|pr[êe]t|emprunt)|emprunteur/i.test(String(nom || '')); }   // déclaration hoistée (lue aussi par _default2044Mapping)
+// Nom d'une assurance de PRÊT (déclaration hoistée, lue aussi par _default2044Mapping). Strict : « emprunteur »,
+// ou « assurance (de/du/d') prêt / crédit / emprunt » ; jamais un nom de banque-assureur ni une PNO / GLI /
+// habitation (« Assurance Crédit Mutuel », « Assurance PNO Crédit Agricole » restent des assurances du bien).
+function _finEstNomAssurancePret(nom) {
+  const s = String(nom || '');
+  if (/mutuel|agricole|lyonnais|du nord|coop|maritime|foncier|\bpno\b|\bgli\b|habitation|multirisque|\bmrh\b|loyers?|\bauto/i.test(s)) return false;
+  return /emprunteur/i.test(s) || /assurances?\s+(de\s+|du\s+|d['’]\s*)?(pr[êe]t|cr[ée]dit|emprunt)/i.test(s);
+}
 function _finMigrateAssuranceEmprunteur() {
   const noms = new Set([...(DB.categories || []), ...(DB.mouvements || []).filter(m => m && !m._deleted && m.cat).map(m => m.cat)]);
   let n = 0;
+  const noms2 = [];
   noms.forEach(cat => {
     if (!cat || _stdCategoryByName(cat)) return;
     if ((DB.catAlias || {})[cat] || (DB.catMapping || {})[cat] != null) return;   // choix de l'utilisateur : intouché
+    // Une ligne 2044 déjà posée (autre que 250) peut venir de l'assistant 2044 : c'est un choix, intouché.
+    const lm = ((DB.params && DB.params.legal2044Mapping) || {})[cat];
+    if (lm && lm !== '250') return;
     if (!_finEstNomAssurancePret(cat)) return;
     if (!DB.catAlias) DB.catAlias = {};
-    DB.catAlias[cat] = 'Prêt — Assurance emprunteur'; n++;
-    if (DB.params && DB.params.legal2044Mapping && DB.params.legal2044Mapping[cat] != null) DB.params.legal2044Mapping[cat] = '250';
+    DB.catAlias[cat] = 'Prêt — Assurance emprunteur'; n++; noms2.push(cat);
   });
   if (n && typeof saveDB === 'function') saveDB();
+  // Jamais en silence : la famille change (cash-flow + 2044 ligne 250), l'utilisateur peut la revoir.
+  if (n && typeof showToast === 'function') showToast('Catégorie' + (n > 1 ? 's' : '') + ' « ' + noms2.join(' », « ') + ' » rattachée' + (n > 1 ? 's' : '')
+    + ' à « Prêt — Assurance emprunteur » (cash-flow et 2044 ligne 250). À vérifier dans Réglages › Catégories.', 'info', 9000);
   return n;
 }
 // Migration one-shot : catMapping {nom: ligne2044|'__ignore'} → catAlias {nom: mère}.
@@ -33262,9 +33275,13 @@ function _fin250AlerteTexte(d, genreSaisi, yr) {
   const liste = pertinent.slice(0, 6).map(l => '• ' + dfr(l.date) + ' · ' + (l.lib || '(sans libellé)') + ' · ' + l.cat + ' · ' + f(l.montant));
   if (pertinent.length > 6) liste.push('• … et ' + (pertinent.length - 6) + ' autre(s)');
   const tot = pertinent.reduce((t, l) => t + l.montant, 0);
+  // Le risque dit dépend de ce qui est en jeu : l'assurance (souvent incluse dans l'attestation) ou une
+  // attestation d'intérêts déjà saisie (même attestation deux fois ? un second prêt a la sienne).
+  const assur = genreSaisi === 'assurance' || pertinent.some(l => l.genre === 'assurance');
   return 'Intérêts d\'emprunt et assimilés (2044, ligne 250) déjà comptés pour ' + yr + ' :\n' + liste.join('\n')
     + '\nTotal déjà compté : ' + f(Math.round(tot * 100) / 100) + '.'
-    + '\nL\'attestation annuelle de la banque inclut souvent l\'assurance emprunteur : ne pas la saisir deux fois.';
+    + (assur ? '\nL\'attestation annuelle de la banque inclut souvent l\'assurance emprunteur : ne pas la saisir deux fois.'
+      : '\nVérifier qu\'il ne s\'agit pas de la même attestation saisie deux fois (un second prêt a sa propre attestation).');
 }
 // Assistant « Renseigner les intérêts d'emprunt » : encart informatif (périmètre de la page Finances).
 function _finCreditDejaRender() {
@@ -33280,9 +33297,24 @@ function _finCreditDejaRender() {
 function _fin250ConfirmerSaisie(m, exclId) {
   const g = _fin250Genre(m && m.cat);
   if (!g || !m.date) return true;
+  // Modification sans changement de catégorie, de date ni de montant : rien de nouveau à signaler.
+  if (exclId != null && exclId !== '') {
+    const o = (DB.mouvements || []).find(x => x && !x._deleted && String(x.id) === String(exclId));
+    if (o && o.cat === m.cat && o.date === m.date && (Number(o.db) || 0) === (Number(m.db) || 0) && (Number(o.cr) || 0) === (Number(m.cr) || 0)) return true;
+  }
   const yr = String(m.date).slice(0, 4);
-  const memeBien = x => (m.qui ? x.qui === m.qui : (m.imm ? (x.imm === m.imm && !x.qui) : true));
-  const t = _fin250AlerteTexte(_fin250Deja(yr, memeBien, exclId), g, yr);
+  // Même bien : même logement (ou SCI), sinon même immeuble sans logement, sinon ni logement ni immeuble.
+  const memeBien = x => (m.qui ? x.qui === m.qui : (m.imm ? (x.imm === m.imm && !x.qui) : (!x.qui && !x.imm)));
+  const d = _fin250Deja(yr, memeBien, exclId);
+  let t = _fin250AlerteTexte(d, g, yr);
+  // Première assurance de l'année sur un bien qui a des échéances « Prêt » : elle est peut-être DÉJÀ
+  // prélevée dans l'échéance — l'enregistrer à part la compterait deux fois au cash-flow.
+  if (g === 'assurance' && !(d && d.lignes.some(l => l.genre === 'assurance'))) {
+    const nEch = (DB.mouvements || []).filter(x => x && !x._deleted && x.date && String(x.date).slice(0, 4) === yr && memeBien(x)
+      && String(x.id) !== String(exclId) && ((_finCatMere(x.cat) || {}).nom === 'Prêt')).length;
+    if (nEch) t = (t ? t + '\n\n' : '') + nEch + ' échéance' + (nEch > 1 ? 's' : '') + ' « Prêt » déjà enregistrée' + (nEch > 1 ? 's' : '') + ' pour ce bien en ' + yr
+      + '. Si la banque y prélève déjà l\'assurance, ne pas l\'enregistrer ici (elle serait comptée deux fois au cash-flow) : la déclarer avec les intérêts, en « Prêt — Intérêts d\'emprunt ».';
+  }
   return !t || confirm2(t + '\n\nEnregistrer quand même ?');
 }
 function _finCreditYr() {
@@ -33356,7 +33388,7 @@ function _finDrillLigne(kind, yr, mo) {
   // Définition par ligne : titre + sens + test d'appartenance 2044 (identique aux buckets)
   const LIG = {
     loyers:       { titre: 'Loyers encaissés',           rec: true,  test: r => r.type === 'recette' && r.ligne2044 === '211' },
-    interets:     { titre: 'Intérêts d\'emprunt',         rec: false, test: r => r.ligne2044 === '250' },
+    interets:     { titre: 'Intérêts d\'emprunt',         rec: false, test: () => false }, // 15/10 : matché par _fin250Genre (sans l'assurance emprunteur)
     taxeFonciere: { titre: 'Taxe foncière',               rec: false, test: r => r.ligne2044 === '227' },
     travaux:      { titre: 'Travaux & entretien',         rec: false, test: r => r.ligne2044 === '224' || r.ligne2044 === '224bis' },
     honoraires:   { titre: 'Honoraires & gestion',        rec: false, test: r => r.ligne2044 === '221' },
@@ -33437,6 +33469,7 @@ function _finDrillLigne(kind, yr, mo) {
         : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
            || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
            || (kind === 'assuranceEmprunteur' && _fin250Genre(m.cat) === 'assurance')
+           || (kind === 'interets' && _fin250Genre(m.cat) === 'interets')
            || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));                // L-5 : « Autres » inclut le resté-à-charge (total = ligne)
       if (!ok) return;
       // v15.398 (BUG-PRET-REMBOURSEMENT) : crédits/ristournes inclus → drill = total ligne P&L (db−cr).
@@ -33477,6 +33510,7 @@ function _finDrillLigne(kind, yr, mo) {
           : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
            || ((kind === 'construction' || kind === 'nonDeductible') && _finChargeHf(m.cat) === kind)
            || (kind === 'assuranceEmprunteur' && _fin250Genre(m.cat) === 'assurance')
+           || (kind === 'interets' && _fin250Genre(m.cat) === 'interets')
              || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));
         if (!ok) return; // parité avec la boucle rows (CFE/TLV/pret/L-5)
         t += ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w;

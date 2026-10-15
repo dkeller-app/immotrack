@@ -1171,6 +1171,10 @@ function _bootDataJobs() {
       if (_mig.migres > 0) { _mig.refs.forEach(r => { const l = (DB.logements||[]).find(x => x && x.ref === r); if (l) _stamp(l); }); saveDB(); }
     } catch(e) { console.warn('[migration N° lot copro]', e); }
   }
+  // 15/10 — familles des catégories perso : choix validés (catMapping → alias), puis assurance de prêt. Au
+  // démarrage, pas seulement à l'ouverture de Finances : l'Accueil et la fiche d'un bien lisent le même moteur.
+  if (typeof _finMigrateCatAlias === 'function') { try { _finMigrateCatAlias(); } catch(e) { console.warn('[migration familles]', e); } }
+  if (typeof _finMigrateAssuranceEmprunteur === 'function') { try { _finMigrateAssuranceEmprunteur(); } catch(e) { console.warn('[migration assurance emprunteur]', e); } }
   // ALERTE-REGUL (14/10) — migration douce : les validations de régul de l'ancien stockage (DB.regulValidations,
   // configuration de l'espace propre, jamais partagée) passent sur les LOGEMENTS du groupe validé (espace propre
   // seulement) → partagées par la SCI. EN DEUX TEMPS : copie d'abord (la clé reste, au cas où l'envoi d'un logement

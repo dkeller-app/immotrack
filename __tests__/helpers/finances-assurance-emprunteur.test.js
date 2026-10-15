@@ -211,23 +211,82 @@ describe('Catégorie perso « Assurance crédit » : migration de données vers 
       DB, (n) => STD.find(c => c.nom === n) || null, () => { saves++; });
     return { f, saves: () => saves };
   };
-  it('une catégorie sans famille choisie est rattachée ; un choix explicite de l\'utilisateur n\'est jamais modifié', () => {
+  it('une catégorie sans famille choisie est rattachée ; un choix explicite (alias, mapping validé, ligne 2044 posée) n\'est jamais modifié', () => {
     const DB = {
-      categories: ['Assurance crédit', 'Assurance prêt CNP', 'Assurance PNO perso', 'Ma assurance credit choisie'],
+      categories: ['Assurance crédit', 'Assurance prêt CNP', 'Assurance PNO perso', 'Ma assurance credit choisie', 'Assurance de prêt'],
       mouvements: [{ cat: 'assurance emprunteur LCL', db: 20 }],
       catAlias: { 'Ma assurance credit choisie': "Primes d'assurance (PNO, GLI)" },
-      params: { legal2044Mapping: { 'Assurance crédit': '223' } },
+      // « Assurance crédit » a une ligne 2044 posée (223) — peut-être choisie dans l'assistant 2044 : intouchée.
+      params: { legal2044Mapping: { 'Assurance crédit': '223', 'Assurance de prêt': '250' } },
     };
     const m = monter(DB);
     expect(m.f._finMigrateAssuranceEmprunteur()).toBe(3);
-    expect(DB.catAlias['Assurance crédit']).toBe(AE);
     expect(DB.catAlias['Assurance prêt CNP']).toBe(AE);
     expect(DB.catAlias['assurance emprunteur LCL']).toBe(AE);
+    expect(DB.catAlias['Assurance de prêt']).toBe(AE);              // 250 posé : même ligne, entre au cash-flow
+    expect(DB.catAlias['Assurance crédit']).toBeUndefined();
+    expect(DB.params.legal2044Mapping['Assurance crédit']).toBe('223');   // jamais réécrit
     expect(DB.catAlias['Assurance PNO perso']).toBeUndefined();
     expect(DB.catAlias['Ma assurance credit choisie']).toBe("Primes d'assurance (PNO, GLI)");
-    expect(DB.params.legal2044Mapping['Assurance crédit']).toBe('250');
     expect(m.saves()).toBe(1);
     expect(m.f._finMigrateAssuranceEmprunteur()).toBe(0);   // idempotente
     expect(m.saves()).toBe(1);
+  });
+  it('les assurances du BIEN chez une banque-assureur ne sont jamais prises pour une assurance de prêt', () => {
+    const noms = ['Assurance Crédit Mutuel', 'Assurances du Crédit Mutuel (ACM)', 'Assurance PNO Crédit Agricole', 'Assurance GLI Crédit Agricole',
+      'Assurance loyers impayés crédit', 'Assurance habitation prêtée', 'Assurance auto crédit', 'Assurance Crédit Lyonnais'];
+    const DB = { categories: noms.slice(), mouvements: [], catAlias: {}, params: {} };
+    expect(monter(DB).f._finMigrateAssuranceEmprunteur()).toBe(0);
+    expect(DB.catAlias).toEqual({});
+  });
+});
+
+describe('Proposition à l\'import : pas de faux positif sur une PNO / GLI / banque-assureur', () => {
+  const L = (libelle) => ({ date: '2026-10-05', libelle, debit: 32.1, credit: 0 });
+  it.each(['PRLV ASSURANCE CREDIT MUTUEL HABITATION', 'PRLV ACM ASSURANCES CREDIT MUTUEL PNO', 'PRLV ASSURANCES DU CREDIT MUTUEL AUTO',
+    'CARDIF GARANTIE LOYERS IMPAYES', 'PRLV CNP ASSURANCES PNO'])('%s', (lib) => {
+    expect(_bankMatchHeuristic(L(lib)).cat).not.toBe(AE);
+  });
+  it('le pluriel « ASSURANCES » est reconnu comme assurance du bien', () => {
+    expect(_bankMatchHeuristic(L('PRLV CREDIT AGRICOLE ASSURANCES PACIFICA PNO')).cat).toBe("Primes d'assurance (PNO, GLI)");
+  });
+});
+
+describe('Alerte — compléments des relectures', () => {
+  const monter = (mouvements) => {
+    const appels = [];
+    const STD = { [INT]: { nom: INT, ligne2044: '250' }, [AE]: { nom: AE, ligne2044: '250' }, 'Prêt': { nom: 'Prêt', ligne2044: '' } };
+    const src = ['_fin250Genre', '_fin250Deja', '_fin250AlerteTexte', '_fin250ConfirmerSaisie'].map(n => corps(P2, n)).join('\n');
+    const f = new Function('DB', 'window', '_finCatMere', 'fmt', 'confirm2', src + '\nreturn { _fin250ConfirmerSaisie };')(
+      { mouvements }, { _ligne250DejaComptee }, (c) => STD[c] || null, (n) => n.toFixed(2).replace('.', ',') + ' €',
+      (msg) => { appels.push(msg); return true; });
+    return { f, appels };
+  };
+  const ech = (k) => ({ id: 100 + k, date: '2026-0' + k + '-05', lib: 'ECHEANCE', cat: 'Prêt', qui: 'L1', db: 900, cr: 0 });
+  it('première assurance de l\'année sur un bien qui a des échéances « Prêt » : risque de double compte au cash-flow', () => {
+    const m = monter([ech(1), ech(2)]);
+    m.f._fin250ConfirmerSaisie({ cat: AE, date: '2026-12-31', qui: 'L1', db: 360 });
+    expect(m.appels).toHaveLength(1);
+    expect(m.appels[0]).toContain('2 échéances « Prêt » déjà enregistrées pour ce bien en 2026');
+    expect(m.appels[0]).toContain('comptée deux fois au cash-flow');
+    expect(m.appels[0]).not.toMatch(/\b(vous|votre|tu|ton|ta|tes)\b/i);
+    // les assurances suivantes de l'année ne redemandent rien
+    const m2 = monter([ech(1), { id: 5, date: '2026-01-10', lib: 'CNP', cat: AE, qui: 'L1', db: 30, cr: 0 }]);
+    m2.f._fin250ConfirmerSaisie({ cat: AE, date: '2026-02-10', qui: 'L1', db: 30 });
+    expect(m2.appels).toHaveLength(0);
+  });
+  it('intérêts sur intérêts : le texte parle de la même attestation saisie deux fois, pas de l\'assurance', () => {
+    const m = monter([{ id: 1, date: '2026-12-31', lib: 'Intérêts prêt 1', cat: INT, qui: 'L1', db: 1200, cr: 0 }]);
+    m.f._fin250ConfirmerSaisie({ cat: INT, date: '2026-12-31', qui: 'L1', db: 800 });
+    expect(m.appels[0]).toContain('même attestation saisie deux fois');
+    expect(m.appels[0]).not.toContain('inclut souvent l\'assurance');
+  });
+  it('modification sans changement (catégorie, date, montant) : rien ; sans logement ni immeuble : seulement les pièces sans bien', () => {
+    const att = { id: 1, date: '2026-12-31', lib: 'Intérêts', cat: INT, qui: 'L1', db: 2400, cr: 0 };
+    const assur = { id: 2, date: '2026-03-10', lib: 'CNP', cat: AE, qui: 'L1', db: 30, cr: 0 };
+    const m = monter([att, assur]);
+    m.f._fin250ConfirmerSaisie({ cat: INT, date: '2026-12-31', qui: 'L1', db: 2400, cr: 0 }, 1);
+    m.f._fin250ConfirmerSaisie({ cat: INT, date: '2026-12-31', qui: '', imm: '', db: 500 });
+    expect(m.appels).toHaveLength(0);
   });
 });
