@@ -6,8 +6,9 @@
  * change. La clé du fournisseur n'est JAMAIS ici : le relais la détient (secret wrangler).
  *
  * Ne lève jamais : chaque appel rend { ok:true, … } ou { ok:false, code, motif? }.
- * Codes : offline · auth · quota · disabled · too_large · format · refused · invalid · unavailable.
- * `fetchImpl` et `enLigne` sont injectables (tests).
+ * Codes : offline · auth · quota · disabled · too_large · format · refused · invalid · unavailable · demo.
+ * `fetchImpl`, `enLigne` et `demo` sont injectables (tests). COMPTE DÉMO (?demo=1, window.__immoDemo) : aucun appel,
+ * code `demo` (non réessayable) et message clair — la démonstration n'a ni compte connecté ni relais.
  */
 
 export const CODES_REESSAYABLES = new Set(['offline', 'unavailable', 'auth']);
@@ -26,12 +27,14 @@ export function codeDepuisReponse(status, body) {
   return 'unavailable';
 }
 
-export function creerClientIA({ base, getToken, fetchImpl, enLigne } = {}) {
+export function creerClientIA({ base, getToken, fetchImpl, enLigne, demo } = {}) {
   const f = fetchImpl || ((...a) => fetch(...a));
+  const enDemo = typeof demo === 'boolean' ? demo : (typeof globalThis !== 'undefined' && globalThis.__immoDemo === true);
   const online = enLigne || (() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false));
   const racine = String(base || '').replace(/\/+$/, '');
 
   async function appel(chemin, init = {}) {
+    if (enDemo) return { ok: false, code: 'demo' };
     if (!racine) return { ok: false, code: 'disabled' };
     if (!online()) return { ok: false, code: 'offline' };
     let jeton = null;
@@ -86,6 +89,7 @@ export function messageErreur(code, { motif, limites } = {}) {
     case 'offline': return { titre: 'Pas de réseau', texte: 'La dictée est gardée sur l’appareil. Elle sera analysée dès le retour du réseau.', reessayable: true };
     case 'auth': return { titre: 'Session à renouveler', texte: 'La connexion au compte a expiré. La dictée est gardée sur l’appareil et repartira après reconnexion.', reessayable: true };
     case 'quota': return { titre: 'Limite du jour atteinte', texte: motif === 'audio' ? `La dictée est limitée à ${minutes} minutes par jour et par compte. Elle sera de nouveau disponible demain.` : motif === 'images' ? 'L’analyse des images est limitée par jour et par compte. La vidéo est gardée ; les photos seront proposées demain, ou ajoutées à la main.' : 'Le nombre d’analyses du jour est atteint pour ce compte. La dictée sera de nouveau disponible demain.', reessayable: false };
+    case 'demo': return { titre: 'Indisponible dans la démonstration', texte: 'L’analyse par l’IA passe par le relais sécurisé d’un compte connecté : elle est désactivée dans la démonstration et rien n’est envoyé.', reessayable: false };
     case 'disabled': return { titre: 'Dictée pas encore activée', texte: 'L’analyse de la dictée n’est pas encore ouverte sur ce compte.', reessayable: false };
     case 'too_large': return { titre: 'Enregistrement trop long', texte: 'Cet enregistrement dépasse la taille admise. Dicter la pièce en plusieurs fois.', reessayable: false };
     case 'format': return { titre: 'Format audio non reconnu', texte: 'Ce fichier n’est pas un enregistrement audio accepté (m4a, mp3, webm, ogg ou wav).', reessayable: false };

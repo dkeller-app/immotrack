@@ -84,7 +84,7 @@ function monter(sc, noms) {
     _dgVgEntreeDate: () => '', _dgVgSeedFromEdl: () => [], _dgVgRender: () => {},
     _dgVgCtx: null, _dgVgRows: [], _dgAutresRetenues: 0, DG_STATUS: { MANQUANT: 'manquant', PARTIEL: 'partiel', COMPLET: 'complet', A_RESTITUER: 'a_restituer', RESTITUE: 'restitue', EN_RETARD: 'en_retard' }, _dgRestitCible: null,   // variable de script (app-part2) : bail ouvert dans la fenêtre de restitution
     _rgClotureImpayes: W._rgClotureImpayes, _DEPART_ACOMPTE_CAT: 'Acompte de charges (départ)',
-    _forfaitAvenantsDuBail: () => undefined, _isPhone: () => false, _rgIsValidated: () => false,
+    _forfaitAvenantsDuBail: () => undefined, _isPhone: () => false, _rgIsValidated: () => false, _activeEntity: null, _logInEnt: () => true,   // filtre de bailleur (aucun actif)
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
   };
   const src = noms.map(corpsDe).join('\n');

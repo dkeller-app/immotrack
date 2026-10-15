@@ -122,10 +122,20 @@
     return null
   }
 
+  /** Catégorie AUTO de la régularisation du SYNDIC (2044 ligne 230) — ce n'est PAS la régul du locataire. */
+  const REGUL_COPRO_CAT = 'Régularisation provisions copro N-1'
+
   /** Régularisation de charges à émettre — sémantique canonique (clarif user) :
-   *  logement avec charges, LOYERS PERÇUS en N-1, et AUCUNE régul émise en année courante N.
+   *  logement avec charges, LOYERS PERÇUS en N-1, et régul N-1 NI VALIDÉE NI ÉMISE.
+   *  Signaux « régul faite » (ALERTE-REGUL 14/10/2026 — aucune catégorie du référentiel ne porte la régul du
+   *  locataire, son solde se range en « Charges récupérables ») :
+   *   1. `estValidee(logement, annee)` — INJECTÉ par l'app : la règle vit dans js/core/regul-validation.js
+   *      (validation posée sur le logement par « Valider la régul », PARTAGÉE par toute la SCI). Absent :
+   *      ce signal ne compte pas (prudence : l'alerte reste) ;
+   *   2. héritage : un mouvement du logement en N dont la catégorie (personnelle) contient « régularisation »,
+   *      hors la catégorie automatique du syndic.
    *  → [{ref, locataire, annee (N-1), charges}] */
-  function regulAEmettre(scopeLogs, mouvements, today, isLoyerCategory) {
+  function regulAEmettre(scopeLogs, mouvements, today, isLoyerCategory, estValidee) {
     const isLoyer = typeof isLoyerCategory === 'function' ? isLoyerCategory : (c => c === 'Loyers encaissés')   // NORMALISATION-LOYERS : jamais plus la catégorie héritée
     const mvs = (mouvements || []).filter(alive)
     const yrCur = today.getFullYear()
@@ -135,8 +145,9 @@
       .filter(l => mvs.some(m =>
         m.qui === l.ref && isLoyer(m.cat) && (m.cr || 0) > 0 &&
         m.date && m.date.startsWith(String(yrPrev))))
+      .filter(l => !(typeof estValidee === 'function' && estValidee(l, yrPrev)))
       .filter(l => !mvs.some(m =>
-        m.qui === l.ref && m.cat && /r.gularisation/i.test(m.cat) &&
+        m.qui === l.ref && m.cat && m.cat !== REGUL_COPRO_CAT && /r.gularisation/i.test(m.cat) &&
         m.date && m.date.startsWith(String(yrCur))))
       .map(l => ({ ref: l.ref, locataire: l.locataire || '', annee: yrPrev, charges: l.ch || 0 }))
   }

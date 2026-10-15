@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.741';
+const IMMOTRACK_VERSION = '15.743';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -176,12 +176,22 @@ const _isTestMode = (function() {
     if (typeof location !== 'undefined') {
       const path = (location.pathname || '').toLowerCase();
       if (path.endsWith('index-test.html') || path.endsWith('/test') || path.includes('-test.')) return true;
-      if (/[?&]sandbox=1/.test(location.search || '')) return true;
+      if (/[?&](sandbox|demo)=1/.test(location.search || '')) return true;
     }
   } catch(e){}
   return false;
 })();
-const KEY = _isTestMode ? '_test_immotrack_v4' : 'immotrack_v4';
+// COMPTE DÉMO — `?demo=1` : harnais de test (cloud inerte, aucun login, réseau fermé par le script du <head>)
+// avec son PROPRE namespace `_demo_` : la démo ne lit ni n'écrase jamais le sandbox de dev `_test_`, ni les
+// vraies clés. Même détection que le script du <head> d'index.html et que FLAG (supabase-entry.js).
+const _isDemoMode = (function() {
+  try { return /[?&]demo=1/.test(location.search || ''); } catch(e){ return false; }
+})();
+// FERMÉ PAR DÉFAUT : ?demo=1 sans le cloisonnement du <head> (window.__immoDemo n'est posé qu'APRÈS tous les
+// cloisonnements ; s'il manque, le script du <head> a déjà arrêté la page) → l'app ne démarre pas.
+if (_isDemoMode && (typeof window === 'undefined' || window.__immoDemo !== true)) throw new Error('[DEMO] cloisonnement du stockage absent : démonstration arrêtée');
+const _NS_TEST = _isDemoMode ? '_demo_' : '_test_';
+const KEY = _isTestMode ? _NS_TEST + 'immotrack_v4' : 'immotrack_v4';
 // P1.3 (audit sync cloud 2026-07-12, cause C-C) : boot CLOUD = page SERVIE (http/https) hors harnais de
 // test — MÊME détection que le FLAG de supabase-entry.js et que le boot-gate du <head> (ne pas diverger).
 // En boot cloud : initDB ne lit PLUS le miroir localStorage (il devient write-only, pur filet de
@@ -190,7 +200,7 @@ const _CLOUD_BOOT = !_isTestMode && (location.protocol === 'http:' || location.p
 // Helper centralisé pour préfixer toutes les clés localStorage en mode test.
 // Toute lecture/écriture localStorage liée à Propryo DOIT passer par ce helper
 // ou avoir sa clé déjà préfixée pour garantir l'isolation prod ↔ sandbox.
-function _lsKey(k) { return _isTestMode ? '_test_' + k : k; }
+function _lsKey(k) { return _isTestMode ? _NS_TEST + k : k; }
 
 // v14.61 SANDBOX-MODE — Bandeau permanent en haut de page si mode test.
 // Met en évidence visuelle qu'on est dans un environnement isolé.
@@ -199,6 +209,7 @@ function _injectTestModeBanner() {
   // Bandeau via insertion en début de body
   const inject = () => {
     if (document.getElementById('sandbox-banner')) return;
+    if (_isDemoMode) { _injectDemoBanner(); return; }   // COMPTE DÉMO : son propre bandeau, sans les boutons du sandbox
     const div = document.createElement('div');
     div.id = 'sandbox-banner';
     div.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#f97316,#ea580c);color:#fff;text-align:center;font-weight:700;font-size:12.5px;padding:6px 12px;letter-spacing:.4px;font-family:sans-serif;box-shadow:0 2px 8px rgba(249,115,22,.4);display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;';
@@ -214,25 +225,7 @@ function _injectTestModeBanner() {
     const btnDemo = document.getElementById('sandbox-load-demo');
     if (btnDemo) btnDemo.addEventListener('click', () => {
       if (!confirm('Charger un dataset de démonstration ?\nÇa va REMPLACER toutes les données du sandbox actuel.')) return;
-      // v14.62 — vérification que l'écriture a bien eu lieu avant le reload
-      try {
-        _loadDemoDataset();
-        const verif = localStorage.getItem(KEY);
-        if (!verif) {
-          alert('❌ Échec d\'écriture du dataset — quota localStorage à vérifier');
-          return;
-        }
-        const parsed = JSON.parse(verif);
-        if (!parsed.logements || parsed.logements.length < 4) {
-          alert('❌ Dataset incomplet après écriture — abort.');
-          return;
-        }
-        console.info('[SANDBOX] Vérif OK : ' + parsed.logements.length + ' logements écrits, reload...');
-      } catch(e) {
-        alert('❌ Erreur : ' + e.message);
-        return;
-      }
-      location.reload();
+      _loadDemoDataset();   // chargeur unique (démo ?demo=1 et sandbox) : écrit, vérifie, puis recharge
     });
     const btnReset = document.getElementById('sandbox-reset');
     if (btnReset) btnReset.addEventListener('click', () => {
@@ -242,7 +235,7 @@ function _injectTestModeBanner() {
         const toDel = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && k.startsWith('_test_')) toDel.push(k);
+          if (k && k.startsWith(_NS_TEST)) toDel.push(k);
         }
         toDel.forEach(k => localStorage.removeItem(k));
       } catch(e){}
@@ -253,98 +246,118 @@ function _injectTestModeBanner() {
   else document.addEventListener('DOMContentLoaded', inject);
 }
 
-// v14.61 SANDBOX-MODE — Charge un dataset de démonstration dans la sandbox.
-// 1 bailleur (SCI) + 1 immeuble (Test SCI Demo) + 4 logements + 2 baux courants
-// + quelques mouvements pour permettre de tester charges/régul/compta.
+// COMPTE DÉMO — bandeau du mode démonstration (?demo=1) : discret, à la marque, avec le geste utile entre deux
+// rendez-vous : « Recharger la démo » (remet l'histoire à zéro). Chargement automatique du jeu de données
+// UNIQUEMENT ici (espace `_demo_` jamais chargé) : le sandbox de dev `?sandbox=1` reste vide au démarrage
+// (règle « jamais d'injection automatique » : il n'a que son bouton manuel). Hors ?demo=1 : jamais appelé.
+function _injectDemoBanner() {
+  if (!_isDemoMode) return;
+  const st = document.createElement('style');
+  st.textContent = '#sandbox-banner.demo-banner{position:fixed;top:0;left:0;right:0;z-index:99999;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:4px 16px;background:var(--t1);color:var(--sur);font:500 12px/1.3 var(--font, Inter, system-ui, sans-serif);letter-spacing:.2px}'
+    + '#sandbox-banner.demo-banner .demo-dot{width:7px;height:7px;border-radius:50%;background:var(--cta);display:inline-block;margin-right:7px;vertical-align:1px}'
+    + '#sandbox-banner.demo-banner button{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 11px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;opacity:.9}'
+    + '#sandbox-banner.demo-banner button:hover{opacity:1}'
+    + '@media (pointer:coarse),(max-width:767px){#sandbox-banner.demo-banner button{min-height:44px}}'
+    + '@media (max-width:480px){#sandbox-banner.demo-banner .demo-sub{display:none}}';   // téléphone : une seule ligne
+  document.head.appendChild(st);
+  const div = document.createElement('div');
+  div.id = 'sandbox-banner';
+  div.className = 'demo-banner';
+  div.setAttribute('role', 'status');
+  div.innerHTML = '<span><span class="demo-dot" aria-hidden="true"></span>Démonstration<span class="demo-sub"> : données fictives, rien n\'est envoyé</span></span>'
+    + '<button type="button" id="demo-reload"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Recharger la démo</button>';
+  document.body.appendChild(div);
+  document.body.style.paddingTop = (parseFloat(getComputedStyle(document.body).paddingTop)||0) + div.offsetHeight + 'px';
+  const rb = document.getElementById('demo-reload');
+  if (rb) rb.addEventListener('click', () => {
+    if (!confirm('Recharger la démo ?\nToutes les modifications faites pendant la démonstration seront effacées.')) return;
+    _loadDemoDataset();
+  });
+  // 1re ouverture sur cet appareil → chargement direct. Marqueur dédié : initDB a déjà écrit une base VIDE dans le
+  // miroir avant ce point, la présence du miroir ne prouve donc rien.
+  try { if (!localStorage.getItem(_lsKey('demo_charge'))) _loadDemoDataset(); } catch(e) {}
+}
+
+// COMPTE DÉMO : un geste qui sortirait des données du navigateur (dossier de sauvegarde, restauration depuis ce dossier)
+// est indisponible en démonstration — message clair, ou rien (silencieux) pour les vérifications automatiques.
+function _demoGesteIndisponible(quoi, silencieux) {
+  if (!_isDemoMode) return false;
+  if (!silencieux && typeof showToast === 'function') showToast(quoi + ' : indisponible dans la démonstration (rien ne sort du navigateur).', 'info', 5000);
+  return true;
+}
+// COMPTE DÉMO : « Recharger la démo » vide aussi les bases IndexedDB DE LA DÉMO (photos ajoutées, file de l'IA, vidéos,
+// filets) — vidées magasin par magasin (une suppression de base attendrait la fermeture des connexions ouvertes).
+// En démo, indexedDB.databases() ne liste que les bases demo__ (script du <head>). Jamais appelé hors démo.
+async function _demoViderIndexedDB() {
+  if (!_isDemoMode || typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return;
+  let liste = [];
+  try { liste = await indexedDB.databases(); } catch(e) { return; }
+  for (const d of liste) {
+    if (!d || !/^demo__/.test(String(d.name))) continue;
+    await new Promise((res) => {
+      try {
+        const r = indexedDB.open(d.name);
+        r.onsuccess = () => {
+          const db = r.result; const st = Array.from(db.objectStoreNames || []);
+          if (!st.length) { db.close(); res(); return; }
+          const tx = db.transaction(st, 'readwrite'); st.forEach(s => tx.objectStore(s).clear());
+          tx.oncomplete = tx.onerror = tx.onabort = () => { db.close(); res(); };
+        };
+        r.onerror = r.onblocked = () => res();
+      } catch(e) { res(); }
+    });
+  }
+}
+
+// Chargeur UNIQUE du jeu de données démo (mode ?demo=1 ET bouton du sandbox). Le jeu de données vit dans
+// js/app/demo-dataset.js, chargé à la demande (aucun poids pour les vrais comptes). Il est écrit tel quel dans le
+// miroir local de CE namespace (`_demo_` ou `_test_`, jamais les vraies clés) puis la page RECHARGE : initDB repasse
+// alors ses migrations (sauf celles dont le marqueur `_done` est gardé) et ses défauts, comme au démarrage d'un vrai compte.
+// SANDBOX (?sandbox=1) : comportement d'avant conservé — ni fichiers écrits (son IndexedDB est celle de l'appareil),
+// ni clés effacées ; seule la base est remplacée.
 function _loadDemoDataset() {
-  if (!_isTestMode) { console.warn('[SANDBOX] _loadDemoDataset refusé hors mode test'); return; }
-  const today = new Date();
-  const yr = today.getFullYear();
-  const isoToday = today.toISOString().slice(0,10);
-  const monthAgo = (m) => new Date(today.getFullYear(), today.getMonth() - m, 1).toISOString().slice(0,10);
-
-  const ent = {
-    id: 1, nom: 'SCI DEMO', type: 'SCI', siren: '999000111',
-    siege: '1 rue de la Demo, 67000 Strasbourg', gerant: 'Mme Demo',
-    iban: 'FR76...', bic: 'XXX',
-    immeubles: [{
-      id: 100, nom: 'Immeuble Demo', adr: '1 rue de la Demo, 67000 Strasbourg',
-      annee: 1980, regimeJuridique: 'Copropriété', driveFolderId: null,
-      compteursCollectifs: []
-    }],
-    entityId: 'eid_demo_001', members: [], driveFileId: null, driveFolderId: null
-  };
-
-  const logs = [
-    { id: 1001, ref: 'D-101', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T2', surf: 45,
-      etage: 'RDC', adr: '1 rue de la Demo · porte gauche', hc: 600, ch: 80, dg: 600,
-      tantiemes: 200, compteCharges: true, locataire: 'Pierre Demo',
-      tel:'06.00.00.00.01', mail:'pierre@demo.fr', debut:'2023-09-01', fin:'2026-08-31',
-      irl:'T1', notes:'Logement de démo · sandbox isolé' },
-    { id: 1002, ref: 'D-102', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T3', surf: 65,
-      etage: '1er', adr: '1 rue de la Demo · porte droite', hc: 850, ch: 120, dg: 850,
-      tantiemes: 280, compteCharges: true, locataire: 'Marie Demo',
-      tel:'06.00.00.00.02', mail:'marie@demo.fr', debut:'2024-03-01', fin:'2027-02-28',
-      irl:'T1', notes:'' },
-    { id: 1003, ref: 'D-103', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T2', surf: 50,
-      etage: '2e', adr: '1 rue de la Demo · porte gauche', hc: 700, ch: 100, dg: 700,
-      tantiemes: 220, compteCharges: true, locataire: '', /* vacant */
-      debut:'', fin:'', irl:'T1', notes:'Vacant — bon test régul part bailleur' },
-    { id: 1004, ref: 'D-Garage', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'Garage', surf: 12,
-      etage: 'Sous-sol', adr: '1 rue de la Demo', hc: 50, ch: 0, dg: 0,
-      tantiemes: 30, compteCharges: false /* exclu charges immeuble */, locataire: 'Pierre Demo',
-      tel:'06.00.00.00.01', mail:'pierre@demo.fr', debut:'2023-09-01', fin:'2026-08-31',
-      irl:'T1', notes:'Garage exclu de la répartition charges' }
-  ];
-
-  const baux = {
-    'D-101': {
-      ref:'D-101', debut:'2023-09-01', fin:'2026-08-31', hc:600, ch:80, dg:600,
-      typeContrat:'nu', entity:'SCI DEMO', irl:'T1 2023',
-      locataires:[{civilite:'M.', nom:'Pierre Demo', tel:'06.00.00.00.01', email:'pierre@demo.fr'}],
-      jpay:5
-    },
-    'D-102': {
-      ref:'D-102', debut:'2024-03-01', fin:'2027-02-28', hc:850, ch:120, dg:850,
-      typeContrat:'nu', entity:'SCI DEMO', irl:'T1 2024',
-      locataires:[{civilite:'Mme', nom:'Marie Demo', tel:'06.00.00.00.02', email:'marie@demo.fr'}],
-      jpay:5
+  if (!_isTestMode) { console.warn('[DEMO] _loadDemoDataset refusé hors mode test/démo'); return; }
+  const charger = () => new Promise((res, rej) => {
+    if (window.__demoDataset) return res(window.__demoDataset);
+    const sc = document.createElement('script');
+    sc.src = 'js/app/demo-dataset.js?v=' + encodeURIComponent(IMMOTRACK_VERSION);
+    sc.onload = () => window.__demoDataset ? res(window.__demoDataset) : rej(new Error('jeu de données démo absent'));
+    sc.onerror = () => rej(new Error('fichier js/app/demo-dataset.js introuvable'));
+    document.head.appendChild(sc);
+  });
+  charger().then(async (ds) => {
+    const { db, fichiers, nuage } = ds.construire();
+    // Binaires (photos d'EDL, PDF des pièces) → IndexedDB, comme une vraie pièce jointe : en DÉMO seulement, où la base
+    // IndexedDB est cloisonnée (préfixe demo__, script du <head>) et d'abord vidée de ce que la séance a ajouté.
+    if (_isDemoMode) {
+      await _demoViderIndexedDB();
+      for (const k of Object.keys(fichiers || {})) {
+        if (fichiers[k]) { try { await _idbPut(k, fichiers[k]); } catch(e) { console.warn('[DEMO] IndexedDB', k, e); } }
+      }
     }
-  };
-
-  const mvts = [];
-  let mid = 5000;
-  // Loyers encaissés sur les 6 derniers mois pour D-101 et D-102
-  for (let m = 5; m >= 0; m--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - m, 5);
-    mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers encaissés', qui:'D-101', db:0, cr:680, fac:'' });
-    mvts.push({ id: mid++, date: d.toISOString().slice(0,10),
-      lib:'Loyer + charges', imm:'Immeuble Demo', cat:'Loyers encaissés', qui:'D-102', db:0, cr:970, fac:'' });
-  }
-  // 1 facture eau collective (à répartir)
-  mvts.push({ id: mid++, date: monthAgo(2),
-    lib:'Facture eau immeuble (à répartir)', imm:'Immeuble Demo',
-    cat:'Charges', qui:'', db:280, cr:0, fac:'EAU-2025-Q3' });
-  // 1 facture taxe foncière (charges propriétaires)
-  mvts.push({ id: mid++, date: monthAgo(4),
-    lib:'Taxe foncière', imm:'Immeuble Demo',
-    cat:'Charges', qui:'', db:1500, cr:0, fac:'TF-2025' });
-
-  const demoDB = {
-    entites: [ent], logements: logs, baux,
-    mouvements: mvts, baux_historique: [], quittances: [], assurances: [], mrh: [],
-    // NORMALISATION-LOYERS (01/10) : la démo naît dans la catégorie canonique, plus dans « Loyers » hérité.
-    edl: [], categories: ['Loyers encaissés','Charges','Travaux','Assurance','Autre'],
-    catConfig: {},
-    agenda: [], params: {}, irlTable: {}
-  };
-  try {
-    _miroirEcrire(JSON.stringify(demoDB));   // STOCKAGE lot 1 : l'écrivain unique du miroir (éviction sur quota)
-    console.info('[SANDBOX] Dataset démo chargé : 1 SCI · 1 immeuble · 4 logements · 2 baux · ' + mvts.length + ' mvts');
-  } catch(e) {
-    console.error('[SANDBOX] Échec chargement dataset', e);
-  }
+    // ORDRE (audit) : rien n'est effacé tant que la nouvelle base n'est pas écrite ET relue. Un échec d'écriture
+    // (quota) lève ici → l'espace et la base en mémoire restent intacts, le marqueur n'est pas posé.
+    _miroirEcrire(JSON.stringify(db));   // STOCKAGE lot 1 : l'écrivain unique du miroir
+    const relu = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (!relu || !Array.isArray(relu.logements) || relu.logements.length !== (db.logements || []).length) throw new Error('écriture du jeu de données non vérifiée');
+    // La base EN MÉMOIRE devient aussi la démo : la page enregistre en partant (saveDB au déchargement), elle
+    // réécrirait sinon l'ancienne base par-dessus le jeu de données juste avant le rechargement.
+    DB = JSON.parse(JSON.stringify(db)); try { window.DB = DB; } catch(e) {}
+    // Puis on repart d'un espace propre : clés de CE namespace seulement, sauf la base qu'on vient d'écrire et les
+    // marqueurs de migration (pas de toast « Migration… » à chaque rechargement).
+    const toDel = [];
+    if (_isDemoMode) for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(_NS_TEST) && k !== KEY && !/_done$/.test(k)) toDel.push(k); }
+    toDel.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+    try {
+      // Nuage FICTIF de la démo (espace locataire, liens d'artisan) : son plan est semé au prochain démarrage par
+      // js/app/demo-app.js, en mémoire locale seulement. Jamais en sandbox (pas de nuage simulé hors démo).
+      if (_isDemoMode && nuage) localStorage.setItem(_lsKey('demo_nuage_plan'), JSON.stringify(nuage));
+      localStorage.setItem(_lsKey('demo_charge'), new Date().toISOString());
+      if (_isDemoMode) localStorage.setItem(_lsKey('immotrack_theme_mode'), 'sobre');   // présentation : thème clair
+    } catch(e) { console.warn('[DEMO] marqueur / thème', e); }
+    console.info('[DEMO] Jeu de données chargé : ' + (db.entites||[]).length + ' bailleurs · ' + (db.logements||[]).length + ' lots · ' + (db.mouvements||[]).length + ' mouvements');
+    location.reload();
+  }).catch(e => { console.error('[DEMO] chargement', e); alert('Échec du chargement de la démo : ' + e.message); });
 }
 
 let DB = {};
@@ -3507,6 +3520,21 @@ function _mvCreate(m, opts) {
   }, opts);
 }
 
+// Périmètre « espace propre » des migrations douces (normalisation des loyers, validations de régul héritées) :
+// contrat `espacePropre` de js/core/normalisation-loyers.js. Hors mode cloud : {} (aucun filtre).
+// Associé INVITÉ (sans espace à lui) : __immoOwnEspaceId répond l'espace du PROPRIÉTAIRE (repli) → on ne le
+// transmet PAS (null = seuls les enregistrements non tagués). Sinon, en lecture seule, chaque écriture
+// refusée (RLS : 0 ligne = « conflict ») relance un re-pull, donc une normalisation : boucle sans fin.
+// Getter `mine` absent ou qui jette : prudence, null aussi.
+function _optsEspacePropre() {
+  if (!window.__immoSupabaseMode) return {};
+  let _esp = null;
+  try {
+    const _mine = (typeof window.__immoOwnEspaceMine === 'function') && window.__immoOwnEspaceMine() === true;
+    if (_mine && typeof window.__immoOwnEspaceId === 'function') _esp = window.__immoOwnEspaceId();
+  } catch (e) { _esp = null; }
+  return { espacePropre: (_esp == null) ? null : _esp };
+}
 // NORMALISATION-LOYERS (01/10) — LE point d'appel unique de js/core/normalisation-loyers.js (pur, testé),
 // exposé par js/main.js sur window.NormalisationLoyers (un `let`/`const` de script n'est PAS sur window ;
 // le module, lui, l'y pose explicitement, et s'exécute avant DOMContentLoaded donc avant initDB).
@@ -3524,19 +3552,7 @@ function _normaliserLoyers(source, db) {
   // partagée par un autre propriétaire le sont par SON appareil, avec SA configuration (jamais celle d'un
   // associé), et un associé en lecture seule n'essaie pas d'écrire ce que la RLS lui refuserait.
   // Getter absent (mode local / sandbox) : aucun filtre, rien n'y est tagué d'un autre espace.
-  const opts = { stamp: _stamp };
-  // Associé INVITÉ (sans espace à lui) : __immoOwnEspaceId répond l'espace du PROPRIÉTAIRE (repli) → on ne le
-  // transmet PAS (null = seuls les enregistrements non tagués). Sinon, en lecture seule, chaque écriture
-  // refusée (RLS : 0 ligne = « conflict ») relance un re-pull, donc une normalisation : boucle sans fin.
-  // Getter `mine` absent ou qui jette : prudence, null aussi.
-  if (window.__immoSupabaseMode) {
-    let _esp = null;
-    try {
-      const _mine = (typeof window.__immoOwnEspaceMine === 'function') && window.__immoOwnEspaceMine() === true;
-      if (_mine && typeof window.__immoOwnEspaceId === 'function') _esp = window.__immoOwnEspaceId();
-    } catch (e) { _esp = null; }
-    opts.espacePropre = (_esp == null) ? null : _esp;
-  }
+  const opts = Object.assign({ stamp: _stamp }, _optsEspacePropre());
   const r = N.normaliser(db || DB, opts);
   if (r && r.aPersister) {   // silencieux quand rien ne part (2e passage, bail verrouillé seul, démarrages suivants)
     console.info('[normalisation loyers] ' + source + ' : ' + r.mouvements + ' mouvement(s) → « Loyers encaissés », '
@@ -7687,8 +7703,8 @@ function _accmGoto(id, ref, count){
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
       case 'entretien':// entretien en retard DU lot → onglet Conformité de sa fiche
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('equipements'); break;
-      case 'regul':    // régularisation de charges → onglet Charges
-        go('regul'); break;
+      case 'regul':    // régularisation de charges → onglet Charges sur l'exercice N-1 (celui de l'alerte), lot ciblé si un seul
+        _rgOuvrirAnnee(null, single ? ref : null); break;
       case 'incident': // incident(s) d'un lot → onglet Entretien de sa fiche (registre)
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
       default: go('loyers');
@@ -8266,7 +8282,7 @@ const _PIL_HORS = {
   depot:   { onglet: 'Locataires', go: () => go('baux') },
   finbail: { onglet: 'Locataires', go: () => go('baux') },
   incident:{ onglet: 'Biens', go: () => go('biens') },
-  regul:   { onglet: 'Charges', go: () => go('regul') }
+  regul:   { onglet: 'Charges', go: () => _rgOuvrirAnnee() }   // alerte = régul N-1
 };
 function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
 
@@ -9528,15 +9544,17 @@ function _computeUnifiedTodo(ctx) {
   //    Non reprise dans À traiter par choix utilisateur (déjà visible ailleurs).
 
   // 7. Régularisation de charges à émettre — v15.424 DRY : règle CANONIQUE
-  // AlertRules.regulAEmettre (sémantique user : loué N-1 + aucune régul émise en N).
-  AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory).forEach(it => {
+  // AlertRules.regulAEmettre (sémantique user : loué N-1 + régul N-1 ni validée ni émise).
+  // ALERTE-REGUL (14/10) : le signal « faite » = la validation PORTÉE PAR LE LOGEMENT (js/core/regul-validation.js),
+  // partagée par toute la SCI — un associé valide, l'alerte disparaît chez tous après synchronisation.
+  AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory, _rgEstValideePourAnnee).forEach(it => {
     out.push({
       type:'regul', severity:'info', score:40,
       title:'Régularisation '+it.annee+' à émettre',
       subtitle:_logLabel(it.ref)+' — '+it.locataire,
       contextRef:it.ref, nom:_logLabel(it.ref),
       actionLabel:'Émettre régul',
-      actionFn:"go('regul',null)"
+      actionFn:"_rgOuvrirAnnee("+Number(it.annee)+",'"+_lyQ(it.ref)+"')"
     });
   });
 
@@ -10007,7 +10025,7 @@ const _TODO_TYPE_META = {
   mrh:    {icon:'🛡',  label:'Assurances',       go:"go('baux',null)"},
   irl:    {icon:'📈',  label:'Révisions IRL',    go:"go('irl',null)"},
   equip:  {icon:'🔧',  label:'Équipements',      go:"go('equipements',null)"},
-  regul:  {icon:'⚖️', label:'Régularisations',  go:"go('regul',null)"},
+  regul:  {icon:'⚖️', label:'Régularisations',  go:"_rgOuvrirAnnee()"},   // alerte = régul N-1
   bail:   {icon:'📋',  label:'Baux à terme',     go:"go('baux',null)"},
   vacance:{icon:'🏚',  label:'Logements vacants',go:"go('biens',null)"},
   dpe:    {icon:'📐',  label:'DPE',              go:"go('biens',null)"},
@@ -24448,15 +24466,39 @@ function quickAddIRL(key, ref) {
 }
 
 // =================== RÉGULARISATION ===================
+// ALERTE-REGUL (14/10) — l'alerte « Régularisation N-1 à émettre » ouvre l'onglet Charges SUR N-1 (sinon il
+// s'ouvrait sur l'année en cours et « Valider la régul » validait N, trop tôt : l'alerte restait), filtré sur
+// l'immeuble du lot quand l'alerte n'en vise qu'un. Cible à usage unique, consommée par rRegulInit.
+function _rgOuvrirAnnee(annee, ref){
+  const y = Number(annee);
+  window._regulAnneeCible = (Number.isInteger(y) && y >= 1900 && y <= 9999) ? y : (new Date().getFullYear() - 1);
+  const l = ref ? (DB.logements||[]).find(x => _isAlive(x) && x.ref === ref) : null;
+  window._regulImmCible = (l && l.imm) ? l.imm : null;
+  go('regul');
+}
+// Règle de l'alerte, injectée dans AlertRules.regulAEmettre (module absent → non validée : l'alerte reste).
+function _rgEstValideePourAnnee(l, annee){
+  const RV = window.RegulValidation;
+  return !!(RV && typeof RV.regulValideePourAnnee === 'function' && RV.regulValideePourAnnee(l, annee));
+}
 function rRegulInit() {
   const today = new Date();
-  const yr = today.getFullYear();
+  const cible = window._regulAnneeCible, immCible = window._regulImmCible;
+  window._regulAnneeCible = null; window._regulImmCible = null;
+  const yr = cible || today.getFullYear();
+  // Re-rendu de l'onglet (synchro d'un autre appareil, retour sur l'onglet, conflit → go('regul')) : on GARDE la
+  // période et l'immeuble affichés — sinon l'écran revenait sur l'année en cours et « Valider » validait N
+  // (audit 15/10). Une alerte (cible) impose N-1 ; sinon la dernière période affichée de la session, sinon N.
+  const prec = cible ? null : window._rgPeriodeAffichee;
+  const fromInit = (prec && /^\d{4}-\d{2}-\d{2}$/.test(prec.from)) ? prec.from : yr+'-01-01';
+  const toInit = (prec && /^\d{4}-\d{2}-\d{2}$/.test(prec.to)) ? prec.to : yr+'-12-31';
+  const immInit = cible ? immCible : (prec ? prec.imm : null);
   el('p-regul-inner').innerHTML = `
     <div class="flex-b mb16">
       <div class="flex-c">
-        <select class="inp" id="reg-imm" onchange="rRegul()" style="width:180px"><option value="">Tous immeubles</option>${immeubles().map(i=>`<option>${i}</option>`).join('')}</select>
-        <input class="inp" type="date" id="reg-from" value="${yr}-01-01" oninput="rRegul()" onchange="rRegul()" style="width:140px">
-        <input class="inp" type="date" id="reg-to" value="${yr}-12-31" oninput="rRegul()" onchange="rRegul()" style="width:140px">
+        <select class="inp" id="reg-imm" onchange="rRegul()" style="width:180px"><option value="">Tous immeubles</option>${immeubles().map(i=>`<option>${escHtml(i)}</option>`).join('')}</select>
+        <input class="inp" type="date" id="reg-from" value="${fromInit}" oninput="rRegul()" onchange="rRegul()" style="width:140px">
+        <input class="inp" type="date" id="reg-to" value="${toInit}" oninput="rRegul()" onchange="rRegul()" style="width:140px">
         <button class="btn bs" onclick="rRegul()">${_uiIcon('refresh')} Calculer</button>
       </div>
       <div class="flex-c">
@@ -24467,6 +24509,8 @@ function rRegulInit() {
     <div class="g3 mb16" id="reg-kpis"></div>
     <div id="reg-cards"></div>
   `;
+  // Alerte d'un seul lot : filtre sur son immeuble (s'il figure dans la liste ; sans immeuble → tous) ; re-rendu : filtre conservé.
+  if(immInit){ const s = el('reg-imm'); if(s && [...s.options].some(o => o.value === immInit)) s.value = immInit; }
   rRegul();
 }
 
@@ -24572,14 +24616,29 @@ function _rgOuvrirDetailLoc(immNom, entryKey){
   requestAnimationFrame(()=>requestAnimationFrame(montrer));
 }
 
-// v15.x REFONTE-REGUL Phase C — état de validation par (immeuble, période)
-function _rgValKey(imm){ return imm+'|'+(window._regulFrom||'')+'|'+(window._regulTo||''); }
-function _rgIsValidated(imm){ return !!((DB.regulValidations||{})[_rgValKey(imm)]); }
+// v15.x REFONTE-REGUL Phase C — état de validation par (immeuble, période).
+// ALERTE-REGUL (14/10) — la validation est PORTÉE PAR CHAQUE LOGEMENT du groupe (js/core/regul-validation.js) :
+// ligne `logements` de la SCI, synchronisée et protégée par la RLS par SCI → PARTAGÉE par tous les associés.
+// (Avant : DB.regulValidations, blob de configuration de l'espace propre, jamais lu par un associé.)
+// Groupe = immeuble, ou « (sans immeuble) » ; borné au filtre de bailleur actif, comme la liste affichée.
+function _rgLogsDuGroupe(imm){
+  const RV = window.RegulValidation;
+  return RV ? RV.logementsDuGroupe(DB.logements||[], imm, _logInEnt) : [];
+}
+// Groupe validé pour la période affichée : tous ses logements concernés (`refs` = lots du décompte affiché).
+function _rgIsValidated(imm, refs){
+  const RV = window.RegulValidation; if(!RV) return false;
+  let logs = _rgLogsDuGroupe(imm);
+  if(Array.isArray(refs) && refs.length){ const S = new Set(refs); logs = logs.filter(l => S.has(l.ref)); }
+  return RV.groupeValide(logs, window._regulFrom, window._regulTo);
+}
 function _rgValidate(imm){
-  if(!DB.regulValidations) DB.regulValidations={};
-  DB.regulValidations[_rgValKey(imm)] = { at: new Date().toISOString() };
-  if(typeof saveDB==='function') saveDB();
-  if(typeof showToast==='function') showToast('Immeuble « '+imm+' » validé ✓','ok');
+  const RV = window.RegulValidation;
+  if(!RV){ if(typeof showToast==='function') showToast('Validation indisponible : recharger la page','err'); return; }
+  const r = RV.validerPeriode(_rgLogsDuGroupe(imm), window._regulFrom, window._regulTo, { stamp: _stamp });
+  if(!r.cle){ if(typeof showToast==='function') showToast('Période de régularisation invalide : vérifier les dates','err'); return; }
+  if(r.refs.length && typeof saveDB==='function') saveDB();
+  if(typeof showToast==='function') showToast(imm === RV.SANS_IMMEUBLE ? 'Logements sans immeuble validés ✓' : 'Immeuble « '+imm+' » validé ✓','ok');
   rRegul();
 }
 function _rgBackToList(){ rRegul(); }
@@ -25368,10 +25427,24 @@ function _rgShowGlobal(immNom){
   window._rgGlobalImm = immNom; // v15.x REGUL-REFRESH-LIVE : mémorise la vue globale ouverte (refresh après édition mvt)
   const from=window._regulFrom, to=window._regulTo;
   const result=computeRegul(from,to);
-  const entries=Object.values(result.entries||{}).filter(e=>e.imm===immNom)
+  // ALERTE-REGUL : le groupe « (sans immeuble) » n'est le `imm` d'aucune occupation (vide) → vue globale VIDE
+  // alors que la liste montrait ses lots. Même groupe et même filtre de bailleur que la liste (rRegul) et que
+  // « Valider » (_rgLogsDuGroupe). Aucun montant recalculé : on choisit seulement les colonnes affichées.
+  const _sansImm = '(sans immeuble)';
+  const _refsEnt = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.ref)) : null;
+  const entries=Object.values(result.entries||{}).filter(e=>(e.imm||_sansImm)===immNom && (!_refsEnt || _refsEnt.has(e.ref)))
     .sort((a,b)=>_natCmp(_logLabel(a.ref||''), _logLabel(b.ref||''))||_natCmp(a.ref||'', b.ref||'')||(a.debutOcc||'').localeCompare(b.debutOcc||''));
-  const bail=(result.bailleur||{})[immNom];
-  const nonRep=(result.nonReparti||{})[immNom];
+  const bail=(result.bailleur||{})[immNom===_sansImm ? '' : immNom];   // computeRegul range la part bailleur sans immeuble sous ''
+  let nonRep=(result.nonReparti||{})[immNom];
+  // « (sans immeuble) » recueille AUSSI les charges sans aucun périmètre, de toutes les SCI : elles ne sont pas
+  // les charges de ces lots et bloquaient leur validation (audit 15/10). Ici, seules celles d'un lot du groupe
+  // comptent ; les autres restent signalées dans le bandeau de la liste. Aucun montant recalculé.
+  if(immNom===_sansImm && nonRep){
+    const refsG=new Set(_rgLogsDuGroupe(immNom).map(l=>l.ref));
+    const quiDe=new Map((DB.mouvements||[]).filter(_isAlive).map(m=>[m.id,m.qui]));
+    const lines=(nonRep.lines||[]).filter(l=>refsG.has(quiDe.get(l.mvId)));
+    nonRep={ imm:nonRep.imm, total:Math.round(lines.reduce((s,l)=>s+(l.montant||0),0)*100)/100, lines };
+  }
   const f=fmt;
   // CDC É4 (mockup 07) — colonne « Bailleur (225) » : part non refacturée par facture (mvId).
   const bailPerMv={}, bailLigneMv={};
@@ -25421,7 +25494,7 @@ function _rgShowGlobal(immNom){
   const forfPart=e=>(e.forfait&&e.forfait.excluCharges)||0;
   const sumForf=Math.round(entries.reduce((s,e)=>s+forfPart(e),0)*100)/100;
   const forfRow=sumForf>0.005?`<tr class="forf"><td class="c0">Part au forfait<small>charges non régularisables — ${escHtml(_rgForfaitRef(null).citation)}</small></td>${entries.map(e=>`<td class="num">${forfPart(e)?f(forfPart(e)):'<span class="z">—</span>'}</td>`).join('')}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumForf)}</td></tr>`:'';
-  const validated=_rgIsValidated(immNom);
+  const validated=_rgIsValidated(immNom, entries.map(e=>e.ref));
   const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corriger avant de valider cet immeuble</div></div>`:'';
   // TÉLÉPHONE (≤767) : la matrice charge×lots (illisible en N colonnes) devient des CARTES-CHARGE
   // (répartition par lot) + récap par lot. Mêmes données pivot. PC (≥768) = matrice ci-dessous.
@@ -25515,7 +25588,8 @@ function _rgJustifFactures(immNom){
   const ccIds=new Set(((im&&im.compteursCollectifs)||[]).filter(_isAlive).map(c=>c.id));
   // AUDIT-FIX : inclure aussi les factures récupérables rattachées DIRECTEMENT à un logement (m.qui)
   // de l'immeuble (computeRegul les impute) — sinon leur justificatif manquerait au paquet.
-  const logRefs=new Set((DB.logements||[]).filter(_isAlive).filter(l=>l.imm===immNom).map(l=>l.ref));
+  // Lots du groupe (immeuble, ou « (sans immeuble) ») — même périmètre que la vue globale et « Valider ».
+  const logRefs=new Set(_rgLogsDuGroupe(immNom).map(l=>l.ref));
   return (DB.mouvements||[]).filter(_isAlive).filter(m=>
     (typeof _isChargeRecupCategory==='function' && _isChargeRecupCategory(m.cat)) && (m.db>0) &&
     m.date>=from && m.date<=to &&
@@ -25849,6 +25923,7 @@ function rRegul() {
   const from = v('reg-from') || new Date().getFullYear()+'-01-01';
   const to   = v('reg-to')   || new Date().getFullYear()+'-12-31';
   window._regulFrom = from; window._regulTo = to;
+  window._rgPeriodeAffichee = { from, to, imm: fimm };   // repris par rRegulInit au re-rendu (période conservée)
   // v14.73 : computeRegul retourne { entries, bailleur }
   const result = computeRegul(from, to);
   const regul = result.entries || {};
@@ -25856,7 +25931,10 @@ function rRegul() {
   const nonRepMap = result.nonReparti || {};
   // v15.234 NAV-FILTRE-ENTITE-GLOBAL : filtre entité (immeubles de l'entité active).
   const _entRegImms = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.imm).filter(Boolean)) : null;
-  let items = Object.values(regul).filter(r=>(!_entRegImms||_entRegImms.has(r.imm))&&(!fimm||r.imm===fimm));
+  // ALERTE-REGUL : un lot SANS immeuble disparaissait dès qu'un bailleur était choisi (son `imm` vide n'est
+  // dans aucun ensemble de noms) → filtré par son propre rattachement au bailleur.
+  const _entRegRefs = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.ref)) : null;
+  let items = Object.values(regul).filter(r=>(!_entRegImms||_entRegImms.has(r.imm)||(!r.imm&&_entRegRefs.has(r.ref)))&&(!fimm||r.imm===fimm));
   items.sort((a,b)=>{
     if(a.ref!==b.ref) return _natCmp(_logLabel(a.ref), _logLabel(b.ref)) || _natCmp(a.ref, b.ref);
     if(!a.isHistorique && b.isHistorique) return -1;
@@ -25937,7 +26015,7 @@ function rRegul() {
     const gS   = gP - gC;
     const cls  = 'rgim'+gi;
     // CDC É4-nav (mockup 09) — 3 états : Émise / En attente de l'arrêté copro / À émettre.
-    const imVal = _rgIsValidated(imNom);
+    const imVal = _rgIsValidated(imNom, grp.map(r=>r.ref));
     let imBadge;
     if(imVal){
       imBadge = '<span class="rg-badge-ok">' + _uiIcon('check',13) + ' Émise</span>';
@@ -26156,7 +26234,7 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
   let body='';
   immNames.forEach(imNom=>{
     const grp=byImm[imNom];
-    const imVal=_rgIsValidated(imNom);
+    const imVal=_rgIsValidated(imNom, grp.map(r=>r.ref));
     let imBadge;
     if(imVal){ imBadge=`<span class="rgph-bdg ok">${_uiIcon('check',12)}Émise</span>`; }
     else { const _reg=(typeof _rgImmRegime==='function')?_rgImmRegime({imm:imNom,bail:{}}):{copro:false};

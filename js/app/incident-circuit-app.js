@@ -434,7 +434,9 @@ async function envoyerUneFois(incId, artisanId) {
     else if (G('_openShareModal')) {
       W._openShareModal({ title: 'Envoyer la demande à ' + art.nom, ctxIcon: ico('send', 20), ctxTitle: demande.titre, ctxSub: esc(demande.adresse), url: lien, linkLabel: 'Lien de la demande (sans compte)', email: art.email,
         subject: m.objet, message: m.texte.replace('\n' + lien, ''), smsLead: m.sms.replace(lien, ''),
-        info: '<b>Lien affiché une seule fois.</b> Seule son empreinte est enregistrée : pour le transmettre à nouveau, « Renvoyer le lien » (l\'ancien cesse de fonctionner).', doneJs: 'void 0;' })
+        // COMPTE DÉMO (?demo=1) : nuage fictif local — le lien a la forme réelle mais aucune page d'artisan ne l'attend.
+        info: (W.__immoDemo === true ? '<b>Démonstration :</b> lien fictif, la page de l\'artisan ne s\'ouvre qu\'avec un vrai compte. ' : '')
+          + '<b>Lien affiché une seule fois.</b> Seule son empreinte est enregistrée : pour le transmettre à nouveau, « Renvoyer le lien » (l\'ancien cesse de fonctionner).', doneJs: 'void 0;' })
     }
     rerender()
   } catch (e) {
