@@ -134,9 +134,11 @@ export function doitAfficherListe(pp, etat, maintenant) {
   if (pp.termineLe && etat && etat.fini) return (Date.parse(maintenant) - Date.parse(pp.termineLe)) < DELAI_REPLI_JOURS * JOUR_MS
   return true
 }
-export const masquer = (pp, maintenant) => { const n = { ...pp, masqueLe: maintenant }; delete n.afficheLe; return n }
+// Opposition à la mesure (D6) : on ne garde que le fait (true), pas l'heure du geste.
+const horo = (pp, maintenant) => (pp && pp.mesure === false ? true : maintenant)
+export const masquer = (pp, maintenant) => { const n = { ...pp, masqueLe: horo(pp, maintenant) }; delete n.afficheLe; return n }
 /** Réaffichage demandé (Mon profil) : vaut aussi après le repli automatique. */
-export const afficher = (pp, maintenant) => { const n = { ...pp, afficheLe: maintenant || new Date().toISOString() }; delete n.masqueLe; return n }
+export const afficher = (pp, maintenant) => { const n = { ...pp, afficheLe: horo(pp, maintenant || new Date().toISOString()) }; delete n.masqueLe; return n }
 
 // ─────────────────────────── M · Mesure (D6) ───────────────────────────
 /** Opposition : on efface dates, date de création et compteur ; seul le fonctionnement de l'écran reste. */
@@ -144,7 +146,12 @@ export const afficher = (pp, maintenant) => { const n = { ...pp, afficheLe: main
 // elles ne gonflent pas les statistiques de la bêta.
 export function reglerMesure(pp, oui, etat, maintenant) {
   const n = { ...pp, mesure: !!oui, etapes: {}, visite: { ...((pp && pp.visite) || {}) } }
-  if (!oui) { delete n.creeLe; delete n.visite.relances; delete n.visite.le; return n }
+  if (!oui) {
+    delete n.creeLe; delete n.visite.relances; delete n.visite.le
+    if (n.masqueLe) n.masqueLe = true
+    if (n.afficheLe) n.afficheLe = true
+    return n
+  }
   for (const s of ((etat && etat.liste) || [])) if (s.fait) n.etapes[s.id] = { le: maintenant, avant: true }
   return n
 }

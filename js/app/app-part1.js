@@ -2467,6 +2467,11 @@ function _undoOnSaveDBSuccess() {
   _undoLastSnapshot = _undoSnapshot();
 }
 
+// PREMIERS-PAS (docs/CDC-PREMIERS-PAS.md) — la progression de mise en route (dates, visite, OPPOSITION à la mesure)
+// n'est pas une donnée qu'on remplace par une base plus ancienne : « Annuler », restaurer une sauvegarde ou importer
+// un JSON la gardent telle quelle (sinon une opposition RGPD serait perdue sans un message).
+function _ppCourant() { return (typeof DB !== 'undefined' && DB && DB.params && DB.params.premiersPas) ? DB.params.premiersPas : null; }
+function _ppReporter(pp, cible) { if (pp && cible && typeof cible === 'object') { if (!cible.params || typeof cible.params !== 'object') cible.params = {}; cible.params.premiersPas = pp; } }
 function _undoUndo() {
   // v15.116 offline-first : l'annulation modifie le DB local puis saveDB (qui persiste
   // toujours désormais) → plus de blocage read-only. Fonctionne hors-ligne.
@@ -2479,10 +2484,10 @@ function _undoUndo() {
   // Wipe + restore DB en place (préserve la ref globale `DB`)
   // PREMIERS-PAS : la progression de mise en route (dates, visite, opposition à la mesure) n'est pas une donnée qu'on
   // annule — elle est gardée telle quelle à travers la restauration (sinon « Annuler » effacerait une opposition RGPD).
-  const _ppGarde = (DB.params && DB.params.premiersPas) ? DB.params.premiersPas : null;
+  const _ppGarde = _ppCourant();
   Object.keys(DB).forEach(k => delete DB[k]);
   Object.assign(DB, entry.snapshot);
-  if (_ppGarde) { if (!DB.params) DB.params = {}; DB.params.premiersPas = _ppGarde; }
+  _ppReporter(_ppGarde, DB);
   // Rafraîchir _undoLastSnapshot pour qu'il reflète l'état restauré
   _undoLastSnapshot = _undoSnapshot();
   saveDB();

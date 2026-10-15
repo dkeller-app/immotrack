@@ -34734,12 +34734,14 @@ function _backupRestoreApply(snap) {
   const lockedBaux = {};
   for (const [ref, b] of Object.entries(DB.baux || {})) if (b && b.signatures && b.signatures.locked) lockedBaux[ref] = b;
   const lockedEdl = (DB.edl || []).filter(e => e && e.signatures && e.signatures.locked);
+  const _ppGarde = (typeof _ppCourant === 'function') ? _ppCourant() : null;   // PREMIERS-PAS : progression gardée
   const clone = JSON.parse(JSON.stringify(snap));
   delete clone.__backupOwner;                            // marqueur d'origine (métadonnée) — pas une donnée à injecter
   for (const k of Object.keys(DB)) delete DB[k];         // ⚠️ MUTATION EN PLACE (jamais DB = clone → casserait liveDB)
   Object.assign(DB, clone);
   if (Object.keys(lockedBaux).length) { if (!DB.baux) DB.baux = {}; for (const [ref, b] of Object.entries(lockedBaux)) DB.baux[ref] = b; }
   if (lockedEdl.length) { const ids = new Set(lockedEdl.map(e => e.id)); DB.edl = (DB.edl || []).filter(e => !ids.has(e.id)).concat(lockedEdl); }
+  if (typeof _ppReporter === 'function') _ppReporter(_ppGarde, DB);
   if (keepSecrets.bailSignAppKey != null || keepSecrets.bailSignRelayUrl != null) {
     if (!DB.params) DB.params = {};
     if (keepSecrets.bailSignAppKey != null) DB.params.bailSignAppKey = keepSecrets.bailSignAppKey;
@@ -35434,6 +35436,7 @@ function importJSON(inp) {
       // NORMALISATION-LOYERS (01/10) : même normalisation que la restauration, avant d'adopter la base.
       _normaliserLoyers('import JSON', data);
       if (typeof _bankMigrerRegles === 'function') _bankMigrerRegles('import JSON', data);   // REGLES-REFONTE phase 4 : identifiants des règles importées
+      if (typeof _ppReporter === 'function') _ppReporter(_ppCourant(), data);   // PREMIERS-PAS : progression du compte gardée
       DB=data;
       saveDB();
       showToast('Import réussi','ok');

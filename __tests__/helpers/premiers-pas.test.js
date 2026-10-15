@@ -237,6 +237,21 @@ describe('M · mesure et opposition (D6)', () => {
   })
 })
 
+describe('M · minimisation après opposition', () => {
+  it('M-4 masquer / afficher ne gardent que le fait (pas l\'heure du geste) ; une heure déjà posée est effacée', () => {
+    const e = PP.etapesPremiersPas(vide(), ext0)
+    let pp = PP.masquer(PP.initialiser(vide(), ext0, T0), T0)
+    expect(pp.masqueLe).toBe(T0)
+    pp = PP.reglerMesure(pp, false)
+    expect(pp.masqueLe).toBe(true)
+    expect(PP.doitAfficherListe(pp, e, T1)).toBe(false)
+    const a = PP.afficher(pp, T1)
+    expect(a.afficheLe).toBe(true); expect(a.masqueLe).toBeUndefined()
+    expect(PP.doitAfficherListe(a, e, T1)).toBe(true)
+    expect(PP.masquer(a, T1).masqueLe).toBe(true)
+  })
+})
+
 describe('T · visite', () => {
   it('T-1 une bulle d\'accueil + 6 étapes, textes du CDC, ton neutre, aucune troncature', () => {
     expect(PP.VISITE.map((v) => v.k)).toEqual(['intro', 'presse', 'biens', 'espace', 'incident', 'edl', 'candidats'])

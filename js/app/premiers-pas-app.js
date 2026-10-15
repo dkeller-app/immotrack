@@ -37,24 +37,34 @@ function extActuel() {
 }
 // Invitations déjà créées (comptes antérieurs à la fonction) : UNE lecture, après l'affichage, jamais bloquante (D4).
 function lireInvitationsPlusTard() {
-  if (ext.lectureInvitations) return
+  // Pas avant les données du compte : avant la connexion, l'espace n'est pas résolu et la lecture rendrait null.
+  if (ext.lectureInvitations || !donneesPretes()) return
   const P = W.__immoPartage
   if (!P || typeof P.compterInvitations !== 'function') return
   ext.lectureInvitations = true
   setTimeout(() => {
-    P.compterInvitations().then((n) => { ext.invitationsLues = true; if (typeof n === 'number' && n !== ext.invitations) { ext.invitations = Math.max(n, ext.invitations || 0) } rafraichir() }).catch(() => { ext.invitationsLues = true })
+    P.compterInvitations().then((n) => {
+      // null = espace pas encore résolu : on relira au prochain affichage (l'attente reste bornée à ATTENTE_MAX).
+      if (typeof n !== 'number') { ext.lectureInvitations = false; return }
+      ext.invitationsLues = true
+      if (n !== ext.invitations) ext.invitations = Math.max(n, ext.invitations || 0)
+      rafraichir()
+    }).catch(() => { ext.lectureInvitations = false })
   }, 1200)
 }
 // En cloud, la PREMIÈRE évaluation attend les deux compteurs (accès locataire chargés ~1,5 s après la connexion,
 // invitations lues ensuite) : sinon un compte antérieur verrait ses étapes cloud datées « maintenant », sans « avant »,
 // et fausserait les statistiques. Au plus ATTENTE_MAX ms, puis on évalue avec ce qui est connu (jamais bloquant).
 const ATTENTE_MAX = 12000
-function comptesConnus(x) {
+function comptesConnus(x, etat) {
   if (!x.cloud || W.__immoDemo) return true
   if (!ext.attenteDepuis) ext.attenteDepuis = Date.now()
   if (Date.now() - ext.attenteDepuis > ATTENTE_MAX) return true
   const partage = W.__immoPartage && typeof W.__immoPartage.compterInvitations === 'function'
-  return x.accesLocataire !== null && (!partage || ext.invitationsLues === true)
+  // Sans bail propre, aucun accès locataire n'est possible : inutile d'attendre leur chargement (compte neuf).
+  const bail = etat && etat.liste.find((s) => s.id === 'bail')
+  const accesConnu = x.accesLocataire !== null || !(bail && bail.fait)
+  return accesConnu && (!partage || ext.invitationsLues === true)
 }
 let _attente = null
 function reessayerBientot() { if (_attente) return; _attente = setTimeout(() => { _attente = null; rafraichir() }, 1500) }
@@ -74,13 +84,10 @@ function brancherInvitation() {
 // ─────────────────────────── Progression (D5, D6) ───────────────────────────
 let _ecriture = false
 function lirePP() { const D = db(); return (D && D.params && D.params.premiersPas) || null }
-// `memoireSeule` : étape intermédiaire de la visite — gardée en mémoire, écrite avec le prochain enregistrement
-// (évite de réécrire toute la configuration du compte à chaque « Suivant »).
-function enregistrer(pp, memoireSeule) {
+function enregistrer(pp) {
   const D = db(); if (!D || _ecriture) return
   if (!D.params) D.params = {}
   D.params.premiersPas = pp
-  if (memoireSeule) return
   if (W.__immoHorsLigne || lectureSeule() || !G('saveDB')) return   // gardé en mémoire ; réécrit au prochain affichage en ligne
   _ecriture = true
   try { W.saveDB({ autosave: true, quoi: 'premiers-pas' }) } catch (e) { console.warn('[premiers-pas] enregistrement', e && e.message) } finally { _ecriture = false }
@@ -93,7 +100,7 @@ function evaluer() {
   let pp = lirePP()
   if (!pp) {
     if (!donneesPretes() || W.__immoHorsLigne) return { etat, pp: null, x }
-    if (!comptesConnus(x)) { lireInvitationsPlusTard(); reessayerBientot(); return { etat, pp: null, x } }
+    if (!comptesConnus(x, etat)) { lireInvitationsPlusTard(); reessayerBientot(); return { etat, pp: null, x } }
     pp = PP.initialiser(D, x, maintenant())
     enregistrer(pp)
     return { etat, pp, x }
@@ -130,7 +137,7 @@ const CSS = `
 .pp-chip.ok .d,.pp-row.ok .d{background:var(--pos);border-color:var(--pos)}
 .pp-chip .d svg{width:10px;height:10px;stroke:#fff;stroke-width:3;fill:none}
 .pp-chip.next{border-color:var(--acc);color:var(--t1)}
-@media (pointer:coarse){ .pp-chip,.pp-btn{min-height:44px} }
+@media (pointer:coarse){ .pp-chip,.pp-btn,#pp-tour .pp-demo button{min-height:44px} }
 @media (min-width:1101px){ #pp-carte .pp-l1{flex-wrap:nowrap} #pp-carte .pp-act{flex:none} }
 @media (min-width:768px) and (max-width:1100px){ #pp-carte .pp-act{order:2;margin-left:auto} #pp-carte .pp-chips{order:3;flex:1 1 100%} }
 .accm #pp-carte{margin:6px 0 14px;padding:14px}
@@ -310,8 +317,9 @@ function afficher() {
   if (G('rParamsProfile')) W.rParamsProfile()
 }
 function reglerMesure(oui) {
+  const ev = evaluer()   // d'abord : une progression mise à jour ici ne doit pas être écrasée
   const pp = lirePP(); if (!pp) return
-  const ev = evaluer()
+  if (!!oui === (pp.mesure !== false)) return
   enregistrer(PP.reglerMesure(pp, !!oui, ev && ev.etat, maintenant()))
   toast(oui ? 'Progression de mise en route partagée avec Propryo.' : 'Progression de mise en route non partagée : les dates enregistrées sont effacées.', 'ok', 4500)
 }
@@ -344,7 +352,7 @@ function lancerSiBesoin(ev) {
   if (document.querySelector('.ov:not(.hidden)')) return
   _lance = true
   // Revérifié au moment de lancer : une couche ouverte entre-temps (fil rouge, popup) ou l'écran de connexion passe avant.
-  setTimeout(() => { try { const lg = document.getElementById('imsb-overlay'); if (_cur < 0 && pageCourante() === 'accueil' && !document.querySelector('.ov:not(.hidden)') && !(lg && visible(lg)) && PP.doitLancerVisite(lirePP())) visite(PP.etapeDeReprise(lirePP())) } catch (e) { /* jamais bloquant */ } }, 600)
+  setTimeout(() => { try { const lg = document.getElementById('imsb-overlay'); if (_cur < 0 && pageCourante() === 'accueil' && !document.querySelector('.ov:not(.hidden)') && !(lg && visible(lg)) && PP.doitLancerVisite(lirePP())) visite(PP.etapeDeReprise(lirePP())); else if (_cur < 0) _lance = false } catch (e) { _lance = false } }, 600)
 }
 function relancer() {
   const pp = lirePP()
@@ -359,7 +367,7 @@ function visite(i) {
   i = Math.max(0, Math.min(n, i | 0))
   if (_cur < 0) _focusAvant = document.activeElement
   _cur = i
-  const pp = lirePP(); if (pp) enregistrer(PP.visiteEtape(pp, i, maintenant()), pp.visite && pp.visite.etat === 'en_cours')
+  const pp = lirePP(); if (pp) enregistrer(PP.visiteEtape(pp, i, maintenant()))   // chaque étape : la visite reprend là où elle s'est arrêtée
   const st = PP.VISITE[i]
   const zs = zones(st.k)
   if (zs[0]) zs[0].scrollIntoView({ block: 'center' })
