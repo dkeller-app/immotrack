@@ -1175,6 +1175,15 @@ function _bootDataJobs() {
   // démarrage, pas seulement à l'ouverture de Finances : l'Accueil et la fiche d'un bien lisent le même moteur.
   if (typeof _finMigrateCatAlias === 'function') { try { _finMigrateCatAlias(); } catch(e) { console.warn('[migration familles]', e); } }
   if (typeof _finMigrateAssuranceEmprunteur === 'function') { try { _finMigrateAssuranceEmprunteur(); } catch(e) { console.warn('[migration assurance emprunteur]', e); } }
+  // RETOURS 15/10 (lot 2, point 2) — poêle à granulés et insert : les deux échéances « entretien » et « ramonage » deviennent
+  // une seule (fiches d'intervention, pièces jointes, rappels d'agenda). Idempotente, rien n'est perdu (anciennes fiches gardées
+  // dans `regroupeDe`). Cœur pur testé : js/core/entretien-regroupement.js. Rappels régénérés par agendaAutoSync.
+  if (window.EntretienRegroupement && typeof window.EntretienRegroupement.regrouperEntretiens === 'function') {
+    try {
+      const _rg = window.EntretienRegroupement.regrouperEntretiens(DB, { stamp: _stamp });
+      if (_rg.change) { saveDB(); if (typeof agendaAutoSync === 'function') { try { agendaAutoSync(); } catch(e2) {} } }
+    } catch(e) { console.warn('[migration entretien + ramonage]', e); }
+  }
   // ALERTE-REGUL (14/10) — migration douce : les validations de régul de l'ancien stockage (DB.regulValidations,
   // configuration de l'espace propre, jamais partagée) passent sur les LOGEMENTS du groupe validé (espace propre
   // seulement) → partagées par la SCI. EN DEUX TEMPS : copie d'abord (la clé reste, au cas où l'envoi d'un logement

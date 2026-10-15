@@ -1834,6 +1834,11 @@ const AGENDA_CATS = {
 
 // Règles d'entretiens avec bases légales exactes
 // Chaque règle : { key, cat, label, base, intervalYears, intervalMonths?, rappels, condFn(bail) }
+// RETOURS 15/10 (lot 2, point 2) — poêles et inserts : entretien ET ramonage obligatoires au moins tous les 12 mois depuis le
+// 01/10/2023 (décret 2023-641, C. santé publ. art. R. 1331-14 à R. 1331-26), faits par le même professionnel dans la même visite
+// → UNE échéance « Entretien + ramonage ». Les anciennes clés POELE_GRAN_ENT/RAM et INSERT_ENT/RAM sont migrées au démarrage
+// (js/core/entretien-regroupement.js). Chaudières fioul / bois : régime des chaudières (C. env. R. 224-41-4 s.), échéances séparées.
+const _BASE_POELE_INSERT = 'Entretien et ramonage au moins tous les 12 mois (code de la santé publique, art. R. 1331-16 et R. 1331-19, décret 2023-641, depuis le 01/10/2023). Ramonage : le règlement sanitaire départemental ou un arrêté local peut en exiger 2 par an. Entretien : selon la notice du fabricant.';
 const EQUIP_RULES = [
   { key:'CHAUDIERE_GAZ',  cat:'CHAUDIERE', label:'Entretien chaudière gaz',         icon:'🔥',
     base:'Décret 2009-649 — 1×/an obligatoire. Pas de ramonage pour le gaz.',
@@ -1850,21 +1855,16 @@ const EQUIP_RULES = [
   { key:'RAMONAGE_BOIS',  cat:'RAMONAGE',  label:'Ramonage conduit bois/granulés',   icon:'🏠',
     base:'RSD — 1×/an (certains arrêtés locaux : 2×/an)',
     intervalYears:1, rappels:[30], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.bois) },
-  { key:'POELE_BOIS_RAM', cat:'RAMONAGE',  label:'Ramonage poêle à bois',            icon:'🏠',
-    base:'RSD — 1×/an minimum (certains arrêtés locaux : 2×/an)',
-    intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleBois) },
-  { key:'POELE_GRAN_ENT', cat:'CHAUDIERE', label:'Entretien poêle granulés',          icon:'🔥',
-    base:'Recommandation fabricant — 1×/an minimum',
+  // Clé conservée (D5 : libellé seulement, pas de migration de données) ; l'entretien du poêle à bois est aussi obligatoire (R. 1331-16).
+  { key:'POELE_BOIS_RAM', cat:'RAMONAGE',  label:'Entretien + ramonage poêle à bois', icon:'🏠',
+    base:_BASE_POELE_INSERT,
+    intervalYears:1, rappels:[30,7], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleBois) },
+  { key:'POELE_GRAN',     cat:'RAMONAGE',  label:'Entretien + ramonage poêle à granulés', icon:'🏠',
+    base:_BASE_POELE_INSERT,
     intervalYears:1, rappels:[30,7], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleGran) },
-  { key:'POELE_GRAN_RAM', cat:'RAMONAGE',  label:'Ramonage poêle granulés',           icon:'🏠',
-    base:'RSD — 1×/an (granulés : faibles dépôts, vérifier arrêté local)',
-    intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.poeleGran) },
-  { key:'INSERT_ENT',     cat:'CHAUDIERE', label:'Entretien insert/foyer fermé',      icon:'🔥',
-    base:'Recommandation annuelle — contrôle joints, vitrocéramique, tirage',
+  { key:'INSERT',         cat:'RAMONAGE',  label:'Entretien + ramonage insert / foyer fermé', icon:'🏠',
+    base:_BASE_POELE_INSERT,
     intervalYears:1, rappels:[30,7], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.insert) },
-  { key:'INSERT_RAM',     cat:'RAMONAGE',  label:'Ramonage insert/foyer fermé',       icon:'🏠',
-    base:'RSD — 1×/an (certains arrêtés locaux : 2×/an pour foyers à bois)',
-    intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.insert) },
   { key:'CHEMINEE_RAM',   cat:'RAMONAGE',  label:'Ramonage cheminée ouverte',         icon:'🏠',
     base:'RSD — 1×/an minimum (certains arrêtés locaux : 2×/an)',
     intervalYears:1, rappels:[21], condFn: (b, log) => !!(log && log.chauffage && log.chauffage.cheminee) },
