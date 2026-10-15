@@ -30867,6 +30867,7 @@ function _bankWalkRender() {
     + '<span id="bank-mv-hint" class="mu sm" style="font-size:11.5px"></span>'
     + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    + '<button class="btn bs" onclick="_bankWalkExclude()" title="Ne pas importer ce mouvement (rétablissable sous la liste)">' + _uiIcon('trash') + ' Écarter ce mouvement</button>'
     + '<button class="btn bs" onclick="_bankWalkSkip()">Passer</button>'
     + _bankRuleStatutHtml('ligne', i)
     + '<button class="btn bp" id="bank-mv-validate" onclick="_bankMvValidate()">' + (last ? 'Valider et terminer ' + _uiIcon('check') : 'Valider l\'opération →') + '</button>'
@@ -30908,6 +30909,23 @@ function _bankCloseMvWindow() {
   _bankUpdateCounts();
 }
 function _bankWalkPrev() { if (_bankWalk && _bankWalkPos > 0) _bankWalkGoto(_bankWalkPos - 1); }
+// RETOURS 15/10 (lot 1, point 3) — « Écarter ce mouvement » depuis la fenêtre pas à pas : le même geste
+// que la corbeille de la liste (_bankExcludeLine, DRY), volontaire, dit à voix haute (CDC import T-1
+// « on ne cache rien ») et réversible : « rétablir » sous la liste remet toutes les lignes écartées.
+// La ligne sort du parcours ; la suivante s'ouvre (ou l'écran de fin s'il n'en reste pas).
+function _bankWalkExclude() {
+  const i = _bankMvIdx;
+  if (!_bankWalk || i < 0 || !_bankImportLines[i]) return;
+  const line = _bankImportLines[i];
+  _bankMvIdx = -1;                                  // la ligne quittée n'est PAS synchronisée : elle sort de l'import
+  _bankExcludeLine(i);
+  _bankWalk.splice(_bankWalkPos, 1);
+  _bankUpdateCounts();
+  showToast('Mouvement du ' + (line.date ? fd(line.date) : '—') + ' écarté : il ne sera pas importé. Pour le remettre : « rétablir » sous la liste.', 'info', 7000);
+  if (!_bankWalk.length) { _bankWalkDone(); return; }
+  _bankWalkPos = Math.min(_bankWalkPos, _bankWalk.length - 1);
+  _bankWalkRender();
+}
 function _bankWalkSkip() {
   if (!_bankWalk) return;
   if (_bankWalkPos >= _bankWalk.length - 1) { _bankWalkDone(); return; }
@@ -31833,7 +31851,9 @@ function _bankImportConfirm() {
   if (!_bankImportLines.length) { showToast('Rien à importer', 'warn'); return; }
   // Lignes à importer : (a) non doublon ET non exclue manuellement, OU (b) doublon mais explicitement coché
   // ⑧.1 v2 — ET prête (_bankLineDone) : les autres ne bloquent plus, elles sont GARDÉES en attente.
-  const toImport = _bankImportLines.filter(l => (l._userKeep || (!l.isDuplicate && !l._userExclude)) && _bankLineDone(l));
+  // RETOURS 15/10 (lot 1, point 3) — une ligne ÉCARTÉE ne s'importe jamais, même un doublon gardé
+  // (« Importer quand même ») puis écarté : l'exclusion est le dernier geste de l'utilisateur.
+  const toImport = _bankImportLines.filter(l => !l._userExclude && (l._userKeep || !l.isDuplicate) && _bankLineDone(l));
   const _toSet = new Set(toImport);
   // En attente : ni importée, ni exclue, ni doublon résolu (un doublon certain ou confirmé est
   // définitivement écarté — un PROBABLE non tranché se garde, T-1 : rien ne disparaît en silence).

@@ -10625,9 +10625,12 @@ function fillMvQui() {
   const s = el('mv-qui'); if(!s) return;
   // v14.31 BUG-DRIVE-RESURRECTION : filtrer tombstones avant accès .type
   // v14.80 SECU-INNERHTML : escape e.nom / l.ref / l.locataire (XSS via nom entité ou ref)
-  const sciOpts = DB.entites.filter(_isAlive).filter(e=>e.type&&e.type.startsWith('SCI')).map(e=>`<option value="SCI:${escHtml(e.nom)}">SCI: ${escHtml(e.nom)}</option>`).join('');
+  // RETOURS 15/10 (lot 1, point 3) — TOUS les bailleurs (SCI, nom propre, société, indivision…), plus
+  // seulement les types « SCI… » : un bailleur en nom propre n'avait aucune entrée. La valeur garde
+  // son préfixe historique « SCI: » (clé d'affectation au bailleur, lue partout : Finances, 2044…).
+  const sciOpts = DB.entites.filter(_isAlive).map(e=>`<option value="SCI:${escHtml(e.nom)}">${escHtml(e.nom)}</option>`).join('');
   const logOpts = _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
-  s.innerHTML=`<option value="">– Aucun –</option><option value="Global">Global</option><optgroup label="Entités SCI">${sciOpts}</optgroup><optgroup label="Logements">${logOpts}</optgroup>`;
+  s.innerHTML=`<option value="">– Aucun –</option><option value="Global">Global</option><optgroup label="Bailleurs">${sciOpts}</optgroup><optgroup label="Logements">${logOpts}</optgroup>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10763,7 +10766,7 @@ function _affRender(id, tgt) {
     let quiSci = qui;
     if (!quiSci && /^imp\d+$/.test(tgt) && typeof _currentBankAccount !== 'undefined' && _currentBankAccount
         && !_currentBankAccount.mixte && _currentBankAccount.bailleur
-        && DB.entites.some(e => _isAlive(e) && e.type && e.type.startsWith('SCI') && e.nom === _currentBankAccount.bailleur)) {
+        && DB.entites.some(e => _isAlive(e) && e.nom === _currentBankAccount.bailleur)) {
       quiSci = 'SCI:' + _currentBankAccount.bailleur;
       if (el(tgt + '-qui')) el(tgt + '-qui').value = quiSci;      // écrit la valeur cible, pas juste l'affichage
       // AUDIT I2 — on écrit AUSSI la ligne, au rang de PROPOSITION : DOM et ligne restent égaux,
@@ -10775,7 +10778,8 @@ function _affRender(id, tgt) {
       if (_pln && !_pln.suggestedQui && !_pln.suggestedImm && !_pln.suggestedCc) _pln.suggestedQui = quiSci;
       if (typeof _bankWalkRefreshValidate === 'function') setTimeout(_bankWalkRefreshValidate, 0);
     }
-    const sciAll = DB.entites.filter(_isAlive).filter(e => e.type && e.type.startsWith('SCI'));
+    // RETOURS 15/10 (lot 1, point 3) — tout bailleur, quel que soit son type (nom propre compris).
+    const sciAll = DB.entites.filter(_isAlive);
     const sciVis = sciAll.filter(e => per.entiteOk(e.nom) || quiSci === 'SCI:' + e.nom);
     masques = sciAll.length - sciVis.length;
     const o = sciVis.map(e => opt('SCI:' + e.nom, e.nom, quiSci === 'SCI:' + e.nom)).join('');
