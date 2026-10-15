@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catégorie « Prêt — Assurance emprunteur » — maquette REGLES-REFONTE</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.pick{border:1px solid var(--bor);border-radius:var(--rl);background:var(--sur);box-shadow:var(--shadow-lg);overflow:hidden}
+.pick .q{padding:10px;border-bottom:1px solid var(--bor)}
+.pick .lst{max-height:420px;overflow:auto}
+.pick .g{padding:8px 14px 4px;font:800 var(--fs-xs)/1 var(--font);letter-spacing:.07em;text-transform:uppercase;color:var(--t3);background:var(--sur2)}
+.pick .it{display:flex;gap:10px;align-items:center;min-height:44px;padding:6px 14px;width:100%;border:0;border-bottom:1px solid var(--bor2);background:var(--sur);cursor:pointer;text-align:left;font-size:var(--fs-md)}
+.pick .it:hover{background:var(--sur3)}
+.pick .it[aria-selected="true"]{background:var(--acc-soft)}
+.pick .it .l2{margin-left:auto;font-size:var(--fs-sm);color:var(--t3);white-space:nowrap}
+.pick .it.nv{box-shadow:inset 3px 0 0 var(--acc)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@container (max-width:800px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="mk-bar">
+  <a class="back" href="index.html">← Maquettes</a>
+  <h1>Catégorie « Prêt — Assurance emprunteur »<small>Visible dans le sélecteur, ligne 250 de la 2044 avec les intérêts — et note de prudence anti double compte</small></h1>
+  <div><span class="mk-lbl">Format</span><span class="mk-seg" role="group" aria-label="Format">
+    <button data-format-btn="pc" aria-pressed="true">PC 1280</button><button data-format-btn="tab" aria-pressed="false">Tablette 768</button><button data-format-btn="tel" aria-pressed="false">Téléphone 390</button></span></div>
+  <div><span class="mk-lbl">Thème</span><span class="mk-seg" role="group" aria-label="Thème">
+    <button data-theme-btn="auto" aria-pressed="true">Auto</button><button data-theme-btn="light" aria-pressed="false">Clair</button><button data-theme-btn="dark" aria-pressed="false">Sombre</button></span></div>
+</header>
+<main class="stage">
+
+<div class="device" data-format="pc" id="dev">
+ <div class="appbg"><b>ImmoTrack</b> Loyers &amp; Mouvements · Fiche du mouvement du 03/10/2026</div>
+ <div class="page"><div class="two">
+  <div class="card" style="display:flex;flex-direction:column;gap:12px">
+   <div class="sec"><h3>Mouvement</h3><div class="srcline"><span class="d">03/10/2026</span><span class="l">PRLV CNP ASSURANCES EMPRUNTEUR PRET 0192</span><span class="m neg">−18,40 €</span><span class="s">CIC Pro ···4821 · SCI Dupont · prélèvement distinct de l'échéance de prêt</span></div></div>
+   <div class="fld"><label>Catégorie</label><div class="inp" id="cur" style="display:flex;align-items:center;gap:8px;background:var(--sur)">💳 Prêt — Assurance emprunteur</div></div>
+   <div id="detail"></div>
+  </div>
+  <div class="pick" role="listbox" aria-label="Sélecteur de catégorie">
+   <div class="q"><input class="inp" id="q" type="search" placeholder="Rechercher une catégorie…" value="" aria-label="Rechercher une catégorie"></div>
+   <div class="lst" id="lst"></div>
+  </div>
+ </div></div>
+</div>
+</main>
+<script src="_shared.js"></script>
+<script>
+
+(function(){
+ var G=[
+  ['Recettes',[['💰','Loyers encaissés','211'],['🛡️','Indemnité GLI / loyers impayés','213'],['📡','Recettes diverses','213']]],
+  ['Charges déductibles',[['💼','Frais de gestion / honoraires / comptabilité','221'],['🛡️','Primes d\'assurance (PNO, GLI)','223'],['🔨','Travaux (entretien, réparation, amélioration)','224'],['♻️','Travaux de rénovation énergétique','224 bis'],['🏛️','Taxe foncière (et taxes annexes)','227'],['🏢','Charges de copropriété','229']]],
+  ['Prêt',[['💳','Prêt — Assurance emprunteur','250',1],['💳','Prêt','hors 2044']]],
+  ['Récupérable et hors résultat foncier',[['⚡','Charges récupérables (eau, énergie…)','—'],['🏦','Frais bancaires','—'],['🔁','Virement interne (non déclarable)','—'],['📋','Divers (non déductible)','—']]]];
+ var sel='Prêt — Assurance emprunteur',$=function(i){return document.getElementById(i)};
+ function list(){var q=$('q').value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),h='';
+  G.forEach(function(g){var it=g[1].filter(function(x){return x[1].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').indexOf(q)>-1});if(!it.length)return;
+   h+='<div class="g">'+g[0]+'</div>'+it.map(function(x){return '<button class="it'+(x[3]?' nv':'')+'" role="option" aria-selected="'+(x[1]===sel)+'" data-n="'+x[1]+'"><span>'+x[0]+'</span><span>'+x[1]+(x[3]?' <span class="bdg acc">Nouveau</span>':'')+'</span><span class="l2">'+(x[2]==='—'||x[2]==='hors 2044'?x[2]:'ligne '+x[2])+'</span></button>'}).join('')});
+  $('lst').innerHTML=h||'<div style="padding:14px" class="mut">Aucune catégorie.</div>'}
+ function detail(){
+  $('cur').textContent=sel;
+  if(sel==='Prêt — Assurance emprunteur')$('detail').innerHTML='<div class="alert info"><b>Comptée en ligne 250 de la 2044</b>, avec les intérêts d\'emprunt. À utiliser pour un prélèvement d\'assurance emprunteur <b>séparé</b> de l\'échéance du prêt.</div>'+
+   '<div class="alert warn"><b>⚠ Prudence : risque de double compte</b><br>Si votre banque inclut déjà l\'assurance dans l\'attestation annuelle d\'intérêts que vous saisissez via « Renseigner les intérêts d\'emprunt », ne la comptez pas aussi ici : elle serait retenue deux fois en ligne 250. Vérifiez le détail de l\'attestation avant de classer ces prélèvements.</div>'+
+   '<div class="grid2"><div class="fld"><label>Niveau</label><div class="seg"><button aria-pressed="false">Logement</button><button aria-pressed="true">Immeuble</button><button aria-pressed="false">SCI</button></div></div><div class="fld"><label>Immeuble</label><select class="inp"><option>Immeuble Ferrette — SCI Dupont</option></select></div></div>';
+  else if(sel==='Prêt')$('detail').innerHTML='<div class="alert info"><b>Échéance de prêt (capital)</b> : hors résultat foncier. Si l\'assurance est prélevée à part, utilisez « Prêt — Assurance emprunteur ».</div>';
+  else $('detail').innerHTML='<p class="hint">Autre catégorie sélectionnée : l\'aperçu du détail s\'affiche ici (inchangé).</p>'}
+ $('q').addEventListener('input',list);
+ $('lst').addEventListener('click',function(e){var b=e.target.closest('.it');if(b){sel=b.dataset.n;list();detail()}});
+ list();detail();
+})();
+</script>
+</body>
+</html>

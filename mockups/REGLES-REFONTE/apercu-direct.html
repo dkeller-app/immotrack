@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aperçu en direct à lignes décochables — maquette REGLES-REFONTE</title>
+<link rel="stylesheet" href="_shared.css">
+
+</head>
+<body>
+<header class="mk-bar">
+  <a class="back" href="index.html">← Maquettes</a>
+  <h1>Aperçu en direct à lignes décochables<small>Lignes de l'import décochables, compteur « en base » informatif, alerte « natures différentes », mot libre « + mot », compte préchargé ; création à froid</small></h1>
+  <div><span class="mk-lbl">Format</span><span class="mk-seg" role="group" aria-label="Format">
+    <button data-format-btn="pc" aria-pressed="true">PC 1280</button><button data-format-btn="tab" aria-pressed="false">Tablette 768</button><button data-format-btn="tel" aria-pressed="false">Téléphone 390</button></span></div>
+  <div><span class="mk-lbl">Thème</span><span class="mk-seg" role="group" aria-label="Thème">
+    <button data-theme-btn="auto" aria-pressed="true">Auto</button><button data-theme-btn="light" aria-pressed="false">Clair</button><button data-theme-btn="dark" aria-pressed="false">Sombre</button></span></div>
+</header>
+<main class="stage">
+
+<div class="legend" role="note"><b>Légende</b>
+ <span class="lg"><i class="sw old"></i>Existant, inchangé (grisé) : la vraie fenêtre de classement est conservée telle quelle (CDC-IMPORT §⑦.6)</span>
+ <span class="lg"><i class="sw mod"></i>Modifié</span><span class="lg"><i class="sw new"></i>Nouveau</span></div>
+<div class="note"><span class="mk-lbl">Cas</span><span class="mk-seg" role="group" aria-label="Cas">
+ <button data-pre="1" aria-pressed="true">1 · « SARAR » trop large</button>
+ <button data-pre="2" aria-pressed="false">2 · SARAR + mot saisi « PROVIS »</button>
+ <button data-pre="3" aria-pressed="false">3 · SARAR SYNDIC, 4 583,03 € décoché</button>
+ <button data-pre="4" aria-pressed="false">4 · Création à froid (compte à choisir)</button></span></div>
+<div class="device" data-format="pc" id="dev">
+ <div class="appbg"><b>ImmoTrack</b> <span id="ctx"></span></div>
+ <div class="scrim"><div class="modal">
+  <div class="mh"><div><h2>Aperçu de la règle, en direct</h2><p id="sub">Chaque case décochée sort la ligne de la règle. L'aperçu se met à jour à chaque clic.</p></div></div>
+  <div class="mb">
+   <div class="oldbar zn old" id="oldnav" aria-label="Fenêtre de classement existante"><span class="bdg">Vérifier 14 / 31</span><button class="btn sm">‹ Précédent</button><button class="btn sm">Suivant ›</button><span class="sp"></span><button class="btn sm">✂️ Découper</button></div>
+   <div class="sec zn new" data-tag="nouveau" id="refsec" hidden><h3>Libellé de référence</h3><div class="fld"><label for="ref">Collez un libellé de relevé : ses mots deviennent les puces</label><input class="inp" id="ref" value="VIR PERM SARAR SYNDIC FERRETTE PROVISION CHARGES OCT 2026"></div></div>
+   <div class="sec zn mod" data-tag="modifié"><h3>Motif — mots du libellé, plus vos propres mots</h3><div class="chips" id="chips"></div>
+    <div class="freebox" id="freebox" hidden><label for="freein" class="lab">Un mot, ou un morceau de mot, absent du libellé</label>
+     <div class="row"><input class="inp" id="freein" placeholder="ex. PROVIS" autocomplete="off" autocapitalize="characters"><button class="btn pri sm" id="freeok">Ajouter</button><button class="btn sm" id="freeno">Annuler</button></div><div class="fb" id="freefb" role="status"></div></div>
+    <div class="motif" id="motif"></div>
+    <p class="hint">Tous les mots (cochés + saisis) doivent figurer dans le libellé, n'importe où et sans ordre, majuscules et accents ignorés. Un mot saisi est cherché comme morceau de mot.</p></div>
+   <div class="grid2">
+    <div class="fld zn old"><span class="lab">Sens</span><div class="seg" id="sens"><button data-v="dep">Dépense</button><button data-v="rec">Recette</button><button data-v="both">Les deux</button></div></div>
+    <div class="fld zn new" data-tag="nouveau" style="margin-top:8px"><span class="lab" id="cptlab">Compte</span>
+     <div class="ro" id="cptro"><span aria-hidden="true">🔒</span><b>CIC Pro ···4821</b><span class="bdg">bailleur : SCI Dupont</span><span class="bdg">préchargé</span></div>
+     <select class="inp" id="cpt" aria-label="Compte (obligatoire)" hidden><option value="">— Choisir un compte —</option><option value="cic">CIC Pro ···4821 — SCI Dupont</option><option value="bp">Banque Populaire ···0937 — SCI Dupont</option></select>
+     <span class="hint" id="cpthint" style="margin:0"></span></div>
+   </div>
+   <div class="sec"><h3 id="pvtitle">Lignes de l'import en cours qui correspondent</h3><div class="zn mod" data-tag="modifié : cases décochables"><div id="alertbox"></div><div class="pv"><div class="pvh" id="pvh"></div><div id="rows"></div></div><p class="hint" id="others"></p></div></div>
+   <div class="kpis zn new" data-tag="nouveau" id="kpis" style="margin-top:8px;padding-top:20px"></div>
+   <div id="exc"></div>
+  </div>
+  <div class="mf"><div class="saved zn new" data-tag="nouveau" id="saved" hidden><span class="bdg pos">✓ Règle enregistrée</span><span id="savedtxt"></span><button class="lnk" id="savedmod">Modifier</button></div><button class="btn">Retour</button><button class="btn pri" id="save">Enregistrer la règle</button></div>
+ </div></div>
+</div>
+</main>
+<script src="_shared.js"></script>
+<script>
+
+(function(){
+ var N=RR.norm;
+ var P='VIR PERM SARAR SYNDIC FERRETTE PROVISION CHARGES';
+ var W=(P+' OCT 2026').split(' ');
+ var CTX={imp:'Loyers & Mouvements · Import du relevé CIC Pro — créer une règle depuis la ligne 14 / 31',cold:'Réglages · Règles de classement · Nouvelle règle (création à froid)'};
+ var IMP=[
+  {id:1,d:'05/10',l:P+' OCT 2026',m:-150,n:'Charges récupérables',src:1},
+  {id:2,d:'05/09',l:P+' SEP 2026',m:-150,n:'Charges récupérables'},
+  {id:3,d:'05/08',l:P+' AOUT 2026',m:-150,n:'Charges récupérables'},
+  {id:4,d:'05/07',l:P+' JUIL 2026',m:-150,n:'Charges récupérables'},
+  {id:5,d:'18/09',l:'VIR SARAR SYNDIC FACTURE TRAVAUX PEINTURE PALIERS FERRETTE',m:-4583.03,n:'Travaux'},
+  {id:6,d:'12/09',l:'VIR SARAR SYNDIC REMBT TROP PERCU CHARGES 2025',m:212.40,n:'Charges récupérables (remboursement)'}];
+ var BASE=[];
+ for(var i=0;i<11;i++){var mo=['08','09','10','11','12','01','02','03','04','05','06'][i],yr=i<5?2025:2026;BASE.push({c:'cic',l:P+' '+mo+' '+yr,m:-150,d:'05/'+mo+'/'+yr,n:'Charges récupérables'})}
+ BASE.push({c:'cic',l:'VIR SARAR SYNDIC APPEL FONDS TRAVAUX TOITURE FERRETTE',m:-1820,d:'20/11/2025',n:'Travaux'});
+ BASE.push({c:'cic',l:'VIR SARAR SYNDIC REMBT TROP PERCU CHARGES 2024',m:96.10,d:'14/03/2026',n:'Charges récupérables (remboursement)'});
+ BASE.push({c:'bp',l:'VIR SARAR SYNDIC APPEL FONDS ESCALIER FERRETTE',m:-980,d:'02/04/2026',n:'Travaux'});
+ BASE.push({c:'bp',l:'VIR SARAR SYNDIC PROVISION CHARGES FERRETTE 03 2026',m:-150,d:'05/03/2026',n:'Charges récupérables'});
+ var st;
+ function $(i){return document.getElementById(i)}
+ function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+ function eur(v){var s=Math.abs(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,' ');return (v<0?'−':'+')+s+' €'}
+ function mt(l){var T=N(l).split(' ');
+  return st.sel.every(function(i){return T.indexOf(N(W[i]))>-1})&&st.free.every(function(f){return !f.on||N(l).indexOf(N(f.w))>-1})}
+ function sensOk(m){return st.sens==='both'||(st.sens==='dep'?m<0:m>0)}
+ function cptOk(c){return !st.cpt||st.cpt===c}
+ function nWords(){return st.sel.length+st.free.filter(function(f){return f.on}).length}
+ function hl(l){return l.split(' ').map(function(w){
+  if(st.sel.some(function(i){return N(W[i])===N(w)}))return '<mark>'+esc(w)+'</mark>';
+  var nw=N(w);for(var k=0;k<st.free.length;k++){var f=st.free[k];if(!f.on)continue;var p=nw.indexOf(N(f.w));if(p>-1&&nw.length===w.length)return esc(w.slice(0,p))+'<mark>'+esc(w.slice(p,p+f.w.length))+'</mark>'+esc(w.slice(p+f.w.length))}
+  return esc(w)}).join(' ')}
+ var PRE={
+  1:{k:'imp',sel:[2],free:[],sens:'both',cpt:'cic',off:[]},
+  2:{k:'imp',sel:[2],free:['PROVIS'],sens:'dep',cpt:'cic',off:[]},
+  3:{k:'imp',sel:[2,3],free:[],sens:'dep',cpt:'cic',off:[5]},
+  4:{k:'cold',sel:[2,3],free:[],sens:'dep',cpt:'',off:[]}};
+ function pre(k){var p=PRE[k];st={k:p.k,sel:p.sel.slice(),free:p.free.map(function(w){return {w:w,on:true}}),freeOpen:false,saved:false,sens:p.sens,cpt:p.cpt,off:p.off.slice()};
+  W=(st.k==='cold'?$('ref').value:P+' OCT 2026').trim().split(/\s+/);
+  $('freebox').hidden=true;$('freein').value='';draw()}
+ function feedback(){
+  var v=$('freein').value.trim(),fb=$('freefb');fb.className='fb';
+  if(!v){fb.textContent='Tapez un mot ou un morceau de mot, par exemple PROVIS.';return}
+  if(/\s/.test(v)){fb.textContent='Un seul mot à la fois, sans espace.';fb.className='fb ko';return}
+  if(st.free.some(function(f){return N(f.w)===N(v)})){fb.textContent='Ce mot est déjà saisi.';fb.className='fb ko';return}
+  var hit=W.filter(function(w){return N(w).indexOf(N(v))>-1})[0];
+  if(hit){fb.textContent='« '+v.toUpperCase()+' » est trouvé dans « '+hit+' » du libellé de départ.';fb.className='fb ok'}
+  else{fb.textContent='« '+v.toUpperCase()+' » ne figure pas dans le libellé de départ : la ligne de départ ne suivrait plus la règle.';fb.className='fb ko'}}
+ function addFree(){var v=$('freein').value.trim();
+  if(!v||/\s/.test(v)||st.free.some(function(f){return N(f.w)===N(v)})){feedback();return}
+  st.free.push({w:v.toUpperCase(),on:true});st.freeOpen=false;$('freebox').hidden=true;$('freein').value='';st.saved=false;draw()}
+ function draw(){
+  var cold=st.k==='cold';
+  $('ctx').textContent=CTX[st.k];
+  $('oldnav').style.display=cold?'none':'';$('refsec').hidden=!cold;
+  $('cptro').hidden=cold;$('cpt').hidden=!cold;$('cptlab').textContent=cold?'Compte (obligatoire en création à froid)':'Compte (déjà choisi, lecture seule)';
+  $('cpthint').textContent=cold?'Seul cas où le compte se choisit ici : une règle créée à froid n\'a pas de ligne dont hériter.':'Repris de la ligne de l\'import ; non modifiable depuis l\'aperçu.';
+  $('pvtitle').textContent=cold?'Aucune ligne d\'import en cours : mouvements déjà en base, pour information':'Lignes de l\'import en cours qui correspondent';
+  var h=W.map(function(w,i){return '<button class="chip" data-i="'+i+'" aria-pressed="'+(st.sel.indexOf(i)>-1)+'">'+esc(w)+'</button>'}).join('');
+  h+=st.free.map(function(f,i){return '<span class="chipf"><button class="chip free" data-f="'+i+'" aria-pressed="'+f.on+'">'+esc(f.w)+' <em>saisi</em></button><button class="x" data-fx="'+i+'" aria-label="Supprimer le mot saisi '+esc(f.w)+'">✕</button></span>'}).join('');
+  h+='<button class="chip add" id="addchip" aria-expanded="'+st.freeOpen+'" aria-controls="freebox">+ mot</button>';
+  $('chips').innerHTML=h;
+  var m=st.sel.slice().sort(function(a,b){return a-b}).map(function(i){return W[i]});
+  var fr=st.free.filter(function(f){return f.on});var n=m.length+fr.length;
+  $('motif').innerHTML=n?'Motif : '+m.map(function(w){return '<code>'+esc(w)+'</code>'}).join(' ')+' '+fr.map(function(f){return '<code class="fw">'+esc(f.w)+'</code> <span class="tg">saisi</span>'}).join(' '):'<span class="mut">Aucun mot choisi.</span>';
+  [].forEach.call($('sens').children,function(b){b.setAttribute('aria-pressed',String(b.dataset.v===st.sens))});$('cpt').value=st.cpt;
+  var match=cold?[]:IMP.filter(function(r){return n&&mt(r.l)&&sensOk(r.m)});
+  var kept=match.filter(function(r){return r.src||st.off.indexOf(r.id)<0});
+  var natures={};kept.forEach(function(r){natures[r.n]=1});var nn=Object.keys(natures);
+  var mixSens=kept.some(function(r){return r.m>0})&&kept.some(function(r){return r.m<0});
+  var base=BASE.filter(function(r){return n&&mt(r.l)&&sensOk(r.m)&&cptOk(r.c)});
+  var baseCpts={};base.forEach(function(r){baseCpts[r.c]=1});
+  var al='';
+  if(cold&&!st.cpt){al+='<div class="alert warn zn new" data-tag="nouveau"><b>Compte non choisi — la règle ne peut pas être enregistrée.</b><br>Choisissez le compte ci-dessus : le compteur « en base » mélange pour l\'instant les mouvements de '+Object.keys(baseCpts).length+' comptes.</div>'}
+  if(nn.length>1){var acts='',sug=W.indexOf('PROVISION');
+   if(sug>-1&&st.sel.indexOf(sug)<0)acts+='<button class="btn sm" data-act="word">Ajouter le mot « PROVISION »</button>';
+   if(st.sens==='both'&&mixSens)acts+='<button class="btn sm" data-act="sens">Fixer le sens : dépense</button>';
+   al+='<div class="alert warn zn new" data-tag="nouveau"><b>⚠ Natures différentes : '+nn.length+' types de lignes pour ce motif</b><ul>'+nn.map(function(x){return '<li>'+x+' — '+kept.filter(function(r){return r.n===x}).length+' ligne(s)</li>'}).join('')+'</ul>Elles recevraient la même catégorie. Resserrez le motif (une puce, ou « + mot »), ou décochez les lignes qui n\'en font pas partie.<div class="acts">'+acts+'<span class="mut" style="align-self:center;font-size:12px">ou décochez la ligne ci-dessous</span></div></div>'}
+  else if(kept.length){al+='<div class="alert pos zn new" data-tag="nouveau"><b>✓ Lignes de même nature</b> — la règle est cohérente sur l\'import en cours.</div>'}
+  $('alertbox').innerHTML=al;
+  var lastB=base.length?base.map(function(r){return r.d}).sort(function(a,b){return a.split('/').reverse().join('')<b.split('/').reverse().join('')?1:-1})[0]:'—';
+  if(cold){
+   $('pvh').innerHTML='<b>'+base.length+' mouvement'+(base.length>1?'s':'')+' en base</b><span class="mut">pour information · jamais modifiés'+(st.cpt?'':' · tous comptes confondus')+'</span>';
+   $('rows').innerHTML=base.length?base.slice(0,5).map(function(r){return '<div class="pvr"><span class="cb" style="width:44px;height:44px;display:grid;place-items:center" aria-hidden="true">·</span><span class="d">'+r.d.slice(0,5)+'</span><span class="l">'+hl(r.l)+'<small>'+r.n+' · '+(r.c==='cic'?'CIC Pro ···4821':'Banque Populaire ···0937')+'</small></span><span class="m '+(r.m<0?'neg':'pos')+'">'+eur(r.m)+'</span></div>'}).join('')+(base.length>5?'<div class="mut" style="padding:10px 14px">… et '+(base.length-5)+' autre'+(base.length>6?'s':'')+'</div>':''):'<div style="padding:14px" class="mut">Aucun mouvement en base ne correspond.</div>';
+   $('others').textContent='Sans import en cours, aucune case à cocher : la règle suivra les prochains imports et l\'import en cours quand il y en aura un.';
+   $('kpis').innerHTML='<div class="kpi info"><b>'+base.length+'</b><span>déjà en base — pour information : la règle ne les modifie jamais (dernier : '+lastB+')</span></div>';
+   $('exc').innerHTML='';
+  } else {
+   $('pvh').innerHTML='<b>'+kept.length+' ligne'+(kept.length>1?'s':'')+' suivront la règle</b><span class="mut">'+(match.length-kept.length)+' décochée'+(match.length-kept.length>1?'s':'')+' · import CIC Pro ···4821</span>';
+   $('rows').innerHTML=match.length?match.map(function(r){var off=!r.src&&st.off.indexOf(r.id)>-1;
+    return '<div class="pvr'+(off?' off':'')+(r.src?' src':'')+'"><label class="cb"><input type="checkbox" data-id="'+r.id+'"'+(off?'':' checked')+(r.src?' disabled':'')+' aria-label="Inclure la ligne dans la règle"></label><span class="d">'+r.d+'</span><span class="l">'+hl(r.l)+'<small>'+r.n+(r.src?' · <b>ligne source</b> : suit la règle tout de suite':(off?' · hors règle : reste à classer à la main':''))+'</small></span><span class="m '+(r.m<0?'neg':'pos')+'">'+eur(r.m)+'</span></div>'}).join(''):'<div style="padding:14px" class="mut">Aucune ligne de l\'import en cours ne correspond.</div>';
+   $('others').textContent=match.length?(31-match.length)+' autres lignes de l\'import ne correspondent pas à ce motif et ne sont pas touchées.':'';
+   var offN=match.length-kept.length;
+   $('kpis').innerHTML='<div class="kpi"><b>'+kept.length+'</b><span>ligne'+(kept.length>1?'s':'')+' de l\'import en cours classée'+(kept.length>1?'s':'')+' à l\'enregistrement</span></div><div class="kpi"><b>'+offN+'</b><span>décochée'+(offN>1?'s':'')+' : à classer à la main</span></div><div class="kpi info"><b>'+base.length+'</b><span>déjà en base — <b style="display:inline;font:600 12px var(--font)">pour information</b> : la règle ne les modifie jamais (dernier : '+lastB+')</span></div>';
+   $('exc').innerHTML=offN?'<div class="alert info zn new" data-tag="nouveau"><b>'+offN+' exception'+(offN>1?'s':'')+' mémorisée'+(offN>1?'s':'')+' sur la règle</b><br>'+match.filter(function(r){return st.off.indexOf(r.id)>-1}).map(function(r){return r.d+' · '+eur(r.m)+' · '+r.n}).join('<br>')+'<br><span class="mut">Visible et supprimable dans « Mes règles » (« '+offN+' exception »).</span></div>':'';
+  }
+  $('save').disabled=!(st.cpt&&n);
+  $('save').title=$('save').disabled?'Il faut au moins un mot et un compte':'';
+  $('saved').hidden=!st.saved;
+  if(st.saved)$('savedtxt').innerHTML='<b>« '+m.concat(fr.map(function(f){return f.w})).map(esc).join(' + ')+' »</b> · '+({dep:'dépenses',rec:'recettes',both:'dépenses et recettes'}[st.sens])+' · '+(st.cpt==='bp'?'Banque Populaire ···0937':'CIC Pro ···4821');
+ }
+ var root=$('dev');
+ root.addEventListener('click',function(e){
+  function u(){st.saved=false;draw()}
+  var c=e.target.closest('.chip[data-i]');if(c){var i=+c.dataset.i,p=st.sel.indexOf(i);p>-1?st.sel.splice(p,1):st.sel.push(i);u();return}
+  var f=e.target.closest('[data-f]');if(f){var q=st.free[+f.dataset.f];q.on=!q.on;u();return}
+  var x=e.target.closest('[data-fx]');if(x){st.free.splice(+x.dataset.fx,1);u();return}
+  if(e.target.closest('#addchip')){st.freeOpen=!st.freeOpen;$('freebox').hidden=!st.freeOpen;draw();if(st.freeOpen){feedback();$('freein').focus()}return}
+  if(e.target.id==='freeok'){addFree();return}
+  if(e.target.id==='freeno'){st.freeOpen=false;$('freebox').hidden=true;$('freein').value='';draw();return}
+  if(e.target.id==='save'){st.saved=true;draw();return}
+  if(e.target.id==='savedmod'){st.saved=false;draw();return}
+  var s=e.target.closest('#sens button');if(s){st.sens=s.dataset.v;u();return}
+  var a=e.target.closest('[data-act]');if(a){var k=a.dataset.act;if(k==='word')st.sel.push(W.indexOf('PROVISION'));if(k==='sens')st.sens='dep';u()}
+ });
+ root.addEventListener('input',function(e){if(e.target.id==='freein')feedback()});
+ root.addEventListener('keydown',function(e){if(e.target.id==='freein'){if(e.key==='Enter'){e.preventDefault();addFree()}if(e.key==='Escape'){st.freeOpen=false;$('freebox').hidden=true;draw();$('addchip').focus()}}});
+ root.addEventListener('change',function(e){
+  if(e.target.id==='cpt'){st.cpt=e.target.value;st.saved=false;draw()}
+  if(e.target.id==='ref'){W=e.target.value.trim().split(/\s+/).filter(Boolean);st.sel=[];st.saved=false;draw()}
+  if(e.target.dataset.id){var id=+e.target.dataset.id,p=st.off.indexOf(id);e.target.checked?(p>-1&&st.off.splice(p,1)):(p<0&&st.off.push(id));st.saved=false;draw()}
+ });
+ document.querySelectorAll('[data-pre]').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('[data-pre]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});pre(b.dataset.pre)})});
+ pre(1);
+})();
+</script>
+</body>
+</html>

@@ -17128,7 +17128,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.741 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.744 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -26560,71 +26560,227 @@ function _ccImmeuble(ccId) {
   return nom;
 }
 
-// ⑦.7 — La liste des règles : une seule liste, deux accès (ici et depuis la page
-// Loyers & Mouvements). Ajouté : le SENS, et la colonne « utilisée » (« 23 mouvements
-// classés · dernière fois le 12/08 ») pour repérer une règle obsolète ou trop large.
-// RETIRÉ : les flèches ↑↓ — il n'y a plus d'ordre à maintenir (⑦.2 : les règles
-// complémentaires s'additionnent, les règles en conflit ne s'appliquent pas).
-// L'édition passe par l'écran de règle avec aperçu (⑦.4), plus par des champs en ligne.
-// ⑦.7 — deuxième accès : la même liste, depuis la page Loyers & Mouvements.
+// ══════════════════════════════════════════════════════════════
+// REGLES-REFONTE phase 6b — « MES RÈGLES » (maquette mes-regles.html, version SIMPLE décidée par Didier)
+// Une seule liste, deux accès (Réglages ▸ Règles, et Loyers & Mouvements ▸ fenêtre « Mes règles »).
+//  · groupée par COMPTE (avec son bailleur), filtre bailleur + « Voir tout » ;
+//  · règles historiques sans compte : groupe « Compte à choisir » en tête (pas d'assistant de migration) ;
+//  · signal de DOUBLON : « Fusionner » (garde la plus LARGE, audit I2) ou « Garder les deux » (mémorisé sur la règle,
+//    champ `gardeAvec`, voir _bankRuleGarderLesDeux) ;
+//  · « N exception(s) » dépliable, chacune retirable ;
+//  · Modifier = la MÊME fenêtre que la création (`_bankRuleOpen(id)`) ; Supprimer = confirmation + tombstone.
+// NON fait volontairement (« on fait simple ») : test de libellé, statistiques d'utilisation.
+// La logique (regroupement, doublons, fusion) est dans js/core/bank-import.js (pur, testé) ; ici : le rendu.
+// Les identifiants / libellés passent par data-*, jamais dans le code d'un onclick ; tout texte est échappé.
+// ══════════════════════════════════════════════════════════════
 function _bankRulesOpen() { openM('ov-bank-rules'); rParamsRules('import-rules-list-modal'); }
+
+let _bankRulesBailleur = null;   // null = bailleur actif de la barre de gauche (à défaut : tout) · 'all' = Voir tout · sinon un bailleur
+const _bankRulesExOpen = {};     // règles dont les exceptions sont dépliées { id: true } (le dépliage survit au rafraîchissement)
+
+// Les textes statiques d'index.html (« …dans l'ordre », « + Règle ») datent d'avant la refonte : on les met à jour ici.
+function _bankRulesEntete() {
+  const hd = document.querySelector('#tp-rules .flex-b');
+  if (hd) {
+    const d = hd.querySelector('.mu.sm'); if (d) d.textContent = 'À l\'import bancaire, si le libellé contient tous les mots d\'une règle, sa catégorie et son affectation sont proposées.';
+    const b = hd.querySelector('button'); if (b) b.textContent = '+ Nouvelle règle';
+  }
+  const f = document.querySelector('#ov-bank-rules .m-foot .bp'); if (f) f.textContent = '+ Nouvelle règle';
+}
+// Bailleur affiché : le choix de l'utilisateur, sinon le bailleur actif de la barre de gauche s'il porte un compte, sinon tout.
+function _bankRulesBailleurEff(bailleurs) {
+  const norm = _bankRuleNorm;
+  const has = b => bailleurs.some(x => norm(x) === norm(b));
+  if (_bankRulesBailleur === 'all') return 'all';
+  if (_bankRulesBailleur && has(_bankRulesBailleur)) return _bankRulesBailleur;
+  if (_bankRulesBailleur === null && typeof _activeEntity !== 'undefined' && _activeEntity && has(_activeEntity)) return _activeEntity;
+  return 'all';
+}
+function _bankRulesRefresh() {
+  if (el('import-rules-list')) rParamsRules();
+  if (el('import-rules-list-modal')) rParamsRules('import-rules-list-modal');
+}
+
+function _bankRulesAffTxt(r) {
+  if (r.bailleurDuCompte) return 'le bailleur du compte';
+  if (r.compteurCcId) { const im = _ccImmeuble(r.compteurCcId); return 'Compteur collectif' + (im ? ' — ' + im : ''); }
+  if (String(r.qui || '').startsWith('SCI:')) return r.qui.slice(4);
+  if (r.qui) return _logLabel(r.qui);   // B3 : nom affiché
+  if (r.imm) return 'Immeuble ' + r.imm;
+  return '(aucune affectation)';
+}
+
+function _bankRulesCarteHtml(r, doublonAvec) {
+  const v = window._bankRuleVue(r);
+  const motif = rr => window._bankRuleMotif(rr);
+  const pills = v.mots.map(w => '<span class="brg-pill">' + escHtml(w) + '</span>').join('')
+    + v.motsLibres.map(w => '<span class="brg-pill brg-pill--saisi">' + escHtml(w) + ' <em>saisi</em></span>').join('');
+  const montant = v.montant ? _bankRuleMontantTxt(v.montant) : '';
+  const sens = v.sens === 'db' ? '<span class="brg-bdg neg">Dépense</span>' : (v.sens === 'cr' ? '<span class="brg-bdg pos">Recette</span>' : '<span class="brg-bdg">Les deux</span>');
+  const n = v.exceptions.length;
+  const rid = escHtml(v.id);
+  const act = (a, lbl, cls, extra) => '<button type="button" class="brg-lnk' + (cls ? ' ' + cls : '') + '" data-act="' + a + '" data-rid="' + rid + '"' + (extra || '') + ' onclick="_bankRulesAct(this)">' + lbl + '</button>';
+  const exc = n
+    ? '<details class="brg-exn"' + (_bankRulesExOpen[v.id] ? ' open' : '') + ' data-rid="' + rid + '" ontoggle="_bankRulesToggle(this)"><summary>' + n + ' exception' + (n > 1 ? 's' : '') + '</summary>'
+      + '<ul class="brg-exc">' + v.exceptions.map(e => '<li><span>' + (e.date ? escHtml(fd(e.date)) + ' · ' : '') + escHtml(e.libelle || '(libellé inconnu)')
+        + (e.montant != null && e.montant !== '' ? ' · ' + (e.sens === 'cr' ? '+' : '−') + fmt(Math.abs(Number(e.montant) || 0)) : '')
+        + ' <span class="brg-mut">— sortie de la règle</span></span>'
+        + act('xdel', 'Retirer', '', ' data-cle="' + escHtml(e.cle) + '"') + '</li>').join('') + '</ul></details>'
+    : '';
+  const dbl = doublonAvec
+    ? '<div class="brg-alert warn brg-rule-wide"><b>Doublon probable</b> : même compte, même résultat que <span class="brg-mot">« ' + escHtml(motif(doublonAvec)) + ' »</span>. '
+      + 'Fusionner garde « ' + escHtml(motif(doublonAvec)) + ' », la plus large : elle attrape aussi toutes les lignes de celle-ci, aucune ne perd son classement. Les exceptions des deux sont réunies.'
+      + '<div class="brg-acts">'
+      + '<button type="button" class="brg-btn" data-act="merge" data-rid="' + rid + '" data-other="' + escHtml(doublonAvec.id) + '" onclick="_bankRulesAct(this)">Fusionner (garder « ' + escHtml(motif(doublonAvec)) + ' »)</button>'
+      + '<button type="button" class="brg-btn" data-act="keep" data-rid="' + rid + '" data-other="' + escHtml(doublonAvec.id) + '" onclick="_bankRulesAct(this)">Garder les deux</button></div></div>'
+    : '';
+  return '<div class="brg-rule' + (doublonAvec ? ' dup' : '') + '" data-rid="' + rid + '">'
+    + '<div class="brg-rule-mo"><div class="brg-pills">' + (pills || '<span class="brg-mut">(motif vide)</span>') + '</div>'
+    + '<div class="brg-rule-bd">' + (v.compteAChoisir ? '<span class="brg-bdg warn">Compte à choisir</span>' : '') + sens
+    + (montant ? '<span class="brg-bdg adv">' + escHtml(montant) + '</span>' : '') + '</div></div>'
+    + '<div class="brg-rule-rs">→ ' + (r.cat ? escHtml(r.cat) : '<span class="brg-mut">(aucune catégorie)</span>') + '<small>' + escHtml(_bankRulesAffTxt(r)) + '</small></div>'
+    + '<div class="brg-rule-ac">' + act('edit', v.compteAChoisir ? 'Ouvrir et choisir le compte' : 'Modifier') + act('del', 'Supprimer', 'brg-lnk--neg') + '</div>'
+    + dbl + exc + '</div>';
+}
 
 function rParamsRules(hostId) {
   if(!DB.importRules) DB.importRules = [];
+  // REGLES-REFONTE phase 4 — identité par id : une règle sans id (base pas encore migrée) en reçoit un ici.
+  _bankMigrerRegles('liste des règles');
+  _bankRulesEntete();
   const host = el(hostId || 'import-rules-list'); if (!host) return;
-  const aliveIdx = DB.importRules.map((r,i)=>({r,i})).filter(x => x.r && !x.r._deleted);
-  if(!aliveIdx.length) {
+  if(!DB.importRules.some(r => r && !r._deleted)) {
     host.innerHTML = '<div class="mu sm" style="padding:16px;text-align:center;line-height:1.6">'
       + '<b>Aucune règle.</b><br>Propryo ne livre aucune règle toute faite : ce sont <b>des données propres au compte</b>, pas celles de Propryo.<br>'
-      + 'À créer depuis une ligne d\'import (' + _uiIcon('save',12) + ' Mémoriser la règle) ou avec « + Règle ».</div>';
+      + 'À créer depuis une ligne d\'import (' + _uiIcon('save',12) + ' Mémoriser la règle) ou avec « + Nouvelle règle ».</div>';
     return;
   }
-  const _acct = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
-  const sensLbl = s => s === 'db' ? '− dépense' : s === 'cr' ? '+ recette' : 'les deux';
-  const affLbl = r => r.bailleurDuCompte ? _uiIcon('bank',13)+' le bailleur du compte'
-    : (r.compteurCcId ? _uiIcon('bolt',13)+' compteur' : (String(r.qui||'').startsWith('SCI:') ? _uiIcon('bank',13)+' ' + escHtml(r.qui.slice(4))
-      : (r.qui ? _uiIcon('home',13)+' ' + escHtml(_logLabel(r.qui)) : (r.imm ? _uiIcon('building',13)+' ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
-  // La table est large (7 colonnes) : elle défile DANS son conteneur, la page ne
-  // scrolle jamais horizontalement (contrainte 3 formats, zéro scroll à 390 px).
-  host.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="min-width:720px"><thead><tr>
-    <th>Motif (contenu dans le libellé)</th><th style="width:96px">Sens</th><th style="width:130px">Compte</th>
-    <th style="width:170px">Catégorie</th><th style="width:170px">Affectation</th><th style="width:150px">Utilisée</th><th style="width:80px"></th>
-  </tr></thead><tbody>
-  ${aliveIdx.map(({r,i}) => {
-    const u = window._bankRuleUsage ? window._bankRuleUsage(r, DB.mouvements || []) : { count:0, lastDate:'' };
-    const acc = r.compte ? (_acct.find(a => String(a.id) === String(r.compte)) || null) : null;
-    return `<tr>
-    <td style="font-family:var(--mono,monospace);font-size:12px;font-weight:600">${escHtml(r.pattern||'(motif vide)')}</td>
-    <td class="mu sm">${sensLbl(r.sens)}</td>
-    <td class="mu sm">${acc ? escHtml(acc.label||'(compte)') : (r.compte ? '<span style="color:var(--ora)">compte supprimé</span>' : 'tous')}</td>
-    <td>${r.cat ? '<span class="badge gry">'+escHtml(r.cat)+'</span>' : '<span class="mu sm">—</span>'}</td>
-    <td>${affLbl(r)}</td>
-    <td class="mu sm" style="font-size:11.5px">${u.count ? u.count+' mouvement'+(u.count>1?'s':'')+'<br>dernière fois le '+fd(u.lastDate) : '<span style="color:var(--ora)">jamais utilisée</span>'}</td>
-    <td class="act-cell">
-      <button class="btn bs bb" onclick="_bankRuleOpen(${i})" title="Modifier cette règle">${_uiIcon('edit',13)}Modifier</button>
-      <button class="btn br bb" onclick="delRule(${i})" title="Supprimer">${_uiIcon('trash',13)}Supprimer</button>
-    </td>
-  </tr>`;}).join('')}
-  </tbody></table></div>`;
+  const accounts = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
+  const tous = window._bankRulesParCompte(DB.importRules, accounts, {});
+  const bail = _bankRulesBailleurEff(tous.bailleurs);
+  const g = window._bankRulesParCompte(DB.importRules, accounts, { bailleur: bail });
+  const dup = window._bankRulesDoublonsParId(DB.importRules);
+  const cartes = rs => rs.map(r => _bankRulesCarteHtml(r, dup[r.id] || null)).join('');
+  const nb = rs => '<span class="brg-mut" style="font-size:var(--fs-sm)">' + rs.length + ' règle' + (rs.length > 1 ? 's' : '') + '</span>';
+  const bailBtn = (val, lbl) => '<button type="button" class="brg-btn" aria-pressed="' + (bail === val || (val !== 'all' && bail !== 'all' && _bankRuleNorm(bail) === _bankRuleNorm(val))) + '" data-act="bail" data-val="' + escHtml(val) + '" onclick="_bankRulesAct(this)">' + escHtml(lbl) + '</button>';
+  let h = '<div class="brg-rl"><div class="brg-bar"><p class="brg-hint">Classées par compte. Une règle ne modifie jamais les mouvements déjà enregistrés.</p>'
+    + (tous.bailleurs.length > 1
+      ? '<div class="brg-acts" role="group" aria-label="Bailleur" style="margin:0">' + tous.bailleurs.map(b => bailBtn(b, 'Bailleur : ' + b)).join('') + bailBtn('all', 'Voir tout') + '</div>'
+      : '')
+    + '</div>';
+  if (g.sansCompte.length) {
+    h += '<section class="brg-grp warn"><div class="brg-grp-h"><h3>Compte à choisir <span class="brg-bdg warn">règles historiques</span></h3>' + nb(g.sansCompte) + '</div>'
+      + '<p class="brg-hint">Ces règles datent d\'avant l\'obligation de compte : elles restent actives sur tous les comptes. Les ouvrir pour choisir leur compte (obligatoire pour enregistrer).</p>'
+      + cartes(g.sansCompte) + '</section>';
+  }
+  g.groupes.forEach(({ compte: a, regles }) => {
+    h += '<section class="brg-grp"><div class="brg-grp-h"><h3>' + escHtml(a.label || '(compte)') + ' <span class="brg-bdg">'
+      + (a.mixte ? 'compte mixte' : (a.bailleur ? 'bailleur : ' + escHtml(a.bailleur) : 'bailleur à renseigner')) + '</span></h3>' + nb(regles) + '</div>' + cartes(regles) + '</section>';
+  });
+  if (g.inconnus.length) {
+    h += '<section class="brg-grp warn"><div class="brg-grp-h"><h3>Compte supprimé <span class="brg-bdg warn">à vérifier</span></h3>' + nb(g.inconnus) + '</div>'
+      + '<p class="brg-hint">Le compte de ces règles n\'existe plus dans les Réglages.</p>' + cartes(g.inconnus) + '</section>';
+  }
+  if (g.masquees) {
+    h += '<p class="brg-hint" style="text-align:center">Les règles de ' + g.bailleursMasques.map(b => '« ' + escHtml(b) + ' »').join(', ') + ' (' + g.masquees + ') ne sont pas affichées. '
+      + '<button type="button" class="brg-lnk" data-act="bail" data-val="all" onclick="_bankRulesAct(this)">Voir tout</button></p>';
+  }
+  host.innerHTML = h + '</div>';
 }
+
+function _bankRulesToggle(det) {
+  const rid = det && det.dataset.rid; if (!rid) return;
+  if (det.open) _bankRulesExOpen[rid] = true; else delete _bankRulesExOpen[rid];
+}
+
+// Point d'entrée unique des boutons de la liste : l'action et les identifiants viennent des data-attributes.
+function _bankRulesAct(btn) {
+  const act = btn.dataset.act, rid = btn.dataset.rid;
+  if (act === 'edit') { _bankRuleOpen(rid); return; }
+  if (act === 'del') { delRule(rid); return; }
+  if (act === 'bail') { _bankRulesBailleur = btn.dataset.val || 'all'; _bankRulesRefresh(); return; }
+  if (act === 'merge') { _bankRulesFusionner(rid, btn.dataset.other); return; }
+  if (act === 'keep') { _bankRulesGarderLesDeux(rid, btn.dataset.other); return; }
+  if (act === 'xdel') { _bankRulesRetirerException(rid, btn.dataset.cle); return; }
+}
+
+// « Fusionner » : la plus LARGE est gardée (audit I2 : rien n'est perdu ; exceptions réunies, `_stamp`),
+// l'autre devient un tombstone par id.
+function _bankRulesFusionner(idA, idB) {
+  const ia = window._bankRuleIdxById(DB.importRules, idA), ib = window._bankRuleIdxById(DB.importRules, idB);
+  if (ia < 0 || ib < 0) { showToast('Règle introuvable', 'err'); return; }
+  const f = window._bankRulesFuse(DB.importRules[ia], DB.importRules[ib]);
+  const ig = window._bankRuleIdxById(DB.importRules, f.garder.id), ir = window._bankRuleIdxById(DB.importRules, f.retirer.id);
+  _stamp(f.garder);
+  DB.importRules[ig] = f.garder;
+  DB.importRules[ir] = f.tombstone;
+  _stamp(DB);
+  saveDB();
+  const motif = window._bankRuleMotif(f.garder);
+  if (typeof _auditLog === 'function') _auditLog('update', 'import-rule', f.garder.id, 'fusion : « ' + window._bankRuleMotif(f.retirer) + ' » fusionnée dans « ' + motif + ' »');
+  _bankRuleAfterChange(null);
+  showToast('✓ Règles fusionnées : « ' + motif + ' » est conservée', 'ok', 4000);
+}
+
+// « Garder les deux » : le signal ne revient plus pour cette paire (champ `gardeAvec` sur la règle).
+function _bankRulesGarderLesDeux(idA, idB) {
+  const ia = window._bankRuleIdxById(DB.importRules, idA), ib = window._bankRuleIdxById(DB.importRules, idB);
+  if (ia < 0 || ib < 0) { showToast('Règle introuvable', 'err'); return; }
+  const rule = window._bankRuleGarderLesDeux(DB.importRules[ia], DB.importRules[ib]);
+  if (rule !== DB.importRules[ia]) {
+    _stamp(rule);
+    DB.importRules[ia] = rule;
+    _stamp(DB);
+    saveDB();
+  }
+  _bankRulesRefresh();
+  showToast('Les deux règles sont conservées', 'ok', 3000);
+}
+
+// Retire UNE exception (même fonction pure que « Réintégrer à la règle »). Aucun mouvement en base n'est reclassé.
+function _bankRulesRetirerException(rid, cle) {
+  const idx = window._bankRuleIdxById(DB.importRules, rid);
+  if (idx < 0) { showToast('Règle introuvable', 'err'); return; }
+  const rule = window._bankRuleRemoveException(DB.importRules[idx], cle);
+  if (rule === DB.importRules[idx]) return;
+  _stamp(rule);
+  DB.importRules[idx] = rule;
+  _stamp(DB);
+  saveDB();
+  if (typeof _auditLog === 'function') _auditLog('update', 'import-rule', rule.id, 'exception retirée sur « ' + window._bankRuleMotif(rule) + ' »');
+  _bankRuleAfterChange(rule);
+  showToast('✓ Exception retirée : les mouvements déjà en base ne sont pas reclassés', 'ok', 4000);
+}
+
 
 function addImportRule() {
   if(!DB.importRules) DB.importRules = [];
-  _bankRuleOpen(-1, null);   // ⑦.4 : création à froid, avec aperçu — plus de ligne vide à remplir
+  _bankRuleOpen(null, null);   // ⑦.4 : création à froid, avec aperçu — plus de ligne vide à remplir (compte à choisir, obligatoire)
 }
 
-function delRule(i) {
-  // v15.186 FIX BUG CRITIQUE : tombstone (préserve pattern) au lieu de splice() brut.
-  // Sinon le merge cross-device (l._mergeGlobalPayload importRules dédup par pattern)
-  // ressuscite la règle si un autre device l'a encore.
-  const r = DB.importRules[i];
-  if (!r) return;
-  if (!confirm2('Supprimer la règle « ' + (r.pattern || '') + ' » ?\n\nLes mouvements déjà classés ne changent pas.')) return;
-  DB.importRules[i] = _tombstoneObj({ pattern: r.pattern });
+// REGLES-REFONTE phase 4 (D6) — la règle à supprimer est désignée par son IDENTIFIANT,
+// jamais par son motif ni par une position : deux règles au même motif (une par compte)
+// ne se confondent plus.
+function delRule(id) {
+  _bankRuleDeleteById(id);
+}
+// Suppression commune (liste des règles + fenêtre de règle). Renvoie true si supprimée.
+// v15.186 : tombstone EN PLACE (jamais de splice), désormais indexé sur l'identifiant
+// (`_bankRuleTombstone` garde aussi motif + compte pour la compat et le journal).
+function _bankRuleDeleteById(id) {
+  if (!Array.isArray(DB.importRules)) return false;
+  const i = window._bankRuleIdxById(DB.importRules, id);
+  const r = i >= 0 ? DB.importRules[i] : null;
+  if (!r) { showToast('Règle introuvable', 'err'); return false; }
+  const motif = window._bankRuleMotif(r);
+  if (!confirm2('Supprimer la règle « ' + motif + ' » ?\n\nLes mouvements déjà classés ne changent pas.')) return false;
+  DB.importRules[i] = window._bankRuleTombstone(r);
   saveDB();
-  if (typeof _auditLog === 'function') _auditLog('delete', 'import-rule', r.pattern || '', 'suppression');
+  if (typeof _auditLog === 'function') _auditLog('delete', 'import-rule', r.id || motif, 'suppression « ' + motif + ' »');
   // ⑦.3 — les lignes de l'import en cours se reclassent immédiatement.
-  _bankRuleAfterChange();
+  const res = _bankRuleAfterChange(null);
+  showToast('🗑 Règle supprimée' + (res.reclasse ? ' · les lignes de l\'import ont été reclassées' : ''), 'ok', 3000);
+  return true;
 }
 
 
@@ -29014,6 +29170,7 @@ function _bankImportOpen() {
       <div id="bank-import-preview" style="font-size:13px"></div>
     `;
   }
+  _bankInstallCloseHook();   // REGLES-REFONTE phase 4 (D6) : la fermeture remet le compte courant à zéro
   openM('ov-bank-import');
 }
 
@@ -29403,7 +29560,10 @@ function _bankImportFirstImportConfirm(format) {
 // n'était donc pas effectif dans l'app. On construit ici le contexte réel : baux actifs
 // + baux archivés (marqués clôturés), tombstones exclus. Sans ça, un arriéré versé
 // après le départ d'un locataire ne matche toujours rien.
-function _bankBauxContext() {
+// REGLES-REFONTE phase 5 (D6) : `perimetre` (issu de `_bankPerimetre`, compte de l'import) limite les
+// baux à ceux du bailleur du compte — le bail clos « ancien locataire » d'un lot du MÊME bailleur
+// reste proposé (⑦.5 d). Sans périmètre : tous les baux (« Voir tout », ponctuel, par ligne).
+function _bankBauxContext(perimetre) {
   const out = {};
   for (const [ref, b] of Object.entries(DB.baux || {})) {
     if (!b || b._deleted) continue;
@@ -29414,7 +29574,49 @@ function _bankBauxContext() {
     if (out[b.ref]) continue;              // un bail actif prime sur son archive
     out[b.ref] = Object.assign({}, b, { cloture: true });
   }
-  return out;
+  return perimetre ? window._bankBauxDuPerimetre(out, perimetre) : out;
+}
+
+// Périmètre du compte de l'import en cours pour la reconnaissance du locataire (`tout` = « Voir tout »
+// demandé sur CETTE ligne). Un compte mixte garde tous les baux (classement manuel) ; le repli sur
+// l'entité active du filtre global ne s'applique pas ici : une proposition ne doit pas dépendre d'un filtre d'affichage.
+function _bankPerimetreImport(tout) {
+  return window._bankPerimetre(_currentBankAccount, { entites: DB.entites || [], logements: DB.logements || [] }, { tout: !!tout });
+}
+
+// Proposition « locataire reconnu » d'une ligne : même calcul pour la revue initiale et pour
+// « Chercher chez tous les bailleurs ». Les champs de CLASSEMENT (catégorie, logement) ne sont
+// touchés que si la ligne n'est pas déjà classée à la main (jamais d'écrasement silencieux).
+function _bankApplyHeuristic(line, ctx, preserveEdits) {
+  const m = window._bankMatchHeuristic(line, ctx);
+  if (!preserveEdits) {
+    line.suggestedCat = m.cat || '';
+    line.suggestedQui = m.qui || '';
+    line.suggestedImm = '';
+    line.suggestedCc  = '';
+  }
+  line.confidence   = m.confidence || 0;
+  line.matchSource  = m.source || '';
+  line._byRule      = false;
+  // ⑦.5 b — proposition ambiguë : les candidats sont exposés, aucun gagnant.
+  line._ambiguous   = !!m.ambiguous;
+  line._candidates  = (m.candidates && m.candidates.length > 1) ? m.candidates : null;
+}
+
+// Lien « Chercher chez tous les bailleurs » du bandeau de proposition (et retour au bailleur du compte).
+function _bankProposTout(i, on) {
+  const line = _bankImportLines[i]; if (!line) return;
+  line._bauxTout = !!on;
+  const ctx = _bankHeuristicCtx(line);
+  _bankApplyHeuristic(line, ctx, !!(line._userEdited || line._reviewed));
+  if (_bankMvIdx === i) _bankWalkRender(); else _bankRenderReviewBody();
+  _bankUpdateCounts();
+}
+function _bankHeuristicCtx(line) {
+  return {
+    baux: _bankBauxContext(_bankPerimetreImport(!!(line && line._bauxTout))),
+    duMois: (typeof _duMoisLot === 'function') ? ((ref, ym) => _duMoisLot(ref, ym)) : null,
+  };
 }
 
 // Étape finale commune : règles → propositions → dédup → rendu.
@@ -29435,33 +29637,31 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
   }
   // ⑦.5 c — le dû comparé est celui du MOIS DU RELEVÉ : on passe le résolveur unique
   // de l'app (_duMoisLot → duMoisFromRaw), jamais le loyer d'aujourd'hui.
-  const ctx = {
-    baux: _bankBauxContext(),
-    duMois: (typeof _duMoisLot === 'function') ? ((ref, ym) => _duMoisLot(ref, ym)) : null,
-  };
+  // Phase 5 (D6) : les baux proposés sont ceux du bailleur du compte (`_bankHeuristicCtx`, par ligne
+  // car « Chercher chez tous les bailleurs » est un choix ponctuel posé sur la ligne : `_bauxTout`).
+  const _ctxCache = {};
+  const _ctxOf = line => { const k = line._bauxTout ? 'tout' : 'per'; return _ctxCache[k] || (_ctxCache[k] = _bankHeuristicCtx(line)); };
   lines.forEach(line => {
     // 🐛 AUDIT C3 — CE QUE L'UTILISATEUR A SAISI NE SE FAIT JAMAIS ÉCRASER.
     // Les règles étaient réappliquées à TOUTES les lignes : mémoriser une règle après
     // avoir classé 20 lignes à la main faisait sauter les 20 classements (et une règle
     // qui ne porte qu'une catégorie remettait même l'affectation à vide). Même chose
     // avec « ⇄ les montants sont inversés », qui repasse tout le lot.
-    if (line._userEdited || line._reviewed) return;
+    // REGLES-REFONTE phase 4 — exception unique : la ligne SOURCE d'une règle qu'on vient
+    // d'enregistrer suit la règle (`_suitRegle`, posé par _bankReclassifyPrepare), même validée.
+    // 🐛 Audit B1 — elle est DÉJÀ classée par cette règle, et par elle seule, dans
+    // _bankReclassifyPrepare : on ne la repasse ni dans les autres règles (une règle en conflit
+    // la faisait retomber sur la proposition automatique, qui effaçait l'affectation faite à la
+    // main sans le dire) ni dans la proposition. Les autres règles qui donnent un autre résultat
+    // sont signalées sur la ligne (`_autresRegles`).
+    const _suit = !!line._suitRegle; delete line._suitRegle;
+    if ((line._userEdited || line._reviewed) && !_suit) return;
     // Les RÈGLES de l'utilisateur d'abord (déterministe), sinon une PROPOSITION.
-    if (!_bankApplyRule(line)) {
+    if (!_suit && !_bankApplyRule(line)) {
       // ⑧.1 v2 — une ligne reprise « en attente » garde la saisie (non validée) de la
       // dernière fois si aucune règle ne la couvre désormais : on ne refait pas son travail.
       if (line._pending && (line.suggestedCat || line.suggestedQui || line.suggestedImm || line.suggestedCc)) return;
-      const m = window._bankMatchHeuristic(line, ctx);
-      line.suggestedCat = m.cat || '';
-      line.suggestedQui = m.qui || '';
-      line.suggestedImm = '';
-      line.suggestedCc  = '';
-      line.confidence   = m.confidence || 0;
-      line.matchSource  = m.source || '';
-      line._byRule      = false;
-      // ⑦.5 b — proposition ambiguë : les candidats sont exposés, aucun gagnant.
-      line._ambiguous   = !!m.ambiguous;
-      line._candidates  = (m.candidates && m.candidates.length > 1) ? m.candidates : null;
+      _bankApplyHeuristic(line, _ctxOf(line), false);
     }
     // V3-REFONTE-LOYERS Phase 4 : détecte un relevé de gérance (1 virement agrégeant plusieurs loyers − frais)
     // → on proposera de le découper (split multi-sens). Accent-insensible.
@@ -29472,7 +29672,7 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
   // banque, l'index des identifiants doit être limité au compte qu'on importe.
   _bankImportLines = window._bankDedup(lines, DB.mouvements || [],
     { accountId: _currentBankAccount && _currentBankAccount.id });
-  _bankReviewTab = 'todo'; _bankOpen = -1; _affScopeAll = false; _bankReviewedOk = false; // V3 Phase 3 : revue fraîche à chaque import (A7 : reconnus pas encore vérifiés)
+  _bankReviewTab = 'todo'; _bankOpen = -1; _affScopeAll = false; _affToutPar = {}; _bankReviewedOk = false; // V3 Phase 3 : revue fraîche à chaque import (A7 : reconnus pas encore vérifiés)
   _bankImportRenderPreview(format, prefixHtml || '');
 }
 
@@ -29482,28 +29682,55 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
 // reste « à compléter », les candidates sont affichées, l'utilisateur choisit.
 // R-C : une affectation « le bailleur du compte » est résolue ici depuis le compte.
 // Retourne true si une règle a effectivement classé quelque chose.
+// REGLES-REFONTE phase 4 — la logique vit dans le module pur (`_bankLineApplyRules`, testé) :
+// trace `_rules` = IDENTIFIANTS des règles (les anciennes traces par motif restent lisibles
+// via `_bankRuleFindForTrace`), règles supprimées ignorées, condition « = loyer CC » branchée.
 function _bankApplyRule(line) {
-  const rules = (DB.importRules || []).filter(r => r && !r._deleted);
-  const acctId = _currentBankAccount && _currentBankAccount.id;
-  const res = window._bankApplyRules(rules, line, { accountId: acctId });
-  line._ruleConflicts = res.conflicts.length ? res.conflicts : null;
-  line._ruleOrigin = null;
-  line._rules = res.matched.map(r => r.pattern);
-  if (!res.byRule) return false;
-  const aff = window._bankResolveAff(res.aff, _currentBankAccount);
-  line.suggestedCat = res.cat || '';
-  line.suggestedQui = aff.qui || '';
-  line.suggestedImm = aff.imm || '';
-  line.suggestedCc  = aff.compteurCcId || '';
-  line.confidence   = 1;                       // déterministe : c'est une règle, pas une proposition
-  line.matchSource  = 'Règle d\'import';
-  line._byRule      = true;
-  line._ruleOrigin = {
-    cat: res.catRule ? res.catRule.pattern : '',
-    aff: res.affRule ? (res.affRule.bailleurDuCompte ? 'le bailleur du compte' : res.affRule.pattern) : '',
-    affUnresolved: !!aff.unresolved,
+  return window._bankLineApplyRules(DB.importRules || [], line, {
+    accountId: _currentBankAccount && _currentBankAccount.id,
+    account: _currentBankAccount,
+    loyerCC: _bankLoyerCC,
+  });
+}
+
+// Condition de montant « = loyer CC » (décision Didier du 06/10) : le loyer CHARGES COMPRISES
+// dû le MOIS DU VIREMENT pour le logement `qui`. Aucun calcul réécrit : c'est le résolveur
+// unique du dû d'un mois (_duMoisLot → duMoisFromRaw : bail + barème historisé, prorata).
+// 0 (= la condition ne matche pas) quand le logement n'a pas de loyer dû ce mois-là.
+function _bankLoyerCC(qui, ym) {
+  if (!qui || !/^\d{4}-\d{2}$/.test(String(ym || '')) || typeof _duMoisLot !== 'function') return 0;
+  const d = _duMoisLot(qui, ym);
+  return (d && Number(d.total)) || 0;
+}
+
+// Le compte de l'import EN COURS (null quand aucun import n'est ouvert) : D6 — le compte
+// courant ne doit jamais survivre à la fermeture de l'import (cf. _bankImportOnClose).
+function _bankImportActif() {
+  const ov = el('ov-bank-import');
+  return !!(ov && !ov.classList.contains('hidden') && _currentBankAccount && Array.isArray(_bankImportLines) && _bankImportLines.length);
+}
+// closeM est fourni à l'exécution par js/components/modal.js (window.closeM, posé par main.js) :
+// le `closeM` inline d'app-part1 n'est qu'un repli (file://). On l'enveloppe UNE fois, à la
+// première ouverture de l'import (même méthode que _frInstallCloseHook), pour savoir quand
+// l'import est fermé (✕, Annuler, fin du récapitulatif).
+let _bankCloseHooked = false;
+function _bankInstallCloseHook() {
+  if (_bankCloseHooked || typeof window.closeM !== 'function') return;
+  _bankCloseHooked = true;
+  const orig = window.closeM;
+  window.closeM = function (id) {
+    orig.apply(this, arguments);
+    if (id === 'ov-bank-import') { try { _bankImportOnClose(); } catch (e) { console.warn('[import] fermeture', e); } }
   };
-  return true;
+}
+// Appelé par closeM('ov-bank-import') (✕, Annuler, fin du récapitulatif) : l'import est
+// abandonné ou terminé, son compte et ses lignes ne servent plus à rien. Avant, ils
+// survivaient : une règle créée ensuite depuis Réglages prenait ce compte par défaut et
+// son aperçu listait les lignes d'un import fermé.
+function _bankImportOnClose() {
+  _currentBankAccount = null;
+  _bankImportLines = [];
+  _pendingBankImport = null;
 }
 
 // v15.163 — Affiche la sélection/création de compte bancaire quand le fichier est inconnu.
@@ -29652,6 +29879,7 @@ function _bankAccountSetBailleur(id) {
   closeM('ov-bank-accounts');
   const body = el('ov-bank-import-body');
   if (body) body.innerHTML = '<div id="bank-import-intro" style="display:none"></div><div id="bank-import-preview" style="font-size:13px"></div>';
+  _bankInstallCloseHook();   // REGLES-REFONTE phase 4 (D6) : la fermeture remet le compte courant à zéro
   openM('ov-bank-import');
   _bankRenderBailleurChoice();
 }
@@ -30043,6 +30271,7 @@ function _bankImportRenderPreview(format, prefixHtml) {
     : ((_acct && !_acct.mixte && _acct.bailleur) ? { niv: 'sci', cible: _acct.bailleur }
        : ((typeof _finActiveEnt === 'function' && _finActiveEnt()) ? { niv: 'sci', cible: _finActiveEnt() } : null));
   _affScopeAll = false;
+  _affToutPar = {};   // phase 5 : « Voir tout » ponctuel, remis à zéro à chaque rendu de la revue (comme avant)
   const tabBtn = (key, lbl, n, bg) => `<button onclick="_bankSetTab('${key}')" style="border:0;border-bottom:2.5px solid ${_bankReviewTab===key?'var(--cta,#3b7ef6)':'transparent'};background:none;color:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--t2)'};padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer">${lbl} <span id="bank-tab-${key}" style="display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--bor)'};color:${_bankReviewTab===key?'#fff':'var(--t2)'};font-size:11px;padding:0 5px">${n}</span></button>`;
   preview.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl,14px);padding:9px 14px;margin-bottom:12px">
@@ -30076,11 +30305,11 @@ function _bankScopeBar() {
     ? '<span title="Compte mixte : Propryo ne peut pas deviner l\'entité, classement manuel">' + _uiIcon('people',13) + ' <b>Compte mixte</b></span>'
     : (acct.bailleur ? _uiIcon('bank',13) + ' <b>' + escHtml(acct.bailleur) + '</b>' : '<span style="color:var(--ora)">' + _uiIcon('warn',13) + ' bailleur non renseigné</span>');
   // Les immeubles proposés sont ceux du bailleur du compte (sauf compte mixte).
+  // Phase 5 : même calcul pur que partout ailleurs (`_bankPerimetre`), SANS le périmètre immeuble
+  // (ce sélecteur sert justement à le choisir) : les immeubles du bailleur du compte.
   const immsAll = (typeof immeubles === 'function' ? immeubles() : []);
-  const imms = (acct.mixte || !acct.bailleur) ? immsAll : immsAll.filter(im => {
-    const e = (DB.entites || []).filter(_isAlive).find(x => (x.immeubles || []).some(y => y && y.nom === im));
-    return !e || e.nom === acct.bailleur;
-  });
+  const _perBar = window._bankPerimetre({ bailleur: acct.bailleur, mixte: acct.mixte }, { entites: DB.entites || [], logements: DB.logements || [] });
+  const imms = immsAll.filter(im => _perBar.immeubleOk(im) || (sc && sc.cible === im));
   const immOpts = imms.map(im => `<option value="imm:${escHtml(im)}" ${sc&&sc.cible===im?'selected':''}>🏢 ${escHtml(im)}</option>`).join('');
   return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--acc-bg);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-size:12px">
     <span>${_uiIcon('doc',14)} <b>Compte :</b> ${escHtml(acct.label||'Compte')}</span>
@@ -30219,7 +30448,9 @@ function _bankLineRow(i) {
   // ⑦.2 — règles en conflit : aucun automatisme, la ligne reste à compléter et le dit.
   const nRules = line._ruleConflicts ? Math.max(...line._ruleConflicts.map(c => c.rules.length)) : 0;
   const ruleConflictChip = nRules
-    ? '<span class="bimp-chip todo" title="Plusieurs règles donnent des valeurs différentes — choisir dans la fenêtre">⚠ ' + nRules + ' règles possibles</span>' : '';
+    ? '<span class="bimp-chip todo" title="Plusieurs règles donnent des valeurs différentes — choisir dans la fenêtre">⚠ ' + nRules + ' règles possibles</span>'
+    // Audit B1 — ligne de départ d'une règle : classée par elle, mais une autre règle donne un autre résultat.
+    : ((line._autresRegles && line._autresRegles.length) ? '<span class="bimp-chip todo" title="Une autre règle donne un autre résultat pour cette ligne — voir dans la fenêtre">⚠ autre règle</span>' : '');
   // ⑦.5 b — proposition ambiguë : on le dit dans la liste, on choisit dans la fenêtre.
   const ambChip = line._ambiguous
     ? '<span class="bimp-chip todo" title="' + escHtml(line.matchSource || '') + '">⚠ ' + ((line._candidates || []).length) + ' locataires possibles</span>' : '';
@@ -30243,9 +30474,45 @@ function _bankLineRow(i) {
 //    RÉSULTAT, l'utilisateur choisit celle qui s'applique.
 // « Une règle se corrige là où on la rencontre » — et après correction, les autres
 // lignes de l'import se reclassent immédiatement (_bankRuleAfterChange).
-function _bankRuleIdxOf(pattern) {
-  const p = String(pattern || '').toLowerCase();
-  return (DB.importRules || []).findIndex(r => r && !r._deleted && String(r.pattern || '').toLowerCase() === p);
+// REGLES-REFONTE phase 4 (D6) — `_bankRuleIdxOf` (recherche par motif) SUPPRIMÉ : la règle à ouvrir est
+// retrouvée par son IDENTIFIANT (`_bankRuleById`), ou depuis une trace historique (motif)
+// par `_bankRuleFindForTrace` qui ne prend qu'une règle du MÊME compte. Les boutons passent
+// l'identifiant par data-rid (jamais injecté dans le code de l'attribut onclick).
+function _bankRuleRefForTrace(trace) {
+  const r = window._bankRuleFindForTrace(DB.importRules || [], trace, _currentBankAccount && _currentBankAccount.id);
+  return r && r.id ? String(r.id) : '';
+}
+
+// Audit B1 — « La règle « EDF » (compte à choisir) donne un autre résultat : Assurance » : une phrase
+// simple pour une AUTRE règle qui attrape la ligne de départ d'une règle avec un résultat différent
+// (`_bankRuleAutresResultats`, module pur). Texte brut : l'appelant échappe (toast : escHtml).
+function _bankAutreRegleTxt(a, ou) {
+  const res = [];
+  if (a.champs.includes('cat')) res.push(a.cat);
+  if (a.champs.includes('aff') && a.aff) res.push(a.aff.qui ? (String(a.aff.qui).startsWith('SCI:') ? String(a.aff.qui).slice(4) : _logLabel(a.aff.qui)) : (a.aff.imm ? 'Immeuble ' + a.aff.imm : 'Compteur collectif'));
+  return 'la règle « ' + a.motif + ' »' + (a.compteAChoisir ? ' (compte à choisir)' : '') + ' donne un autre résultat' + (ou ? ' ' + ou : '') + (res.length ? ' : ' + res.join(', ') : '');
+}
+// Le bloc (fenêtre de la ligne, aperçu de la règle) : une phrase par règle, avec Modifier / Supprimer.
+// `dansApercu` : depuis la fenêtre de règle en cours de saisie (Modifier demande d'abandonner la saisie,
+// Supprimer rafraîchit l'aperçu). Identifiants par data-rid, jamais dans le code d'un onclick ; texte échappé.
+function _bankAutresReglesHtml(autres, dansApercu) {
+  if (!autres || !autres.length) return '';
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  return '<div class="brg-alert warn brg-autres" role="status">' + autres.map(a => {
+    const rid = (a.id && window._bankRuleById(DB.importRules || [], a.id)) ? escHtml(a.id) : '';
+    return '<div class="brg-autre"><span>' + _uiIcon('warn', 13) + ' ' + escHtml(cap(_bankAutreRegleTxt(a, ''))) + '</span>'
+      + (rid ? '<span class="brg-acts" style="margin:0"><button type="button" class="brg-lnk" data-rid="' + rid + '" data-ap="' + (dansApercu ? '1' : '') + '" onclick="_bankAutreRegleAct(this,\'edit\')">Modifier</button>'
+        + '<button type="button" class="brg-lnk brg-lnk--neg" data-rid="' + rid + '" data-ap="' + (dansApercu ? '1' : '') + '" onclick="_bankAutreRegleAct(this,\'del\')">Supprimer</button></span>' : '')
+      + '</div>';
+  }).join('') + '<div class="brg-hint">' + (dansApercu ? 'La règle en cours de création l\'emportera pour cette ligne.' : 'La règle créée depuis cette ligne l\'emporte pour elle.')
+    + ' Pour les autres lignes de l\'import, quand deux règles se contredisent, le choix se fait à la main.</div></div>';
+}
+function _bankAutreRegleAct(btn, act) {
+  const rid = btn && btn.dataset.rid; if (!rid) return;
+  const ap = btn.dataset.ap === '1';
+  if (act === 'del') { if (_bankRuleDeleteById(rid) && ap) _bankRulePreviewRender(); return; }
+  if (ap && !confirm2('Abandonner la règle en cours de saisie pour modifier l\'autre règle ?')) return;
+  _bankRuleOpen(rid);
 }
 
 function _bankRulePanelHtml(i) {
@@ -30258,14 +30525,15 @@ function _bankRulePanelHtml(i) {
       return '<div style="margin-top:7px"><div class="mu sm" style="font-size:11.5px;margin-bottom:4px">'
         + c.rules.length + ' règles donnent ' + champ + ' :</div>'
         + c.rules.map(r => {
-            const idx = _bankRuleIdxOf(r.pattern);
+            // Le conflit porte les objets règle eux-mêmes : leur identifiant, sans recherche par motif.
+            const rid = (r && r.id && window._bankRuleById(DB.importRules || [], r.id)) ? String(r.id) : '';
             const val = c.field === 'cat' ? (r.cat || '—')
               : (r.bailleurDuCompte ? 'le bailleur du compte' : (r.qui || r.imm || (r.compteurCcId ? 'compteur' : '—')));
             return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 9px;border:1px solid var(--bor);border-radius:8px;margin-bottom:4px;font-size:12px;background:var(--sur,#fff)">'
-              + '<span style="font-family:var(--mono,monospace);font-weight:600">' + escHtml(r.pattern || '') + '</span>'
+              + '<span style="font-family:var(--mono,monospace);font-weight:600">' + escHtml(window._bankRuleMotif(r)) + '</span>'
               + '<span style="color:var(--t3)">→</span><span style="flex:1">' + escHtml(val) + '</span>'
-              + '<button class="btn bs" style="font-size:11px" onclick="_bankPickRule(' + i + ',' + idx + ',\'' + c.field + '\')">Choisir</button>'
-              + (idx >= 0 ? '<button class="btn bs" style="font-size:11px" onclick="_bankRuleOpen(' + idx + ')">' + _uiIcon('edit',15) + '</button>' : '')
+              + (rid ? '<button class="btn bs" style="font-size:11px" data-rid="' + escHtml(rid) + '" onclick="_bankPickRule(' + i + ',this.dataset.rid,\'' + c.field + '\')">Choisir</button>'
+                + '<button class="btn bs" style="font-size:11px" data-rid="' + escHtml(rid) + '" onclick="_bankRuleOpen(this.dataset.rid)">' + _uiIcon('edit',15) + '</button>' : '')
               + '</div>';
           }).join('') + '</div>';
     }).join('');
@@ -30278,20 +30546,21 @@ function _bankRulePanelHtml(i) {
     const bits = [];
     if (org.cat) bits.push('catégorie : règle « ' + escHtml(org.cat) + ' »');
     if (org.aff) bits.push('bien : règle « ' + escHtml(org.aff) + ' »');
-    const idx = _bankRuleIdxOf(org.cat || org.aff);
+    // Identifiant de la règle (trace phase 4) ; trace historique = motif → règle du même compte.
+    const rid = _bankRuleRefForTrace(org.catId || org.affId || org.cat || org.aff);
     return '<div style="background:var(--acc-bg);border:1px solid var(--bor);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       + '<span>' + _uiIcon('settings') + ' ' + bits.join(' · ') + '</span>'
       + (org.affUnresolved ? '<span style="color:var(--ora)">⚠ « le bailleur du compte » n\'a pas pu être résolu (compte mixte)</span>' : '')
-      + (idx >= 0 ? '<a onclick="_bankRuleOpen(' + idx + ')" style="margin-left:auto;cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6);font-weight:600">modifier la règle</a>' : '')
-      + '</div>';
+      + (rid ? '<a data-rid="' + escHtml(rid) + '" onclick="_bankRuleOpen(this.dataset.rid)" style="margin-left:auto;cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6);font-weight:600">modifier la règle</a>' : '')
+      + '</div>' + _bankAutresReglesHtml(line._autresRegles);
   }
   return '';
 }
 
 // ⑦.3 — « choisir celle qui s'applique » : on applique la règle retenue à CETTE ligne,
 // sans toucher aux règles elles-mêmes (l'utilisateur tranche un cas, il n'édite rien).
-function _bankPickRule(i, ruleIdx, field) {
-  const line = _bankImportLines[i]; const r = DB.importRules[ruleIdx];
+function _bankPickRule(i, ruleId, field) {
+  const line = _bankImportLines[i]; const r = window._bankRuleById(DB.importRules || [], ruleId);
   if (!line || !r) return;
   if (field === 'cat') line.suggestedCat = r.cat || '';
   else {
@@ -30338,7 +30607,21 @@ function _bankProposPanelHtml(i) {
     + (amb ? '' : '<span class="mu sm" style="margin-left:6px">' + escHtml(line.matchSource || '') + '</span>')
     + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">C\'est une proposition, pas un classement : elle attend une validation.</div>'
     + (rows ? '<div style="margin-top:7px">' + rows + '</div>' : '')
+    + _bankProposPerimBar(i, line)
     + '</div>';
+}
+
+// Phase 5 (D6) — périmètre de la reconnaissance du locataire : limité aux baux du bailleur du compte,
+// avec « Chercher chez tous les bailleurs » (ponctuel, sur cette ligne) et retour ; compte sans bailleur : avertissement.
+function _bankProposPerimBar(i, line) {
+  const per = _bankPerimetreImport(!!line._bauxTout);
+  if (!per.limite && !per.elargi && !per.warn) return '';
+  const qui = per.mode === 'imm' ? ('l\'immeuble ' + per.cible) : (per.bailleur || 'ce bailleur');
+  const btn = (on, lbl) => '<button type="button" class="btn bs" style="min-height:44px;font-size:12px;padding:0 12px" onclick="_bankProposTout(' + i + ',' + on + ')">' + lbl + '</button>';
+  const box = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:6px 10px;border:1px solid var(--bor);border-radius:8px;font-size:12px;background:var(--sur,#fff)';
+  if (per.elargi) return '<div style="' + box + '"><span style="flex:1;min-width:140px">' + _uiIcon('bank', 13) + ' Locataires de <b>tous les bailleurs</b></span>' + btn(false, 'Revenir à ' + escHtml(qui)) + '</div>';
+  if (per.limite) return '<div style="' + box + '"><span style="flex:1;min-width:140px">' + _uiIcon('bank', 13) + ' Locataires de <b>' + escHtml(qui) + '</b> seulement</span>' + btn(true, 'Chercher chez tous les bailleurs') + '</div>';
+  return '<div style="' + box + ';color:var(--ora)">' + _uiIcon('warn', 13) + ' <span>' + escHtml(per.warn) + '</span></div>';
 }
 
 // Choisir un candidat de proposition ambiguë : on applique le lot retenu à CETTE ligne.
@@ -30466,7 +30749,7 @@ function _bankWalkRender() {
     + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
     + '<button class="btn bs" onclick="_bankWalkSkip()">Passer</button>'
-    + '<button class="btn bs" onclick="_bankImportAddRule(' + i + ')">' + _uiIcon('save') + ' Mémoriser la règle</button>'
+    + _bankRuleStatutHtml('ligne', i)
     + '<button class="btn bp" id="bank-mv-validate" onclick="_bankMvValidate()">' + (last ? 'Valider et terminer ' + _uiIcon('check') : 'Valider l\'opération →') + '</button>'
     + '</div>';
   _bankInitAff(i);                                  // initialise _affState/_affHooks + _affRender sur imp{i}
@@ -30681,87 +30964,188 @@ function _bankUpdateImportBtn() {
 // (table à plat remplacée par l'assistant 2 onglets + _affZone ; plus aucun appelant).
 
 // ⑦.4 — Le prompt() du navigateur a disparu : on ouvre l'écran de règle avec aperçu
-// en direct (motif pré-rempli, sens déduit du sens de la ligne, compte courant,
-// catégorie et affectation reprises de la ligne). On tapait le motif à l'aveugle,
-// sans voir ce qu'il attrape, sans pouvoir choisir le compte ni le sens.
+// en direct (sens déduit du sens de la ligne, compte de l'import, catégorie et
+// affectation reprises de la ligne).
+// REGLES-REFONTE phase 4 (D4) — le motif n'est plus DEVINÉ (`_bankSuggestPattern`, qui
+// pré-remplissait le mot le plus long, est supprimé) : l'écran propose les mots du libellé,
+// rien n'est présélectionné.
 function _bankImportAddRule(i) {
   const line = _bankImportLines[i];
   if (!line) return;
-  _bankRuleOpen(-1, i);
+  _bankRuleOpen(null, i);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // ⑦.4 / ⑦.7 — ÉCRAN DE RÈGLE AVEC APERÇU EN DIRECT
 // « L'app propose. Tu valides. Si tu veux que ce soit automatique, tu en fais une
-// règle. » Deux accès (Réglages · page Loyers & Mouvements, y compris pendant un
-// import), une seule liste, un seul écran. L'aperçu fonctionne SANS import : il
-// s'appuie alors sur les mouvements déjà enregistrés.
+// règle. » Accès : Réglages · page Loyers & Mouvements (y compris pendant un import) ·
+// ligne d'import · fiche d'un mouvement enregistré. Une seule liste, un seul écran.
+// REGLES-REFONTE phase 4 (décisions Didier du 06/10) :
+//  - la règle est désignée par son IDENTIFIANT (jamais par son motif ni sa position) ;
+//  - compte OBLIGATOIRE : repris (lecture seule) de la ligne d'import ou du mouvement ;
+//    sélecteur seulement à la création « à froid » et pour une règle historique sans compte ;
+//  - doublon exact refusé, renvoi vers la règle existante ;
+//  - application : la ligne SOURCE suit la règle, l'import en cours est reclassé (les
+//    lignes classées à la main sont sautées ET annoncées), les imports futurs aussi ;
+//    jamais les mouvements déjà en base, sauf le mouvement d'où la règle est créée.
 // ════════════════════════════════════════════════════════════════════════════
-let _bankRuleDraft = null;   // { idx, pattern, sens, compte, cat, qui, imm, cc, bdc, srcLine }
+// { id, chips[] (mots du libellé = puces), mots[] (puces cochées = mots ENTIERS), saisis[{w,on}] (puce
+//   libre « + mot » = morceaux de mot), freeOpen, freeVal, ref (libellé de référence, création à froid),
+//   sens, compte, compteFixe, compteOrigine, montantUi{type,valeur,min,max}, exceptions[], exNew[],
+//   cat, qui, imm, cc, bdc, historique, src, srcIndex, srcMvId }
+let _bankRuleDraft = null;
+let _bankRuleAp = null;       // dernier aperçu calculé (lignes affichées, suggestions) : les cases y renvoient par position
+let _bankRuleSugg = { mot: '', sens: '' };
 
-// Ouvre l'écran. `idx` = index dans DB.importRules (-1 = création).
-// `fromLine` = index de ligne d'import quand on crée la règle depuis une ligne.
-function _bankRuleOpen(idx, fromLine) {
+// Texte d'un montant pour un champ (« 150,00 »).
+function _bankRuleMontantStr(v) {
+  return (v == null || v === '') ? '' : (Math.round((Number(v) || 0) * 100) / 100).toFixed(2).replace('.', ',');
+}
+// Condition de montant d'une règle → état des boutons radio / champs de la fenêtre.
+function _bankRuleMontantUi(m) {
+  if (!m || !m.type) return { type: 'none', valeur: '', min: '', max: '' };
+  if (m.type === 'exact') return { type: 'exact', valeur: _bankRuleMontantStr(m.valeur), min: '', max: '' };
+  if (m.type === 'plage') return { type: 'plage', valeur: '', min: _bankRuleMontantStr(m.min), max: _bankRuleMontantStr(m.max) };
+  return { type: m.type, valeur: '', min: '', max: '' };
+}
+// Mots du libellé de départ (ligne, mouvement, ou libellé de référence collé en création à froid).
+function _bankRuleMotsLibelle(d) {
+  const lib = d.src ? d.src.libelle : (d.id ? '' : d.ref);
+  return lib ? window._bankMotsDuLibelle(lib) : [];
+}
+
+// Ouvre l'écran. `ref` = identifiant de la règle à modifier (vide/null/-1 = création).
+// `fromLine` = index de ligne de l'import EN COURS ; `fromMvId` = id d'un mouvement enregistré.
+function _bankRuleOpen(ref, fromLine, fromMvId) {
   if (!Array.isArray(DB.importRules)) DB.importRules = [];
-  const r = (idx != null && idx >= 0) ? DB.importRules[idx] : null;
-  if (idx != null && idx >= 0 && (!r || r._deleted)) { showToast('Règle introuvable', 'err'); return; }
-  const line = (fromLine != null && fromLine >= 0) ? _bankImportLines[fromLine] : null;
+  _bankMigrerRegles('ouverture d\'une règle');
+  const edit = (ref != null && ref !== '' && ref !== -1 && ref !== '-1');
+  const r = edit ? window._bankRuleById(DB.importRules, ref) : null;
+  if (edit && !r) { showToast('Règle introuvable', 'err'); return; }
+  const imp = _bankImportActif();
+  const line = (!edit && imp && fromLine != null && fromLine >= 0) ? _bankImportLines[fromLine] : null;
   if (line) _bankSyncAff(fromLine);
-  _bankRuleDraft = r
-    ? { idx, pattern: r.pattern || '', sens: r.sens || '', compte: r.compte || '', cat: r.cat || '',
-        qui: r.qui || '', imm: r.imm || '', cc: r.compteurCcId || '', bdc: !!r.bailleurDuCompte, srcLine: null }
-    : { idx: -1, pattern: line ? _bankSuggestPattern(line.libelle) : '',
-        sens: line ? ((line.credit || 0) > 0 ? 'cr' : 'db') : '',
-        compte: (_currentBankAccount && _currentBankAccount.id) || '',
-        cat: line ? (line.suggestedCat || '') : '',
-        qui: line ? (line.suggestedQui || '') : '', imm: line ? (line.suggestedImm || '') : '',
-        cc: line ? (line.suggestedCc || '') : '', bdc: false,
-        srcLine: line ? { date: line.date, libelle: line.libelle, credit: line.credit, debit: line.debit } : null };
-  const t = el('bank-rule-title'); if (t) t.textContent = (idx != null && idx >= 0) ? '✏️ Modifier la règle' : '💾 Mémoriser une règle';
-  const d = el('bank-rule-del'); if (d) d.style.display = (idx != null && idx >= 0) ? '' : 'none';
-  const s = el('bank-rule-save'); if (s) s.textContent = (idx != null && idx >= 0) ? 'Enregistrer' : 'Créer la règle';
+  let mv = null;
+  if (!edit && fromMvId != null && fromMvId !== '') {
+    mv = (DB.mouvements || []).find(m => m && !m._deleted && String(m.id) === String(fromMvId)) || null;
+    if (!mv) { showToast('Mouvement introuvable', 'err'); return; }
+    if (mv._bankAccountId == null || mv._bankAccountId === '') {
+      showToast('Ce mouvement n\'est rattaché à aucun compte bancaire : une règle appartient toujours à un compte.', 'warn', 6000);
+      return;
+    }
+  }
+  if (r) {
+    // Modifier : les mots entiers de la règle sont les puces (cochées), ses mots saisis des puces « saisi ».
+    const dr = window._bankRuleToDraft(r);
+    _bankRuleDraft = { id: String(r.id), chips: dr.mots.slice(), mots: dr.mots.slice(),
+      saisis: dr.motsLibres.map(w => ({ w, on: true })), freeOpen: false, freeVal: '', ref: '',
+      sens: dr.sens, compte: dr.compte ? String(dr.compte) : '', compteFixe: !!dr.compte, compteOrigine: dr.compte ? 'regle' : 'aucun',
+      montantUi: _bankRuleMontantUi(dr.montant), exceptions: dr.exceptions, exNew: [],
+      cat: dr.cat, qui: dr.qui, imm: dr.imm, cc: dr.compteurCcId, bdc: dr.bailleurDuCompte, historique: dr.historique,
+      src: null, srcIndex: -1, srcMvId: null };
+  } else {
+    const src = line
+      ? { date: line.date, libelle: line.libelle, credit: line.credit, debit: line.debit, fitid: line.fitid, _fingerprint: line._fingerprint }
+      : (mv ? { date: mv.date, libelle: mv.lib || '', credit: Number(mv.cr) || 0, debit: Number(mv.db) || 0, fitid: mv.fitid,
+          _fingerprint: mv._fingerprint, _bankAccountId: mv._bankAccountId } : null);
+    // Phase 5 (décision Didier) : un compte déjà choisi pour l'import en cours est REPRIS, y
+    // compris pour une règle créée « à froid » pendant l'import ; sélecteur seulement sans compte.
+    const ci = window._bankRuleCompteInitial({ edit: false,
+      lineAccountId: line ? _currentBankAccount.id : null,
+      mvAccountId: mv ? mv._bankAccountId : null,
+      importAccountId: imp ? _currentBankAccount.id : null });
+    const compte = ci.compte;
+    // Ce qui est déjà classé sur la ligne / le mouvement pré-remplit la règle (module pur, testé).
+    const pre = window._bankRulePrefill(line
+      ? { cat: line.suggestedCat, qui: line.suggestedQui, imm: line.suggestedImm, compteurCcId: line.suggestedCc }
+      : (mv ? { cat: mv.cat, qui: mv.qui, imm: mv.imm, compteurCcId: mv.compteurCcId } : null));
+    // Phase 6a (D4) : AUCUN mot présélectionné — les mots du libellé sont des puces à cliquer.
+    _bankRuleDraft = { id: '', chips: src ? window._bankMotsDuLibelle(src.libelle) : [], mots: [], saisis: [], freeOpen: false, freeVal: '', ref: '',
+      sens: src ? ((Number(src.credit) || 0) > 0 ? 'cr' : 'db') : '',
+      compte, compteFixe: ci.fixe, compteOrigine: ci.origine, montantUi: _bankRuleMontantUi(null), exceptions: [], exNew: [],
+      cat: pre.cat, qui: pre.qui, imm: pre.imm, cc: pre.cc,
+      bdc: false, historique: false,
+      src, srcIndex: line ? fromLine : -1, srcMvId: mv ? mv.id : null };
+  }
+  delete _affToutPar.brule;   // phase 5 : « Voir tout » ne survit pas d'une ouverture à l'autre
+  const t = el('bank-rule-title'); if (t) t.textContent = edit ? '✏️ Modifier la règle' : '💾 Mémoriser une règle';
+  const d = el('bank-rule-del'); if (d) d.style.display = edit ? '' : 'none';
+  const s = el('bank-rule-save'); if (s) s.textContent = edit ? 'Enregistrer' : 'Créer la règle';
   openM('ov-bank-rule');
   _bankRuleRender();
 }
 
-// Motif proposé depuis un libellé : le mot le plus significatif, jamais un mot de
-// plomberie bancaire (VIR, PRLV, SEPA…) qui attraperait tout.
-function _bankSuggestPattern(lib) {
-  const SKIP = /^(vir|vrt|virement|prlv|prelev|prelevement|sepa|carte|cb|crd|achat|paiement|chq|cheque|tra|tip|ech|ref|id|emetteur|mandat|rum)$/i;
-  const words = String(lib || '').split(/[\s\-_,;:./]+/).filter(w => w.length >= 4 && !SKIP.test(w) && !/^\d+$/.test(w));
-  return words.sort((a, b) => b.length - a.length)[0] || String(lib || '').slice(0, 24).trim();
+// La règle candidate décrite par le brouillon (modèle refondu : mots + compte obligatoire).
+// Puces cochées = mots entiers ; mots saisis (cochés) = morceaux de mot ; condition de montant lue
+// par le module pur (un champ illisible ne donne AUCUNE condition ici : `_bankRuleMontantDepuisSaisie`
+// le signale, l'écran bloque l'enregistrement).
+function _bankRuleCandidate(d) {
+  const mm = _bankRuleMontantDepuisSaisieDraft(d);
+  return { id: d.id || '', mots: d.mots.slice(), motsLibres: d.saisis.filter(x => x.on).map(x => x.w), sens: d.sens || '', compte: d.compte || '',
+    montant: mm.montant, exceptions: Array.isArray(d.exceptions) ? d.exceptions : [],
+    cat: d.cat || '', qui: d.bdc ? '' : (d.qui || ''), imm: d.bdc ? '' : (d.imm || ''),
+    compteurCcId: d.bdc ? '' : (d.cc || ''), bailleurDuCompte: !!d.bdc };
+}
+function _bankRuleMontantDepuisSaisieDraft(d) {
+  return window._bankRuleMontantDepuisSaisie(d.montantUi);
 }
 
 function _bankRuleRender() {
   const body = el('ov-bank-rule-body'); const d = _bankRuleDraft;
   if (!body || !d) return;
   const accounts = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
-  const seg = (v, lbl) => '<button type="button" class="btn bs' + (d.sens === v ? ' bp' : '') + '" style="font-size:12px" onclick="_bankRuleSet(\'sens\',\'' + v + '\')">' + lbl + '</button>';
-  const src = d.srcLine
-    ? '<div style="background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 11px;margin-bottom:13px;font-size:12px">'
-      + '<div class="mu sm" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">' + _uiIcon('download',12) + ' À partir de cette ligne</div>'
-      + '<div style="font-family:var(--mono,monospace);font-size:11.5px;overflow-wrap:anywhere">' + fd(d.srcLine.date) + ' · ' + escHtml(d.srcLine.libelle) + '</div></div>'
+  const accLbl = a => escHtml(a.label || '(compte)') + (a.bailleur ? ' — ' + escHtml(a.bailleur) : (a.mixte ? ' — compte mixte' : ''));
+  const sec = (n, titre, inner) => '<div class="brg-sec"><div class="brg-h">' + (n ? '<span class="brg-n">' + n + '</span>' : '') + titre + '</div>' + inner + '</div>';
+  const seg = (v, lbl) => '<button type="button" aria-pressed="' + (d.sens === v) + '" onclick="_bankRuleSet(\'sens\',\'' + v + '\')">' + lbl + '</button>';
+  const src = d.src
+    ? '<div class="brg-src"><div class="brg-src-t">' + _uiIcon('download',12) + ' Ligne de départ — ' + (d.srcMvId != null ? 'ce mouvement' : 'cette ligne') + '</div>'
+      + '<div class="brg-src-l">' + escHtml(fd(d.src.date)) + ' · ' + escHtml(d.src.libelle) + '</div>'
+      + '<div class="brg-src-l ' + ((Number(d.src.credit) || 0) > 0 ? 'brg-pos' : 'brg-neg') + '">' + ((Number(d.src.credit) || 0) > 0 ? '+' : '−') + fmt((Number(d.src.credit) || 0) > 0 ? d.src.credit : d.src.debit) + '</div></div>'
     : '';
+  // Création à froid : pas de ligne de départ → on colle un libellé de référence, ses mots deviennent les puces.
+  const froid = !d.src && !d.id;
+  const refHtml = froid
+    ? '<div style="margin-bottom:10px"><label class="brg-h" for="brg-ref" style="margin-bottom:4px">Libellé de référence <span style="text-transform:none;letter-spacing:0;font-weight:600">— coller un libellé de relevé : ses mots deviennent les puces</span></label>'
+      + '<input class="brg-inp" id="brg-ref" autocomplete="off" value="' + escHtml(d.ref) + '" oninput="_bankRuleRefInput(this.value)" placeholder="ex. PRLV SEPA EDF CLIENTS PARTICULIERS"></div>'
+    : '';
+  let compteHtml;
+  if (d.compteFixe) {
+    const a = accounts.find(x => String(x.id) === String(d.compte));
+    compteHtml = '<div class="brg-ro"><span aria-hidden="true">🔒</span><b>' + (a ? escHtml(a.label || '(compte)') : 'compte supprimé') + '</b>'
+      + (a ? '<span class="brg-bdg">' + (a.bailleur ? 'bailleur : ' + escHtml(a.bailleur) : (a.mixte ? 'compte mixte' : 'bailleur à renseigner')) + '</span>' : '')
+      + '<span class="brg-bdg pos">' + (d.compteOrigine === 'regle' ? 'compte de la règle' : 'préchargé') + '</span>'
+      + '<span class="brg-mut" style="font-size:var(--fs-sm)">' + (d.compteOrigine === 'regle' ? '' : (d.srcMvId != null ? 'repris du mouvement' : 'repris de l\'import')) + '</span></div>'
+      + '<p class="brg-hint">Une règle ne s\'applique qu\'à son compte : les listes d\'affectation ci-dessous sont limitées à son bailleur.</p>';
+  } else {
+    compteHtml = '<select class="brg-inp" aria-label="Compte de la règle" onchange="_bankRuleSet(\'compte\',this.value)"><option value="">— choisir le compte (obligatoire) —</option>'
+      + accounts.map(a => '<option value="' + escHtml(a.id) + '"' + (String(d.compte) === String(a.id) ? ' selected' : '') + '>' + accLbl(a) + '</option>').join('')
+      + '</select>'
+      + (d.historique && d.id ? '<div class="brg-alert warn">Règle sans compte : elle s\'applique pour l\'instant à tous les comptes. Choisir son compte pour l\'enregistrer.</div>'
+        : '<p class="brg-hint">Création à froid : seul cas où le compte se choisit ici.</p>');
+  }
   body.innerHTML = src
-    + '<div style="margin-bottom:13px"><label class="affv2-lab">Motif — le libellé doit contenir</label>'
-    + '<input class="inp" id="bank-rule-pat" value="' + escHtml(d.pattern) + '" oninput="_bankRuleSet(\'pattern\',this.value)" style="font-family:var(--mono,monospace);font-weight:600" placeholder="ex : EDF CLIENTS PARTICULIERS">'
-    + '<div class="mu sm" style="font-size:11.5px;margin-top:4px">Insensible aux majuscules et aux accents. N\'importe quel mot ou référence du libellé.</div></div>'
-    + '<div style="margin-bottom:13px"><label class="affv2-lab">Sens</label><div style="display:flex;gap:6px;flex-wrap:wrap">'
-    + seg('db', '− Dépense') + seg('cr', '+ Recette') + seg('', 'Les deux') + '</div>'
-    + '<div class="mu sm" style="font-size:11.5px;margin-top:4px">Sans le sens, une règle « EDF » attrape aussi le remboursement de trop-perçu et le classe en charge.</div></div>'
-    + '<div style="margin-bottom:13px"><label class="affv2-lab">Compte</label>'
-    + '<select class="inp" onchange="_bankRuleSet(\'compte\',this.value)"><option value="">Tous les comptes</option>'
-    + accounts.map(a => '<option value="' + escHtml(a.id) + '"' + (String(d.compte) === String(a.id) ? ' selected' : '') + '>' + escHtml(a.label || '(compte)') + (a.bailleur ? ' — ' + escHtml(a.bailleur) : '') + '</option>').join('')
-    + '</select></div>'
-    + '<div style="margin-bottom:13px"><label class="affv2-lab">Catégorie à appliquer</label>'
-    + '<input type="hidden" id="brule-cat" value="' + escHtml(d.cat) + '">' + _catBtn('brule', 'brule', d.cat)
-    + '<label class="affv2-lab" style="margin-top:11px;display:block">Affectation</label>'
-    + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0 8px;padding:7px 10px;border:1px solid ' + (d.bdc ? 'var(--pur,#7c3aed)' : 'var(--bor)') + ';border-radius:8px;cursor:pointer">'
-    + '<input type="checkbox" ' + (d.bdc ? 'checked' : '') + ' onchange="_bankRuleSet(\'bdc\',this.checked)">'
-    + '<span><b>' + _uiIcon('bank',14) + ' Le bailleur du compte</b> — résolu à chaque import<br><span class="mu sm" style="font-size:11px">Une seule règle pour toutes les SCI (cas du comptable qui facture chaque entité).</span></span></label>'
-    + (d.bdc ? '' : '<div id="brule-aff"></div><input type="hidden" id="brule-qui"><input type="hidden" id="brule-imm"><input type="hidden" id="brule-cc">')
-    + '</div>'
-    + '<label class="affv2-lab">Ce que cette règle va classer</label><div id="bank-rule-preview"></div>';
+    + sec(1, 'Motif — cliquer les mots du libellé, ou en ajouter un',
+        refHtml
+        + '<div class="brg-chips" id="brg-chips" role="group" aria-label="Mots du libellé"></div>'
+        + '<div class="brg-free" id="brg-free" hidden><label for="brg-freein" class="brg-h" style="margin:0">Un mot, ou un morceau de mot, absent du libellé</label>'
+        +   '<div class="brg-free-row"><input class="brg-inp" id="brg-freein" autocomplete="off" autocapitalize="characters" placeholder="ex. ELEC" value="' + escHtml(d.freeVal) + '" aria-describedby="brg-fb" oninput="_bankRuleFreeInput(this.value)" onkeydown="_bankRuleFreeKey(event)">'
+        +   '<button type="button" class="brg-btn" onclick="_bankRuleFreeAdd()">Ajouter</button><button type="button" class="brg-btn" onclick="_bankRuleFreeToggle(false)">Annuler</button></div>'
+        +   '<div class="brg-fb" id="brg-fb" role="status"></div></div>'
+        + '<div class="brg-motif" id="brg-motif"></div>'
+        + '<p class="brg-hint"><b>Comment ça se lit :</b> tous les mots (puces cochées + mots saisis) doivent figurer dans le libellé, n\'importe où, dans n\'importe quel ordre, sans tenir compte des majuscules ni des accents. Une puce cochée est cherchée comme mot du libellé ; <b>un mot saisi est cherché comme morceau de mot</b> : « ELEC » attrape « ELECTRICITE ». Aucun mot n\'est choisi automatiquement.</p>'
+        + (d.historique && d.id ? '<p class="brg-hint">Règle d\'avant la refonte : une fois enregistrée, ses mots seront cherchés dans n\'importe quel ordre.</p>' : ''))
+    + sec(2, 'Sens du mouvement', '<div class="brg-seg" role="group" aria-label="Sens">' + seg('db', 'Dépense') + seg('cr', 'Recette') + seg('', 'Les deux') + '</div>'
+        + '<p class="brg-hint">Sans le sens, une règle « EDF » attrape aussi le remboursement de trop-perçu et le classe en charge.</p>')
+    + sec(3, 'Condition de montant <span class="brg-bdg">facultative</span>', '<div id="brg-mont"></div>')
+    + sec(4, 'Compte <span class="brg-bdg ' + (d.compteFixe ? '' : 'warn') + '">' + (d.compteFixe ? 'préchargé' : 'obligatoire') + '</span>', compteHtml)
+    + sec(5, 'Catégorie et affectation',
+        '<input type="hidden" id="brule-cat" value="' + escHtml(d.cat) + '">' + _catBtn('brule', 'brule', d.cat)
+        + '<label class="brg-h" style="margin-top:14px;display:block">Affectation</label>'
+        + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0 8px;padding:7px 10px;min-height:44px;border:1px solid ' + (d.bdc ? 'var(--pur)' : 'var(--bor)') + ';border-radius:8px;cursor:pointer">'
+        + '<input type="checkbox" ' + (d.bdc ? 'checked' : '') + ' onchange="_bankRuleSet(\'bdc\',this.checked)">'
+        + '<span><b>' + _uiIcon('bank',14) + ' Le bailleur du compte</b> — résolu à chaque import<br><span class="mu sm" style="font-size:11px">Une seule règle pour toutes les SCI (cas du comptable qui facture chaque entité).</span></span></label>'
+        + (d.bdc ? '' : '<div id="brule-aff"></div><input type="hidden" id="brule-qui"><input type="hidden" id="brule-imm"><input type="hidden" id="brule-cc">'))
+    + sec(6, 'Ce que cette règle va classer', '<div id="bank-rule-preview"></div>');
   if (!d.bdc) {
     if (el('brule-qui')) el('brule-qui').value = d.qui;
     if (el('brule-imm')) el('brule-imm').value = d.imm;
@@ -30771,8 +31155,178 @@ function _bankRuleRender() {
       _bankRuleDraft.qui = el('brule-qui') ? el('brule-qui').value : '';
       _bankRuleDraft.imm = el('brule-imm') ? el('brule-imm').value : '';
       _bankRuleDraft.cc  = el('brule-cc')  ? el('brule-cc').value  : '';
+      _bankRuleRenderMontant();      // « = loyer CC » dépend du logement affecté
+      _bankRulePreviewRender();
     };
     _affRender('brule', 'brule');
+  }
+  _bankRuleRenderMotif();
+  _bankRuleRenderMontant();
+  if (d.freeOpen) _bankRuleFreeShow(true);
+  _bankRulePreviewRender();
+}
+
+// Normalisation d'un mot pour comparer (casse, accents) — même règle que le module.
+function _bankRuleNorm(w) {
+  return String(w == null ? '' : w).normalize('NFKD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+}
+function _bankRuleMontantTxt(m) {
+  if (!m || !m.type) return '';
+  if (m.type === 'loyerCC') return '= loyer charges comprises du mois du virement';
+  if (m.type === 'exact') return '= ' + fmt(Number(m.valeur) || 0);
+  if (m.type === 'plage') return (m.min != null ? 'de ' + fmt(Number(m.min) || 0) : '') + (m.max != null ? (m.min != null ? ' à ' : 'jusqu\'à ') + fmt(Number(m.max) || 0) : '');
+  return '';
+}
+
+// ── 1 · Motif en puces ────────────────────────────────────────────────────────
+// Les puces (mots du libellé) et les mots saisis ; le résumé « Motif : … » ; rien n'est présélectionné.
+function _bankRuleRenderMotif() {
+  const d = _bankRuleDraft; const host = el('brg-chips'); if (!d || !host) return;
+  const cochee = w => d.mots.some(x => _bankRuleNorm(x) === _bankRuleNorm(w));
+  let h = d.chips.map((w, i) => '<button type="button" class="brg-chip" data-i="' + i + '" aria-pressed="' + cochee(w) + '" onclick="_bankRuleChip(this.dataset.i)">' + escHtml(w) + '</button>').join('');
+  h += d.saisis.map((f, i) => '<span class="brg-chipf"><button type="button" class="brg-chip brg-chip--saisi" data-i="' + i + '" aria-pressed="' + !!f.on + '" onclick="_bankRuleSaisiToggle(this.dataset.i)">' + escHtml(f.w) + ' <em>saisi</em></button>'
+    + '<button type="button" class="brg-x" data-i="' + i + '" aria-label="Supprimer le mot saisi ' + escHtml(f.w) + '" onclick="_bankRuleSaisiSuppr(this.dataset.i)">✕</button></span>').join('');
+  h += '<button type="button" class="brg-chip brg-chip--add" id="brg-add" aria-expanded="' + !!d.freeOpen + '" aria-controls="brg-free" onclick="_bankRuleFreeToggle()">+ mot</button>';
+  host.innerHTML = h;
+  const mots = d.chips.filter(cochee);
+  const lib = d.saisis.filter(f => f.on);
+  const n = mots.length + lib.length;
+  const m = el('brg-motif');
+  if (m) m.innerHTML = n
+    ? '<span>Motif :</span> ' + mots.map(w => '<code>' + escHtml(w) + '</code>').join(' ') + ' ' + lib.map(f => '<code class="brg-fw">' + escHtml(f.w) + '</code> <span class="brg-tg">saisi</span>').join(' ')
+      + ' <span class="brg-mut">— ' + n + ' mot' + (n > 1 ? 's' : '') + ', tous requis, n\'importe où dans le libellé' + (lib.length ? ' ; le mot saisi compte comme morceau de mot' : '') + '</span>'
+    : '<span class="brg-mut">Aucun mot choisi — cliquer un mot, ou en ajouter un avec « + mot », pour pouvoir enregistrer.</span>';
+}
+// Mots cochés, recalés sur les puces (une puce disparue — libellé de référence modifié — n'est plus cochée).
+function _bankRuleSyncMots() {
+  const d = _bankRuleDraft; if (!d) return;
+  d.mots = d.chips.filter(w => d.mots.some(x => _bankRuleNorm(x) === _bankRuleNorm(w)));
+}
+function _bankRuleChip(i) {
+  const d = _bankRuleDraft; const w = d && d.chips[Number(i)]; if (w == null) return;
+  const n = _bankRuleNorm(w);
+  d.mots = d.mots.some(x => _bankRuleNorm(x) === n) ? d.mots.filter(x => _bankRuleNorm(x) !== n) : d.mots.concat([w]);
+  _bankRuleMotifChanged();
+}
+function _bankRuleSaisiToggle(i) {
+  const d = _bankRuleDraft; const f = d && d.saisis[Number(i)]; if (!f) return;
+  f.on = !f.on;
+  _bankRuleMotifChanged();
+}
+function _bankRuleSaisiSuppr(i) {
+  const d = _bankRuleDraft; if (!d || !d.saisis[Number(i)]) return;
+  d.saisis.splice(Number(i), 1);
+  _bankRuleMotifChanged();
+}
+function _bankRuleMotifChanged() {
+  _bankRuleRenderMotif();
+  if (_bankRuleDraft && _bankRuleDraft.freeOpen) _bankRuleFreeFeedback();
+  _bankRulePreviewRender();
+}
+// Création à froid : le libellé de référence collé donne les puces.
+function _bankRuleRefInput(v) {
+  const d = _bankRuleDraft; if (!d) return;
+  d.ref = String(v || '');
+  d.chips = window._bankMotsDuLibelle(d.ref);
+  _bankRuleSyncMots();
+  _bankRuleMotifChanged();
+}
+// Puce libre « + mot » : un petit champ (16 px), Entrée valide, Échap ferme.
+function _bankRuleFreeShow(on) {
+  const box = el('brg-free'); if (!box) return;
+  box.hidden = !on;
+  if (on) { _bankRuleFreeFeedback(); const i = el('brg-freein'); if (i) i.focus(); }
+}
+function _bankRuleFreeToggle(force) {
+  const d = _bankRuleDraft; if (!d) return;
+  d.freeOpen = (typeof force === 'boolean') ? force : !d.freeOpen;
+  if (!d.freeOpen) d.freeVal = '';
+  const i = el('brg-freein'); if (i && !d.freeOpen) i.value = '';
+  _bankRuleRenderMotif();
+  _bankRuleFreeShow(d.freeOpen);
+  if (!d.freeOpen) { const a = el('brg-add'); if (a) a.focus(); }
+}
+function _bankRuleFreeInput(v) {
+  const d = _bankRuleDraft; if (!d) return;
+  d.freeVal = String(v || '');
+  _bankRuleFreeFeedback();
+}
+function _bankRuleFreeDiag() {
+  const d = _bankRuleDraft;
+  return window._bankMotSaisiDiagnostic(d.freeVal, { motsLibelle: _bankRuleMotsLibelle(d), saisis: d.saisis.map(f => f.w), puces: d.chips });
+}
+// Retour en direct : le morceau figure-t-il dans le libellé de départ ?
+function _bankRuleFreeFeedback() {
+  const d = _bankRuleDraft; const fb = el('brg-fb'); if (!d || !fb) return;
+  const g = _bankRuleFreeDiag(); const m = g.mot.toUpperCase();
+  const avecDepart = !!(d.src || (!d.id && d.ref));
+  let cls = '', txt = '';
+  if (g.etat === 'vide') txt = 'Taper un mot ou un morceau de mot, par exemple ELEC.';
+  else if (g.etat === 'espace') { txt = 'Un seul mot à la fois, sans espace.'; cls = 'ko'; }
+  else if (g.etat === 'doublon') { txt = 'Ce mot est déjà saisi.'; cls = 'ko'; }
+  else if (g.etat === 'puce') { txt = 'Ce mot est déjà une puce du libellé : cliquer dessus.'; cls = 'ko'; }
+  else if (g.etat === 'present') { txt = '« ' + m + ' » est trouvé dans « ' + g.trouveDans + ' » du libellé de départ.'; cls = 'ok'; }
+  else if (avecDepart) { txt = '« ' + m + ' » ne figure pas dans le libellé de départ : ' + (d.src ? 'cette ligne ne suivrait plus la règle.' : 'aucune puce ne le contient.'); cls = 'ko'; }
+  else txt = '« ' + m + ' » sera cherché comme morceau de mot.';
+  fb.className = 'brg-fb ' + cls;
+  fb.textContent = txt;
+}
+function _bankRuleFreeAdd() {
+  const d = _bankRuleDraft; if (!d) return;
+  const g = _bankRuleFreeDiag();
+  if (!g.ajoutable) { _bankRuleFreeFeedback(); const i = el('brg-freein'); if (i) i.focus(); return; }
+  d.saisis.push({ w: g.mot.toUpperCase(), on: true });
+  d.freeVal = ''; d.freeOpen = false;
+  const i = el('brg-freein'); if (i) i.value = '';
+  _bankRuleFreeShow(false);
+  _bankRuleMotifChanged();
+  const a = el('brg-add'); if (a) a.focus();
+}
+function _bankRuleFreeKey(e) {
+  if (!e) return;
+  if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); _bankRuleFreeAdd(); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); _bankRuleFreeToggle(false); }
+}
+
+// ── 3 · Condition de montant (facultative) ───────────────────────────────────
+function _bankRuleRenderMontant() {
+  const d = _bankRuleDraft; const host = el('brg-mont'); if (!d || !host) return;
+  const u = d.montantUi; const rec = d.sens === 'cr';
+  if (!rec && u.type === 'loyerCC') u.type = 'none';     // « = loyer CC » : recette uniquement
+  const opt = (t, inner, dis) => '<label class="brg-opt' + (u.type === t ? ' on' : '') + (dis ? ' dis' : '') + '" data-t="' + t + '"><input type="radio" name="brg-mt" value="' + t + '"' + (u.type === t ? ' checked' : '') + (dis ? ' disabled' : '') + ' onchange="_bankRuleMontantType(this.value)"> ' + inner + '</label>';
+  const nonLog = d.bdc || !d.qui || String(d.qui).startsWith('SCI:');
+  host.innerHTML = '<div class="brg-opts">'
+    + opt('none', 'Aucune condition de montant')
+    + opt('loyerCC', 'Montant = loyer CC du mois <span class="brg-mut">' + (rec ? '(loyer charges comprises du mois du virement, bail du logement affecté)' : '(sens « recette » uniquement)') + '</span>', !rec)
+    + opt('exact', 'Montant exact <input class="brg-inp" inputmode="decimal" autocomplete="off" value="' + escHtml(u.valeur) + '" aria-label="Montant exact" oninput="_bankRuleMontantChamp(\'exact\',\'valeur\',this.value)"> €')
+    + opt('plage', 'Plage <input class="brg-inp" inputmode="decimal" autocomplete="off" value="' + escHtml(u.min) + '" aria-label="Montant minimum" oninput="_bankRuleMontantChamp(\'plage\',\'min\',this.value)"> à <input class="brg-inp" inputmode="decimal" autocomplete="off" value="' + escHtml(u.max) + '" aria-label="Montant maximum" oninput="_bankRuleMontantChamp(\'plage\',\'max\',this.value)"> €')
+    + '</div>'
+    + '<p class="brg-hint" id="brg-mont-hint"></p>';
+  const hint = { none: 'Sans condition, la règle vaut pour tous les montants.',
+    loyerCC: 'La règle ne s\'applique que si le montant est égal au loyer charges comprises du mois du virement (bail du logement affecté) : un montant différent (paiement partiel, rattrapage) reste à classer à la main.',
+    exact: 'Seule une ligne au montant exact est concernée.',
+    plage: 'Seules les lignes dont le montant est dans la plage sont concernées (laisser une borne vide pour « au moins » / « au plus »).' }[u.type] || '';
+  el('brg-mont-hint').textContent = hint;
+  if (u.type === 'loyerCC' && nonLog) el('brg-mont-hint').textContent += ' Il faut aussi affecter la règle à un logement (étape 5).';
+}
+function _bankRuleMontantType(t) {
+  const d = _bankRuleDraft; if (!d) return;
+  d.montantUi.type = t;
+  _bankRuleRenderMontant();
+  _bankRulePreviewRender();
+}
+// Saisie dans un champ : choisit aussi le bouton radio correspondant, sans refaire le rendu (le champ garde le focus).
+function _bankRuleMontantChamp(type, champ, v) {
+  const d = _bankRuleDraft; if (!d) return;
+  d.montantUi[champ] = String(v || '');
+  if (d.montantUi.type !== type) {
+    d.montantUi.type = type;
+    const host = el('brg-mont');
+    if (host) host.querySelectorAll('.brg-opt').forEach(o => {
+      const on = o.dataset.t === type; o.classList.toggle('on', on);
+      const r = o.querySelector('input[type=radio]'); if (r) r.checked = on;
+    });
+    const h = el('brg-mont-hint'); if (h) h.textContent = type === 'exact' ? 'Seule une ligne au montant exact est concernée.' : 'Seules les lignes dont le montant est dans la plage sont concernées (laisser une borne vide pour « au moins » / « au plus »).';
   }
   _bankRulePreviewRender();
 }
@@ -30788,98 +31342,366 @@ function _bankRuleOnCat() {
 function _bankRuleSet(k, v) {
   if (!_bankRuleDraft) return;
   _bankRuleDraft[k] = v;
-  if (k === 'pattern') { _bankRulePreviewRender(); return; }   // pas de re-render : on garde le focus
+  if (k === 'compte') delete _affToutPar.brule;   // phase 5 : autre compte = autre périmètre, « Voir tout » retombe
   _bankRuleRender();
 }
 
-// ⑦.4 — l'aperçu, mis à jour à CHAQUE FRAPPE : les lignes de l'import en cours qui
-// correspondent, le nombre de mouvements déjà en base, et l'alerte quand le motif est
-// trop court ou attrape des lignes de natures différentes.
+// ── 6 · Aperçu en direct, lignes décochables ─────────────────────────────────
+// ⑦.4 — l'aperçu, mis à jour à CHAQUE clic / frappe : les lignes de l'import en cours qui
+// correspondent (chacune avec sa case : décocher = « ne rentre pas dans la règle » = EXCEPTION
+// mémorisée à l'enregistrement), le nombre de mouvements déjà en base (informatif), l'alerte
+// « natures différentes » avec ses actions directes, et ce qui empêche d'enregistrer.
+// Calcul : `_bankRuleApercu` / `_bankRuleSuggestions` (module pur, testés).
+function _bankRuleCtx(d) {
+  const imp = _bankImportActif();
+  return {
+    importLines: imp ? _bankImportLines : [],
+    mouvements: DB.mouvements || [],
+    accountId: imp ? _currentBankAccount.id : '',
+    source: d.src || undefined,
+    sourceIndex: (imp && d.srcIndex >= 0) ? d.srcIndex : undefined,
+    loyerCC: _bankLoyerCC,
+  };
+}
+// Ce qui empêche d'enregistrer, dit en clair (une phrase par cause).
+function _bankRuleErrMsgs(errors) {
+  const e = errors || [];
+  const out = [];
+  if (e.includes('mots')) out.push('Choisir au moins un mot : cliquer un mot du libellé, ou en ajouter un avec « + mot ».');
+  if (e.includes('compte')) out.push('Le compte est obligatoire : une règle appartient à un compte, donc à un bailleur.');
+  if (e.includes('montant')) out.push('La condition de montant est incomplète ou illisible : saisir un montant (ex. 150,00) ou choisir « Aucune condition ».');
+  if (e.includes('montant-recette')) out.push('« = loyer CC » ne vaut que pour une recette : choisir le sens « Recette ».');
+  if (e.includes('montant-logement')) out.push('« = loyer CC » demande un logement affecté (étape 5 : catégorie et affectation).');
+  return out.length ? out : (e.length ? ['Règle invalide.'] : []);
+}
+function _bankRuleErrMsg(errors) { return _bankRuleErrMsgs(errors).join(' '); }
+// Erreurs de la règle décrite par le brouillon (construction à blanc, rien n'est enregistré).
+function _bankRuleErreurs(d) {
+  const errs = [];
+  const m = _bankRuleMontantDepuisSaisieDraft(d);
+  const b = window._bankRuleBuild(_bankRuleCandidate(d), { base: null });
+  if (!b.ok) errs.push(...b.errors);
+  if (m.invalide && !errs.includes('montant')) errs.push('montant');
+  return errs;
+}
+
 function _bankRulePreviewRender() {
   const host = el('bank-rule-preview'); const d = _bankRuleDraft;
   if (!host || !d) return;
-  const p = window._bankRulePreview(
-    { pattern: d.pattern, sens: d.sens, compte: d.compte },
-    { importLines: _bankImportLines || [], mouvements: DB.mouvements || [], accountId: (_currentBankAccount && _currentBankAccount.id) });
-  const save = el('bank-rule-save'); if (save) save.disabled = !String(d.pattern || '').trim();
-  if (!String(d.pattern || '').trim()) {
-    host.innerHTML = '<div class="mu sm" style="border:1px solid var(--bor);border-radius:10px;padding:12px;text-align:center">Saisir un motif pour voir ce qu\'il attrape.</div>';
+  const imp = _bankImportActif();
+  const cand = _bankRuleCandidate(d);
+  const ctx = _bankRuleCtx(d);
+  const errs = _bankRuleErreurs(d);
+  const save = el('bank-rule-save'); if (save) save.disabled = errs.length > 0;
+  const needHtml = errs.length
+    ? '<div class="brg-alert warn brg-need" role="status"><b>Pour enregistrer :</b><ul>' + _bankRuleErrMsgs(errs).map(m => '<li>' + escHtml(m) + '</li>').join('') + '</ul></div>'
+    : '';
+  const box = (tone, html) => '<div class="brg-alert ' + tone + '">' + html + '</div>';
+  const mUi = _bankRuleMontantDepuisSaisieDraft(d);
+  if (mUi.invalide) {   // une condition illisible ne doit pas laisser croire que la règle attrape tout
+    _bankRuleAp = null;
+    host.innerHTML = '<div class="brg-hint" style="border:1px solid var(--bor);border-radius:10px;padding:12px;text-align:center">Compléter la condition de montant pour voir ce que la règle attrape.</div>' + needHtml;
     return;
   }
-  const head = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--sur2);border-bottom:1px solid var(--bor);padding:7px 11px;font-size:12px">'
-    + '<b style="color:' + (p.lines.length ? 'var(--cta,#3b7ef6)' : 'var(--t3)') + '">' + p.lines.length + ' ligne' + (p.lines.length > 1 ? 's' : '') + '</b> de cet import'
-    + (p.nBase ? '<span style="color:var(--t3)">·</span><span><b>' + p.nBase + '</b> mouvement' + (p.nBase > 1 ? 's' : '') + ' déjà en base</span>' : '')
-    + (d.sens ? '<span style="color:var(--t3)">·</span><span>sens : ' + (d.sens === 'db' ? 'dépense' : 'recette') + '</span>' : '')
-    + '</div>';
-  const rows = p.lines.length
-    ? p.lines.slice(0, 40).map(l => '<div style="display:flex;gap:9px;justify-content:space-between;padding:5px 11px;border-top:1px solid var(--sur2,#f1f5f9);font-size:11.5px">'
-        + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + fd(l.date) + ' · ' + escHtml(l.libelle || '') + '</span>'
-        + '<span style="font-weight:700;white-space:nowrap;color:' + ((l.credit || 0) > 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + ((l.credit || 0) > 0 ? '+' : '−') + fmt((l.credit || 0) > 0 ? l.credit : l.debit) + '</span></div>').join('')
-    : '<div class="mu sm" style="padding:10px 11px;font-size:11.5px">Aucune ligne de cet import ne correspond.</div>';
+  const p = window._bankRuleApercu(cand, ctx);
+  _bankRuleAp = p;
+  // Suggestions : seulement quand l'alerte « natures différentes » parle ; les lignes de l'import suffisent (pas la base).
+  _bankRuleSugg = p.mixed ? window._bankRuleSuggestions(cand, Object.assign({}, ctx, { mouvements: [], motsLibelle: _bankRuleMotsLibelle(d) })) : { mot: '', sens: '' };
+  if (p.vide) {
+    host.innerHTML = '<div class="brg-hint" style="border:1px solid var(--bor);border-radius:10px;padding:12px;text-align:center">Choisir au moins un mot pour voir ce que la règle attrape.</div>' + needHtml
+      + _bankRuleExceptionsHtml(d);
+    return;
+  }
+  const lignes = p.lignes;
+  // Audit M2 — les lignes déjà classées à la main (hors ligne de départ) seront laissées telles
+  // quelles : elles ne « suivront » pas la règle, on les compte à part (`_bankRuleApercu`).
+  const nImport = p.nSuivront;
+  const nProt = p.nProtegees;
+  const nOff = lignes.filter(x => !x.coche).length;
+  const rows = lignes.length
+    ? lignes.slice(0, 60).map((x, k) => {
+        const l = x.line; const cr = (Number(l.credit) || 0) > 0;
+        const off = !x.coche;
+        const note = x.source
+          ? '<small><b>' + (d.srcMvId != null ? 'ce mouvement' : 'ligne de départ') + '</b> : ' + (x.correspond ? (d.srcMvId != null ? 'mis à jour directement à l\'enregistrement' : 'suit la règle tout de suite') : '<span class="brg-neg">ne remplit pas ces critères</span>') + '</small>'
+          : (off ? '<small>hors règle : reste à classer à la main (exception mémorisée)</small>'
+            : (x.protegee && x.correspond ? '<small><b>classée à la main</b> : laissée telle quelle' + (l.suggestedCat ? ' (' + escHtml(l.suggestedCat) + ')' : '') + '</small>'
+              : (l.suggestedCat ? '<small>' + escHtml(l.suggestedCat) + '</small>' : '')));
+        return '<div class="brg-pvr' + (off ? ' off' : '') + (x.source ? ' src' : '') + (x.source && !x.correspond ? ' nomatch' : '') + '">'
+          + '<label class="brg-cb"><input type="checkbox" data-k="' + k + '"' + (off ? '' : ' checked') + (x.verrouille || x.index < 0 ? ' disabled' : '') + ' aria-label="Inclure la ligne dans la règle" onchange="_bankRuleLigneCase(this.dataset.k,this.checked)"></label>'
+          + '<span class="brg-l"><span>' + escHtml(fd(l.date)) + ' · ' + escHtml(l.libelle || '') + '</span>' + note + '</span>'
+          + '<span class="brg-m ' + (cr ? 'brg-pos' : 'brg-neg') + '">' + (cr ? '+' : '−') + fmt(cr ? l.credit : l.debit) + '</span></div>';
+      }).join('') + (lignes.length > 60 ? '<div class="brg-hint" style="padding:8px 14px">… et ' + (lignes.length - 60) + ' autre' + (lignes.length > 61 ? 's' : '') + ' ligne' + (lignes.length > 61 ? 's' : '') + '.</div>' : '')
+    : '<div class="brg-hint" style="padding:12px 14px">' + (imp ? 'Aucune ligne de cet import ne correspond.' : 'Aucun import en cours : la règle suivra les prochains imports de ce compte.') + '</div>';
+  const motifLen = [...cand.mots, ...cand.motsLibres].join(' ').length;
+  const head = '<div class="brg-pvh"><span><b>' + nImport + ' ligne' + (nImport > 1 ? 's' : '') + '</b> de cet import suivront la règle'
+    + (nProt ? ' · ' + nProt + (nProt > 1 ? ' classées à la main, laissées telles quelles' : ' classée à la main, laissée telle quelle') : '')
+    + (nOff ? ' · ' + nOff + ' décochée' + (nOff > 1 ? 's' : '') : '') + '</span>'
+    + (d.sens ? '<span class="brg-mut">sens : ' + (d.sens === 'db' ? 'dépense' : 'recette') + '</span>' : '') + '</div>';
+  // Alertes : compte, ligne source, motif court, natures différentes (avec actions directes).
   let verdict = '';
-  if (p.tooShort) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Motif très court (' + String(d.pattern).trim().length + ' caractères) — il risque d\'attraper des libellés sans rapport. Ajouter un mot.</div>';
-  else if (p.mixed) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Ce motif attrape des lignes de <b>natures différentes</b>' + (p.baseCats.length > 1 ? ' (déjà classées en ' + p.baseCats.map(escHtml).join(', ') + ')' : '') + '. Préciser le motif, ou fixer le sens.</div>';
-  else if (p.ok) verdict = '<div style="margin-top:8px;background:var(--grn-bg,#ecfdf5);border-left:3px solid var(--grn,#16a34a);border-radius:8px;padding:9px 11px;font-size:12px">✔ ' + p.lines.length + ' ligne(s) de cet import ser' + (p.lines.length > 1 ? 'ont' : 'a') + ' classée(s) automatiquement' + (p.nBase ? ', et ' + p.nBase + ' mouvement(s) déjà en base correspondent à ce motif' : '') + '.</div>';
-  host.innerHTML = '<div style="border:1px solid var(--bor);border-radius:10px;overflow:hidden"><div>' + head + '</div><div style="max-height:26vh;overflow:auto">' + rows + '</div></div>' + verdict;
+  if (p.compteManquant) verdict = box('warn', '⚠ Choisir le compte de la règle : il est obligatoire.');
+  else if (p.sourceCorrespond === false) verdict = box('warn', '⚠ ' + (d.srcMvId != null ? 'Ce mouvement' : 'La ligne de départ') + ' ne remplit pas ces critères : ' + (d.srcMvId != null ? 'il ne sera pas modifié' : 'elle ne suivra pas la règle') + '. Retirer le mot, la condition de montant ou le sens qui n\'y correspond pas.');
+  else if (p.tooShort) verdict = box('warn', '⚠ Motif très court (' + motifLen + ' caractères) — il risque d\'attraper des libellés sans rapport. Ajouter un mot.');
+  else if (p.mixed) {
+    const acts = (_bankRuleSugg.mot ? '<button type="button" class="brg-btn" onclick="_bankRuleApplySugg(\'mot\')">Ajouter le mot « ' + escHtml(_bankRuleSugg.mot) + ' »</button>' : '')
+      + (_bankRuleSugg.sens ? '<button type="button" class="brg-btn" onclick="_bankRuleApplySugg(\'sens\')">Fixer le sens : ' + (_bankRuleSugg.sens === 'db' ? 'dépense' : 'recette') + '</button>' : '');
+    verdict = box('warn', '<b>⚠ Natures différentes</b>' + (p.natures.length > 1 ? ' : ' + p.natures.length + ' types de lignes pour ce motif' : ' (dépenses et recettes mélangées)')
+      + (p.natures.length > 1 ? '<ul>' + p.natures.map(n => '<li>' + escHtml(n) + ' — ' + lignes.filter(x => x.coche && x.index >= 0 && x.line.suggestedCat === n).length + ' ligne(s)</li>').join('') + '</ul>' : '')
+      + '<div style="margin-top:6px">Elles recevraient la même catégorie. Resserrer le motif (une puce, ou « + mot »), fixer le sens, ou décocher les lignes qui n\'en font pas partie.</div>'
+      + (acts ? '<div class="brg-acts">' + acts + '</div>' : ''));
+  } else if (nImport) verdict = box('pos', '<b>✓ Lignes de même nature</b> — la règle est cohérente sur l\'import en cours.');
+  const kpis = '<div class="brg-kpis">'
+    + (imp ? '<div class="brg-kpi"><b>' + nImport + '</b><span>ligne' + (nImport > 1 ? 's' : '') + ' de l\'import en cours classée' + (nImport > 1 ? 's' : '') + ' à l\'enregistrement</span></div>'
+      + (nProt ? '<div class="brg-kpi"><b>' + nProt + '</b><span>déjà classée' + (nProt > 1 ? 's' : '') + ' à la main : laissée' + (nProt > 1 ? 's' : '') + ' telle' + (nProt > 1 ? 's' : '') + ' quelle' + (nProt > 1 ? 's' : '') + '</span></div>' : '')
+      + '<div class="brg-kpi"><b>' + nOff + '</b><span>décochée' + (nOff > 1 ? 's' : '') + ' : à classer à la main</span></div>' : '')
+    + '<div class="brg-kpi info"><b>' + p.nBase + '</b><span>déjà en base — <b style="display:inline;font:600 var(--fs-sm) var(--font)">pour information</b> : la règle ne les modifie jamais (même compte seulement)</span></div></div>';
+  const recap = (d.srcMvId != null)
+    ? '<div class="brg-hint">Ce mouvement (ligne de départ) est mis à jour directement à l\'enregistrement ; les prochains imports de ce compte suivront la règle.</div>'
+    : '<div class="brg-hint">À l\'enregistrement : la ligne de départ suit la règle, les lignes cochées de l\'import en cours aussi (sauf celles déjà classées à la main, laissées telles quelles), puis les prochains imports de ce compte. Les mouvements déjà en base ne changent pas.</div>';
+  host.innerHTML = '<div class="brg-pv">' + head + '<div class="brg-pvs">' + rows + '</div></div>' + verdict + _bankRuleAutresApercuHtml(d, cand, p) + kpis + recap
+    + _bankRuleExceptionsHtml(d) + needHtml;
+}
+
+// Audit B1 — dans l'aperçu : les AUTRES règles actives qui attrapent aussi la ligne de départ avec
+// un autre résultat. La règle en cours de création l'emporte pour cette ligne ; on le dit avant
+// d'enregistrer. (Ligne de l'import en cours, ou mouvement enregistré d'où la règle est créée.)
+function _bankRuleAutresApercuHtml(d, cand, p) {
+  if (!d || !p || p.sourceCorrespond !== true) return '';
+  let src = null, acc = null;
+  if (d.srcMvId != null) {
+    src = (DB.mouvements || []).find(m => m && !m._deleted && String(m.id) === String(d.srcMvId)) || null;
+    acc = src ? (DB.params.bankAccounts || []).find(a => a && !a._deleted && String(a.id) === String(src._bankAccountId)) || null : null;
+  } else if (d.srcIndex >= 0 && _bankImportActif()) {
+    src = _bankImportLines[d.srcIndex] || null; acc = _currentBankAccount;
+  }
+  if (!src) return '';
+  const autres = window._bankRuleAutresResultats(DB.importRules || [], cand, src,
+    { accountId: acc ? acc.id : undefined, account: acc, loyerCC: _bankLoyerCC });
+  return _bankAutresReglesHtml(autres, true);
+}
+
+// Exceptions de la règle (déjà mémorisées, ou posées en décochant) : listées, supprimables.
+function _bankRuleExceptionsHtml(d) {
+  const ex = d.exceptions || [];
+  if (!ex.length) return '';
+  return '<div class="brg-alert info"><b>' + ex.length + ' exception' + (ex.length > 1 ? 's' : '') + ' sur la règle</b>'
+    + '<ul class="brg-exc">' + ex.map((e, i) => '<li><span>' + escHtml(fd(e.date)) + ' · ' + (e.sens === 'cr' ? '+' : '−') + fmt(Number(e.montant) || 0) + ' · ' + escHtml(e.libelle || '')
+      + ((d.exNew || []).includes(e.cle) ? ' <span class="brg-bdg adv">nouvelle</span>' : '') + '</span>'
+      + '<button type="button" class="brg-lnk" data-i="' + i + '" aria-label="Retirer cette exception" onclick="_bankRuleExceptionRetire(this.dataset.i)">Retirer</button></li>').join('') + '</ul>'
+    + '<div class="brg-hint">Une exception est une ligne sortie de la règle. La retirer ne reclasse aucun mouvement déjà en base.</div></div>';
+}
+function _bankRuleExceptionRetire(i) {
+  const d = _bankRuleDraft; const e = d && d.exceptions[Number(i)]; if (!e) return;
+  d.exceptions = window._bankRuleRemoveException({ exceptions: d.exceptions }, e.cle).exceptions;
+  d.exNew = (d.exNew || []).filter(c => c !== e.cle);
+  _bankRulePreviewRender();
+}
+// Case d'une ligne de l'aperçu : décochée = exception de la règle, recochée = exception retirée.
+function _bankRuleLigneCase(k, coche) {
+  const d = _bankRuleDraft; const x = _bankRuleAp && _bankRuleAp.lignes[Number(k)];
+  if (!d || !x || x.verrouille || x.index < 0) return;
+  d.exceptions = window._bankRuleExceptionsApresCase(d.exceptions, x.line, !!coche);
+  d.exNew = (d.exNew || []).filter(c => c !== x.cle);
+  if (!coche) d.exNew.push(x.cle);
+  _bankRulePreviewRender();
+}
+// Actions directes de l'alerte « natures différentes ».
+function _bankRuleApplySugg(quoi) {
+  const d = _bankRuleDraft; if (!d) return;
+  if (quoi === 'mot' && _bankRuleSugg.mot) {
+    const w = _bankRuleSugg.mot;
+    if (!d.mots.some(x => _bankRuleNorm(x) === _bankRuleNorm(w))) d.mots.push(w);
+    _bankRuleMotifChanged();
+  } else if (quoi === 'sens' && _bankRuleSugg.sens) {
+    _bankRuleSet('sens', _bankRuleSugg.sens);
+  }
 }
 
 function _bankRuleSave() {
   const d = _bankRuleDraft; if (!d) return;
-  const pat = String(d.pattern || '').trim();
-  if (!pat) { showToast('Saisir un motif', 'warn'); return; }
   if (!Array.isArray(DB.importRules)) DB.importRules = [];
-  const fields = { pattern: pat, sens: d.sens || '', compte: d.compte || '', cat: d.cat || '',
-    qui: d.bdc ? '' : (d.qui || ''), imm: d.bdc ? '' : (d.imm || ''),
-    compteurCcId: d.bdc ? '' : (d.cc || ''), bailleurDuCompte: !!d.bdc };
-  if (d.idx >= 0 && DB.importRules[d.idx]) Object.assign(DB.importRules[d.idx], fields);
-  else DB.importRules.push(fields);
+  const idx = d.id ? window._bankRuleIdxById(DB.importRules, d.id) : -1;
+  if (d.id && idx < 0) { showToast('Règle introuvable (supprimée entre-temps ?)', 'err'); return; }
+  const base = idx >= 0 ? DB.importRules[idx] : null;
+  const errs = _bankRuleErreurs(d);
+  if (errs.length) { showToast(_bankRuleErrMsg(errs), 'warn', 6000); return; }
+  const built = window._bankRuleBuild(_bankRuleCandidate(d), { base });
+  if (!built.ok) { showToast(_bankRuleErrMsg(built.errors), 'warn', 6000); return; }
+  const rule = built.rule;
+  // Phase 6a — une exception posée en décochant une ligne que le motif a ensuite écartée ne porte
+  // plus sur rien : on ne la garde pas (celles déjà mémorisées avant restent, visibles et supprimables).
+  const exNew = new Set(d.exNew || []);
+  if (exNew.size) rule.exceptions = rule.exceptions.filter(e => !exNew.has(e.cle) || window._bankRuleExceptionPortee(rule, e, { loyerCC: _bankLoyerCC }));
+  const nExNouvelles = rule.exceptions.filter(e => exNew.has(e.cle)).length;
+  // D3 — doublon EXACT (mêmes compte, sens, mots, montant ET même résultat) : refusé, on
+  // ouvre la règle qui existe déjà au lieu d'en créer une seconde.
+  const dup = window._bankRuleExactDuplicate(DB.importRules, rule);
+  if (dup) {
+    showToast('Cette règle existe déjà (mêmes mots, même compte, même résultat) : la voici.', 'warn', 5000);
+    _bankRuleOpen(dup.id);
+    return;
+  }
+  _stamp(rule);
+  if (idx >= 0) DB.importRules[idx] = rule; else DB.importRules.push(rule);
   if (typeof _stamp === 'function') _stamp(DB);
+  // (a) Le mouvement enregistré d'où la règle est créée : mis à jour directement, lui seul.
+  const mvRes = (d.srcMvId != null) ? _bankRuleApplyToSourceMv(rule, d.srcMvId) : null;
   saveDB();
-  if (typeof _auditLog === 'function') _auditLog(d.idx >= 0 ? 'update' : 'create', 'import-rule', pat, 'pattern="' + pat + '" cat=' + (d.cat || '—') + ' sens=' + (d.sens || 'les deux'));
+  const motif = window._bankRuleMotif(rule);
+  if (typeof _auditLog === 'function') _auditLog(idx >= 0 ? 'update' : 'create', 'import-rule', rule.id, 'motif="' + motif + '" compte=' + rule.compte + ' cat=' + (rule.cat || '—') + ' sens=' + (rule.sens || 'les deux'));
   closeM('ov-bank-rule');
-  showToast(d.idx >= 0 ? '✓ Règle « ' + pat + ' » enregistrée' : '✓ Règle « ' + pat + ' » créée', 'ok', 3500);
-  _bankRuleAfterChange();
+  // (b) L'import en cours, ligne source comprise.
+  const res = _bankRuleAfterChange(rule, d.srcIndex);
+  const msg = [(idx >= 0 ? '✓ Règle « ' + motif + ' » enregistrée' : '✓ Règle « ' + motif + ' » créée')];
+  if (mvRes && mvRes.msg) msg.push(mvRes.msg);
+  if (res.reclasse) msg.push('les lignes de l\'import ont été reclassées');
+  if (nExNouvelles) msg.push(nExNouvelles + (nExNouvelles > 1 ? ' lignes laissées hors règle (exceptions)' : ' ligne laissée hors règle (exception)'));
+  if (res.sourceSuit === false) msg.push('la ligne de départ ne remplit pas ces critères : elle n\'a pas été modifiée');
+  if (res.protegees) msg.push(res.protegees + (res.protegees > 1 ? ' lignes déjà classées à la main laissées telles quelles' : ' ligne déjà classée à la main laissée telle quelle'));
+  // Audit B1 — la ligne de départ suit la règle créée ; une AUTRE règle qui l'attrape avec un autre
+  // résultat est dite en clair (elle est aussi signalée sur la ligne, avec Modifier / Supprimer).
+  const autres = (res.sourceAutres && res.sourceAutres.length) ? res.sourceAutres
+    : ((mvRes && mvRes.ok && mvRes.mv) ? window._bankRuleAutresResultats(DB.importRules, rule, mvRes.mv, { account: mvRes.acc, loyerCC: _bankLoyerCC, dejaClassee: true }) : []);
+  autres.forEach(a => msg.push(_bankAutreRegleTxt(a, d.srcMvId != null ? 'pour ce mouvement' : 'pour la ligne de départ')));
+  const warnMsg = res.protegees || res.sourceSuit === false || (mvRes && !mvRes.ok) || autres.length;
+  showToast(msg.join(' · '), warnMsg ? 'warn' : 'ok', (warnMsg || mvRes) ? 7000 : 3500);
+  // Retour sur la fiche du mouvement, à jour (la fiche avait été fermée pour ouvrir la règle).
+  if (mvRes && mvRes.mv) {
+    if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+    if (typeof openEditMv === 'function') openEditMv(mvRes.mv.id);
+  }
+}
+
+// Décision Didier du 06/10 — créer une règle depuis la fiche d'un MOUVEMENT ENREGISTRÉ met à
+// jour CE mouvement, directement, sans confirmation, et lui seul (l'unique exception à « jamais
+// les mouvements en base »). Le correctif vient du module pur (`_bankRulePatchMouvement`, testé) ;
+// ici : exclusivité logement ↔ compteur, immeuble déduit du logement (comme à l'import),
+// `_stamp` (synchro), journal. L'appelant enregistre (saveDB).
+function _bankRuleApplyToSourceMv(rule, mvId) {
+  const m = (DB.mouvements || []).find(x => x && !x._deleted && String(x.id) === String(mvId));
+  if (!m) return { ok: false, msg: '' };
+  const acc = (DB.params.bankAccounts || []).find(a => a && !a._deleted && String(a.id) === String(m._bankAccountId)) || null;
+  const res = window._bankRulePatchMouvement(rule, m, { account: acc, loyerCC: _bankLoyerCC });
+  if (!res.ok) return { ok: false, mv: m, acc, msg: res.raison === 'ne-correspond-pas' ? 'le mouvement ne remplit pas ces critères : il n\'a pas été modifié' : '' };
+  if (!res.changed) return { ok: true, mv: m, acc, msg: 'le mouvement était déjà classé ainsi' };
+  const before = Object.assign({}, m);
+  Object.assign(m, res.patch);
+  if (m.compteurCcId && m.qui) m.qui = '';
+  if (('qui' in res.patch) && m.qui && !String(m.qui).startsWith('SCI:')) {
+    const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === m.qui);
+    if (log) m.imm = log.imm || '';
+  }
+  _stamp(m);
+  if (typeof _auditLog === 'function') _auditLog('update', 'mouvement', m.id, (m.lib || String(m.id)) + ' (règle « ' + window._bankRuleMotif(rule) + ' »)', before, m);
+  return { ok: true, mv: m, acc, msg: 'le mouvement a été mis à jour' };
 }
 
 function _bankRuleDelete() {
-  const d = _bankRuleDraft; if (!d || d.idx < 0) return;
-  const r = DB.importRules[d.idx]; if (!r) return;
-  if (!confirm2('Supprimer la règle « ' + (r.pattern || '') + ' » ?\n\nLes mouvements déjà classés ne changent pas.')) return;
-  // v15.186 : tombstone (préserve pattern) — sinon le merge cross-device ressuscite la règle.
-  DB.importRules[d.idx] = _tombstoneObj({ pattern: r.pattern });
+  const d = _bankRuleDraft; if (!d || !d.id) return;
+  if (_bankRuleDeleteById(d.id)) closeM('ov-bank-rule');
+}
+
+// ══════════════════════════════════════════════════════════════
+// PASTILLE « ✓ Règle enregistrée » (phase 6a, maquette regle-enregistree.html)
+// Remplace « Mémoriser la règle » quand une règle du MÊME compte couvre déjà la ligne (fenêtre de
+// vérification d'une ligne d'import, fiche d'un mouvement enregistré). Quatre états, calculés par
+// `_bankRuleStatutLigne` (module pur, testé) : aucune règle · enregistrée · ligne en exception · doublon.
+// Les identifiants passent par data-rid / data-i / data-mvid, jamais dans le code d'un onclick.
+// ══════════════════════════════════════════════════════════════
+function _bankRuleStatut(kind, target) {
+  let line = null, acc = null;
+  if (kind === 'ligne') { line = _bankImportLines[target] || null; acc = _currentBankAccount && _currentBankAccount.id; }
+  else { line = (DB.mouvements || []).find(m => m && !m._deleted && String(m.id) === String(target)) || null; acc = line && line._bankAccountId; }
+  if (!line) return null;
+  return window._bankRuleStatutLigne(DB.importRules || [], line, acc, { loyerCC: _bankLoyerCC });
+}
+// kind : 'ligne' (target = index de la ligne de l'import en cours) ou 'mv' (target = id du mouvement).
+function _bankRuleStatutHtml(kind, target) {
+  const st = _bankRuleStatut(kind, target); if (!st) return '';
+  const cible = kind === 'ligne' ? ' data-i="' + escHtml(target) + '"' : ' data-mvid="' + escHtml(target) + '"';
+  const ferme = kind === 'ligne' ? '' : 'closeM(\'ov-mv\');';
+  const motif = r => '<span class="brg-mot">« ' + escHtml(window._bankRuleMotif(r)) + ' »</span>';
+  const mod = (r, lbl) => '<button type="button" class="brg-lnk" data-rid="' + escHtml(r.id || '') + '" onclick="' + ferme + '_bankRuleOpen(this.dataset.rid)">' + lbl + '</button>';
+  const detail = r => (r.sens === 'db' ? 'dépenses' : (r.sens === 'cr' ? 'recettes' : 'dépenses et recettes'));
+  if (st.etat === 'aucune') {
+    return kind === 'ligne'
+      ? '<button class="btn bs" onclick="_bankImportAddRule(' + Number(target) + ')">' + _uiIcon('save') + ' Mémoriser la règle</button>'
+      : '<a data-mvid="' + escHtml(target) + '" onclick="closeM(\'ov-mv\');_bankRuleOpen(null,null,this.dataset.mvid)" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">' + _uiIcon('save', 13) + ' Créer une règle depuis ce mouvement</a>';
+  }
+  if (st.etat === 'exception') {
+    const r = st.exceptions[0];
+    return '<span class="brg-saved brg-saved-box info"><span class="brg-bdg adv">↷ Exception</span><span class="brg-saved-exc">Sortie de la règle ' + motif(r) + '</span>'
+      + mod(r, 'Modifier la règle')
+      + '<button type="button" class="brg-lnk" data-rid="' + escHtml(r.id || '') + '"' + cible + ' onclick="_bankRuleReintegrer(this)">Réintégrer à la règle</button></span>';
+  }
+  const dbl = st.etat === 'doublon';
+  return '<span class="brg-saved brg-saved-box ' + (dbl ? 'warn' : 'pos') + '"><span class="brg-bdg pos">✓ Règle enregistrée</span>'
+    + (dbl ? '<span class="brg-bdg warn">doublon probable</span>' : '')
+    + st.regles.map(r => '<span>' + motif(r) + ' <span class="brg-mut">· ' + detail(r) + '</span> ' + mod(r, 'Modifier') + '</span>').join('')
+    + '</span>';
+}
+// « Réintégrer à la règle » : retire l'exception de CETTE ligne. Aucun mouvement en base n'est reclassé
+// (décision Didier du 06/10) ; sur une ligne de l'import en cours, la ligne suit alors la règle.
+function _bankRuleReintegrer(btn) {
+  const rid = btn && btn.dataset.rid;
+  const idx = window._bankRuleIdxById(DB.importRules || [], rid);
+  if (idx < 0) { showToast('Règle introuvable', 'err'); return; }
+  const kind = btn.dataset.mvid != null ? 'mv' : 'ligne';
+  const line = kind === 'ligne' ? _bankImportLines[Number(btn.dataset.i)]
+    : (DB.mouvements || []).find(m => m && !m._deleted && String(m.id) === String(btn.dataset.mvid));
+  if (!line) return;
+  const rule = window._bankRuleRemoveException(DB.importRules[idx], window._bankRuleLineKey(line));
+  if (rule === DB.importRules[idx]) return;
+  _stamp(rule);
+  DB.importRules[idx] = rule;
+  _stamp(DB);
   saveDB();
-  if (typeof _auditLog === 'function') _auditLog('delete', 'import-rule', r.pattern || '', 'suppression');
-  closeM('ov-bank-rule');
-  showToast('🗑 Règle supprimée', 'ok', 3000);
-  _bankRuleAfterChange();
+  if (typeof _auditLog === 'function') _auditLog('update', 'import-rule', rule.id, 'exception retirée sur « ' + window._bankRuleMotif(rule) + ' »');
+  if (kind === 'ligne') {
+    const res = _bankRuleAfterChange(rule, Number(btn.dataset.i));
+    showToast('✓ Ligne réintégrée à la règle « ' + window._bankRuleMotif(rule) + ' »' + (res.sourceSuit === false ? ' · elle ne remplit pas ses critères' : ''), 'ok', 3500);
+  } else {
+    if (el('import-rules-list')) rParamsRules();
+    showToast('✓ Exception retirée : les mouvements déjà en base ne sont pas reclassés', 'ok', 4500);
+    if (typeof openEditMv === 'function') openEditMv(line.id);
+  }
 }
 
 // ⑦.3 — « Après modification ou suppression, les autres lignes de l'import se
 // reclassent IMMÉDIATEMENT » — sinon on corrigerait dix fois la même chose.
-function _bankRuleAfterChange() {
+// `rule` : la règle créée / modifiée (null après une suppression) ; `srcIdx` : la ligne
+// source de l'import. Renvoie ce qui s'est passé, pour que l'appelant le DISE.
+function _bankRuleAfterChange(rule, srcIdx) {
+  const out = { reclasse: false, protegees: 0, sourceSuit: null, sourceAutres: [] };
   if (el('import-rules-list')) rParamsRules();
   if (el('import-rules-list-modal')) rParamsRules('import-rules-list-modal');
-  if (_bankImportLines && _bankImportLines.length) {
-    _bankReclassify();
+  if (_bankImportActif()) {
+    Object.assign(out, _bankReclassify(rule || null, srcIdx));
+    out.reclasse = true;
     // SMOKE 14/08 — si la fenêtre de parcours est ouverte, on la RE-REND : le reclassement
     // ne rafraîchissait que la liste derrière → « rien n'est repris » sous les yeux du user.
     // L'ordre des lignes est préservé par _bankReclassify (map), _bankMvIdx reste valide.
     if (_bankMvIdx >= 0 && _bankWalk && _bankImportLines[_bankMvIdx]) _bankWalkRender();
-    showToast('↻ Les lignes de l\'import ont été reclassées', 'ok', 2500);
   }
   if (typeof rMv === 'function' && el('mv-tbody')) rMv();
+  return out;
 }
 
 // Rejoue règles + propositions sur l'import en cours, en PRÉSERVANT ce que
-// l'utilisateur a saisi à la main (une ligne qu'il a validée ne se fait pas écraser).
-function _bankReclassify() {
-  const lines = (_bankImportLines || []).map(l => {
-    if (l._userEdited || l._reviewed) return l;
-    const { suggestedCat, suggestedQui, suggestedImm, suggestedCc, confidence, matchSource,
-            _byRule, _ruleConflicts, _ruleOrigin, isDuplicate, duplicateOf, duplicateReason, dupLevel, ...rest } = l;
-    return rest;
+// l'utilisateur a saisi à la main (une ligne qu'il a validée ne se fait pas écraser),
+// SAUF la ligne source de la règle, qui la suit. Logique : `_bankReclassifyPrepare` (pur, testé).
+function _bankReclassify(rule, srcIdx) {
+  const prep = window._bankReclassifyPrepare(_bankImportLines || [], {
+    rule: rule || null,
+    rules: DB.importRules || [],        // audit B1 : signaler les autres règles de la ligne de départ
+    sourceIndex: (srcIdx != null && srcIdx >= 0) ? srcIdx : undefined,
+    accountId: _currentBankAccount && _currentBankAccount.id,
+    account: _currentBankAccount,
+    loyerCC: _bankLoyerCC,
   });
-  _bankImportFinalizePreview(lines, _bankReviewFmt, '');
+  _bankImportFinalizePreview(prep.lines, _bankReviewFmt, '');
+  return { protegees: prep.protegees, sourceSuit: prep.sourceSuit, sourceAutres: prep.sourceAutres || [] };
 }
 
 function _bankImportConfirm() {
@@ -32596,6 +33418,7 @@ function _finDrillLigne(kind, yr, mo) {
         ? (one ? 'Versement non réparti par logement.' : nvCount + ' versements non répartis — un par un.')
         : (one ? 'Mouvement non rattaché à un bien.' : nvCount + ' mouvements non rattachés — un par un.');
       const tgtLib = esc(dfr(tgt.date).slice(0, 5)) + ' · ' + esc(tgt.lib || tgt.cat || '—') + ' · ' + f(Math.abs(tgt.montant || 0));
+      window._fdrAffMvId = nvIds.length ? nvIds[0] : null;   // phase 5 : le picker « Affecter » suit le bailleur du compte de CE mouvement (`_affCompteDe`)
       body += '<div class="fdr-nv">'
         + '<div class="hd"><span class="am">' + f(nvSum) + '</span>'
         +   '<span class="badge ora">' + (total !== 0 ? Math.round(Math.abs(nvSum / total) * 100) + ' % du poste' : 'non ventilé') + '</span>'
@@ -33713,6 +34536,8 @@ function _backupRestoreApply(snap) {
   // NORMALISATION-LOYERS (01/10) : une sauvegarde d'avril remet ~50 mouvements « Loyers » hérités. On les
   // normalise ICI, AVANT l'envoi (le flush pousse l'état normalisé) et avant le saveDB du mode local.
   _normaliserLoyers('restauration');
+  // REGLES-REFONTE phase 4 — une sauvegarde d'avant la refonte remet des règles sans identifiant.
+  if (typeof _bankMigrerRegles === 'function') _bankMigrerRegles('restauration');
 }
 
 async function _backupRestoreRun(dir, snapName) {
@@ -34396,6 +35221,7 @@ function importJSON(inp) {
       if(!confirm2('Remplacer toute la base par ce fichier ?')) return;
       // NORMALISATION-LOYERS (01/10) : même normalisation que la restauration, avant d'adopter la base.
       _normaliserLoyers('import JSON', data);
+      if (typeof _bankMigrerRegles === 'function') _bankMigrerRegles('import JSON', data);   // REGLES-REFONTE phase 4 : identifiants des règles importées
       DB=data;
       saveDB();
       showToast('Import réussi','ok');

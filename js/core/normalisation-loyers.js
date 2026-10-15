@@ -119,7 +119,8 @@ export function normaliserDonneesLoyers(db, opts) {
     }
     if (Array.isArray(db.importRules)) {
       for (const x of db.importRules) {
-        if (x && typeof x === 'object' && noms.has(x.cat)) { x.cat = CATEGORIE_LOYERS; r.reglesImport++; }
+        // _stamp aussi sur la règle modifiée (REGLES-REFONTE phase 4 : une règle a un _modifiedAt comme le reste).
+        if (x && typeof x === 'object' && noms.has(x.cat)) { x.cat = CATEGORIE_LOYERS; stamp(x); r.reglesImport++; }
       }
     }
     const aNettoyer = new Set([...noms].filter(n => !enAttente.has(n)));
