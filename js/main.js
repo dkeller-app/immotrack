@@ -136,7 +136,6 @@ import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, lette
 // DOC-C — un acte ne part pas en PDF avec ses trous. Détection des mentions restées vides dans
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
 import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAutorisee } from './core/actes-mentions.js';
-import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
 // VISALE-GMBI — visa Visale (contrôles non bloquants) + alerte ponctuelle « déclaration d'occupation ».
 import * as Visale from './core/visale.js';
 // R0-C · Q1 révisé — point de départ des loyers suivis (date d'achat / antériorité / provisoire).
@@ -802,10 +801,6 @@ window.congePhraseTerme = congePhraseTerme;
 window.congeLocatairePreavis = congeLocatairePreavis;
 window.congeAddMois = congeAddMois;
 window.locataireProtege = locataireProtege;
-// Micro-foncier (art. 32 CGI) — suggestion de régime dans Finances
-window.MF_SEUIL = MF_SEUIL;
-window.MF_ABATTEMENT = MF_ABATTEMENT;
-window.evaluerMicroFoncier = evaluerMicroFoncier;
 // Grille de vétusté (décret 2016-382 / OPAC)
 window.VETUSTE_BAREME = VETUSTE_BAREME;
 window.VETUSTE_SOURCES = VETUSTE_SOURCES;
