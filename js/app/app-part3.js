@@ -1173,12 +1173,13 @@ function _bootDataJobs() {
   }
   // ALERTE-REGUL (14/10) — migration douce : les validations de régul de l'ancien stockage (DB.regulValidations,
   // configuration de l'espace propre, jamais partagée) passent sur les LOGEMENTS du groupe validé (espace propre
-  // seulement) → partagées par la SCI. Clé reversée = retirée ; clé sans logement = conservée. Idempotente.
+  // seulement) → partagées par la SCI. EN DEUX TEMPS : copie d'abord (la clé reste, au cas où l'envoi d'un logement
+  // échoue), retrait au démarrage suivant quand tous les logements la portent. Clé sans logement = conservée.
   // Cœur pur testé : js/core/regul-validation.js.
   if (window.RegulValidation && typeof window.RegulValidation.migrerValidationsHeritees === 'function' && DB.regulValidations) {
     try {
       const _mr = window.RegulValidation.migrerValidationsHeritees(DB, Object.assign({ stamp: _stamp }, _optsEspacePropre()));
-      if (_mr.migres > 0) saveDB();
+      if (_mr.copiees > 0 || _mr.retirees > 0) saveDB();
     } catch(e) { console.warn('[migration validations régul]', e); }
   }
   // NORMALISATION-LOYERS : plus d'appel ici (audit 05/10). En local, initDB a normalisé ; en cloud, __immoSetDB

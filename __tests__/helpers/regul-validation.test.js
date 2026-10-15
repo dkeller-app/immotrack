@@ -152,27 +152,40 @@ describe('A · alerte « Régularisation N-1 à émettre »', () => {
 })
 
 describe('M · migration de l\'ancien stockage (config de l\'espace propre)', () => {
-  it('M-1 reverse chaque clé sur les logements de son groupe, retire la clé, supprime l\'objet vide', () => {
+  it('M-1 EN DEUX TEMPS : copie sur les logements (la clé reste), puis retrait au passage suivant', () => {
     const db = {
       logements: [{ ref: 'A1', imm: 'Tilleuls' }, { ref: 'A2', imm: 'Tilleuls' }, { ref: 'M' }, { ref: 'X', imm: 'Tilleuls', _deleted: true }],
       regulValidations: { 'Tilleuls|2025-01-01|2025-12-31': { at: 'T' }, '(sans immeuble)|2024-01-01|2024-12-31': { at: 'U' } },
     }
     const stamped = []
     const r = migrerValidationsHeritees(db, { stamp: l => stamped.push(l.ref) })
-    expect(r.migres).toBe(2)
-    expect(r.conservees).toEqual([])
-    expect(db.regulValidations).toBeUndefined()
+    expect(r).toMatchObject({ copiees: 2, retirees: 0, conservees: [] })
+    expect(Object.keys(db.regulValidations).length).toBe(2)   // 1er temps : rien n'est retiré
     expect(db.logements[0].regulValidations).toEqual({ '2025-01-01|2025-12-31': { at: 'T' } })
     expect(db.logements[2].regulValidations).toEqual({ '2024-01-01|2024-12-31': { at: 'U' } })
     expect(db.logements[3].regulValidations).toBeUndefined()
     expect(stamped.sort()).toEqual(['A1', 'A2', 'M'])
-    // idempotente
-    expect(migrerValidationsHeritees(db)).toEqual({ migres: 0, refs: [], conservees: [] })
+    // 2e temps (démarrage suivant, logements relus du serveur avec la validation) : retrait, rien à envoyer.
+    const r2 = migrerValidationsHeritees(db, { stamp: () => { throw new Error('rien à tamponner') } })
+    expect(r2).toEqual({ copiees: 0, retirees: 2, refs: [], conservees: [] })
+    expect(db.regulValidations).toBeUndefined()
+    expect(migrerValidationsHeritees(db)).toEqual({ copiees: 0, retirees: 0, refs: [], conservees: [] })
+  })
+  it('M-1b envoi d\'un logement échoué (le serveur gagne au rechargement) : la clé héritée survit et la copie est refaite', () => {
+    const db = { logements: [{ ref: 'A1', imm: 'T' }, { ref: 'A2', imm: 'T' }], regulValidations: { 'T|2025-01-01|2025-12-31': { at: 'T0' } } }
+    migrerValidationsHeritees(db)
+    // A1 a été refusé/en conflit : rechargement = version serveur, SANS la validation.
+    const recharge = { logements: [{ ref: 'A1', imm: 'T' }, { ref: 'A2', imm: 'T', regulValidations: { '2025-01-01|2025-12-31': { at: 'T0' } } }], regulValidations: db.regulValidations }
+    const r = migrerValidationsHeritees(recharge)
+    expect(r).toMatchObject({ copiees: 1, retirees: 0, refs: ['A1'] })
+    expect(regulValideePourAnnee(recharge.logements[0], 2025)).toBe(true)
+    expect(recharge.regulValidations).toEqual({ 'T|2025-01-01|2025-12-31': { at: 'T0' } })
   })
   it('M-2 rien n\'est jeté : clé illisible ou sans logement conservée', () => {
     const db = { logements: [{ ref: 'A1', imm: 'Tilleuls' }], regulValidations: { 'Disparu|2025-01-01|2025-12-31': { at: 'T' }, 'Tilleuls|2025-01|2025-12': { ok: 1 }, 'Tilleuls|2025-01-01|2025-12-31': { at: 'V' } } }
-    const r = migrerValidationsHeritees(db)
-    expect(r.migres).toBe(1)
+    migrerValidationsHeritees(db)
+    const r = migrerValidationsHeritees(db)   // 2e temps
+    expect(r.retirees).toBe(1)
     expect(Object.keys(db.regulValidations).sort()).toEqual(['Disparu|2025-01-01|2025-12-31', 'Tilleuls|2025-01|2025-12'])
   })
   it('M-3 nom d\'immeuble contenant « | »', () => {
@@ -192,6 +205,7 @@ describe('M · migration de l\'ancien stockage (config de l\'espace propre)', ()
     const db = { logements: [{ ref: 'A1', imm: 'T', regulValidations: { '2025-01-01|2025-12-31': { at: 'NOUVEAU' } } }], regulValidations: { 'T|2025-01-01|2025-12-31': { at: 'ANCIEN' } } }
     const r = migrerValidationsHeritees(db)
     expect(r.refs).toEqual([])
+    expect(r.retirees).toBe(1)
     expect(db.logements[0].regulValidations['2025-01-01|2025-12-31'].at).toBe('NOUVEAU')
   })
 })

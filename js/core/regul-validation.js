@@ -76,8 +76,9 @@ export function regulValideePourAnnee(logement, annee) {
 }
 
 /**
- * Logements d'un groupe de l'onglet Charges, tels qu'ils y sont affichés : vivants, du groupe, et dans le
- * filtre de bailleur actif (`dansFiltre(l)`, optionnel). C'est sur eux que porte « Valider la régul ».
+ * Logements d'un groupe de l'onglet Charges : vivants, du groupe, et dans le filtre de bailleur actif
+ * (`dansFiltre(l)`, optionnel) — y compris ceux sans occupation sur la période (sans effet sur l'alerte,
+ * qui exige des loyers perçus). C'est sur eux que porte « Valider la régul ».
  */
 export function logementsDuGroupe(logements, groupe, dansFiltre) {
   const f = typeof dansFiltre === 'function' ? dansFiltre : () => true
@@ -127,24 +128,36 @@ export function validationsDuLogement(logement) {
 }
 
 /**
- * MIGRATION DOUCE — ancien stockage `db.regulValidations` (config de l'espace propre, clés
+ * Enregistrement de l'ESPACE PROPRE ? Même contrat que normalisation-loyers.js : `opts.espacePropre`
+ * ABSENT = pas de filtre (hors cloud : tout est propre) ; présent = non tagué ou tagué de cet espace
+ * (null = non tagué seulement, cas de l'associé invité sans espace à lui).
+ */
+export function estDeLEspacePropre(rec, opts) {
+  const o = opts || {}
+  if (!Object.prototype.hasOwnProperty.call(o, 'espacePropre')) return true
+  const e = (rec && rec._espaceId != null) ? rec._espaceId : null
+  return e == null || e === (o.espacePropre == null ? null : o.espacePropre)
+}
+
+/**
+ * MIGRATION DOUCE EN DEUX TEMPS — ancien stockage `db.regulValidations` (config de l'espace propre, clés
  * « <immeuble>|<du>|<au> », « (sans immeuble) » compris) → validations portées par les logements.
- * Chaque clé est reversée sur les logements vivants de l'espace propre de son groupe ; une clé reversée
- * est retirée de l'ancien objet, l'objet vide est supprimé. Une clé sans logement (immeuble disparu) ou
- * illisible est CONSERVÉE telle quelle : rien n'est jeté. Idempotente.
- * `opts.espacePropre` : même contrat que normalisation-loyers.js — clé ABSENTE = pas de filtre (hors cloud) ;
- * présente = seuls les logements non tagués ou tagués de cet espace (null = non tagués seulement).
- * @returns {{migres:number, refs:string[], conservees:string[]}}
+ *  1er passage : la validation est COPIÉE sur les logements vivants de l'espace propre du groupe ; la clé
+ *     héritée RESTE (si l'envoi d'un logement échoue — conflit, refus — le serveur gagne au rechargement et
+ *     la copie serait perdue : la clé doit survivre pour être recopiée).
+ *  Passage suivant : quand TOUS les logements cibles portent déjà la validation (donc relue du serveur au
+ *     chargement), la clé est RETIRÉE ; l'objet vide est supprimé.
+ * Une clé sans logement (immeuble disparu) ou illisible est CONSERVÉE telle quelle : rien n'est jeté.
+ * `opts.espacePropre` : cf. estDeLEspacePropre.
+ * @returns {{copiees:number, retirees:number, refs:string[], conservees:string[]}}
  */
 export function migrerValidationsHeritees(db, opts) {
   const o = opts || {}
-  const out = { migres: 0, refs: [], conservees: [] }
+  const out = { copiees: 0, retirees: 0, refs: [], conservees: [] }
   if (!db || typeof db !== 'object') return out
   const ancien = db.regulValidations
   if (!ancien || typeof ancien !== 'object' || Array.isArray(ancien)) return out
-  const filtrer = Object.prototype.hasOwnProperty.call(o, 'espacePropre')
-  const espace = filtrer ? (o.espacePropre == null ? null : o.espacePropre) : null
-  const propre = (l) => !filtrer || l._espaceId == null || l._espaceId === espace
+  const propre = (l) => estDeLEspacePropre(l, o)
   const touches = new Set()
   for (const k of Object.keys(ancien)) {
     const val = ancien[k]
@@ -155,15 +168,13 @@ export function migrerValidationsHeritees(db, opts) {
     if (!cle || !val) { out.conservees.push(k); continue }
     const cibles = logementsDuGroupe(db.logements, groupe, propre)
     if (!cibles.length) { out.conservees.push(k); continue }
-    for (const l of cibles) {
-      const v = validations(l) || {}
-      if (!v[cle]) {
-        l.regulValidations = Object.assign({}, v, { [cle]: { at: (val && val.at) || null } })
-        touches.add(l)
-      }
+    const manquants = cibles.filter((l) => !(validations(l) || {})[cle])
+    if (!manquants.length) { delete ancien[k]; out.retirees++; continue }   // déjà porté par tous : 2e temps
+    for (const l of manquants) {
+      l.regulValidations = Object.assign({}, validations(l) || {}, { [cle]: { at: (val && val.at) || null } })
+      touches.add(l)
     }
-    delete ancien[k]
-    out.migres++
+    out.copiees++
   }
   if (!Object.keys(ancien).length) delete db.regulValidations
   for (const l of touches) { if (typeof o.stamp === 'function') o.stamp(l); out.refs.push(l.ref) }

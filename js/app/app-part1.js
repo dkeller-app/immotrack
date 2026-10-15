@@ -3507,13 +3507,6 @@ function _mvCreate(m, opts) {
   }, opts);
 }
 
-// NORMALISATION-LOYERS (01/10) — LE point d'appel unique de js/core/normalisation-loyers.js (pur, testé),
-// exposé par js/main.js sur window.NormalisationLoyers (un `let`/`const` de script n'est PAS sur window ;
-// le module, lui, l'y pose explicitement, et s'exécute avant DOMContentLoaded donc avant initDB).
-// « Loyers » et « Arriérés de loyers » (noms EXACTS) → « Loyers encaissés » ; `locNouvIban` retiré à la
-// racine des baux (jamais du document signé). `_stamp` sur chaque enregistrement modifié → la synchro
-// le propage. Ne sauvegarde PAS : l'appelant persiste (saveDB, flush de restauration, import).
-// `db` : la base à normaliser (défaut : le DB vivant). Renvoie le rapport du module, ou null.
 // Périmètre « espace propre » des migrations douces (normalisation des loyers, validations de régul héritées) :
 // contrat `espacePropre` de js/core/normalisation-loyers.js. Hors mode cloud : {} (aucun filtre).
 // Associé INVITÉ (sans espace à lui) : __immoOwnEspaceId répond l'espace du PROPRIÉTAIRE (repli) → on ne le
@@ -3529,6 +3522,13 @@ function _optsEspacePropre() {
   } catch (e) { _esp = null; }
   return { espacePropre: (_esp == null) ? null : _esp };
 }
+// NORMALISATION-LOYERS (01/10) — LE point d'appel unique de js/core/normalisation-loyers.js (pur, testé),
+// exposé par js/main.js sur window.NormalisationLoyers (un `let`/`const` de script n'est PAS sur window ;
+// le module, lui, l'y pose explicitement, et s'exécute avant DOMContentLoaded donc avant initDB).
+// « Loyers » et « Arriérés de loyers » (noms EXACTS) → « Loyers encaissés » ; `locNouvIban` retiré à la
+// racine des baux (jamais du document signé). `_stamp` sur chaque enregistrement modifié → la synchro
+// le propage. Ne sauvegarde PAS : l'appelant persiste (saveDB, flush de restauration, import).
+// `db` : la base à normaliser (défaut : le DB vivant). Renvoie le rapport du module, ou null.
 function _normaliserLoyers(source, db) {
   const N = (typeof window !== 'undefined') ? window.NormalisationLoyers : null;
   if (!N || typeof N.normaliser !== 'function') {
@@ -24473,12 +24473,19 @@ function rRegulInit() {
   const cible = window._regulAnneeCible, immCible = window._regulImmCible;
   window._regulAnneeCible = null; window._regulImmCible = null;
   const yr = cible || today.getFullYear();
+  // Re-rendu de l'onglet (synchro d'un autre appareil, retour sur l'onglet, conflit → go('regul')) : on GARDE la
+  // période et l'immeuble affichés — sinon l'écran revenait sur l'année en cours et « Valider » validait N
+  // (audit 15/10). Une alerte (cible) impose N-1 ; sinon la dernière période affichée de la session, sinon N.
+  const prec = cible ? null : window._rgPeriodeAffichee;
+  const fromInit = (prec && /^\d{4}-\d{2}-\d{2}$/.test(prec.from)) ? prec.from : yr+'-01-01';
+  const toInit = (prec && /^\d{4}-\d{2}-\d{2}$/.test(prec.to)) ? prec.to : yr+'-12-31';
+  const immInit = cible ? immCible : (prec ? prec.imm : null);
   el('p-regul-inner').innerHTML = `
     <div class="flex-b mb16">
       <div class="flex-c">
         <select class="inp" id="reg-imm" onchange="rRegul()" style="width:180px"><option value="">Tous immeubles</option>${immeubles().map(i=>`<option>${escHtml(i)}</option>`).join('')}</select>
-        <input class="inp" type="date" id="reg-from" value="${yr}-01-01" oninput="rRegul()" onchange="rRegul()" style="width:140px">
-        <input class="inp" type="date" id="reg-to" value="${yr}-12-31" oninput="rRegul()" onchange="rRegul()" style="width:140px">
+        <input class="inp" type="date" id="reg-from" value="${fromInit}" oninput="rRegul()" onchange="rRegul()" style="width:140px">
+        <input class="inp" type="date" id="reg-to" value="${toInit}" oninput="rRegul()" onchange="rRegul()" style="width:140px">
         <button class="btn bs" onclick="rRegul()">${_uiIcon('refresh')} Calculer</button>
       </div>
       <div class="flex-c">
@@ -24489,8 +24496,8 @@ function rRegulInit() {
     <div class="g3 mb16" id="reg-kpis"></div>
     <div id="reg-cards"></div>
   `;
-  // Alerte d'un seul lot : filtre sur son immeuble (s'il figure dans la liste ; sans immeuble → tous).
-  if(immCible){ const s = el('reg-imm'); if(s && [...s.options].some(o => o.value === immCible)) s.value = immCible; }
+  // Alerte d'un seul lot : filtre sur son immeuble (s'il figure dans la liste ; sans immeuble → tous) ; re-rendu : filtre conservé.
+  if(immInit){ const s = el('reg-imm'); if(s && [...s.options].some(o => o.value === immInit)) s.value = immInit; }
   rRegul();
 }
 
@@ -25415,7 +25422,16 @@ function _rgShowGlobal(immNom){
   const entries=Object.values(result.entries||{}).filter(e=>(e.imm||_sansImm)===immNom && (!_refsEnt || _refsEnt.has(e.ref)))
     .sort((a,b)=>_natCmp(_logLabel(a.ref||''), _logLabel(b.ref||''))||_natCmp(a.ref||'', b.ref||'')||(a.debutOcc||'').localeCompare(b.debutOcc||''));
   const bail=(result.bailleur||{})[immNom===_sansImm ? '' : immNom];   // computeRegul range la part bailleur sans immeuble sous ''
-  const nonRep=(result.nonReparti||{})[immNom];
+  let nonRep=(result.nonReparti||{})[immNom];
+  // « (sans immeuble) » recueille AUSSI les charges sans aucun périmètre, de toutes les SCI : elles ne sont pas
+  // les charges de ces lots et bloquaient leur validation (audit 15/10). Ici, seules celles d'un lot du groupe
+  // comptent ; les autres restent signalées dans le bandeau de la liste. Aucun montant recalculé.
+  if(immNom===_sansImm && nonRep){
+    const refsG=new Set(_rgLogsDuGroupe(immNom).map(l=>l.ref));
+    const quiDe=new Map((DB.mouvements||[]).filter(_isAlive).map(m=>[m.id,m.qui]));
+    const lines=(nonRep.lines||[]).filter(l=>refsG.has(quiDe.get(l.mvId)));
+    nonRep={ imm:nonRep.imm, total:Math.round(lines.reduce((s,l)=>s+(l.montant||0),0)*100)/100, lines };
+  }
   const f=fmt;
   // CDC É4 (mockup 07) — colonne « Bailleur (225) » : part non refacturée par facture (mvId).
   const bailPerMv={}, bailLigneMv={};
@@ -25894,6 +25910,7 @@ function rRegul() {
   const from = v('reg-from') || new Date().getFullYear()+'-01-01';
   const to   = v('reg-to')   || new Date().getFullYear()+'-12-31';
   window._regulFrom = from; window._regulTo = to;
+  window._rgPeriodeAffichee = { from, to, imm: fimm };   // repris par rRegulInit au re-rendu (période conservée)
   // v14.73 : computeRegul retourne { entries, bailleur }
   const result = computeRegul(from, to);
   const regul = result.entries || {};
