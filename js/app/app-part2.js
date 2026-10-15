@@ -15494,9 +15494,10 @@ function _renderAssForLog(ref) {
   };
 
   // v15.246 V3-REFONTE-ASSURANCES : la PNO immeuble se gère dans la fiche immeuble (plus de bouton ici).
+  // RETOURS 15/10 (lot 2, point 3) : UN bouton, qui demande de qui est l'assurance (_assChoisir). Secondaire : le seul
+  // bouton corail de l'onglet reste « Signaler un incident » (charte M-4).
   const addBtns = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      <button class="btn bp bb" style="font-size:12px" onclick="openMrh(null,'${_refA}')">+ Assurance habitation</button>
-      <button class="btn bs bb" style="font-size:12px" onclick="openAss(null,'${_refA}','logement')">+ Assurance ce logement</button>
+      <button class="btn bs bb" onclick="_assChoisir('${_refA}')">+ Assurance</button>
     </div>`;
 
   const allItems = aliveMrh.map(m => renderItem(m, 'mrh'))
@@ -15508,6 +15509,31 @@ function _renderAssForLog(ref) {
     </div>`;
   }
   return `<div class="logf-equip-grid">${allItems}</div>${addBtns}`;
+}
+
+// « + Assurance » (onglet Entretien & assurances) : de qui est l'assurance ? Chaque choix ouvre la fiche EXISTANTE — rien ne change
+// dans les données : locataire = assurance habitation (DB.mrh), propriétaire = PNO du logement (DB.assurances, PNO présélectionnée).
+// Téléphone : la couche standard .ov/.modal est une page entière (charte M-16).
+function _assChoisir(ref) {
+  const old = document.getElementById('ov-ass-choix'); if (old) old.remove();
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.id = 'ov-ass-choix';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div class="modal" style="max-width:480px">
+      <div class="m-head"><h3>Ajouter une assurance</h3><button class="m-close" aria-label="Fermer" onclick="document.getElementById('ov-ass-choix').remove()">✕</button></div>
+      <div class="m-body">
+        <p class="ass-choix-q">${escHtml(_logLabelRef(ref))} : de qui est l'assurance ?</p>
+        <div class="ass-choix">
+          <button type="button" data-k="mrh"><span class="ass-choix-ic">${_uiIcon('person', 18)}</span><span><b>Du locataire</b><span class="ass-choix-t">Assurance habitation : attestation à demander chaque année (art. 7 g, loi du 6 juillet 1989).</span></span></button>
+          <button type="button" data-k="pno"><span class="ass-choix-ic">${_uiIcon('home', 18)}</span><span><b>Du propriétaire</b><span class="ass-choix-t">Assurance propriétaire non occupant (PNO) du logement.</span></span></button>
+        </div>
+      </div>
+      <div class="m-foot"><button class="btn bs" onclick="document.getElementById('ov-ass-choix').remove()">Annuler</button></div>
+    </div>`;
+  ov.querySelectorAll('.ass-choix button').forEach(b => {
+    b.onclick = () => { ov.remove(); if (b.dataset.k === 'mrh') openMrh(null, ref); else openAss(null, ref, 'logement'); };
+  });
+  document.body.appendChild(ov);
 }
 
 // ── Helper : agenda filtré sur le logement
