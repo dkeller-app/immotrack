@@ -32143,8 +32143,10 @@ function _fin250Genre(catNom) {
 // habitation (« Assurance Crédit Mutuel », « Assurance PNO Crédit Agricole » restent des assurances du bien).
 function _finEstNomAssurancePret(nom) {
   const s = String(nom || '');
-  if (/mutuel|agricole|lyonnais|du nord|coop|maritime|foncier|\bpno\b|\bgli\b|habitation|multirisque|\bmrh\b|loyers?|\bauto/i.test(s)) return false;
-  return /emprunteur/i.test(s) || /assurances?\s+(de\s+|du\s+|d['’]\s*)?(pr[êe]t|cr[ée]dit|emprunt)/i.test(s);
+  if (/\bpno\b|\bgli\b|habitation|multirisque|\bmrh\b|loyers?|\bauto\b|automobile|consommation/i.test(s)) return false;
+  if (/emprunteur/i.test(s) || /assurances?\s+(de\s+|du\s+|d['’]\s*)?(pr[êe]t|emprunt)/i.test(s)) return true;
+  // « assurance crédit » : jamais le nom d'une banque-assureur (« Assurances du Crédit Mutuel » = PNO ACM).
+  return /assurances?\s+(de\s+|du\s+|d['’]\s*)?cr[ée]dit/i.test(s) && !/cr[ée]dit\s+(mutuel|agricole|lyonnais|du nord|coop|maritime|foncier)/i.test(s);
 }
 function _finMigrateAssuranceEmprunteur() {
   const noms = new Set([...(DB.categories || []), ...(DB.mouvements || []).filter(m => m && !m._deleted && m.cat).map(m => m.cat)]);
@@ -32162,8 +32164,9 @@ function _finMigrateAssuranceEmprunteur() {
   });
   if (n && typeof saveDB === 'function') saveDB();
   // Jamais en silence : la famille change (cash-flow + 2044 ligne 250), l'utilisateur peut la revoir.
-  if (n && typeof showToast === 'function') showToast('Catégorie' + (n > 1 ? 's' : '') + ' « ' + noms2.join(' », « ') + ' » rattachée' + (n > 1 ? 's' : '')
-    + ' à « Prêt — Assurance emprunteur » (cash-flow et 2044 ligne 250). À vérifier dans Réglages › Catégories.', 'info', 9000);
+  // Différé : au démarrage, les alertes IRL (dont le gel DPE F/G) partagent le même emplacement de message.
+  if (n && typeof showToast === 'function') setTimeout(() => showToast('Catégorie' + (n > 1 ? 's' : '') + ' « ' + noms2.join(' », « ') + ' » rattachée' + (n > 1 ? 's' : '')
+    + ' à « Prêt — Assurance emprunteur » (cash-flow et 2044 ligne 250). À vérifier dans Paramètres › Catégories.', 'info', 9000), 6000);
   return n;
 }
 // Migration one-shot : catMapping {nom: ligne2044|'__ignore'} → catAlias {nom: mère}.
@@ -33306,14 +33309,16 @@ function _fin250ConfirmerSaisie(m, exclId) {
   // Même bien : même logement (ou SCI), sinon même immeuble sans logement, sinon ni logement ni immeuble.
   const memeBien = x => (m.qui ? x.qui === m.qui : (m.imm ? (x.imm === m.imm && !x.qui) : (!x.qui && !x.imm)));
   const d = _fin250Deja(yr, memeBien, exclId);
+  // Assurance : l'alerte ne joue qu'à la PREMIÈRE de l'année pour ce bien (les suivantes, mensuelles, ne redemandent rien).
+  if (g === 'assurance' && d && d.lignes.some(l => l.genre === 'assurance')) return true;
   let t = _fin250AlerteTexte(d, g, yr);
   // Première assurance de l'année sur un bien qui a des échéances « Prêt » : elle est peut-être DÉJÀ
   // prélevée dans l'échéance — l'enregistrer à part la compterait deux fois au cash-flow.
-  if (g === 'assurance' && !(d && d.lignes.some(l => l.genre === 'assurance'))) {
+  if (g === 'assurance') {
     const nEch = (DB.mouvements || []).filter(x => x && !x._deleted && x.date && String(x.date).slice(0, 4) === yr && memeBien(x)
       && String(x.id) !== String(exclId) && ((_finCatMere(x.cat) || {}).nom === 'Prêt')).length;
     if (nEch) t = (t ? t + '\n\n' : '') + nEch + ' échéance' + (nEch > 1 ? 's' : '') + ' « Prêt » déjà enregistrée' + (nEch > 1 ? 's' : '') + ' pour ce bien en ' + yr
-      + '. Si la banque y prélève déjà l\'assurance, ne pas l\'enregistrer ici (elle serait comptée deux fois au cash-flow) : la déclarer avec les intérêts, en « Prêt — Intérêts d\'emprunt ».';
+      + '. Si la banque y prélève déjà l\'assurance, ne pas l\'enregistrer ici (elle serait comptée deux fois au cash-flow) : la déclarer avec les intérêts (Finances › Intérêts d\'emprunt).';
   }
   return !t || confirm2(t + '\n\nEnregistrer quand même ?');
 }

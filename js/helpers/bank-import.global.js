@@ -2349,7 +2349,9 @@
       // AVANT la règle « assurance » générale (sinon « PRLV CNP ASSURANCES PRET » partait en 223).
       // Relectures (15/10) : jamais sur un libellé de PNO / GLI / habitation / auto ni d'une banque-assureur
       // (« ASSURANCE CREDIT MUTUEL » = PNO ACM) ; CNP / Cardif seulement avec « prêt / emprunt ».
-      { rx: /^(?!.*\b(pno|gli|habitation|mrh|multirisque|auto|loyers? impayes|mutuel|agricole)\b).*\b(assurances? (de |du )?(pret|credit immo\w*|emprunt\w*)|emprunteur|(cnp|cardif)\b.*\b(pret|emprunt\w*))\b/i, cat: 'Prêt — Assurance emprunteur', confidence: 0.8, src: 'Mot-clé assurance emprunteur' },
+      { rx: /^(?!.*\b(pno|gli|habitation|mrh|multirisque|auto|loyers? impayes)\b).*\b(assurances? (de |du )?(pret|credit immo\w*|emprunt\w*)|emprunteur|(cnp|cardif)\b.*\b(pret|emprunt\w*))\b/i, cat: 'Prêt — Assurance emprunteur', confidence: 0.8, src: 'Mot-clé assurance emprunteur' },
+      // CNP / Cardif sans autre indice : surtout de l'assurance de prêt → proposé (confiance basse), jamais en PNO.
+      { rx: /^(?!.*\b(pno|gli|habitation|mrh|multirisque|auto|loyers? impayes)\b).*\b(cnp|cardif)\b/i, cat: 'Prêt — Assurance emprunteur', confidence: 0.6, src: 'Assureur emprunteur (CNP / Cardif) — à vérifier' },
       { rx: /\b(assurances?|axa|maaf|matmut|aviva|allianz|maif|groupama|gli)\b/i, cat: 'Primes d\'assurance (PNO, GLI)', confidence: 0.85, src: 'Mot-clé assurance' },
       // Frais bancaires (tenue de compte) → catégorie dédiée ; péage/carburant → Divers (tout hors 2044, couvert par le forfait 222).
       { rx: /\b(frais bancaires|tenue de compte|cotisation carte|frais de compte|commission d.intervention|abonnement compte)\b/i, cat: 'Frais bancaires', confidence: 0.72, src: 'Mot-clé frais bancaires (forfait 222)' },

@@ -290,3 +290,25 @@ describe('Alerte — compléments des relectures', () => {
     expect(m.appels).toHaveLength(0);
   });
 });
+
+describe('Relecture adverse n°2 — import et noms de catégories', () => {
+  const L = (libelle) => ({ date: '2026-10-05', libelle, debit: 32.1, credit: 0 });
+  it('CNP / Cardif seuls : assurance emprunteur à confiance basse, jamais PNO', () => {
+    for (const lib of ['PRLV SEPA CNP ASSURANCES', 'PRLV CARDIF ASSURANCES']) {
+      const r = _bankMatchHeuristic(L(lib));
+      expect(r.cat, lib).toBe(AE);
+      expect(r.confidence, lib).toBe(0.6);
+    }
+  });
+  it('une assurance de prêt chez une banque-assureur reste une assurance de prêt', () => {
+    for (const lib of ['PRLV ASSURANCE EMPRUNTEUR CREDIT AGRICOLE', 'PRLV ASSURANCE PRET CREDIT MUTUEL']) expect(_bankMatchHeuristic(L(lib)).cat, lib).toBe(AE);
+  });
+  it('noms de catégories : prêt chez une banque oui, banque-assureur seule non, crédit à la consommation non', () => {
+    const STD = [{ nom: AE }];
+    const src = corps(P2, '_finEstNomAssurancePret') + '\n' + corps(P2, '_finMigrateAssuranceEmprunteur');
+    const DB = { categories: ['Assurance prêt Crédit Foncier', 'Assurance emprunteur Crédit Agricole', 'Assurance crédit consommation', 'Assurance crédit'],
+      mouvements: [], catAlias: {}, params: {} };
+    new Function('DB', '_stdCategoryByName', 'saveDB', src + '\nreturn _finMigrateAssuranceEmprunteur;')(DB, n => STD.find(c => c.nom === n) || null, () => {})();
+    expect(Object.keys(DB.catAlias).sort()).toEqual(['Assurance crédit', 'Assurance emprunteur Crédit Agricole', 'Assurance prêt Crédit Foncier']);
+  });
+});
