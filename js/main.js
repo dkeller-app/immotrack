@@ -125,6 +125,10 @@ import { bailSigneComplet, diffModificationsBail, reappliquerJournalBaux, journa
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 // IRL-REVISION (R6/R7) — la lettre suit la révision VALIDÉE ; annuler une révision programmée.
 import * as IrlRevision from './core/irl-revision.js';
+// Retours 15/10 (lot 1, point 4) — ouvrir une pièce jointe sans page blanche (Blob au lieu d'une iframe data:).
+import * as DocOuvrir from './core/doc-ouvrir.js';
+// Retours 15/10 (lot 1, point 5) — « Faire une quittance » ouvre le lot demandé, jamais le 1er lot du filtre d'entité.
+import { lotQuittanceAOuvrir } from './core/quittance-porte.js';
 import { loyerTravauxGuard, avenantArticle, buildAvenantHtml, romain as avenantRomain, avenantChampsManquants, avenantMontant, avenantEntrant, avenantPartiesSignature, avenantHtmlSigne, avenantHtmlAImprimer, avenantSignatureManque, bailForfaitActifLe, forfaitEffetAu, forfaitPertinent, avenantApplique, regimeForfaitObjet, forfaitChargesPrevu, avertissementForfaitCharges, referenceForfaitCharges } from './core/avenant.js';
 // AVENANT-REFONTE lot 2 — registre des avenants (journal baux_evenements, type 'avenant') : statuts, liste, numérotation.
 import * as AvenantRegistre from './core/avenant-registre.js';
@@ -136,7 +140,6 @@ import { CONGE_MOTIFS, REPRISE_LIENS, CONGE_CAS_REDUITS, ART15_II_ALINEAS, lette
 // DOC-C — un acte ne part pas en PDF avec ses trous. Détection des mentions restées vides dans
 // le document RENDU, et fondement légal quand l'absence emporte nullité (art. 15-I / 15-II).
 import { mentionsManquantes, emporteNullite, messageMentionsManquantes, sortieAutorisee } from './core/actes-mentions.js';
-import { MF_SEUIL, MF_ABATTEMENT, evaluerMicroFoncier } from './core/micro-foncier.js';
 // VISALE-GMBI — visa Visale (contrôles non bloquants) + alerte ponctuelle « déclaration d'occupation ».
 import * as Visale from './core/visale.js';
 // R0-C · Q1 révisé — point de départ des loyers suivis (date d'achat / antériorité / provisoire).
@@ -626,6 +629,8 @@ window._bailHistoEnVigueur = bailHistoEnVigueur;
 window._bailModifDetecterChangements = detecterChangementsFinanciers;
 window._bailModifDateEffetDefaut = dateEffetModifDefaut;
 window._bailModifRedaterIRL = redaterRevisionIRL;
+window.DocOuvrir = DocOuvrir;   // ouverture des pièces jointes (PDF / image) par URL blob:
+window.lotQuittanceAOuvrir = lotQuittanceAOuvrir;   // « Faire une quittance » : le lot demandé, jamais le 1er du filtre
 window.IrlRevision = IrlRevision;   // IRL-REVISION : entreeValideeDuCycle / revDepuisEntree / annulerRevisionProgrammee
 window._bailModifBorneMinEffet = borneMinEffetBareme;
 
@@ -802,10 +807,6 @@ window.congePhraseTerme = congePhraseTerme;
 window.congeLocatairePreavis = congeLocatairePreavis;
 window.congeAddMois = congeAddMois;
 window.locataireProtege = locataireProtege;
-// Micro-foncier (art. 32 CGI) — suggestion de régime dans Finances
-window.MF_SEUIL = MF_SEUIL;
-window.MF_ABATTEMENT = MF_ABATTEMENT;
-window.evaluerMicroFoncier = evaluerMicroFoncier;
 // Grille de vétusté (décret 2016-382 / OPAC)
 window.VETUSTE_BAREME = VETUSTE_BAREME;
 window.VETUSTE_SOURCES = VETUSTE_SOURCES;

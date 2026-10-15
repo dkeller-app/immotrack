@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.748';
+const IMMOTRACK_VERSION = '15.747';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -10274,9 +10274,13 @@ async function _mvDocOpenById(mvId) {
   if(!m) { showToast('Mouvement non trouvé','err'); return; }
   const pj = _mvPjResolve(m);
   if(!pj) { showToast('Aucune PJ sur ce mouvement','warn'); return; }
+  // Retours 15/10 — la fenêtre s'ouvre DANS le geste, avant toute attente (sinon bloquée comme popup),
+  // et seulement pour un document qui s'affiche (un fichier à télécharger n'en a pas besoin).
+  const w = _mvDocAffichable(pj) ? _mvDocFenetre() : null;
+  if (_mvDocAffichable(pj) && !w) return;
 
   // Legacy : ouvrir direct
-  if (pj._legacy) { _mvDocOpenInWindow(pj); return; }
+  if (pj._legacy) { _mvDocOpenInWindow(pj, w); return; }
 
   // Nouveau format : récupérer le binaire depuis IDB, sinon depuis Supabase Storage (cloud).
   let dataB64 = null;
@@ -10288,15 +10292,62 @@ async function _mvDocOpenById(mvId) {
     try { dataB64 = await _downloadPhotoFromDrive(null, pj.idbKey, pj.cloudKey); if (dataB64 && pj.idbKey) try { await _idbPut(pj.idbKey, dataB64); } catch(e) {} } catch(e) { console.warn('[_mvDocOpenById] Storage fail', e); }
   }
   if (!dataB64) {
+    if (w) { try { w.close(); } catch (e) {} }
     showToast('Binaire PJ introuvable (cache local vide et absent du cloud).', 'err', 6000);
     return;
   }
-  _mvDocOpenInWindow({ name: pj.name, mime: pj.mime, dataB64 });
+  _mvDocOpenInWindow({ name: pj.name, mime: pj.mime, dataB64 }, w);
 }
 
-function _mvDocOpenInWindow(pj) {
+// Retours 15/10 (lot 1, point 4) — fenêtre ouverte dans le geste de l'utilisateur, avec un message d'attente
+// (le binaire peut venir du stockage en ligne). null si le navigateur la bloque (et on le dit).
+function _mvDocFenetre() {
   const w = window.open('', '_blank');
+  if (!w) { showToast('Fenêtre bloquée par le navigateur : autoriser les fenêtres (pop-up) pour Propryo.', 'err', 6000); return null; }
+  // Page d'attente hors de l'app : couleurs SYSTÈME (color-scheme), suit le thème clair / sombre de l'appareil.
+  try { w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Ouverture…</title></head><body style="font:15px system-ui,sans-serif;color:GrayText;display:flex;align-items:center;justify-content:center;min-height:90vh;margin:0">Ouverture du document…</body></html>'); w.document.close(); } catch (e) {}
+  return w;
+}
+// Le document s'affichera-t-il (PDF, image matricielle) ? D'après son type ENREGISTRÉ et son nom, connus avant
+// de lire le binaire ; sans le module, on suppose que oui (ancien comportement).
+function _mvDocAffichable(pj) {
+  const D = (typeof window !== 'undefined') ? window.DocOuvrir : null;
+  if (!D || !pj) return true;
+  return D.modeOuverture(D.typeDocument(pj.dataB64 || '', pj.mime, pj.name || pj.originalName)) !== 'telecharger';
+}
+
+// Retours 15/10 (lot 1, point 4) — PAGE BLANCHE à l'ouverture d'un bail / EDL signé hors Propryo (et de toute pièce
+// jointe de plus d'environ 1,5 Mo) : l'ancienne fenêtre affichait une iframe `data:application/pdf`, or Chrome plafonne
+// une URL à 2 Mo. Le binaire devient un Blob ouvert par une URL `blob:` courte (logique pure : js/core/doc-ouvrir.js).
+// `wPre` : fenêtre déjà ouverte dans le geste (_mvDocFenetre) ; sans elle, on l'ouvre ici (appel direct depuis un clic).
+function _mvDocOpenInWindow(pj, wPre) {
+  const D = (typeof window !== 'undefined') ? window.DocOuvrir : null;
+  if (D && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function' && typeof Blob !== 'undefined') {
+    const type = D.typeDocument(pj.dataB64, pj.mime, pj.name);
+    const telecharger = D.modeOuverture(type) === 'telecharger';
+    // Fichier à télécharger : aucune fenêtre (celle ouverte dans le geste est refermée). Type du Blob : essence
+    // affichable seulement (PDF, JPEG, PNG, WebP, GIF), sinon binaire neutre — un SVG ou un HTML n'est JAMAIS
+    // rendu dans une URL blob: qui porte l'origine de l'app (relecture adverse : XSS via « image/svg+xml; … »).
+    const w = telecharger ? null : (wPre || _mvDocFenetre());
+    if (telecharger && wPre) { try { wPre.close(); } catch (e) {} }
+    if (!telecharger && !w) return;
+    let url;
+    try { url = URL.createObjectURL(new Blob([D.dataUrlEnOctets(pj.dataB64)], { type: D.typeBlob(type) })); }
+    catch (e) { if (w) { try { w.close(); } catch (x) {} } showToast('Document illisible : le fichier enregistré est endommagé.', 'err', 6000); return; }
+    if (telecharger) {
+      const a = document.createElement('a'); a.href = url; a.download = pj.name || 'document';
+      document.body.appendChild(a); a.click(); a.remove();
+    } else {
+      try { w.location.href = url; } catch (e) { try { w.close(); } catch (x) {} showToast('Ouverture du document impossible.', 'err', 6000); return; }
+    }
+    // L'URL reste valable le temps de consulter / télécharger depuis la visionneuse, puis est libérée.
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 30 * 60 * 1000);
+    return;
+  }
+  // Repli (module non chargé, file://) : ancien rendu, limité aux petits fichiers.
+  const w = wPre || window.open('', '_blank');
   if(!w) { showToast('Popup bloquée — autoriser les popups','err',5000); return; }
+  try { w.document.open(); } catch (e) {}
   const safeName = escHtml(pj.name || 'Document');
   if(/pdf/i.test(pj.mime || '') || /\.pdf$/i.test(pj.name || '')) {
     w.document.write(`<!DOCTYPE html><html><head><title>${safeName}</title><meta charset="utf-8"></head><body style="margin:0"><iframe src="${escHtml(pj.dataB64)}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);
@@ -10632,9 +10683,12 @@ function fillMvQui() {
   const s = el('mv-qui'); if(!s) return;
   // v14.31 BUG-DRIVE-RESURRECTION : filtrer tombstones avant accès .type
   // v14.80 SECU-INNERHTML : escape e.nom / l.ref / l.locataire (XSS via nom entité ou ref)
-  const sciOpts = DB.entites.filter(_isAlive).filter(e=>e.type&&e.type.startsWith('SCI')).map(e=>`<option value="SCI:${escHtml(e.nom)}">SCI: ${escHtml(e.nom)}</option>`).join('');
+  // RETOURS 15/10 (lot 1, point 3) — TOUS les bailleurs (SCI, nom propre, société, indivision…), plus
+  // seulement les types « SCI… » : un bailleur en nom propre n'avait aucune entrée. La valeur garde
+  // son préfixe historique « SCI: » (clé d'affectation au bailleur, lue partout : Finances, 2044…).
+  const sciOpts = DB.entites.filter(_isAlive).map(e=>`<option value="SCI:${escHtml(e.nom)}">${escHtml(e.nom)}</option>`).join('');
   const logOpts = _activeLogements().map(l=>`<option value="${escHtml(l.ref)}">${escHtml(_logLabelRef(l))} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
-  s.innerHTML=`<option value="">– Aucun –</option><option value="Global">Global</option><optgroup label="Entités SCI">${sciOpts}</optgroup><optgroup label="Logements">${logOpts}</optgroup>`;
+  s.innerHTML=`<option value="">– Aucun –</option><option value="Global">Global</option><optgroup label="Bailleurs">${sciOpts}</optgroup><optgroup label="Logements">${logOpts}</optgroup>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10770,7 +10824,7 @@ function _affRender(id, tgt) {
     let quiSci = qui;
     if (!quiSci && /^imp\d+$/.test(tgt) && typeof _currentBankAccount !== 'undefined' && _currentBankAccount
         && !_currentBankAccount.mixte && _currentBankAccount.bailleur
-        && DB.entites.some(e => _isAlive(e) && e.type && e.type.startsWith('SCI') && e.nom === _currentBankAccount.bailleur)) {
+        && DB.entites.some(e => _isAlive(e) && e.nom === _currentBankAccount.bailleur)) {
       quiSci = 'SCI:' + _currentBankAccount.bailleur;
       if (el(tgt + '-qui')) el(tgt + '-qui').value = quiSci;      // écrit la valeur cible, pas juste l'affichage
       // AUDIT I2 — on écrit AUSSI la ligne, au rang de PROPOSITION : DOM et ligne restent égaux,
@@ -10782,7 +10836,8 @@ function _affRender(id, tgt) {
       if (_pln && !_pln.suggestedQui && !_pln.suggestedImm && !_pln.suggestedCc) _pln.suggestedQui = quiSci;
       if (typeof _bankWalkRefreshValidate === 'function') setTimeout(_bankWalkRefreshValidate, 0);
     }
-    const sciAll = DB.entites.filter(_isAlive).filter(e => e.type && e.type.startsWith('SCI'));
+    // RETOURS 15/10 (lot 1, point 3) — tout bailleur, quel que soit son type (nom propre compris).
+    const sciAll = DB.entites.filter(_isAlive);
     const sciVis = sciAll.filter(e => per.entiteOk(e.nom) || quiSci === 'SCI:' + e.nom);
     masques = sciAll.length - sciVis.length;
     const o = sciVis.map(e => opt('SCI:' + e.nom, e.nom, quiSci === 'SCI:' + e.nom)).join('');
@@ -24210,6 +24265,8 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   // le mode honnête, `rev` est l'objet muet, et l'entrée d'historique perd ses indices — la
   // seule révision qui aurait besoin d'être traçable serait la seule à ne pas l'être.
   let _fAppl = null;
+  // Relecture Fable (6) : trace en place AVANT le forçage, remise telle quelle si la garde anti-doublon refuse.
+  const _forcageAvant = _irlForcage(ref);
   if (_irlForcageEnAttente && _irlForcageEnAttente.ref === ref) {
     const f = _irlForcageEnAttente;
     _fAppl = f;
@@ -24235,6 +24292,30 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   const futureApplication = dateEffetIso > todayLocal;
   const ancienHC = log.hc;                   // capturé AVANT toute mutation (M1 audit)
   if (!DB.irlHistorique) DB.irlHistorique = [];
+  // RETOURS 15/10 (lot 1, point 2) — GARDE ANTI-DOUBLON : même lot + même indice + même date
+  // d'effet = la même révision (double clic, deux appareils, rejeu). Aucune nouvelle entrée : la
+  // révision déjà enregistrée fait foi et sa lettre s'ouvre. Cas réel : 4 cartes identiques, dont
+  // 3 bloquées « en attente » à vie. Module pur testé : js/core/irl-revision.js.
+  const _IRd = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  const _deja = (_IRd && typeof _IRd.revisionDejaEnregistree === 'function')
+    ? _IRd.revisionDejaEnregistree(DB.irlHistorique, { ref, irlVigueur: _iVig?.key || '', dateEffet: dateEffetIso,
+        bailDebut: (DB.baux[ref] && !DB.baux[ref]._deleted && DB.baux[ref].debut) || log.debut || '' }) : null;
+  if (_deja) {
+    if (_fAppl) {
+      if (_forcageAvant) _irlSetForcage(ref, _forcageAvant);
+      else if (DB.params && DB.params.irlForcee) delete DB.params.irlForcee[String(ref)];
+    }
+    const _memeMontant = Math.round(Number(_deja.nouveauHC) * 100) === Math.round(Number(newHC) * 100);
+    showToast(_memeMontant
+      ? `Cette révision est déjà enregistrée (${fmt(_deja.ancienHC)} → ${fmt(_deja.nouveauHC)} au ${fd(dateEffetIso)}) : rien n'a été ajouté.`
+      : `Une révision au même indice et à la même date d'effet est déjà enregistrée (${fmt(_deja.ancienHC)} → ${fmt(_deja.nouveauHC)} au ${fd(dateEffetIso)}) : elle est conservée. Pour la remplacer, la supprimer depuis l'historique du bail, puis valider à nouveau.`,
+      _memeMontant ? 'info' : 'warn', 9000);
+    if (typeof _auditLog === 'function') _auditLog('irl-doublon-refuse', 'bail', ref, `${ref} · ${_iVig?.key || ''} eff. ${dateEffetIso}`);
+    refreshAllIRL(); _rPeriodPage();
+    try { if (typeof rLogFiche === 'function' && currentPage === 'log-fiche') rLogFiche(); } catch (e) {}
+    try { previewIRLLetter(ref); } catch (e) { console.warn('[IRL] lettre (révision déjà enregistrée)', e); }
+    return;
+  }
   DB.irlHistorique.push({
     date:            todayLocal,            // = date du clic / d'envoi de la lettre
     ref,
@@ -24293,6 +24374,9 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
 // est arrivée (pendingApply=true + dateApplication <= today). Idempotent.
 function _applyPendingIRLRevisions() {
   if (!DB.irlHistorique || !Array.isArray(DB.irlHistorique)) return 0;
+  // RETOURS 15/10 (lot 1, point 2) — les doublons existants sont nettoyés AVANT d'appliquer : un
+  // doublon « en attente » d'une révision déjà appliquée ne doit plus jamais rester bloqué.
+  _irlDedoublonnerJournal();
   // Constat 7 — date LOCALE : `toISOString()` rendait la veille en France (minuit local = 22/23 h
   // UTC), l'effet au 01/10 ne s'appliquait que le 02/10.
   const todayIso = _todayIsoLocal();
@@ -24345,6 +24429,31 @@ function _applyPendingIRLRevisions() {
     }
   }
   return applied;
+}
+
+// RETOURS 15/10 (lot 1, point 2) — MIGRATION DE DONNÉES idempotente : une seule entrée vivante par
+// (lot, indice, date d'effet), l'appliquée gardée ; les autres en tombstone horodaté portant
+// `_doublonDe` (rien n'est effacé, propagation cloud). Ne touche ni log.hc ni le barème. Les groupes
+// aux montants DIFFÉRENTS ne sont pas tranchés ici (décision humaine : « Supprimer cette révision »).
+// Appelée par _applyPendingIRLRevisions (démarrage, rendu de Loyers, correction de date d'effet) :
+// mêmes gardes que lui (hors ligne / lecture seule → rien n'est écrit).
+function _irlDedoublonnerJournal() {
+  const IR = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  if (!IR || typeof IR.dedoublonnerRevisions !== 'function' || !Array.isArray(DB.irlHistorique)) return 0;
+  if (typeof _appReadOnly !== 'undefined' && _appReadOnly) return 0;
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) return 0;   // hors ligne : saveDB refuserait, rien n'est touché
+  const r = IR.dedoublonnerRevisions(DB.irlHistorique, new Date().toISOString());
+  if (r.divergents.length) console.warn('[IRL doublons] révisions de même indice et même date d\'effet aux montants différents — non tranchées :', r.divergents);
+  if (!r.retirees.length) return 0;
+  DB.irlHistorique = r.irlHistorique;
+  if (typeof _auditLog === 'function') {
+    const parLot = {};
+    r.retirees.forEach(x => { const k = String(x.cle).split('|')[0]; parLot[k] = (parLot[k] || 0) + 1; });
+    Object.keys(parLot).forEach(k => _auditLog('irl-doublons-retires', 'bail', k, `${parLot[k]} doublon(s) de révision IRL retiré(s)`));
+  }
+  console.info('[IRL doublons] ' + r.retirees.length + ' doublon(s) retiré(s) (tombstone _doublonDe)');
+  saveDB();
+  return r.retirees.length;
 }
 
 // Renoncer à la révision IRL courante (isApplicable=true, pas encore dejaApplique)

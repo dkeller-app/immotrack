@@ -2025,11 +2025,13 @@ function _qeQui() {
     || (typeof window !== 'undefined' && window._authEmail) || 'l’utilisateur de cet espace';
 }
 
-/** Les lots quittançables (a un bail, courant ou archivé) — la pile de la porte globale. */
-function _qeLots() {
+/** Les lots quittançables (a un bail, courant ou archivé) — la pile de la porte globale, limitée au filtre
+ *  d'entité ; `{ tous: true }` : tout le parc (un lot DEMANDÉ s'ouvre quel que soit le filtre). */
+function _qeLots(o) {
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const tous = !!(o && o.tous);
   return (DB.logements || []).filter(alive)
-    .filter(l => (typeof _logInEnt !== 'function') || _logInEnt(l))
+    .filter(l => tous || (typeof _logInEnt !== 'function') || _logInEnt(l))
     .filter(l => l.locataire || _findBailByRefTolerant(l.ref));
 }
 
@@ -2041,14 +2043,24 @@ function _openFaireQuittance(ref) {
   if (typeof window === 'undefined' || typeof window.moisRailLot !== 'function') {
     showToast("Module Loyers non chargé — ouvrir l'app via http (npx http-server)", 'err', 6000); return;
   }
-  const lots = _qeLots();
-  if (!lots.length) {
-    showToast("Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 5000);
+  // RETOURS 15/10 (lot 1, point 5) — un lot DEMANDÉ (fiche du logement, ligne de Loyers) s'ouvre LUI-MÊME,
+  // quel que soit le filtre d'entité en haut à gauche. Avant : absent du filtre, il était remplacé en silence
+  // par le 1er lot du filtre — la quittance d'un lot en nom propre s'ouvrait sur un lot de la SCI filtrée.
+  // Le filtre ne restreint que la liste de la porte globale. Règle pure testée : js/core/quittance-porte.js.
+  const refsDe = (arr) => arr.map(l => l.ref);
+  const choix = (typeof window.lotQuittanceAOuvrir === 'function')
+    ? window.lotQuittanceAOuvrir({ ref, lotsPerimetre: refsDe(_qeLots()), lotsQuittancables: refsDe(_qeLots({ tous: true })) })
+    : null;
+  if (!choix || !choix.ok) {
+    const motif = choix ? choix.motif : 'aucun-bail';
+    showToast(motif === 'sans-bail' ? 'Aucun bail sur ce logement : pas de quittance à faire.'
+      : motif === 'perimetre-vide' ? 'Aucun bail en cours pour le bailleur choisi en haut à gauche : changer de bailleur pour faire une quittance.'
+        : "Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 6000);
     return;
   }
   // D27 — plus de PILE ni d'enchaînement « lot suivant » : on ouvre UN lot. Entré sans `ref`
   // (porte globale), on demande lequel plutôt que d'en imposer un.
-  const want = (ref && lots.some(l => l.ref === ref)) ? ref : lots[0].ref;
+  const want = choix.ref;
   _qe.libre = false; _qe.saisie = null;
   _qeSetLot(want);
   _qe.pick = !ref;                        // porte globale : on choisit son lot
@@ -15046,8 +15058,15 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     // « Historique » de l'IRL disparaît, la trace vit là où vit le loyer : sur le bail.
     // IRL-REVISION R6 — la lettre de CETTE révision (son entrée du journal), pas celle du cycle en cours.
     const lettre = `<span class="hl-lnk" onclick="_irlLettreEvt('${refSafe}','${_lyQ(ev.date || '')}','${_lyQ(ev.effet || '')}')" title="Ré-ouvrir la lettre de révision">${_uiIcon('mail')} Revoir la lettre</span>`;
+    // RETOURS 15/10 (lot 1, point 2) — « Supprimer cette révision » : bail COURANT, et seulement quand
+    // la suppression est possible (pas sous une révision plus récente qui s'appuie sur ce loyer).
+    let suppr = '';
+    if (c.statut==='courant' && ev.idx!=null && typeof _histoIrlSupprAnalyse==='function') {
+      const _an = _histoIrlSupprAnalyse(ev.idx, ev.effet, ev.nouveauHC);
+      if (_an && _an.ok) suppr = `<span class="hl-lnk hl-lnk-neg" role="button" tabindex="0" onclick="_histoIrlSupprimer(${Number(ev.idx)},'${_lyQ(ev.effet || '')}',${Number(ev.nouveauHC) || 0})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">${_uiIcon('trash')} Supprimer cette révision</span>`;
+    }
     const corr = (c.statut==='courant')
-      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${_lyQ(ev.date)}','${_lyQ(ev.effet)}')">${_uiIcon('edit')} Corriger la date d'effet</span></div>`
+      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${_lyQ(ev.date)}','${_lyQ(ev.effet)}')">${_uiIcon('edit')} Corriger la date d'effet</span>${suppr}</div>`
       : `<div class="hl-foot">${lettre}</div>`;
     return `<div class="hl-card" data-dot="d-irl"><div class="tt"><h4>Révision IRL validée</h4><span class="hl-badge b-irl">IRL${ev.irlVigueur?' '+escHtml(String(ev.irlVigueur).replace(/\s.*$/,'')):''}</span>${etat}${hb}</div>
       <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}${corr}</div>`;
@@ -15225,6 +15244,117 @@ function _histoIrlCorrSave(){
   _histoIrlCorrCtx = null;
   rLogFiche();
   showToast('Date d\'effet corrigée','ok');
+}
+
+// ── RETOURS 15/10 (lot 1, point 2) — « Supprimer cette révision » depuis l'historique du bail.
+// Logique pure testée : js/core/irl-revision.js (analyserSuppressionRevision / supprimerRevision).
+// L'entrée part en tombstone (jamais effacée), une trace « correction » est posée dans l'historique
+// du bail, et la confirmation (non bloquante : l'utilisateur décide) dit l'effet exact. Une révision
+// APPLIQUÉE supprimée ne modifie jamais les mois déjà quittancés.
+function _histoIrlSupprInput(idx, effet, nouveauHC){
+  const h = (DB.irlHistorique || [])[idx];
+  const ref = h ? h.ref : '';
+  const bail = _histoIrlSupprBail(ref);
+  const log = _histoIrlSupprLot(ref);
+  return {
+    irlHistorique: DB.irlHistorique || [], bareme: DB.loyerBareme || [], ref, index: idx,
+    todayIso: _todayIsoLocal(), nowIso: new Date().toISOString(),
+    dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm === 'function' ? _dernierMoisQuittanceYm(ref) : null) || '',
+    bailDebut: (bail && bail.debut) || '', logHc: log ? log.hc : null,
+    chRepli: (bail && bail.ch != null && bail.ch !== '') ? bail.ch : (log ? log.ch : 0),
+    attendu: { dateEffet: effet, nouveauHC }
+  };
+}
+// Ref TOLÉRANTE (trim + casse), comme le module et _migrationBailsForLot (relecture Fable, 9).
+function _histoIrlSupprBail(ref){
+  const b = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(ref) : (DB.baux || {})[ref];
+  return (b && !b._deleted) ? b : null;
+}
+function _histoIrlSupprLot(ref){
+  const n = s => String(s == null ? '' : s).trim().toLowerCase();
+  return (DB.logements || []).find(l => l && !l._deleted && n(l.ref) === n(ref)) || null;
+}
+function _histoIrlSupprAnalyse(idx, effet, nouveauHC){
+  const IR = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  if (!IR || typeof IR.analyserSuppressionRevision !== 'function') return null;
+  try { return IR.analyserSuppressionRevision(_histoIrlSupprInput(idx, effet, nouveauHC)); } catch (e) { return null; }
+}
+function _histoIrlSupprimer(idx, effet, nouveauHC){
+  const IR = (typeof window !== 'undefined') ? window.IrlRevision : null;
+  if (!IR || typeof IR.supprimerRevision !== 'function') { showToast('Module indisponible (rafraîchir la page)', 'err'); return; }
+  const inp = _histoIrlSupprInput(idx, effet, nouveauHC);
+  const a = IR.analyserSuppressionRevision(inp);
+  if (!a.ok) { showToast(a.erreur, 'err', 7000); return; }
+  const e = a.entree, ref = inp.ref;
+  const lib = `${fmt(e.ancienHC)} → ${fmt(e.nouveauHC)} au ${fd(a.effet)}`;
+  const moisFr = ym => (window.ymToMoisFr ? window.ymToMoisFr(ym) : ym);
+  let msg;
+  if (a.nature === 'doublon') {
+    const j = a.jumelle;
+    msg = `Supprimer cette révision IRL de ${_logLabelRef(ref)} (${lib}) ?\n\n`
+      + `Une autre révision au ${fd(a.effet)} reste enregistrée (${fmt(j.ancienHC)} → ${fmt(j.nouveauHC)}) : le loyer, le barème et les quittances ne changent pas. Seule cette entrée disparaît de l'historique.`;
+  } else if (a.nature === 'programmee') {
+    msg = `Supprimer la révision programmée de ${_logLabelRef(ref)} (${lib}) ?\n\n`
+      + (a.moisQuittancesConserves
+        ? `Les mois déjà quittancés (jusqu'à ${moisFr(inp.dernierMoisQuittanceYm)}) ne changent pas : les quittances émises font foi. À partir du ${fd(a.reprise)}, le loyer reste ${fmt(e.ancienHC)}.\n`
+        : `Le loyer reste à ${fmt(e.ancienHC)} : le nouveau loyer ne s'appliquera pas.\n`)
+      + `Si la lettre a déjà été envoyée, prévenir le locataire.\n`
+      + `La révision de ce cycle redevient à faire (article 17-1 : un an pour la demander).`;
+  } else {
+    msg = `Supprimer la révision appliquée de ${_logLabelRef(ref)} (${lib}) ?\n\n`
+      + (a.moisQuittancesConserves
+        ? `Les mois déjà quittancés (jusqu'à ${moisFr(inp.dernierMoisQuittanceYm)}) ne changent pas : les quittances émises font foi, au loyer révisé.\n`
+        : `Aucun mois n'est quittancé depuis la date d'effet : aucune quittance émise n'est concernée.\n`)
+      + `À partir du ${fd(a.reprise)}, le loyer redevient ${fmt(e.ancienHC)}`
+      + (a.reprise > inp.todayIso ? ` (le loyer de référence du bail, base de la prochaine révision, revient à ${fmt(e.ancienHC)} dès maintenant)` : '') + `.\n`
+      + `Si la lettre a été envoyée, prévenir le locataire.\n`
+      + `La révision de ce cycle redevient à faire (article 17-1 : un an pour la demander).`;
+  }
+  if (!confirm2(msg)) return;
+  const r = IR.supprimerRevision(inp);
+  if (!r.ok) { showToast(r.erreur, 'err', 7000); return; }
+  DB.irlHistorique = r.irlHistorique;
+  DB.loyerBareme = r.bareme;
+  const log = _histoIrlSupprLot(ref);
+  const bail = _histoIrlSupprBail(ref);
+  if (log && r.nature !== 'doublon') {
+    // Relecture Fable (3) — le loyer de référence du lot (base de la PROCHAINE révision) revient à l'ancien
+    // tout de suite, même si la reprise au barème est au mois suivant : le laisser au loyer révisé ferait
+    // calculer la prochaine révision sur une révision supprimée. Le dû, lui, suit le barème (mois quittancés
+    // inchangés) — la confirmation et le message le disent.
+    if (r.logHc != null) {
+      log.hc = r.logHc;
+      if (bail) bail.hc = r.logHc;
+      if (typeof _pushLoyerTheoFromLive === 'function') _pushLoyerTheoFromLive(log);
+    }
+    // Clé de cycle : seulement si c'était celle de la révision supprimée.
+    if (String(log.irlDerniereApplication || '').slice(0, 10) === String(e.dateRevision || '').slice(0, 10)) {
+      log.irlDerniereApplication = r.marqueCycle;
+      if (bail) bail.irlDerniereApplication = r.marqueCycle;
+    }
+    // La trace d'un forçage (gel/DPE/cycle éteint) posée pour CE cycle tombe avec lui (cf. _irlAnnulerProgrammee).
+    const t = (typeof _irlForcage === 'function') ? _irlForcage(ref) : null;
+    if (t && String(t.cycle || '').slice(0, 10) === String(e.dateRevision || '').slice(0, 10) && DB.params && DB.params.irlForcee) {
+      delete DB.params.irlForcee[String(ref)];
+    }
+    delete log.irlLettreEnvoyee; delete log.irlLettreEnvoyeeDate; delete log.irlLettreEnvoyeePour;
+  }
+  if (log) _stamp(log);
+  if (bail) _stamp(bail);
+  if (!DB.bailEvents) DB.bailEvents = [];
+  DB.bailEvents.push(_stamp({ ref, bailDebut: (bail && bail.debut) || '',
+    date: _todayIsoLocal(), type: 'correction',
+    motif: r.nature === 'doublon' ? 'Doublon de révision IRL supprimé' : 'Révision IRL supprimée',
+    avant: r.nature === 'doublon' ? null : Number(e.nouveauHC), apres: r.nature === 'doublon' ? null : Number(e.ancienHC),
+    dateEffet: r.nature === 'doublon' ? a.effet : r.reprise,
+    detail: `Révision IRL ${lib} supprimée${r.nature === 'appliquee' && r.moisQuittancesConserves ? ' — mois quittancés inchangés' : ''}` }));
+  if (typeof _auditLog === 'function') _auditLog('irl-supprimee', 'bail', ref, `${ref} · ${lib} (${r.nature})`);
+  saveDB(); refreshAllIRL(); _rPeriodPage();
+  try { if (typeof rLogFiche === 'function' && currentPage === 'log-fiche') rLogFiche(); } catch (err) {}
+  showToast(r.nature === 'doublon' ? 'Doublon supprimé — loyer inchangé'
+    : (r.nature === 'programmee' && !r.moisQuittancesConserves ? `Révision supprimée — loyer maintenu à ${fmt(e.ancienHC)}`
+      : `Révision supprimée — loyer de ${fmt(e.ancienHC)} à partir du ${fd(r.reprise)}`
+        + (r.moisQuittancesConserves ? ` ; les mois déjà quittancés restent à ${fmt(e.nouveauHC)}` : '')), 'ok', 8000);
 }
 
 function openHistoCorrPeriode(ref, presetDebut){
@@ -17143,7 +17273,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.748 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.747 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17732,13 +17862,20 @@ async function _handleAttachmentDelete(docId) {
 async function _handleAttachmentOpen(docId) {
   const doc = (DB.documents||[]).find(d => d && !d._deleted && d.id === docId);
   if (!doc) { showToast('Document introuvable', 'err'); return; }
+  // Retours 15/10 (lot 1, point 4) — la fenêtre s'ouvre DANS le geste, avant d'attendre le binaire (IndexedDB
+  // ou stockage en ligne) : après une attente, le navigateur la bloque comme une fenêtre surgissante.
+  // Seulement pour un document qui s'affiche (PDF, image) : un fichier à télécharger n'ouvre pas de fenêtre.
+  const _aff = _mvDocAffichable({ mime: doc.mime, name: doc.originalName || doc.name });
+  const w = _aff ? _mvDocFenetre() : null;
+  if (_aff && !w) return;
   const dataB64 = await _attachmentLoadBinary(doc);
   if (!dataB64) {
-    showToast('Binaire introuvable (IDB ni Drive)', 'err', 6000);
+    if (w) { try { w.close(); } catch (e) {} }
+    showToast('Document introuvable sur cet appareil et dans le stockage en ligne.', 'err', 6000);
     return;
   }
   // Réutilise _mvDocOpenInWindow qui gère PDF/image/fallback download
-  _mvDocOpenInWindow({ name: doc.originalName || doc.name, mime: doc.mime, dataB64 });
+  _mvDocOpenInWindow({ name: doc.originalName || doc.name, mime: doc.mime, dataB64 }, w);
 }
 
 // v15.01 Sprint 5C — LOG-PHOTOS galerie photos logement (Phase 3 plan PJ unifiées).
@@ -30771,6 +30908,7 @@ function _bankWalkRender() {
     + '<span id="bank-mv-hint" class="mu sm" style="font-size:11.5px"></span>'
     + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    + '<button class="btn bs" onclick="_bankWalkExclude()" title="Ne pas importer ce mouvement (rétablissable sous la liste)">' + _uiIcon('trash') + ' Écarter ce mouvement</button>'
     + '<button class="btn bs" onclick="_bankWalkSkip()">Passer</button>'
     + _bankRuleStatutHtml('ligne', i)
     + '<button class="btn bp" id="bank-mv-validate" onclick="_bankMvValidate()">' + (last ? 'Valider et terminer ' + _uiIcon('check') : 'Valider l\'opération →') + '</button>'
@@ -30812,6 +30950,23 @@ function _bankCloseMvWindow() {
   _bankUpdateCounts();
 }
 function _bankWalkPrev() { if (_bankWalk && _bankWalkPos > 0) _bankWalkGoto(_bankWalkPos - 1); }
+// RETOURS 15/10 (lot 1, point 3) — « Écarter ce mouvement » depuis la fenêtre pas à pas : le même geste
+// que la corbeille de la liste (_bankExcludeLine, DRY), volontaire, dit à voix haute (CDC import T-1
+// « on ne cache rien ») et réversible : « rétablir » sous la liste remet toutes les lignes écartées.
+// La ligne sort du parcours ; la suivante s'ouvre (ou l'écran de fin s'il n'en reste pas).
+function _bankWalkExclude() {
+  const i = _bankMvIdx;
+  if (!_bankWalk || i < 0 || !_bankImportLines[i]) return;
+  const line = _bankImportLines[i];
+  _bankMvIdx = -1;                                  // la ligne quittée n'est PAS synchronisée : elle sort de l'import
+  _bankExcludeLine(i);
+  _bankWalk.splice(_bankWalkPos, 1);
+  _bankUpdateCounts();
+  showToast('Mouvement du ' + (line.date ? fd(line.date) : '—') + ' écarté : il ne sera pas importé. Pour le remettre : « rétablir » sous la liste.', 'info', 7000);
+  if (!_bankWalk.length) { _bankWalkDone(); return; }
+  _bankWalkPos = Math.min(_bankWalkPos, _bankWalk.length - 1);
+  _bankWalkRender();
+}
 function _bankWalkSkip() {
   if (!_bankWalk) return;
   if (_bankWalkPos >= _bankWalk.length - 1) { _bankWalkDone(); return; }
@@ -31737,7 +31892,9 @@ function _bankImportConfirm() {
   if (!_bankImportLines.length) { showToast('Rien à importer', 'warn'); return; }
   // Lignes à importer : (a) non doublon ET non exclue manuellement, OU (b) doublon mais explicitement coché
   // ⑧.1 v2 — ET prête (_bankLineDone) : les autres ne bloquent plus, elles sont GARDÉES en attente.
-  const toImport = _bankImportLines.filter(l => (l._userKeep || (!l.isDuplicate && !l._userExclude)) && _bankLineDone(l));
+  // RETOURS 15/10 (lot 1, point 3) — une ligne ÉCARTÉE ne s'importe jamais, même un doublon gardé
+  // (« Importer quand même ») puis écarté : l'exclusion est le dernier geste de l'utilisateur.
+  const toImport = _bankImportLines.filter(l => !l._userExclude && (l._userKeep || !l.isDuplicate) && _bankLineDone(l));
   const _toSet = new Set(toImport);
   // En attente : ni importée, ni exclue, ni doublon résolu (un doublon certain ou confirmé est
   // définitivement écarté — un PROBABLE non tranché se garde, T-1 : rien ne disparaît en silence).
@@ -32655,17 +32812,12 @@ function rFinances() {
   // K-1 : le bloc « Argent à récupérer » a DISPARU — chaque information vit dans le tableau
   // (sous-lignes retard), le ratio d'occupation (vacance, K-2), la ligne Solde (régul) et la
   // page Révision IRL. Aucun total reconstruit (ces créances ne s'additionnent pas).
-  // Micro-foncier (art. 32 CGI) — suggestion de régime, périmètre entité (comme la prévisu 2044).
-  // try/catch : la chaîne _compute2044 ne doit jamais casser le rendu de toute la page Finances.
-  let microFoncierHtml = '';
-  try { if (typeof _microFoncierCardHtml === 'function') microFoncierHtml = _microFoncierCardHtml(yr, entNom); }
-  catch (e) { microFoncierHtml = ''; if (typeof console !== 'undefined') console.warn('[micro-foncier] carte ignorée :', e); }
   // Bulle unique = cash-flow (heroHtml) + Recouvrement + Occupation (ratiosHtml), puis le graphe
-  // juste dessous, puis micro-foncier, puis le compte de résultat (INTOUCHÉ).
+  // juste dessous, puis le compte de résultat (INTOUCHÉ). Carte « Régime fiscal — micro-foncier »
+  // retirée (décision Didier 15/10/2026 : Propryo n'est pas un outil de conseil fiscal).
   root.innerHTML = headHtml + _cleNote + _fbNote + _mapBanner
     + '<div class="hero">' + heroHtml + ratiosHtml + '</div>'
     + '<div id="fin-viz"></div>'
-    + microFoncierHtml
     + '<div id="fin-pl"></div>'
     + '<div id="fin-exports"></div>';
 
@@ -33874,103 +34026,6 @@ function _finRenderExports() {
     +   item(_uiIcon('archive'), 'Export FEC', 'Écritures comptables', 'exp-card-fec')
     + '</div>'
     + '<div class="note">La 2044 s\'ouvre en <b>prévisualisation</b> ici (calcul live · <b>année civile pleine</b> — seul bloc de la page hors fenêtre d\'exercice, et c\'est assumé · périmètre = exercice + entité choisis ci-dessus). Les intérêts ne servent qu\'à déclarer, jamais à lire cette page. Bilan / FEC réutilisent la page Export.</div>';
-}
-
-// ===== MICRO-FONCIER (art. 32 CGI) — suggestion de régime en tête de Finances =====
-// Réutilise EXACTEMENT le même calcul que la prévisu 2044 (_legal2044BuildOpts + _compute2044,
-// périmètre entité, année civile pleine). loyers bruts = totalRecettes ; charges réelles =
-// totalCharges + totalInterets. Le verdict pur vient du module js/core/micro-foncier.js.
-// L'app NE PEUT PAS connaître les régimes spéciaux ni les revenus fonciers du foyer hors Propryo
-// → SUGGESTION sous conditions, jamais une affirmation d'éligibilité (sauf loyers > 15 000 €).
-// Le micro-foncier n'existe QUE pour une personne physique imposée à l'IR sur ses revenus fonciers
-// (location nue en direct). Toute SOCIÉTÉ est exclue : les parts de sociétés louant nu sont
-// explicitement écartées par l'art. 32 CGI (SCI à l'IR → 2072 au réel), et SCI à l'IS / SARL / SAS /
-// EURL / SNC relèvent de l'IS ou des BIC (aucun revenu foncier).
-// Le champ `type` étant FACULTATIF (souvent vide), on cherche la forme sociale sur le NOM *et* le type
-// (le nom porte quasi toujours « SCI … »). Règle : match société positif → exclu ; sinon éligible
-// (personne physique, indivision translucide, ou nom propre libre). Jetons bornés (\b) pour éviter
-// qu'un patronyme contenant « sci » (ex. « Francisci ») exclue un particulier à tort.
-function _microFoncierEntEligible(ent) {
-  if (!ent) return false;
-  const s = (String(ent.nom || '') + ' ' + String(ent.type || '')).toLowerCase();
-  if (/\b(sci|scp|scpi|sccv|sc|scm|scea|sarl|sasu|sas|eurl|snc|gfa|gfr|soci[eé]t[eé]|association)\b/.test(s)) return false;
-  return true;
-}
-function _microFoncierEval(yr, entNom) {
-  if (typeof window._compute2044 !== 'function' || typeof _legal2044BuildOpts !== 'function'
-    || typeof window.evaluerMicroFoncier !== 'function') return null;
-  const opts = _legal2044BuildOpts(yr, entNom);
-  const r = window._compute2044(DB.mouvements || [], STD_CATEGORIES, opts);
-  const ev = window.evaluerMicroFoncier({ loyersNus: r.totalRecettes || 0, chargesReelles: (r.totalCharges || 0) + (r.totalInterets || 0) });
-  // P1-1 : lots meublés/mixtes écartés du foncier (le brut foncier peut être faussé par du meublé résiduel).
-  ev._hasExclusions = !!((opts.exclus && opts.exclus.length) || (opts.flagues && opts.flagues.length));
-  return ev;
-}
-function _microFoncierCardHtml(yr, entNom) {
-  // P0-2 : le seuil de 15 000 € s'apprécie par FOYER fiscal, jamais en cumulant plusieurs contribuables.
-  // Périmètre exigé = UNE entité (ou « Tout » quand il n'y en a qu'une seule).
-  const ents = (DB.entites || []).filter(e => e && !e._deleted);
-  let ent = null;
-  if (entNom) ent = ents.find(e => e.nom === entNom);
-  else if (ents.length === 1) { ent = ents[0]; entNom = ent.nom; }
-  else return '';                                             // plusieurs contribuables agrégés → non calculable
-  // P0-1 : réservé à la personne physique (société → régime inexistant tel qu'affiché).
-  if (!_microFoncierEntEligible(ent)) return '';
-  const ev = _microFoncierEval(yr, entNom);
-  if (!ev || ev.statut === 'na') return '';
-  const f = (typeof fmt === 'function') ? fmt : (x => (Math.round(x) || 0) + ' €');
-  const S = 'style=';
-  const src = '<div ' + S + '"font-size:11px;color:var(--t3);margin-top:11px;border-top:1px solid var(--bor);padding-top:8px">Basé sur les mouvements ' + yr + ' · Sources : '
-    + '<a href="https://www.impots.gouv.fr/particulier/questions/je-mets-en-location-un-logement-vide-comment-declarer-les-loyers-percus" target="_blank" rel="noopener" ' + S + '"color:var(--acc2,#e8431f);font-weight:600;text-decoration:none">impots.gouv.fr</a> · '
-    + '<a href="https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000048847610" target="_blank" rel="noopener" ' + S + '"color:var(--acc2,#e8431f);font-weight:600;text-decoration:none">Article 32 du CGI</a> — estimation indicative, à confirmer avec un comptable.</div>';
-  const cond = '<div ' + S + '"margin-top:12px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:9px;padding:11px 13px;font-size:12px;color:var(--t2)">'
-    + '<div ' + S + '"font-weight:700;color:var(--warn);margin-bottom:6px">⚠ À vérifier manuellement — l\'app ne peut pas le savoir</div>'
-    + '<ul ' + S + '"margin:0;padding-left:18px">'
-    + '<li ' + S + '"margin:3px 0">Que ces <b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b> sont bien <b ' + S + '"color:var(--t1)">l\'ensemble des revenus fonciers du foyer</b> (autres locations nues, parts de SCI comprises) et restent <b ' + S + '"color:var(--t1)">≤ ' + f(ev.seuil) + '</b>.</li>'
-    + '<li ' + S + '"margin:3px 0">Que le foyer ne détienne <b ' + S + '"color:var(--t1)">aucun bien en régime spécial</b> (monument historique, nue-propriété, Besson/Robien/Borloo/Périssol, Malraux, parts de SCI louant nu) — ces cas <b ' + S + '"color:var(--t1)">excluent</b> le micro-foncier.</li>'
-    + '</ul></div>';
-  const pill4be = '<b ' + S + '"background:var(--acc);color:#fff;border-radius:5px;padding:0 6px">4BE</b>';
-  const head = '<div class="ct" ' + S + '"display:flex;align-items:center;gap:8px;margin-bottom:10px">' + _uiIcon('home', 16) + ' Régime fiscal — location nue'
-    + '<span ' + S + '"font:800 9.5px Inter,sans-serif;letter-spacing:.4px;background:var(--acc);color:#fff;padding:2px 8px;border-radius:20px">NOUVEAU</span></div>';
-  // Tableau comparatif micro vs réel (cas éligibles)
-  const cell = (txt, win, strong) => '<td ' + S + '"padding:8px 11px;text-align:right;border-top:1px solid var(--bor)' + (win ? ';color:var(--pos);font-weight:700' : '') + (strong ? ';font-weight:800' : '') + '">' + txt + '</td>';
-  const table = (microWin) => '<table ' + S + '"width:100%;border-collapse:collapse;border:1px solid var(--bor);border-radius:9px;overflow:hidden;margin:0 0 13px;font-size:13px">'
-    + '<thead><tr>'
-    + '<th ' + S + '"padding:8px 11px;text-align:left;background:var(--sur2);color:var(--t2);font-weight:600;font-size:12px"></th>'
-    + '<th ' + S + '"padding:8px 11px;text-align:right;font-weight:' + (microWin ? '800' : '600') + ';font-size:12px' + (microWin ? ';background:var(--pos);color:#fff' : ';background:var(--sur2);color:var(--t2)') + '">Micro-foncier</th>'
-    + '<th ' + S + '"padding:8px 11px;text-align:right;font-weight:' + (!microWin ? '800' : '600') + ';font-size:12px' + (!microWin ? ';background:var(--pos);color:#fff' : ';background:var(--sur2);color:var(--t2)') + '">Réel (2044)</th>'
-    + '</tr></thead><tbody>'
-    + '<tr><td ' + S + '"padding:8px 11px;text-align:left;color:var(--t2)">Revenus fonciers bruts ' + yr + '</td>' + cell(f(ev.loyersNus)) + cell(f(ev.loyersNus)) + '</tr>'
-    + '<tr><td ' + S + '"padding:8px 11px;text-align:left;color:var(--t2);border-top:1px solid var(--bor)">Déduction</td>'
-    + cell('− ' + f(ev.microAbattement) + ' <span ' + S + '"color:var(--t3);font-size:11.5px">(30 %)</span>', microWin) + cell('− ' + f(ev.chargesReelles) + ' <span ' + S + '"color:var(--t3);font-size:11.5px">(réel)</span>', !microWin) + '</tr>'
-    + '<tr><td ' + S + '"padding:8px 11px;text-align:left;color:var(--t1);border-top:1px solid var(--bor);font-weight:800">Revenu imposable</td>' + cell(f(ev.microImposable), microWin, true) + cell(f(ev.reelImposable), !microWin, true) + '</tr>'
-    + '</tbody></table>';
-  // P1-1 : avertissement si des lots meublés/mixtes ont pu être écartés (brut foncier potentiellement faussé).
-  const mixte = ev._hasExclusions
-    ? '<div ' + S + '"margin-top:10px;font-size:11.5px;color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:8px 11px">⚠ Des loyers meublés ou de lots mixtes (nu + meublé la même année) ont pu être écartés du foncier — chiffres indicatifs, vérifier le détail dans la prévisualisation 2044 ci-dessous.</div>'
-    : '';
-  const sur = !ev._hasExclusions; // affirmation ferme du dépassement seulement si aucun lot écarté
-  let inner;
-  if (ev.statut === 'reel_obligatoire') {
-    inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--info-soft,rgba(66,80,106,.12));border:1px solid var(--bor)">'
-      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Régime réel' + (sur ? ' obligatoire' : ' très probable') + '</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Les revenus fonciers bruts (<b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b>) ' + (sur ? 'dépassent' : 'semblent dépasser') + ' le seuil de <b ' + S + '"color:var(--t1)">' + f(ev.seuil) + '/an</b> : le micro-foncier ' + (sur ? 'n\'est pas possible' : 'n\'est probablement pas possible') + '.</div></div>'
-      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Déclaration au <b ' + S + '"color:var(--t1)">régime réel</b> (formulaire <b>2044</b>). À prévisualiser depuis « Exports &amp; déclaratif » ci-dessous.</div>';
-  } else if (ev.statut === 'micro_piste') {
-    inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--acc-soft,rgba(255,90,60,.12));border:1px solid var(--acc)">'
-      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">💡 Piste à explorer : le micro-foncier ferait sans doute payer moins</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Les charges déductibles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> des revenus fonciers, sous les <b ' + S + '"color:var(--t1)">30 %</b> de l\'abattement forfaitaire. Le micro déduirait donc plus que les charges réelles.</div></div>'
-      + table(true)
-      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Au micro : déclare <b ' + S + '"color:var(--t1)">' + f(ev.loyersNus) + '</b> en case ' + pill4be + ' de la <b ' + S + '"color:var(--t1)">2042</b>, sans 2044. <span ' + S + '"color:var(--t3)">L\'option micro/réel s\'exerce pour 3 ans.</span></div>'
-      + cond;
-  } else { // reel_avantageux
-    inner = '<div ' + S + '"border-radius:10px;padding:12px 14px;margin:0 0 12px;background:var(--info-soft,rgba(66,80,106,.12));border:1px solid var(--bor)">'
-      + '<div ' + S + '"font-weight:800;font-size:14px;color:var(--t1)">Rester au régime réel — il déduit plus dans ce cas</div>'
-      + '<div ' + S + '"font-size:12.5px;color:var(--t2);margin-top:4px">Les charges réelles = <b ' + S + '"color:var(--t1)">' + f(ev.chargesReelles) + '</b> = <b ' + S + '"color:var(--t1)">' + ev.chargesPct + ' %</b> des revenus fonciers, au-dessus des 30 % forfaitaires. Le réel fait payer moins qu\'au micro. Rien à changer. <span ' + S + '"color:var(--t3)">Un déficit foncier s\'impute même sur le revenu global (jusqu\'à 10 700 €/an).</span></div></div>'
-      + table(false)
-      + '<div ' + S + '"background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--t2)">→ Continuer sur le <b ' + S + '"color:var(--t1)">régime réel</b> (2044) : à prévisualiser depuis « Exports &amp; déclaratif » ci-dessous.</div>';
-  }
-  return '<div class="card" ' + S + '"border:2px solid var(--acc);margin-bottom:14px">' + head + inner + mixte + src + '</div>';
 }
 
 // ===== Prévisualisation 2044 (depuis Finances) — réutilise _compute2044 + _legal2044BuildOpts =====
