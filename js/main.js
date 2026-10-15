@@ -629,8 +629,8 @@ window._bailHistoEnVigueur = bailHistoEnVigueur;
 window._bailModifDetecterChangements = detecterChangementsFinanciers;
 window._bailModifDateEffetDefaut = dateEffetModifDefaut;
 window._bailModifRedaterIRL = redaterRevisionIRL;
-window.DocOuvrir = DocOuvrir;
-window.lotQuittanceAOuvrir = lotQuittanceAOuvrir;   // ouverture des pièces jointes (PDF / image) par URL blob:
+window.DocOuvrir = DocOuvrir;   // ouverture des pièces jointes (PDF / image) par URL blob:
+window.lotQuittanceAOuvrir = lotQuittanceAOuvrir;   // « Faire une quittance » : le lot demandé, jamais le 1er du filtre
 window.IrlRevision = IrlRevision;   // IRL-REVISION : entreeValideeDuCycle / revDepuisEntree / annulerRevisionProgrammee
 window._bailModifBorneMinEffet = borneMinEffetBareme;
 

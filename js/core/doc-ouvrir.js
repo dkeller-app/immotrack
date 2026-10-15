@@ -14,6 +14,14 @@
 
 const EXT = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', heic: 'image/heic' };
 const GENERIQUE = /^(application\/octet-stream|binary\/octet-stream|application\/x-download|)$/i;
+// SÉCURITÉ (relecture adverse) : une URL blob: a l'ORIGINE DE L'APP. Seuls des types qui n'exécutent rien sont
+// affichés ; tout le reste (SVG, HTML, XML…, même avec un paramètre « ; charset=… ») est téléchargé, jamais rendu.
+const AFFICHABLES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+/** Essence d'un type MIME : sans paramètres, en minuscules (« image/svg+xml; charset=utf-8 » → « image/svg+xml »). */
+export function essenceType(t) {
+  return String(t == null ? '' : t).split(';')[0].trim().toLowerCase();
+}
 
 /** En-tête d'une data URL : { mime, base64 } ; null si ce n'est pas une data URL. */
 export function enteteDataUrl(dataUrl) {
@@ -30,20 +38,23 @@ export function enteteDataUrl(dataUrl) {
  */
 export function typeDocument(dataUrl, mime, nom) {
   const h = enteteDataUrl(dataUrl);
-  if (h && h.mime && !GENERIQUE.test(h.mime)) return h.mime;
-  const m = String(mime || '').trim().toLowerCase();
+  if (h && h.mime && !GENERIQUE.test(h.mime)) return essenceType(h.mime);
+  const m = essenceType(mime);
   if (m && !GENERIQUE.test(m)) return m;
   const ext = (String(nom || '').toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1];
   return (ext && EXT[ext]) || 'application/octet-stream';
 }
 
-/** 'pdf' | 'image' | 'telecharger' — comment présenter le document. */
+/** 'pdf' | 'image' | 'telecharger' — comment présenter le document (liste blanche, cf. AFFICHABLES). */
 export function modeOuverture(type) {
-  const t = String(type || '').toLowerCase();
-  if (t === 'application/pdf') return 'pdf';
-  // SVG exclu : il peut porter du script (même règle que _pjTypeReel) → téléchargé, jamais affiché.
-  if (/^image\//.test(t) && t !== 'image/svg+xml') return 'image';
-  return 'telecharger';
+  const t = essenceType(type);
+  if (!AFFICHABLES.has(t)) return 'telecharger';
+  return t === 'application/pdf' ? 'pdf' : 'image';
+}
+
+/** Type du Blob à construire : l'essence pour un type affiché, un binaire neutre pour un téléchargement. */
+export function typeBlob(type) {
+  return modeOuverture(type) === 'telecharger' ? 'application/octet-stream' : essenceType(type);
 }
 
 /** Octets d'une data URL (base64 ou texte encodé) ; une chaîne base64 nue est acceptée (ancien format). */

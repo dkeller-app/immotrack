@@ -10267,9 +10267,10 @@ async function _mvDocOpenById(mvId) {
   if(!m) { showToast('Mouvement non trouvé','err'); return; }
   const pj = _mvPjResolve(m);
   if(!pj) { showToast('Aucune PJ sur ce mouvement','warn'); return; }
-  // Retours 15/10 — la fenêtre s'ouvre DANS le geste, avant toute attente (sinon bloquée comme popup).
-  const w = _mvDocFenetre();
-  if (!w) return;
+  // Retours 15/10 — la fenêtre s'ouvre DANS le geste, avant toute attente (sinon bloquée comme popup),
+  // et seulement pour un document qui s'affiche (un fichier à télécharger n'en a pas besoin).
+  const w = _mvDocAffichable(pj) ? _mvDocFenetre() : null;
+  if (_mvDocAffichable(pj) && !w) return;
 
   // Legacy : ouvrir direct
   if (pj._legacy) { _mvDocOpenInWindow(pj, w); return; }
@@ -10284,7 +10285,7 @@ async function _mvDocOpenById(mvId) {
     try { dataB64 = await _downloadPhotoFromDrive(null, pj.idbKey, pj.cloudKey); if (dataB64 && pj.idbKey) try { await _idbPut(pj.idbKey, dataB64); } catch(e) {} } catch(e) { console.warn('[_mvDocOpenById] Storage fail', e); }
   }
   if (!dataB64) {
-    try { w.close(); } catch (e) {}
+    if (w) { try { w.close(); } catch (e) {} }
     showToast('Binaire PJ introuvable (cache local vide et absent du cloud).', 'err', 6000);
     return;
   }
@@ -10296,8 +10297,16 @@ async function _mvDocOpenById(mvId) {
 function _mvDocFenetre() {
   const w = window.open('', '_blank');
   if (!w) { showToast('Fenêtre bloquée par le navigateur : autoriser les fenêtres (pop-up) pour Propryo.', 'err', 6000); return null; }
-  try { w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ouverture…</title></head><body style="font:15px system-ui,sans-serif;color:#555;display:flex;align-items:center;justify-content:center;min-height:90vh;margin:0">Ouverture du document…</body></html>'); w.document.close(); } catch (e) {}
+  // Page d'attente hors de l'app : couleurs SYSTÈME (color-scheme), suit le thème clair / sombre de l'appareil.
+  try { w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Ouverture…</title></head><body style="font:15px system-ui,sans-serif;color:GrayText;display:flex;align-items:center;justify-content:center;min-height:90vh;margin:0">Ouverture du document…</body></html>'); w.document.close(); } catch (e) {}
   return w;
+}
+// Le document s'affichera-t-il (PDF, image matricielle) ? D'après son type ENREGISTRÉ et son nom, connus avant
+// de lire le binaire ; sans le module, on suppose que oui (ancien comportement).
+function _mvDocAffichable(pj) {
+  const D = (typeof window !== 'undefined') ? window.DocOuvrir : null;
+  if (!D || !pj) return true;
+  return D.modeOuverture(D.typeDocument(pj.dataB64 || '', pj.mime, pj.name || pj.originalName)) !== 'telecharger';
 }
 
 // Retours 15/10 (lot 1, point 4) — PAGE BLANCHE à l'ouverture d'un bail / EDL signé hors Propryo (et de toute pièce
@@ -10307,14 +10316,18 @@ function _mvDocFenetre() {
 function _mvDocOpenInWindow(pj, wPre) {
   const D = (typeof window !== 'undefined') ? window.DocOuvrir : null;
   if (D && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function' && typeof Blob !== 'undefined') {
-    const w = wPre || _mvDocFenetre();
-    if (!w) return;
-    let url;
     const type = D.typeDocument(pj.dataB64, pj.mime, pj.name);
-    try { url = URL.createObjectURL(new Blob([D.dataUrlEnOctets(pj.dataB64)], { type })); }
-    catch (e) { try { w.close(); } catch (x) {} showToast('Document illisible : le fichier enregistré est endommagé.', 'err', 6000); return; }
-    if (D.modeOuverture(type) === 'telecharger') {
-      try { w.close(); } catch (e) {}
+    const telecharger = D.modeOuverture(type) === 'telecharger';
+    // Fichier à télécharger : aucune fenêtre (celle ouverte dans le geste est refermée). Type du Blob : essence
+    // affichable seulement (PDF, JPEG, PNG, WebP, GIF), sinon binaire neutre — un SVG ou un HTML n'est JAMAIS
+    // rendu dans une URL blob: qui porte l'origine de l'app (relecture adverse : XSS via « image/svg+xml; … »).
+    const w = telecharger ? null : (wPre || _mvDocFenetre());
+    if (telecharger && wPre) { try { wPre.close(); } catch (e) {} }
+    if (!telecharger && !w) return;
+    let url;
+    try { url = URL.createObjectURL(new Blob([D.dataUrlEnOctets(pj.dataB64)], { type: D.typeBlob(type) })); }
+    catch (e) { if (w) { try { w.close(); } catch (x) {} } showToast('Document illisible : le fichier enregistré est endommagé.', 'err', 6000); return; }
+    if (telecharger) {
       const a = document.createElement('a'); a.href = url; a.download = pj.name || 'document';
       document.body.appendChild(a); a.click(); a.remove();
     } else {

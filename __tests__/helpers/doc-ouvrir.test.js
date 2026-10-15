@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { enteteDataUrl, typeDocument, modeOuverture, dataUrlEnOctets } from '../../js/core/doc-ouvrir.js'
+import { enteteDataUrl, typeDocument, modeOuverture, dataUrlEnOctets, essenceType, typeBlob } from '../../js/core/doc-ouvrir.js'
 
 /**
  * Retours du 15/10/2026 (lot 1, point 4) — « Ouvrir » un bail / EDL signé hors Propryo : page blanche.
@@ -78,5 +78,24 @@ describe('l\'ouverture n\'utilise plus d\'iframe data: et ouvre la fenêtre dans
       expect(iOpen, sig).toBeGreaterThan(-1)
       expect(iOpen, sig).toBeLessThan(f.indexOf('await '))
     }
+  })
+})
+
+describe("sécurité — une URL blob: porte l'origine de l'app : liste blanche stricte (relecture adverse)", () => {
+  it('SVG, HTML, XML ne sont jamais affichés, même avec un paramètre', () => {
+    for (const t of ['image/svg+xml', 'image/svg+xml; charset=utf-8', 'IMAGE/SVG+XML;', 'text/html', 'text/html;charset=utf-8', 'application/xhtml+xml', 'text/xml', 'image/heic', ''])
+      expect(modeOuverture(t), t).toBe('telecharger')
+  })
+  it("le type d'un document se réduit à son essence (en-tête data: et type enregistré)", () => {
+    expect(essenceType(' Image/SVG+xml ; charset=utf-8')).toBe('image/svg+xml')
+    expect(typeDocument('data:application/octet-stream;base64,PHN2Zz4=', 'image/svg+xml; charset=utf-8', 'x.png')).toBe('image/svg+xml')
+    expect(modeOuverture(typeDocument('data:application/octet-stream;base64,PHN2Zz4=', 'image/svg+xml; charset=utf-8', 'x.png'))).toBe('telecharger')
+    expect(typeDocument('data:application/pdf;foo=bar;base64,JVBERi0=', '', '')).toBe('application/pdf')
+  })
+  it("le Blob d'un téléchargement est un binaire neutre ; celui d'un PDF / d'une image garde son essence", () => {
+    expect(typeBlob('image/svg+xml; charset=utf-8')).toBe('application/octet-stream')
+    expect(typeBlob('text/html')).toBe('application/octet-stream')
+    expect(typeBlob('application/pdf')).toBe('application/pdf')
+    expect(typeBlob('image/png; x=y')).toBe('image/png')
   })
 })

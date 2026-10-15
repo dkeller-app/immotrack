@@ -17862,11 +17862,13 @@ async function _handleAttachmentOpen(docId) {
   if (!doc) { showToast('Document introuvable', 'err'); return; }
   // Retours 15/10 (lot 1, point 4) — la fenêtre s'ouvre DANS le geste, avant d'attendre le binaire (IndexedDB
   // ou stockage en ligne) : après une attente, le navigateur la bloque comme une fenêtre surgissante.
-  const w = _mvDocFenetre();
-  if (!w) return;
+  // Seulement pour un document qui s'affiche (PDF, image) : un fichier à télécharger n'ouvre pas de fenêtre.
+  const _aff = _mvDocAffichable({ mime: doc.mime, name: doc.originalName || doc.name });
+  const w = _aff ? _mvDocFenetre() : null;
+  if (_aff && !w) return;
   const dataB64 = await _attachmentLoadBinary(doc);
   if (!dataB64) {
-    try { w.close(); } catch (e) {}
+    if (w) { try { w.close(); } catch (e) {} }
     showToast('Document introuvable sur cet appareil et dans le stockage en ligne.', 'err', 6000);
     return;
   }
