@@ -3520,6 +3520,21 @@ function _mvCreate(m, opts) {
   }, opts);
 }
 
+// Périmètre « espace propre » des migrations douces (normalisation des loyers, validations de régul héritées) :
+// contrat `espacePropre` de js/core/normalisation-loyers.js. Hors mode cloud : {} (aucun filtre).
+// Associé INVITÉ (sans espace à lui) : __immoOwnEspaceId répond l'espace du PROPRIÉTAIRE (repli) → on ne le
+// transmet PAS (null = seuls les enregistrements non tagués). Sinon, en lecture seule, chaque écriture
+// refusée (RLS : 0 ligne = « conflict ») relance un re-pull, donc une normalisation : boucle sans fin.
+// Getter `mine` absent ou qui jette : prudence, null aussi.
+function _optsEspacePropre() {
+  if (!window.__immoSupabaseMode) return {};
+  let _esp = null;
+  try {
+    const _mine = (typeof window.__immoOwnEspaceMine === 'function') && window.__immoOwnEspaceMine() === true;
+    if (_mine && typeof window.__immoOwnEspaceId === 'function') _esp = window.__immoOwnEspaceId();
+  } catch (e) { _esp = null; }
+  return { espacePropre: (_esp == null) ? null : _esp };
+}
 // NORMALISATION-LOYERS (01/10) — LE point d'appel unique de js/core/normalisation-loyers.js (pur, testé),
 // exposé par js/main.js sur window.NormalisationLoyers (un `let`/`const` de script n'est PAS sur window ;
 // le module, lui, l'y pose explicitement, et s'exécute avant DOMContentLoaded donc avant initDB).
@@ -3537,19 +3552,7 @@ function _normaliserLoyers(source, db) {
   // partagée par un autre propriétaire le sont par SON appareil, avec SA configuration (jamais celle d'un
   // associé), et un associé en lecture seule n'essaie pas d'écrire ce que la RLS lui refuserait.
   // Getter absent (mode local / sandbox) : aucun filtre, rien n'y est tagué d'un autre espace.
-  const opts = { stamp: _stamp };
-  // Associé INVITÉ (sans espace à lui) : __immoOwnEspaceId répond l'espace du PROPRIÉTAIRE (repli) → on ne le
-  // transmet PAS (null = seuls les enregistrements non tagués). Sinon, en lecture seule, chaque écriture
-  // refusée (RLS : 0 ligne = « conflict ») relance un re-pull, donc une normalisation : boucle sans fin.
-  // Getter `mine` absent ou qui jette : prudence, null aussi.
-  if (window.__immoSupabaseMode) {
-    let _esp = null;
-    try {
-      const _mine = (typeof window.__immoOwnEspaceMine === 'function') && window.__immoOwnEspaceMine() === true;
-      if (_mine && typeof window.__immoOwnEspaceId === 'function') _esp = window.__immoOwnEspaceId();
-    } catch (e) { _esp = null; }
-    opts.espacePropre = (_esp == null) ? null : _esp;
-  }
+  const opts = Object.assign({ stamp: _stamp }, _optsEspacePropre());
   const r = N.normaliser(db || DB, opts);
   if (r && r.aPersister) {   // silencieux quand rien ne part (2e passage, bail verrouillé seul, démarrages suivants)
     console.info('[normalisation loyers] ' + source + ' : ' + r.mouvements + ' mouvement(s) → « Loyers encaissés », '
@@ -7700,8 +7703,8 @@ function _accmGoto(id, ref, count){
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
       case 'entretien':// entretien en retard DU lot → onglet Conformité de sa fiche
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('equipements'); break;
-      case 'regul':    // régularisation de charges → onglet Charges
-        go('regul'); break;
+      case 'regul':    // régularisation de charges → onglet Charges sur l'exercice N-1 (celui de l'alerte), lot ciblé si un seul
+        _rgOuvrirAnnee(null, single ? ref : null); break;
       case 'incident': // incident(s) d'un lot → onglet Entretien de sa fiche (registre)
         if(single && hasFiche){ openLogFiche(ref); setTab('conformite'); } else go('biens'); break;
       default: go('loyers');
@@ -8279,7 +8282,7 @@ const _PIL_HORS = {
   depot:   { onglet: 'Locataires', go: () => go('baux') },
   finbail: { onglet: 'Locataires', go: () => go('baux') },
   incident:{ onglet: 'Biens', go: () => go('biens') },
-  regul:   { onglet: 'Charges', go: () => go('regul') }
+  regul:   { onglet: 'Charges', go: () => _rgOuvrirAnnee() }   // alerte = régul N-1
 };
 function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
 
@@ -9541,15 +9544,17 @@ function _computeUnifiedTodo(ctx) {
   //    Non reprise dans À traiter par choix utilisateur (déjà visible ailleurs).
 
   // 7. Régularisation de charges à émettre — v15.424 DRY : règle CANONIQUE
-  // AlertRules.regulAEmettre (sémantique user : loué N-1 + aucune régul émise en N).
-  AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory).forEach(it => {
+  // AlertRules.regulAEmettre (sémantique user : loué N-1 + régul N-1 ni validée ni émise).
+  // ALERTE-REGUL (14/10) : le signal « faite » = la validation PORTÉE PAR LE LOGEMENT (js/core/regul-validation.js),
+  // partagée par toute la SCI — un associé valide, l'alerte disparaît chez tous après synchronisation.
+  AlertRules.regulAEmettre(scopeLogs, DB.mouvements, today, _isLoyerCategory, _rgEstValideePourAnnee).forEach(it => {
     out.push({
       type:'regul', severity:'info', score:40,
       title:'Régularisation '+it.annee+' à émettre',
       subtitle:_logLabel(it.ref)+' — '+it.locataire,
       contextRef:it.ref, nom:_logLabel(it.ref),
       actionLabel:'Émettre régul',
-      actionFn:"go('regul',null)"
+      actionFn:"_rgOuvrirAnnee("+Number(it.annee)+",'"+_lyQ(it.ref)+"')"
     });
   });
 
@@ -10020,7 +10025,7 @@ const _TODO_TYPE_META = {
   mrh:    {icon:'🛡',  label:'Assurances',       go:"go('baux',null)"},
   irl:    {icon:'📈',  label:'Révisions IRL',    go:"go('irl',null)"},
   equip:  {icon:'🔧',  label:'Équipements',      go:"go('equipements',null)"},
-  regul:  {icon:'⚖️', label:'Régularisations',  go:"go('regul',null)"},
+  regul:  {icon:'⚖️', label:'Régularisations',  go:"_rgOuvrirAnnee()"},   // alerte = régul N-1
   bail:   {icon:'📋',  label:'Baux à terme',     go:"go('baux',null)"},
   vacance:{icon:'🏚',  label:'Logements vacants',go:"go('biens',null)"},
   dpe:    {icon:'📐',  label:'DPE',              go:"go('biens',null)"},
@@ -24461,15 +24466,39 @@ function quickAddIRL(key, ref) {
 }
 
 // =================== RÉGULARISATION ===================
+// ALERTE-REGUL (14/10) — l'alerte « Régularisation N-1 à émettre » ouvre l'onglet Charges SUR N-1 (sinon il
+// s'ouvrait sur l'année en cours et « Valider la régul » validait N, trop tôt : l'alerte restait), filtré sur
+// l'immeuble du lot quand l'alerte n'en vise qu'un. Cible à usage unique, consommée par rRegulInit.
+function _rgOuvrirAnnee(annee, ref){
+  const y = Number(annee);
+  window._regulAnneeCible = (Number.isInteger(y) && y >= 1900 && y <= 9999) ? y : (new Date().getFullYear() - 1);
+  const l = ref ? (DB.logements||[]).find(x => _isAlive(x) && x.ref === ref) : null;
+  window._regulImmCible = (l && l.imm) ? l.imm : null;
+  go('regul');
+}
+// Règle de l'alerte, injectée dans AlertRules.regulAEmettre (module absent → non validée : l'alerte reste).
+function _rgEstValideePourAnnee(l, annee){
+  const RV = window.RegulValidation;
+  return !!(RV && typeof RV.regulValideePourAnnee === 'function' && RV.regulValideePourAnnee(l, annee));
+}
 function rRegulInit() {
   const today = new Date();
-  const yr = today.getFullYear();
+  const cible = window._regulAnneeCible, immCible = window._regulImmCible;
+  window._regulAnneeCible = null; window._regulImmCible = null;
+  const yr = cible || today.getFullYear();
+  // Re-rendu de l'onglet (synchro d'un autre appareil, retour sur l'onglet, conflit → go('regul')) : on GARDE la
+  // période et l'immeuble affichés — sinon l'écran revenait sur l'année en cours et « Valider » validait N
+  // (audit 15/10). Une alerte (cible) impose N-1 ; sinon la dernière période affichée de la session, sinon N.
+  const prec = cible ? null : window._rgPeriodeAffichee;
+  const fromInit = (prec && /^\d{4}-\d{2}-\d{2}$/.test(prec.from)) ? prec.from : yr+'-01-01';
+  const toInit = (prec && /^\d{4}-\d{2}-\d{2}$/.test(prec.to)) ? prec.to : yr+'-12-31';
+  const immInit = cible ? immCible : (prec ? prec.imm : null);
   el('p-regul-inner').innerHTML = `
     <div class="flex-b mb16">
       <div class="flex-c">
-        <select class="inp" id="reg-imm" onchange="rRegul()" style="width:180px"><option value="">Tous immeubles</option>${immeubles().map(i=>`<option>${i}</option>`).join('')}</select>
-        <input class="inp" type="date" id="reg-from" value="${yr}-01-01" oninput="rRegul()" onchange="rRegul()" style="width:140px">
-        <input class="inp" type="date" id="reg-to" value="${yr}-12-31" oninput="rRegul()" onchange="rRegul()" style="width:140px">
+        <select class="inp" id="reg-imm" onchange="rRegul()" style="width:180px"><option value="">Tous immeubles</option>${immeubles().map(i=>`<option>${escHtml(i)}</option>`).join('')}</select>
+        <input class="inp" type="date" id="reg-from" value="${fromInit}" oninput="rRegul()" onchange="rRegul()" style="width:140px">
+        <input class="inp" type="date" id="reg-to" value="${toInit}" oninput="rRegul()" onchange="rRegul()" style="width:140px">
         <button class="btn bs" onclick="rRegul()">${_uiIcon('refresh')} Calculer</button>
       </div>
       <div class="flex-c">
@@ -24480,6 +24509,8 @@ function rRegulInit() {
     <div class="g3 mb16" id="reg-kpis"></div>
     <div id="reg-cards"></div>
   `;
+  // Alerte d'un seul lot : filtre sur son immeuble (s'il figure dans la liste ; sans immeuble → tous) ; re-rendu : filtre conservé.
+  if(immInit){ const s = el('reg-imm'); if(s && [...s.options].some(o => o.value === immInit)) s.value = immInit; }
   rRegul();
 }
 
@@ -24585,14 +24616,29 @@ function _rgOuvrirDetailLoc(immNom, entryKey){
   requestAnimationFrame(()=>requestAnimationFrame(montrer));
 }
 
-// v15.x REFONTE-REGUL Phase C — état de validation par (immeuble, période)
-function _rgValKey(imm){ return imm+'|'+(window._regulFrom||'')+'|'+(window._regulTo||''); }
-function _rgIsValidated(imm){ return !!((DB.regulValidations||{})[_rgValKey(imm)]); }
+// v15.x REFONTE-REGUL Phase C — état de validation par (immeuble, période).
+// ALERTE-REGUL (14/10) — la validation est PORTÉE PAR CHAQUE LOGEMENT du groupe (js/core/regul-validation.js) :
+// ligne `logements` de la SCI, synchronisée et protégée par la RLS par SCI → PARTAGÉE par tous les associés.
+// (Avant : DB.regulValidations, blob de configuration de l'espace propre, jamais lu par un associé.)
+// Groupe = immeuble, ou « (sans immeuble) » ; borné au filtre de bailleur actif, comme la liste affichée.
+function _rgLogsDuGroupe(imm){
+  const RV = window.RegulValidation;
+  return RV ? RV.logementsDuGroupe(DB.logements||[], imm, _logInEnt) : [];
+}
+// Groupe validé pour la période affichée : tous ses logements concernés (`refs` = lots du décompte affiché).
+function _rgIsValidated(imm, refs){
+  const RV = window.RegulValidation; if(!RV) return false;
+  let logs = _rgLogsDuGroupe(imm);
+  if(Array.isArray(refs) && refs.length){ const S = new Set(refs); logs = logs.filter(l => S.has(l.ref)); }
+  return RV.groupeValide(logs, window._regulFrom, window._regulTo);
+}
 function _rgValidate(imm){
-  if(!DB.regulValidations) DB.regulValidations={};
-  DB.regulValidations[_rgValKey(imm)] = { at: new Date().toISOString() };
-  if(typeof saveDB==='function') saveDB();
-  if(typeof showToast==='function') showToast('Immeuble « '+imm+' » validé ✓','ok');
+  const RV = window.RegulValidation;
+  if(!RV){ if(typeof showToast==='function') showToast('Validation indisponible : recharger la page','err'); return; }
+  const r = RV.validerPeriode(_rgLogsDuGroupe(imm), window._regulFrom, window._regulTo, { stamp: _stamp });
+  if(!r.cle){ if(typeof showToast==='function') showToast('Période de régularisation invalide : vérifier les dates','err'); return; }
+  if(r.refs.length && typeof saveDB==='function') saveDB();
+  if(typeof showToast==='function') showToast(imm === RV.SANS_IMMEUBLE ? 'Logements sans immeuble validés ✓' : 'Immeuble « '+imm+' » validé ✓','ok');
   rRegul();
 }
 function _rgBackToList(){ rRegul(); }
@@ -25381,10 +25427,24 @@ function _rgShowGlobal(immNom){
   window._rgGlobalImm = immNom; // v15.x REGUL-REFRESH-LIVE : mémorise la vue globale ouverte (refresh après édition mvt)
   const from=window._regulFrom, to=window._regulTo;
   const result=computeRegul(from,to);
-  const entries=Object.values(result.entries||{}).filter(e=>e.imm===immNom)
+  // ALERTE-REGUL : le groupe « (sans immeuble) » n'est le `imm` d'aucune occupation (vide) → vue globale VIDE
+  // alors que la liste montrait ses lots. Même groupe et même filtre de bailleur que la liste (rRegul) et que
+  // « Valider » (_rgLogsDuGroupe). Aucun montant recalculé : on choisit seulement les colonnes affichées.
+  const _sansImm = '(sans immeuble)';
+  const _refsEnt = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.ref)) : null;
+  const entries=Object.values(result.entries||{}).filter(e=>(e.imm||_sansImm)===immNom && (!_refsEnt || _refsEnt.has(e.ref)))
     .sort((a,b)=>_natCmp(_logLabel(a.ref||''), _logLabel(b.ref||''))||_natCmp(a.ref||'', b.ref||'')||(a.debutOcc||'').localeCompare(b.debutOcc||''));
-  const bail=(result.bailleur||{})[immNom];
-  const nonRep=(result.nonReparti||{})[immNom];
+  const bail=(result.bailleur||{})[immNom===_sansImm ? '' : immNom];   // computeRegul range la part bailleur sans immeuble sous ''
+  let nonRep=(result.nonReparti||{})[immNom];
+  // « (sans immeuble) » recueille AUSSI les charges sans aucun périmètre, de toutes les SCI : elles ne sont pas
+  // les charges de ces lots et bloquaient leur validation (audit 15/10). Ici, seules celles d'un lot du groupe
+  // comptent ; les autres restent signalées dans le bandeau de la liste. Aucun montant recalculé.
+  if(immNom===_sansImm && nonRep){
+    const refsG=new Set(_rgLogsDuGroupe(immNom).map(l=>l.ref));
+    const quiDe=new Map((DB.mouvements||[]).filter(_isAlive).map(m=>[m.id,m.qui]));
+    const lines=(nonRep.lines||[]).filter(l=>refsG.has(quiDe.get(l.mvId)));
+    nonRep={ imm:nonRep.imm, total:Math.round(lines.reduce((s,l)=>s+(l.montant||0),0)*100)/100, lines };
+  }
   const f=fmt;
   // CDC É4 (mockup 07) — colonne « Bailleur (225) » : part non refacturée par facture (mvId).
   const bailPerMv={}, bailLigneMv={};
@@ -25434,7 +25494,7 @@ function _rgShowGlobal(immNom){
   const forfPart=e=>(e.forfait&&e.forfait.excluCharges)||0;
   const sumForf=Math.round(entries.reduce((s,e)=>s+forfPart(e),0)*100)/100;
   const forfRow=sumForf>0.005?`<tr class="forf"><td class="c0">Part au forfait<small>charges non régularisables — ${escHtml(_rgForfaitRef(null).citation)}</small></td>${entries.map(e=>`<td class="num">${forfPart(e)?f(forfPart(e)):'<span class="z">—</span>'}</td>`).join('')}<td class="num col-bail"><span class="z">—</span></td><td class="num col-tot">${f(sumForf)}</td></tr>`:'';
-  const validated=_rgIsValidated(immNom);
+  const validated=_rgIsValidated(immNom, entries.map(e=>e.ref));
   const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">${_uiIcon('warn',17)}</span> <b>${f(nonRep.total)} de charges non réparties</b> — corriger avant de valider cet immeuble</div></div>`:'';
   // TÉLÉPHONE (≤767) : la matrice charge×lots (illisible en N colonnes) devient des CARTES-CHARGE
   // (répartition par lot) + récap par lot. Mêmes données pivot. PC (≥768) = matrice ci-dessous.
@@ -25528,7 +25588,8 @@ function _rgJustifFactures(immNom){
   const ccIds=new Set(((im&&im.compteursCollectifs)||[]).filter(_isAlive).map(c=>c.id));
   // AUDIT-FIX : inclure aussi les factures récupérables rattachées DIRECTEMENT à un logement (m.qui)
   // de l'immeuble (computeRegul les impute) — sinon leur justificatif manquerait au paquet.
-  const logRefs=new Set((DB.logements||[]).filter(_isAlive).filter(l=>l.imm===immNom).map(l=>l.ref));
+  // Lots du groupe (immeuble, ou « (sans immeuble) ») — même périmètre que la vue globale et « Valider ».
+  const logRefs=new Set(_rgLogsDuGroupe(immNom).map(l=>l.ref));
   return (DB.mouvements||[]).filter(_isAlive).filter(m=>
     (typeof _isChargeRecupCategory==='function' && _isChargeRecupCategory(m.cat)) && (m.db>0) &&
     m.date>=from && m.date<=to &&
@@ -25862,6 +25923,7 @@ function rRegul() {
   const from = v('reg-from') || new Date().getFullYear()+'-01-01';
   const to   = v('reg-to')   || new Date().getFullYear()+'-12-31';
   window._regulFrom = from; window._regulTo = to;
+  window._rgPeriodeAffichee = { from, to, imm: fimm };   // repris par rRegulInit au re-rendu (période conservée)
   // v14.73 : computeRegul retourne { entries, bailleur }
   const result = computeRegul(from, to);
   const regul = result.entries || {};
@@ -25869,7 +25931,10 @@ function rRegul() {
   const nonRepMap = result.nonReparti || {};
   // v15.234 NAV-FILTRE-ENTITE-GLOBAL : filtre entité (immeubles de l'entité active).
   const _entRegImms = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.imm).filter(Boolean)) : null;
-  let items = Object.values(regul).filter(r=>(!_entRegImms||_entRegImms.has(r.imm))&&(!fimm||r.imm===fimm));
+  // ALERTE-REGUL : un lot SANS immeuble disparaissait dès qu'un bailleur était choisi (son `imm` vide n'est
+  // dans aucun ensemble de noms) → filtré par son propre rattachement au bailleur.
+  const _entRegRefs = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.ref)) : null;
+  let items = Object.values(regul).filter(r=>(!_entRegImms||_entRegImms.has(r.imm)||(!r.imm&&_entRegRefs.has(r.ref)))&&(!fimm||r.imm===fimm));
   items.sort((a,b)=>{
     if(a.ref!==b.ref) return _natCmp(_logLabel(a.ref), _logLabel(b.ref)) || _natCmp(a.ref, b.ref);
     if(!a.isHistorique && b.isHistorique) return -1;
@@ -25950,7 +26015,7 @@ function rRegul() {
     const gS   = gP - gC;
     const cls  = 'rgim'+gi;
     // CDC É4-nav (mockup 09) — 3 états : Émise / En attente de l'arrêté copro / À émettre.
-    const imVal = _rgIsValidated(imNom);
+    const imVal = _rgIsValidated(imNom, grp.map(r=>r.ref));
     let imBadge;
     if(imVal){
       imBadge = '<span class="rg-badge-ok">' + _uiIcon('check',13) + ' Émise</span>';
@@ -26169,7 +26234,7 @@ function _regRenderPhone(items, totProv, totChar, totSolde, nonRepBanner, to, ba
   let body='';
   immNames.forEach(imNom=>{
     const grp=byImm[imNom];
-    const imVal=_rgIsValidated(imNom);
+    const imVal=_rgIsValidated(imNom, grp.map(r=>r.ref));
     let imBadge;
     if(imVal){ imBadge=`<span class="rgph-bdg ok">${_uiIcon('check',12)}Émise</span>`; }
     else { const _reg=(typeof _rgImmRegime==='function')?_rgImmRegime({imm:imNom,bail:{}}):{copro:false};

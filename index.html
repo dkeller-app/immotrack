@@ -195,6 +195,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/biens-migration.js">
 <link rel="modulepreload" href="js/core/normalisation-loyers.js">
 <link rel="modulepreload" href="js/core/biens-pieces.js">
+<link rel="modulepreload" href="js/core/regul-validation.js">
 <link rel="modulepreload" href="js/core/edl-photos.js">
 <link rel="modulepreload" href="js/core/edl-autosave.js">
 <link rel="modulepreload" href="js/core/edl-parcours.js">
@@ -4651,7 +4652,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/irl-dpe-gate.global.js?v=722abf97" defer></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
-<script src="js/helpers/alert-rules.global.js?v=2142271e" defer></script>
+<script src="js/helpers/alert-rules.global.js?v=cd16bde1" defer></script>
 <!-- BAUX-ECHUS — régime du bailleur (art. 10 / 13, window.BailDuree) puis LA règle d'échéance et de
      reconduction, une par type (window.BailEcheance) : pastille, agenda, frise, préavis, alerte « arrivé à terme ».
      BailDuree AVANT BailEcheance (sa dépendance). -->
@@ -4676,9 +4677,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=b548b153" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part1.js?v=2ad03571" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
 <script src="js/app/app-part2.js?v=a22855c5" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
-<script src="js/app/app-part3.js?v=a9753314" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
+<script src="js/app/app-part3.js?v=6b5a492c" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
 <div class="ov hidden" id="ov-dg-restitution" onclick="closeBg(event,'ov-dg-restitution')">
