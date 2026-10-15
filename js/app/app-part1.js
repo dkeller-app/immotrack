@@ -24245,6 +24245,8 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   // le mode honnête, `rev` est l'objet muet, et l'entrée d'historique perd ses indices — la
   // seule révision qui aurait besoin d'être traçable serait la seule à ne pas l'être.
   let _fAppl = null;
+  // Relecture Fable (6) : trace en place AVANT le forçage, remise telle quelle si la garde anti-doublon refuse.
+  const _forcageAvant = _irlForcage(ref);
   if (_irlForcageEnAttente && _irlForcageEnAttente.ref === ref) {
     const f = _irlForcageEnAttente;
     _fAppl = f;
@@ -24276,8 +24278,13 @@ function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   // 3 bloquées « en attente » à vie. Module pur testé : js/core/irl-revision.js.
   const _IRd = (typeof window !== 'undefined') ? window.IrlRevision : null;
   const _deja = (_IRd && typeof _IRd.revisionDejaEnregistree === 'function')
-    ? _IRd.revisionDejaEnregistree(DB.irlHistorique, { ref, irlVigueur: _iVig?.key || '', dateEffet: dateEffetIso }) : null;
+    ? _IRd.revisionDejaEnregistree(DB.irlHistorique, { ref, irlVigueur: _iVig?.key || '', dateEffet: dateEffetIso,
+        bailDebut: (DB.baux[ref] && !DB.baux[ref]._deleted && DB.baux[ref].debut) || log.debut || '' }) : null;
   if (_deja) {
+    if (_fAppl) {
+      if (_forcageAvant) _irlSetForcage(ref, _forcageAvant);
+      else if (DB.params && DB.params.irlForcee) delete DB.params.irlForcee[String(ref)];
+    }
     const _memeMontant = Math.round(Number(_deja.nouveauHC) * 100) === Math.round(Number(newHC) * 100);
     showToast(_memeMontant
       ? `Cette révision est déjà enregistrée (${fmt(_deja.ancienHC)} → ${fmt(_deja.nouveauHC)} au ${fd(dateEffetIso)}) : rien n'a été ajouté.`
@@ -24414,6 +24421,7 @@ function _irlDedoublonnerJournal() {
   const IR = (typeof window !== 'undefined') ? window.IrlRevision : null;
   if (!IR || typeof IR.dedoublonnerRevisions !== 'function' || !Array.isArray(DB.irlHistorique)) return 0;
   if (typeof _appReadOnly !== 'undefined' && _appReadOnly) return 0;
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) return 0;   // hors ligne : saveDB refuserait, rien n'est touché
   const r = IR.dedoublonnerRevisions(DB.irlHistorique, new Date().toISOString());
   if (r.divergents.length) console.warn('[IRL doublons] révisions de même indice et même date d\'effet aux montants différents — non tranchées :', r.divergents);
   if (!r.retirees.length) return 0;

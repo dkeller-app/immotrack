@@ -230,3 +230,45 @@ describe('supprimerRevision — « Supprimer cette révision » depuis l\'histor
     expect(r.logHc).toBeNull();
   });
 });
+
+describe('Relecture Fable — cas limites de la suppression et de la garde', () => {
+  const base = (over) => ({
+    irlHistorique: CAS_REEL(), bareme: BAREME_REV, ref: REF, index: 0,
+    todayIso: '2026-10-15', nowIso: NOW, dernierMoisQuittanceYm: '2026-09', bailDebut: '2024-10-01',
+    logHc: 796.14, ...over
+  });
+  it("montants différents à la même date : celle EN VIGUEUR n'est pas supprimable tant que l'autre existe", () => {
+    const j = [{ ...REV }, { ...ATTENTE('2026-09-20'), nouveauHC: 801.5 }];
+    const r = supprimerRevision(base({ irlHistorique: j, index: 0 }));
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toMatch(/801,50/);
+    // l'autre (non appliquée) part seule, puis celle en vigueur redevient supprimable normalement
+    const r1 = supprimerRevision(base({ irlHistorique: j, index: 1 }));
+    expect(r1.ok && r1.nature).toBe('doublon');
+    const r2 = supprimerRevision(base({ irlHistorique: r1.irlHistorique, index: 0 }));
+    expect(r2.ok && r2.nature).toBe('appliquee');
+    expect(duMois(ctx(r2.bareme), '2026-10').hc).toBe(790);
+  });
+  it("révision appliquée sans sa période au barème à la date d'effet : refus explicite (pas de loyer divergent)", () => {
+    const r = supprimerRevision(base({ irlHistorique: [{ ...REV }], bareme: BAREME0 }));
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toMatch(/Corriger une période/);
+    // … sauf si des mois sont quittancés : la reprise est une nouvelle période, posée quoi qu'il arrive
+    const r2 = supprimerRevision(base({ irlHistorique: [{ ...REV }], bareme: BAREME0, dernierMoisQuittanceYm: '2026-10' }));
+    expect(r2.ok).toBe(true);
+    expect(duMois(ctx(r2.bareme), '2026-11').hc).toBe(790);
+  });
+  it("révision programmée déjà quittancée d'avance : le mois quittancé garde le loyer révisé", () => {
+    const r = supprimerRevision(base({ irlHistorique: [ATTENTE('2026-09-12')], todayIso: '2026-09-25', dernierMoisQuittanceYm: '2026-10', logHc: 790 }));
+    expect(r.ok && r.nature).toBe('programmee');
+    expect(r.reprise).toBe('2026-11-01');
+    expect(duMois(ctx(r.bareme), '2026-10').hc).toBe(796.14);
+    expect(duMois(ctx(r.bareme), '2026-11').hc).toBe(790);
+    expect(r.logHc).toBeNull();
+  });
+  it("une entrée du bail PRÉCÉDENT n'est ni une jumelle, ni un doublon pour la garde", () => {
+    const ancien = { ...REV, ref: REF, dateEffet: '2024-07-01', dateApplication: '2024-07-01', dateRevision: '2024-07-01' };
+    expect(revisionDejaEnregistree([ancien], { ref: REF, irlVigueur: 'T2 2026', dateEffet: '2024-07-01', bailDebut: '2024-10-01' })).toBeNull();
+    expect(revisionDejaEnregistree([ancien], { ref: REF, irlVigueur: 'T2 2026', dateEffet: '2024-07-01' })).toBe(ancien);
+  });
+});

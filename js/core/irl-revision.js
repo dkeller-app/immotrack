@@ -164,16 +164,19 @@ export function cleRevision(h) {
 
 /**
  * Garde anti-doublon : la révision vivante déjà enregistrée pour ce lot, cet indice et cette
- * date d'effet (l'appliquée de préférence), ou null.
+ * date d'effet (l'appliquée de préférence), ou null. `bailDebut` (facultatif) : une entrée dont
+ * l'effet précède le bail en cours appartient au locataire précédent et ne compte pas.
  * @param {Array} journal DB.irlHistorique
- * @param {{ref:string, irlVigueur:string, dateEffet:string}} cand
+ * @param {{ref:string, irlVigueur:string, dateEffet:string, bailDebut?:string}} cand
  */
 export function revisionDejaEnregistree(journal, cand) {
   const k = cand ? cleRevision({ ref: cand.ref, irlVigueur: cand.irlVigueur, dateEffet: cand.dateEffet }) : null;
   if (!k || !Array.isArray(journal)) return null;
+  const deb = _ok(cand.bailDebut) ? _ymd(cand.bailDebut) : '';
   let best = null;
   for (const h of journal) {
     if (cleRevision(h) !== k) continue;
+    if (deb && _effetDe(h) < deb) continue;
     if (!best || (best.pendingApply && !h.pendingApply)) best = h;
   }
   return best;
@@ -250,10 +253,27 @@ export function analyserSuppressionRevision(input) {
   if (i.attendu && (_ymd(i.attendu.dateEffet) !== effet || _cents(i.attendu.nouveauHC) !== _cents(h.nouveauHC))) {
     return { ok: false, erreur: 'L’historique a changé depuis l’affichage : rafraîchir la page.' };
   }
-  const autres = hist.filter((x, k) => k !== idx && _vivante(x) && _nr(x.ref) === want);
-  const jumelle = autres.find((x) => _effetDe(x) === effet) || null;
-  if (jumelle) return { ok: true, nature: 'doublon', entree: h, effet, reprise: null, moisQuittancesConserves: false, jumelle };
   const deb = _ok(i.bailDebut) ? _ymd(i.bailDebut) : '';
+  const autres = hist.filter((x, k) => k !== idx && _vivante(x) && _nr(x.ref) === want && (!deb || _effetDe(x) >= deb));
+  const bareme = Array.isArray(i.bareme) ? i.bareme : null;
+  const perIrl = bareme ? bareme.find((p) => p && !p._deleted && _nr(p.ref) === want && _ymd(p.debut) === effet && p.source === 'irl') : null;
+  // Doublon = une autre entrée du MÊME bail, même date d'effet, MÊMES montants au centime (critère de
+  // dedoublonnerRevisions) : seule l'entrée part, rien d'autre ne bouge.
+  const memeMontant = (x) => _cents(x.ancienHC) === _cents(h.ancienHC) && _cents(x.nouveauHC) === _cents(h.nouveauHC);
+  const jumelle = autres.find((x) => _effetDe(x) === effet && memeMontant(x)) || null;
+  if (jumelle) return { ok: true, nature: 'doublon', entree: h, effet, reprise: null, moisQuittancesConserves: false, jumelle };
+  // Deux révisions au même jour aux montants DIFFÉRENTS : celle qui n'est pas en vigueur (barème, sinon
+  // loyer du lot) part seule ; celle en vigueur n'est supprimable qu'une fois l'autre retirée.
+  const divergente = autres.find((x) => _effetDe(x) === effet) || null;
+  if (divergente) {
+    const enVigueur = perIrl ? _cents(perIrl.hc) === _cents(h.nouveauHC)
+      : (i.logHc != null && _cents(i.logHc) === _cents(h.nouveauHC));
+    if (enVigueur) {
+      return { ok: false, erreur: 'Deux révisions aux montants différents au ' + _frDate(effet) + ' : supprimer d’abord celle de '
+        + (Number(divergente.nouveauHC) || 0).toFixed(2).replace('.', ',') + ' € (non appliquée).' };
+    }
+    return { ok: true, nature: 'doublon', entree: h, effet, reprise: null, moisQuittancesConserves: false, jumelle: divergente };
+  }
   const posterieure = autres
     .filter((x) => _effetDe(x) > effet && (!deb || _effetDe(x) >= deb))
     .sort((a, b) => _effetDe(a).localeCompare(_effetDe(b)))[0];
@@ -261,13 +281,19 @@ export function analyserSuppressionRevision(input) {
     return { ok: false, erreur: 'Une révision plus récente (effet au ' + _frDate(_effetDe(posterieure))
       + ') a été calculée sur ce loyer : la supprimer d’abord.' };
   }
-  if (h.pendingApply && effet > today) {
-    return { ok: true, nature: 'programmee', entree: h, effet, reprise: effet, moisQuittancesConserves: false, jumelle: null };
-  }
+  // Mois déjà quittancés à partir de l'effet (même une révision programmée a pu être quittancée d'avance) :
+  // ils gardent le loyer révisé, l'ancien loyer reprend au 1er du mois qui suit le dernier quittancé.
   const dq = /^\d{4}-\d{2}$/.test(String(i.dernierMoisQuittanceYm || '')) ? String(i.dernierMoisQuittanceYm) : '';
   const quittance = !!dq && effet.slice(0, 7) <= dq;
   const reprise = quittance ? _premierDuMoisSuivant(dq + '-01') : effet;
-  return { ok: true, nature: 'appliquee', entree: h, effet, reprise, moisQuittancesConserves: quittance, jumelle: null };
+  const nature = (h.pendingApply && effet > today) ? 'programmee' : 'appliquee';
+  // Révision appliquée sans sa période au barème à la date d'effet (révision ancienne re-datée, période
+  // corrigée à la main, validée hors connexion) : remettre l'ancien loyer sur le lot sans toucher au dû
+  // ferait diverger l'affichage et le dû — refus explicite, comme « Corriger la date d'effet ».
+  if (nature === 'appliquee' && reprise === effet && bareme && !perIrl) {
+    return { ok: false, erreur: 'Période du barème introuvable pour cette révision — utiliser « Corriger une période ».' };
+  }
+  return { ok: true, nature, entree: h, effet, reprise, moisQuittancesConserves: quittance, jumelle: null };
 }
 
 /**
