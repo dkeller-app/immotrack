@@ -189,6 +189,8 @@ import { migrerNumLotVersLot } from './core/biens-migration.js';
 import { normaliserDonneesLoyers, homonymePerso as loyersHomonymePerso, CATEGORIE_LOYERS, CATEGORIES_LOYERS_HERITEES } from './core/normalisation-loyers.js';
 // BIENS etapes 5/6 — liste des pieces (kit derive de EDL_TPL/EDL_EXTRA, clauses de bail).
 import * as BiensPieces from './core/biens-pieces.js';
+// ALERTE-REGUL (14/10) — régularisation validée PARTAGÉE par la SCI (portée par les logements) : règle unique.
+import * as RegulValidation from './core/regul-validation.js';
 
 // EDL TERRAIN lot 0 — quelles photos monter en memoire (CDC docs/CDC-EDL.md §3bis,
 // invariants 22 et 34i : ouvrir un EDL ne charge plus les 98 binaires d'un coup).
@@ -891,6 +893,9 @@ window._biensMigration = { numLotVersLot: migrerNumLotVersLot };
 window.NormalisationLoyers = { normaliser: normaliserDonneesLoyers, homonymePerso: loyersHomonymePerso, CATEGORIE_LOYERS, CATEGORIES_LOYERS_HERITEES };
 // BIENS — liste des pieces + clauses generees (designation des pieces, parties communes).
 window.BiensPieces = BiensPieces;
+// ALERTE-REGUL — lu par l'alerte « Régularisation N-1 à émettre », l'onglet Charges (Valider), la migration
+// douce de _bootDataJobs et l'espace locataire. Absent : l'alerte reste (prudence), la validation est refusée.
+window.RegulValidation = RegulValidation;
 // EDL TERRAIN lot 0 — collecte des photos d'un EDL + selection « a la demande ».
 window.EdlPhotos = EdlPhotos;
 // EDL TERRAIN lot 1 — minuteur d'autosave de l'etat des lieux.

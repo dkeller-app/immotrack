@@ -55,7 +55,7 @@ const silence = { info() {}, warn() {}, error() {} };
  * `_stamp`, résolveurs de Finances) dans un même scope qui partage `DB`, comme dans l'app.
  */
 function app(STD) {
-  const src = ['_stamp', '_normaliserLoyers', '_backupRestoreApply', 'importJSON',
+  const src = ['_stamp', '_optsEspacePropre', '_normaliserLoyers', '_backupRestoreApply', 'importJSON',
     '_stdCategoryByName', '_finStdByLigne', '_finCatMere', '_finCatLigne'].map(corpsDe).join('\n');
   const toasts = [];
   const win = { NormalisationLoyers: NL };
@@ -437,7 +437,7 @@ describe('hydratation cloud (__immoSetDB à CHAQUE appel) : persiste, pousse, ne
     };
     // saveDB du mode cloud : marque sale → l'envoi part (supabase-entry : __immoMarkDirty → flush).
     const saveDB = () => { compte.saves++; if (typeof win.__immoMarkDirty === 'function') win.__immoMarkDirty(); };
-    const src = [corpsDe('_stamp'), corpsDe('_normaliserLoyers'), setDbSrc()].join('\n');
+    const src = [corpsDe('_stamp'), corpsDe('_optsEspacePropre'), corpsDe('_normaliserLoyers'), setDbSrc()].join('\n');
     const api = new Function('window', 'console', 'setTimeout', 'saveDB', '_applyDataDefaults', '_applyParamDefaults',
       'document', 'closeM', '_bootDataJobs', '_bootDataJobsDone',
       `let DB = {};\n${src}\nreturn { get DB() { return DB; } };`
@@ -552,7 +552,7 @@ describe('associé invité (sans espace propre) : convergence, aucune boucle', (
       __immoOwnEspaceMine: () => mine, __immoRerenderCurrent: () => { c.rendus++; } };
     const saveDB = () => { c.saves++; if (win.__immoMarkDirty) win.__immoMarkDirty(); };
     new Function('window', 'console', 'setTimeout', 'saveDB', '_applyDataDefaults', '_applyParamDefaults', 'document', 'closeM', '_bootDataJobs', '_bootDataJobsDone',
-      `let DB = {};\n${[corpsDe('_stamp'), corpsDe('_normaliserLoyers'), setDbSrc()].join('\n')}`)(win, silence, (fn) => timers.push(fn), saveDB, () => {}, () => {}, { querySelectorAll: () => [] }, () => {}, undefined, true);
+      `let DB = {};\n${[corpsDe('_stamp'), corpsDe('_optsEspacePropre'), corpsDe('_normaliserLoyers'), setDbSrc()].join('\n')}`)(win, silence, (fn) => timers.push(fn), saveDB, () => {}, () => {}, { querySelectorAll: () => [] }, () => {}, undefined, true);
     return { win, c, tick: () => timers.splice(0).forEach(fn => fn()) };
   }
   function serveur(peutEcrire, config) {
