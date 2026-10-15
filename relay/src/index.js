@@ -5,7 +5,8 @@ import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { generateCode, hashCode, verifyCode, otpUsable, OTP_TTL_MS } from './otp.js';
-import { makeSender } from './email-sender.js';
+import { makeSender, modeEmail } from './email-sender.js';
+import { marge, compter, consommer, parHeure, parJour, LIMITES } from './email-limites.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession, getOwnerEpoch, bumpOwnerEpoch } from './storage.js';
 import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta, validateSignPayload } from './validate.js';
 import { stampSignedPdf } from './sign-stamp.js';
@@ -189,10 +190,18 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
 
   let body;
   try { body = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
-  const email = body && typeof body.email === 'string' ? body.email : '';
+  const email = body && typeof body.email === 'string' ? body.email.trim().slice(0, 254) : '';
   const signer = guard.session.signers[guard.session.currentIndex];
+  // Limites (chantier EMAILS) : quiconque a le lien de signature peut appeler cette route. Clés = session + rang du
+  // signataire, jamais l'adresse. Anti-oracle : 10 adresses refusées par heure ; anti-rafale : 5 codes par heure, 10 par jour.
+  const kv = c.env.SESSIONS_KV, sig = `${sessionId}:${guard.session.currentIndex}`;
+  const echecs = [parHeure('sigv:echec:' + sig, LIMITES.VERIF_EMAIL_ECHECS_HEURE)];
+  if (!(await marge(kv, echecs))) return c.json({ ok: false, error: 'limite' }, 429);
   const match = timingSafeEqualStr(await emailHash(email), signer.emailHash);
-  if (!match) return c.json({ ok: false });
+  if (!match) { await compter(kv, echecs); return c.json({ ok: false }); }
+  if (!(await consommer(kv, [parHeure('sigv:code:h:' + sig, LIMITES.OTP_SIGNATAIRE_HEURE), parJour('sigv:code:j:' + sig, LIMITES.OTP_SIGNATAIRE_JOUR)]))) {
+    return c.json({ ok: false, error: 'limite' }, 429);
+  }
 
   // emailVerifiedAt = email CONNU (preuve existante, conservée). L'OTP ci-dessous prouve en plus
   // que le signataire CONTRÔLE la boîte (otpVerifiedAt, posé à verify-otp).
@@ -201,11 +210,12 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   const code = generateCode();
   const h = await hashCode(sessionId, code);
   // Même règle que makeSender : hors EMAIL_MODE=resend, le code est affiché (mode test), jamais envoyé.
-  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS, c.env.EMAIL_MODE === 'resend' ? 'email' : 'ecran-test');
-  const sent = await makeSender(c.env).send({ to: email, code, bailRef: guard.session.bailRef });
+  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS, modeEmail(c.env) === 'resend' ? 'email' : 'ecran-test');
+  const sent = await makeSender(c.env).send({ to: email, code });
   // Audit point 7 : en mode resend, un échec d'envoi (ni sent ni devCode) doit remonter une erreur
-  // explicite — sinon le signataire attend un code jamais reçu, sans recours.
-  if (!sent.sent && !sent.devCode) return c.json({ ok: true, otpSent: false, error: 'send-failed' }, 502);
+  // explicite — sinon le signataire attend un code jamais reçu, sans recours. ok:false : la page ne doit pas dire
+  // « code envoyé » (sign.js lit ok ET otpSent).
+  if (!sent.sent && !sent.devCode) return c.json({ ok: false, otpSent: false, error: 'send-failed' }, 502);
   return c.json({ ok: true, otpSent: true, ...(sent.devCode ? { devCode: sent.devCode } : {}) });
 });
 
@@ -223,7 +233,7 @@ app.post('/api/sessions/:id/verify-otp', async (c) => {
   if (!otpUsable(signer.otp, Date.now())) return c.json({ verified: false, reason: 'expired-or-locked' }, 400);
   const ok = await verifyCode(sessionId, input, signer.otp.hash);
   if (!ok) { await recordOtpAttempt(c.env, sessionId); return c.json({ verified: false }); }
-  await recordOtpVerified(c.env, sessionId, { delivery: c.env.EMAIL_MODE === 'resend' ? 'email' : 'ecran-test' });
+  await recordOtpVerified(c.env, sessionId, { delivery: modeEmail(c.env) === 'resend' ? 'email' : 'ecran-test' });
   return c.json({ verified: true });
 });
 

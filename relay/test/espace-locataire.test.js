@@ -6,6 +6,7 @@ import app from '../src/index.js';
 import { appAuth } from './_auth.js';
 import { _resetSessionPourTests, rpc } from '../src/el-supabase.js';
 import { EL_CSP } from '../src/espace-locataire.js';
+import { modeleEmail } from '../src/email-modeles.js';
 
 const BASE = String(env.SUPABASE_URL).replace(/\/+$/, '');
 const ORIGIN = new URL(BASE).origin;
@@ -231,8 +232,9 @@ describe('e-mails à la demande du propriétaire (/el/notifier)', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ envoye: false, mode: 'dev' });
     expect(envoye.to).toBe('loc@example.test');
-    expect(envoye.texte).toMatch(/SCI Dupont/); expect(envoye.texte).not.toMatch(/Banque X/);
-    expect(envoye.texte).toMatch(/Quittance de septembre/);
+    const rendu = modeleEmail(envoye.type, envoye.donnees);
+    expect(rendu.texte).toMatch(/SCI Dupont/); expect(rendu.texte).not.toMatch(/Banque X/);
+    expect(rendu.texte).toMatch(/Quittance de septembre/); expect(rendu.html).toMatch(/Quittance de septembre/);
     expect(appels.find((a) => a.fn === 'el_acces_contact').headers.authorization).toBe('Bearer jwt-proprio');
   });
   it('invitation : le lien est reconstruit sur l\'origine du relais à partir du seul jeton', async () => {
@@ -247,8 +249,9 @@ describe('e-mails à la demande du propriétaire (/el/notifier)', () => {
     expect(bad.status).toBe(400);
     const ok = await mini.request('https://relais.example/el/notifier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'invitation', acces_id: '11111111-2222-4333-8444-555555555555', jeton: 'B'.repeat(43), lien: 'https://evil.example/x' }) }, E);
     expect(ok.status).toBe(200);
-    expect(envoye.texte).toMatch(/https:\/\/relais\.example\/l#B{43}/);
-    expect(envoye.texte).not.toMatch(/evil/);
+    expect(envoye.donnees.lien).toBe('https://relais.example/l#' + 'B'.repeat(43));
+    expect(modeleEmail('invitation', envoye.donnees).texte).toMatch(/https:\/\/relais\.example\/l#B{43}/);
+    expect(JSON.stringify(envoye)).not.toMatch(/evil/);
   });
   it('accès sans e-mail connu : 409', async () => {
     contact({ email: null, bailleur: 'SCI Dupont' });

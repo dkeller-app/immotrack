@@ -132,7 +132,12 @@ function buildUI() {
         body: JSON.stringify({ email: value })
       });
       const data = await r.json().catch(() => ({}));
-      if (data.ok) {
+      if (data.error === 'limite') {
+        // Limite d'envoi atteinte (codes ou adresses refusées) : ni « code envoyé » ni « adresse fausse ».
+        setStatus('err', 'Trop de demandes pour ce lien. Patientez une heure avant de réessayer, ou contactez l\'expéditeur du bail.');
+      } else if (data.error === 'send-failed') {
+        setStatus('err', 'Le code n\'a pas pu être envoyé par e-mail. Réessayez dans quelques minutes ; si le problème persiste, contactez l\'expéditeur du bail.');
+      } else if (data.ok && data.otpSent) {
         // Email connu → un code OTP a été envoyé. L'identité n'est confirmée qu'après sa saisie (verify-otp).
         email.readOnly = true; email.classList.remove('is-err');
         verifyBtn.hidden = true;
