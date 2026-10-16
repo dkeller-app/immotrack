@@ -17302,7 +17302,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.755 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.756 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -32630,7 +32630,8 @@ function _finVizSeries(scope, nMonths) {
       });
     }
   }
-  return order.map(ym => need[ym]);
+  // FINANCES-SUIVI-V2 (lot E du 05/10, décision 06/10) : mois récent à GAUCHE, comme le tableau — un seul sens.
+  return order.map(ym => need[ym]).reverse();
 }
 
 let _finVizData = null;
@@ -32697,7 +32698,8 @@ function _finVizPaint() {
   });
   svg += '</svg>';
   slot.innerHTML = svg;
-  const lastV = cf[cf.length - 1], cum = cf.reduce((a, b) => a + b, 0), nbNeg = cf.filter(v => v < 0).length;
+  // FINANCES-SUIVI-V2 : la série va du mois RÉCENT (à gauche) à l'ancien, comme le tableau — « ce mois » = le 1ᵉʳ point.
+  const lastV = cf[0], cum = cf.reduce((a, b) => a + b, 0), nbNeg = cf.filter(v => v < 0).length;
   el('fviz-sum').innerHTML = '<span class="val" style="color:' + (lastV >= 0 ? 'var(--pos)' : 'var(--neg)') + '">' + (lastV >= 0 ? '+ ' : '− ') + f(Math.abs(lastV)) + '</span>'
     + '<span class="pill ' + (lastV >= 0 ? 'pos' : 'neg') + '"><span class="dot"></span>cash-flow ce mois</span>'
     + '<span class="note">= recettes − charges · sur 12 mois ' + (cum >= 0 ? '+ ' : '− ') + f(Math.abs(cum)) + (nbNeg ? ' · ' + nbNeg + ' mois sous zéro' : '') + '</span>';
@@ -32747,13 +32749,11 @@ function rFinances() {
   const cy = new Date().getFullYear();
   const yrSel = el('fin-year');
   const yr = (yrSel && yrSel.value) ? parseInt(yrSel.value, 10) : cy;
-  // ÉTAPE 2 — Périmètre P-1 (Tout → bailleur → immeuble) : le cran bailleur est un sélecteur
-  // DE LA PAGE (#fin-ent, paniers P-2 sélectionnables), initialisé sur le filtre global
-  // (_activeEntity) et RÉALIGNÉ dessus quand celui-ci change (sinon le select local, encore
-  // dans le DOM au re-rendu, écraserait le choix de la sidebar).
+  // ÉTAPE 2 — Périmètre P-1 (Tout → bailleur → immeuble).
   const globalEnt = _finActiveEnt();
-  let entSel = el('fin-ent') ? el('fin-ent').value : null;
-  if (entSel == null || window._finEntBase !== globalEnt) entSel = globalEnt;
+  // FINANCES-SUIVI-V2 (lot E du 05/10, décision 06/10) : UN seul sélecteur de bailleur — les pastilles de la barre
+  // de gauche (_activeEntity). Le select de la page, qui ne la mettait jamais à jour, a disparu.
+  const entSel = globalEnt;
   window._finEntBase = globalEnt;
   const immSel = _finActiveImm();                    // '' = tous, nom, ou panier « Sans immeuble »
   // LE résolveur unique (P-3). Les gardes-fous « hors périmètre » sont DANS resolveScope :
@@ -32775,10 +32775,7 @@ function rFinances() {
     : { entites: [], immeubles: [] };
   const _selLbl = 'font-size:12.5px;color:var(--t2);display:flex;align-items:center;gap:6px;white-space:nowrap';
   // Cran bailleur (P-1) — paniers « Sans bailleur » sélectionnables (P-2), compte de lots visible.
-  const _entSelect = '<label style="' + _selLbl + '">' + _uiIcon('archive') + ' <select id="fin-ent" class="inp" onchange="rFinances()" style="width:auto;display:inline-block">'
-    + '<option value="">Tout (' + (_cat.nbLots || 0) + ' lot' + ((_cat.nbLots || 0) > 1 ? 's' : '') + ')</option>'
-    + _cat.entites.map(e => '<option value="' + _esc(e.key) + '"' + (e.key === entKey ? ' selected' : '') + '>' + _esc(e.label) + ' (' + e.nbLots + ')</option>').join('')
-    + '</select></label>';
+  // (le cran bailleur est la pastille de la barre de gauche : plus de select ici)
   // Cran immeuble — TOUJOURS affiché (P-5), panier « Sans immeuble » inclus (P-2).
   const _entNode = entKey ? _cat.entites.find(e => e.key === entKey) : null;
   const _immNodes = (_entNode ? _entNode.immeubles : _cat.immeubles) || [];
@@ -32802,7 +32799,7 @@ function rFinances() {
     : '';
   const headHtml =
     '<div class="fin-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">'
-    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' + _entSelect + _immSelect + '</div>'
+    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' + _immSelect + '</div>'
     + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
     +   '<label style="' + _selLbl + '">Exercice'
     +     ' <select id="fin-year" class="inp" onchange="rFinances()" style="width:auto;display:inline-block">' + yearOpts + '</select></label>'
@@ -33290,14 +33287,16 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   const _intAnnuel = Math.round(((a && a.interets) || 0) * 100) / 100;
   const _pretSub = (_intAnnuel > 0 && ((a && a.pret) || 0) <= 0) ? ' · ⚠ intérêts saisis sans échéance : prêt non importé'
     : (_intAnnuel > 0 ? ' · dont intérêts ' + f(_intAnnuel) : '');
+  // La ligne d'écart s'affiche dès qu'un mois (ou l'année) porte une avance ou un retard.
+  const _ecartVisible = [a].concat(cur.months || []).some(o => o && ((Math.abs(o.ecart || 0) > 0.005) || ((o.loyerRetard || 0) + (o.chargeRetard || 0)) > 0.005 || (o.avanceLot || 0) > 0.005));
   const ROWS = [
     { grp: 'Revenus locatifs' },
-    R('Loyers hors charges encaissés', o => o.loyersHC, { kind: 'loyers', oraSrc: o => o.loyerRetard, advSrc: o => o.avance }),
-    ...(((a && a.loyerRetard) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ dont loyer en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.loyerRetard, { retardSub: true, drill: 'loyer' })] : []),
-    ...(((a && a.avance) || 0) > 0 ? [R('<span style="color:var(--adv,#2e6db1)">↳ dont loyer perçu d\'avance</span> <span class="b4-x">bascule sur le mois suivant · voir qui</span>', o => o.avance, { avanceSub: true, drill: 'avance' })] : []),
-    // NOUVELLE sous-ligne (§4 CDC) : le P&L reste tenu À L'ENCAISSEMENT — cette ligne explique
-    // pourquoi un mois peut dépasser son dû (arriéré d'un mois antérieur encaissé ce mois-ci).
-    ...(((a && a.rattrapage) || 0) > 0.005 ? [R('<span style="color:var(--t3)">↳ dont rattrapage d\'un mois antérieur</span> <span class="b4-x">arriéré encaissé ce mois-ci · voir les mouvements</span>', o => o.rattrapage, { rattrapSub: true, kind: 'loyers' })] : []),
+    // FINANCES-SUIVI-V2 (maquette validée 06/10, lot E du 05/10) : le clic sur une case de loyers liste les loyers
+    // (_finDrillLigne) ; l'écart au dû vit sur UNE ligne : la position des locataires à la fin du mois, avance OU
+    // retard par bail (Σ des lots, nette), et à l'année au dernier mois exigible. Elle remplace « dont loyer en
+    // retard », « dont loyer perçu d'avance », « dont rattrapage » et « dont charges en retard ».
+    R('Loyers hors charges encaissés', o => o.loyersHC, { kind: 'loyers' }),
+    ...(_ecartVisible ? [R('<span style="color:var(--t1);font-weight:600">↳ Avance / retard des locataires</span> <span class="b4-x">à la fin du mois · cliquer pour le détail</span>', o => o.ecart, { ecartSub: true })] : []),
     // H-2 : le total est juste, le détail était faux — l'encaissement SANS lot devient visible
     // au niveau de la ligne (le drill « Loyers » porte l'affectation sur place).
     ...(Math.abs((a && a.nonAffecte) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ ⚠️ Encaissements non affectés</span> <span class="b4-x">sans lot rattaché · cliquer pour affecter</span>', o => o.nonAffecte, { nonAffSub: true, kind: 'loyers' })] : []),
@@ -33320,8 +33319,7 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     // L-4 : total VÉRIFIABLE À L'ŒIL = somme exacte des lignes visibles (les masquées valent 0).
     R('Total charges propriétaire <span class="b4-x">somme exacte des lignes visibles</span>', o => o.charges, { tot: true, neg: true }),
     { grp: 'Charges récupérables <span class="b4-x">(argent du locataire qui transite)</span>' },
-    R('Payées par les locataires <span class="b4-x">provisions encaissées</span>', o => o.provisions, { pos: true, kind: 'provisions', oraSrc: o => o.chargeRetard }),
-    ...(((a && a.chargeRetard) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ dont charges en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.chargeRetard, { retardSub: true, drill: 'charge' })] : []),
+    R('Payées par les locataires <span class="b4-x">provisions encaissées</span>', o => o.provisions, { pos: true, kind: 'provisions' }),
     // L-5 : SCINDÉE — seul l'avancé vraiment récupérable entre dans le solde ; le reste bascule
     // en « Autres charges propriétaire » (225) et n'est montré ici que pour la traçabilité.
     R('Avancé pour les locataires <span class="b4-x">récupérable — seul à entrer dans le solde</span>', o => o.recup, { flowOut: true, kind: 'recup' }),
@@ -33336,19 +33334,19 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     R('Cash-flow net <span class="b4-x">résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true, explain: 'cfNet' })
   ];
   const lk = () => false;   // plus aucune ligne verrouillée depuis L-8
-  const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.avanceSub || row.retardSub || row.rattrapSub || row.nonAffSub) ? 'b4-info' : ''));
-  // drill-down par ligne : sous-lignes retard/avance → cause (_finDrillRetard/_finDrillAvance) ;
+  const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.ecartSub || row.nonAffSub) ? 'b4-info' : ''));
+  // drill-down par ligne : ligne « Avance / retard » → LA fenêtre du mois (_finFenetre, détail par locataire) ;
   // lignes principales (kind) → détail des mouvements (_finDrillLigne, 'pret' inclus).
-  const clk = row => row.drill
-    ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ')') + '" title="Voir la cause"'
+  const clk = row => row.ecartSub
+    ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finFenetre(' + yr + ')" title="Avance / retard : le détail par locataire"'
     : (row.explain ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finExplique(\'' + row.explain + '\')" title="Comprendre ce chiffre"' : (row.kind ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ')" title="Voir le détail des mouvements"' : ''));
   const col = (v, row, isLk, src) => {
     if (isLk) return '<span style="color:var(--t3)">–</span>';
     // C-1 : l'avance porte le BLEU sémantique --adv (5ᵉ couleur de la charte), le retard
     // l'orange --warn — jamais un hexa en dur.
-    if (row.avanceSub) return v ? '<span style="color:var(--adv,#2e6db1)">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
-    if (row.retardSub) return (v > 0.005) ? '<span style="color:var(--warn);font-weight:700">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
-    if (row.rattrapSub) return (v > 0.005) ? '<span style="color:var(--t3)">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
+    // FINANCES-SUIVI-V2 : − retard en orange (--warn), + avance en bleu (--adv), jamais les deux sur un bail.
+    if (row.ecartSub) return (v < -0.005) ? '<span style="color:var(--warn);font-weight:700">− ' + f(Math.abs(v)) + '</span>'
+      : ((v > 0.005) ? '<span style="color:var(--adv);font-weight:700">+ ' + f(v) + '</span>' : '<span style="color:var(--t3)">–</span>');
     if (row.nonAffSub) return (Math.abs(v) > 0.005) ? '<span style="color:var(--warn);font-weight:700">' + f(v) + '</span>' : '<span style="color:var(--t3)">–</span>';
     if (row.net) return '<b style="color:' + (v >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</b>';
     if (row.sub) return '<span style="font-weight:600;color:' + (v >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</span>';
@@ -33364,14 +33362,13 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     return f(v);
   };
 
-  // C-1 : fond de case = SIGNALEMENT (ce chiffre s'écarte du dû) — orange retard, bleu avance.
-  // Retard : aucune tolérance de montant (0,01 € = seuil technique anti-arrondi). Avance : fond
-  // coloré aussi (décision Didier — « une avance doit être vue et comprise »).
+  // C-1 : fond de case = SIGNALEMENT (ce chiffre s'écarte du dû) — orange retard, bleu avance. FINANCES-SUIVI-V2 :
+  // le signalement vit sur la SEULE ligne « Avance / retard des locataires » ; les cases de loyers, elles, listent
+  // les loyers au clic (lot E du 05/10 : la case colorée expliquait sa couleur au lieu de lister).
   const sigCls = (row, src) => {
-    if (!src) return '';
-    if (row.oraSrc && (Number(row.oraSrc(src)) || 0) > 0.005) return ' b4-sig-warn';
-    if (row.advSrc && (Number(row.advSrc(src)) || 0) > 0.005) return ' b4-sig-adv';
-    return '';
+    if (!src || !row.ecartSub) return '';
+    const v = Number(row.v(src)) || 0;
+    return v < -0.005 ? ' b4-sig-warn' : (v > 0.005 ? ' b4-sig-adv' : '');
   };
   const pctL = v => a.loyersHC > 0 ? (Math.round(v / a.loyersHC * 1000) / 10).toString().replace('.', ',') + ' %' : '—';
   const varCol = (n, n1) => (n1 > 0) ? '<span style="color:' + ((n - n1) >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + ((n - n1) >= 0 ? '+' : '−') + Math.abs(Math.round((n - n1) / n1 * 1000) / 10).toString().replace('.', ',') + ' %</span>' : '<span style="color:var(--t3)">—</span>';
@@ -33407,14 +33404,10 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
       if (row.grp) { M += '<tr class="b4-grp">' + months.map(m => '<td class="b4-mo' + (m.mo === selMo ? ' b4-selmo' : '') + '" data-mo="' + m.mo + '">&nbsp;</td>').join('') + '</tr>'; return; }
       M += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '">' + months.map(m => {
         const fut = isFut(m.mo);
-        // C-2 : une cellule SIGNALÉE (fond orange/bleu) doit EXPLIQUER sa couleur — elle ouvre
-        // la cause (retard/avance), pas la liste brute des mouvements.
-        const _sw = row.oraSrc && (Number(row.oraSrc(m)) || 0) > 0.005;
-        const _sa = !_sw && row.advSrc && (Number(row.advSrc(m)) || 0) > 0.005;
+        // FINANCES-SUIVI-V2 : la ligne d'écart ouvre LA fenêtre du mois (qui est en retard, qui est en avance, les
+        // virements cliquables) ; les autres lignes listent leurs mouvements.
         let cclk = '';
-        if (row.drill) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="Voir la cause"';
-        else if (_sw && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillRetard(\'' + (row.kind === 'provisions' ? 'charge' : 'loyer') + '\',' + yr + ',' + m.mo + ')" title="Pourquoi cette case est orange (retard)"';
-        else if (_sa && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillAvance(' + yr + ',' + m.mo + ')" title="Pourquoi cette case est bleue (avance)"';
+        if (row.ecartSub) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finFenetre(' + yr + ',' + m.mo + ')" title="Avance / retard ' + _MOIS[m.mo - 1] + ' : le détail"';
         else if (row.kind && !lk(row)) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"';
         return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + (m.mo === selMo ? ' b4-selmo' : '') + sigCls(row, m) + '" data-mo="' + m.mo + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>';
       }).join('') + '</tr>';
@@ -33425,8 +33418,8 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     ROWS.forEach(row => {
       if (row.grp) { RT += '<tr class="b4-grp">' + (hasN1 ? '<td class="b4-y25">&nbsp;</td><td class="b4-var">&nbsp;</td>' : '') + '<td class="b4-pct">&nbsp;</td></tr>'; return; }
       const isLk = lk(row);
-      const _n1Td = hasN1 ? '<td class="b4-y25">' + col(row.v(p), row, isLk, p) + '</td><td class="b4-var">' + (isLk ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>' : '';
-      RT += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '>' + _n1Td + '<td class="b4-pct">' + (row.mut ? '<span style="color:var(--t3)">—</span>' : pctL(row.v(a))) + '</td></tr>';
+      const _n1Td = hasN1 ? '<td class="b4-y25">' + col(row.v(p), row, isLk, p) + '</td><td class="b4-var">' + ((isLk || row.ecartSub) ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>' : '';
+      RT += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '>' + _n1Td + '<td class="b4-pct">' + ((row.mut || row.ecartSub) ? '<span style="color:var(--t3)">—</span>' : pctL(row.v(a))) + '</td></tr>';
     });
     RT += '</tbody></table>';
     bodyHtml = '<div class="b4-plgrid">' + L + '<div class="b4-midwrap">' + M + '</div>' + RT + '</div>';
@@ -33438,11 +33431,11 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
       if (row.grp) { T += '<tr class="grp"><td colspan="' + _cspan + '">' + row.grp + '</td></tr>'; return; }
       const isLk = lk(row);
       const rcls = row.tot ? 'tot' : (row.net ? 'net' : '');
-      const _n1Cells = hasN1 ? ('<td class="num">' + col(row.v(p), row, isLk, p) + '</td><td class="num">' + (isLk ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>') : '';
+      const _n1Cells = hasN1 ? ('<td class="num">' + col(row.v(p), row, isLk, p) + '</td><td class="num">' + ((isLk || row.ecartSub) ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>') : '';
       T += '<tr class="' + rcls + (row.kind ? ' clk' : '') + '"' + clk(row) + '><td>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td>'
         + '<td class="num">' + col(row.v(a), row, isLk, a) + '</td>'
         + _n1Cells
-        + '<td class="pct">' + (isLk || row.mut ? '—' : pctL(row.v(a))) + '</td></tr>';
+        + '<td class="pct">' + (isLk || row.mut || row.ecartSub ? '—' : pctL(row.v(a))) + '</td></tr>';
     });
     T += '</tbody></table></div>';
     bodyHtml = T;
@@ -34011,135 +34004,234 @@ function _finActiveLotsInScope(yr, scope) {
   });
   return out;
 }
-// Encaissé 211 par (lot → mois dus), même périmètre/pondération que le tableau (DRY : 1 collecte).
-function _finLotMonthsMap(yr, scope, lastMonth) {
-  const recvByLot = {};
-  (DB.mouvements || []).forEach(m => {
-    if (!m || m._deleted || !m.date || !m.date.startsWith(yr)) return;
-    const w = _finScopeWeight(scope, m); if (!w) return;
-    const r = _finCatLigne(m.cat);
-    if (!r || r.type !== 'recette' || r.ligne2044 !== '211') return;
-    const q = (m.qui || ''), ym = m.date.slice(0, 7);
-    (recvByLot[q] || (recvByLot[q] = {}))[ym] = (recvByLot[q][ym] || 0) + ((Number(m.cr) || 0) - (Number(m.db) || 0)) * w;
-  });
-  _finActiveLotsInScope(yr, scope).forEach(ref => { if (!recvByLot[ref]) recvByLot[ref] = {}; });  // lots à bail actif sans aucun paiement
-  const out = {};
-  for (const q in recvByLot) {
-    const months = [];
-    for (let mm = 1; mm <= lastMonth; mm++) { const ym = yr + '-' + String(mm).padStart(2, '0'); const d = _finBailHcChAt(q, ym); months.push({ hcDue: d.hc || 0, chDue: d.ch || 0, received: recvByLot[q][ym] || 0 }); }
-    out[q] = months;
-  }
-  return out;
-}
-function _finDrillNomLot(ref) {
-  if (!ref) return '—';
-  if (String(ref).startsWith('SCI:')) return String(ref).slice(4);
-  const l = (DB.logements || []).find(x => x && x.ref === ref);
-  return l ? (l.locataire || _logLabel(l) || ref) : ref;
-}
-// Nom du locataire EN PLACE À LA PÉRIODE (bail actif ce mois-là), pas le locataire courant du lot
-// (bug user 2026-07-14 : changement de locataire → le drill montrait le nom actuel pour un retard
-// d'un ancien locataire). Fallback = locataire courant si aucun bail archivé ne couvre le mois.
-function _finLotNomAt(ref, yr, monthIdx0) {
-  if (!ref || String(ref).startsWith('SCI:')) return _finDrillNomLot(ref);
-  const monthIso = String(yr) + '-' + String(monthIdx0 + 1).padStart(2, '0') + '-15';
-  const bails = (typeof _getAllBailsForLog === 'function') ? _getAllBailsForLog(ref) : [];
-  const active = bails.find(b => b && b.debut && b.debut <= monthIso && (b.fin || '9999-12-31') >= monthIso);
-  return (active && active.nom) ? active.nom : _finDrillNomLot(ref);
-}
-const _FIN_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-// CAUSE du retard (kind 'loyer'|'charge') : quel locataire, quels mois, combien manque.
-// Réutilise le moteur Suivi des loyers (_computeLoyerArrears : dû↔encaissé + cause résiduelle FIFO).
-function _finDrillRetard(kind, yr, mo) {
-  yr = String(yr);
-  mo = (mo != null && mo !== '') ? parseInt(mo, 10) : 0;   // 0 = année (tout) ; sinon le mois cliqué seulement
-  const isLoy = (kind === 'loyer');
+// ═══ FINANCES-SUIVI-V2 — LA FENÊTRE « AVANCE / RETARD » D'UN MOIS (maquette validée 06/10, refaite 16/10) ═══
+// Remplace « Cause du retard » et « Cause de l'avance » (lot E du 05/10 : deux fenêtres, des puces sans lien vers
+// les mouvements). Elle LIT le moteur unique : la position de chaque lot à la fin du mois (byLot de Finances, même
+// chiffre que la case) et, au clic sur un lot, le détail de ses baux (`_finSuiviLot` → `_positionLot`) : loyer
+// attendu, virements reçus (cliquables), résultat dit UNE fois. Gestes : « Créer une relance » (bail en place),
+// « Accepter le manque » (montant pré-rempli, motif obligatoire ; journal du bail, ne touche ni au bail ni aux
+// mouvements). Aucun calcul d'argent ici : tout vient du moteur.
+let _finFen = null;
+const _FIN_MOIS_LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function _finFenCss() {
+  if (document.getElementById('fin-fen-css')) return;
+  const s = document.createElement('style'); s.id = 'fin-fen-css';
+  s.textContent = [
+    '.ffn-neg{color:var(--warn);font-weight:700}.ffn-pos{color:var(--adv);font-weight:700}.ffn-nul{color:var(--t3)}',
+    '.ffn-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px}',
+    '.ffn-nav button{min-height:44px;min-width:44px;border:1px solid var(--bor);background:var(--sur);color:var(--t1);border-radius:10px;font:600 14px Inter;padding:0 12px;cursor:pointer}',
+    '.ffn-nav button:disabled{opacity:.35;cursor:default}.ffn-nav b{font-size:15px;color:var(--t1)}',
+    '.ffn-sum{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 14px;color:var(--t2);font-size:14px}.ffn-sum .v{font-size:22px;font-weight:800}',
+    '.ffn-grp{font:700 11px Inter;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 6px;color:var(--t2)}.ffn-grp.w{color:var(--warn)}.ffn-grp.a{color:var(--adv)}',
+    '.ffn-lot{border:1px solid var(--bor);border-radius:12px;margin:0 0 8px;background:var(--sur)}',
+    '.ffn-lot>.h{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 12px;cursor:pointer;width:100%;background:none;border:0;text-align:left;font:inherit;color:inherit}',
+    '.ffn-lot>.h .n{flex:1;min-width:0;font-weight:600;color:var(--t1);font-size:14px}.ffn-lot>.h .n small{color:var(--t3);font-weight:500;margin-left:6px}',
+    '.ffn-tag{font:700 11px Inter;padding:2px 8px;border-radius:6px;background:var(--sur3);color:var(--t2);white-space:nowrap}',
+    '.ffn-d{border-top:1px solid var(--bor2);padding:10px 12px 12px;font-size:13.5px;color:var(--t2)}',
+    '.ffn-d .l{display:flex;justify-content:space-between;gap:12px;padding:4px 0}.ffn-d .l b{color:var(--t1);text-align:right}',
+    '.ffn-d a{color:var(--acc);text-decoration:underline;cursor:pointer}',
+    '.ffn-d .r{margin-top:6px;padding:8px 10px;border-radius:9px;background:var(--sur2);color:var(--t1);font-weight:600}',
+    '.ffn-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ffn-acts .btn{min-height:44px}',
+    '.ffn-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ffn-form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--t2)}',
+    '.ffn-form .full{grid-column:1/-1}.ffn-form .inp{font-size:16px;min-height:44px}',
+    '.ffn-ok{color:var(--t3);font-size:13px}'
+  ].join('\n');
+  document.head.appendChild(s);
+}
+// Nom(s) du locataire d'un bail, par son début (bail en cours ou archivé).
+function _finNomBail(ref, debut) {
+  const d = String(debut || '').slice(0, 10);
+  const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(ref) : null;
+  if (cur && String(cur.debut || '').slice(0, 10) === d) return _nomsDuBail(cur) || ref;
+  const want = _finCleNue(ref);
+  const h = (DB.baux_historique || []).find(b => b && !b._deleted && _finCleNue(b.ref) === want && String(b.debut || '').slice(0, 10) === d);
+  return (h && _nomsDuBail(h)) || ref;
+}
+// yr, mo (1..12) ; sans mo : le dernier mois exigible de l'exercice (clic sur la colonne Année).
+function _finFenetre(yr, mo) {
   const scope = _finEntScope(_finPageEnt(), _finActiveImm());
+  const W = _finWindows(parseInt(yr, 10), scope);
+  const due = W ? W.exigibilite.lastMonth : 12;
+  _finFen = { yr: parseInt(yr, 10), mo: mo ? parseInt(mo, 10) : Math.max(1, due || 1), ouvert: null, form: false };
+  _finFenetreRendre();
+}
+function _finFenetreNav(d) { if (!_finFen) return; const m = _finFen.mo + d; if (m < 1 || m > 12) return; _finFen.mo = m; _finFen.ouvert = null; _finFen.form = false; _finFenetreRendre(); }
+function _finFenetreOuvrir(ref) { if (!_finFen) return; _finFen.ouvert = (_finFen.ouvert === ref) ? null : ref; _finFen.form = false; _finFenetreRendre(); }
+function _finFenetreForm(ref) { if (!_finFen) return; _finFen.ouvert = ref; _finFen.form = true; _finFenetreRendre(); }
+function _finFenetreRendre() {
+  if (!_finFen) return;
+  _finFenCss();
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
-  // LE RETARD SUIT LA FENÊTRE D'EXIGIBILITÉ (F-1) : on ne peut pas être en retard sur un loyer
-  // pas encore dû — un mois post-daté (constat) n'entre jamais ici. Tolérance début de mois
-  // portée par la fenêtre elle-même (graceLast), plus recalculée à la main.
-  const _W = _finWindows(parseInt(yr, 10), scope);
-  const lastMonth = _W ? _W.exigibilite.lastMonth : ((parseInt(yr, 10) === new Date().getFullYear()) ? (new Date().getMonth() + 1) : 12);
-  const graceLast = _W ? _W.exigibilite.graceLast
-    : ((typeof window._loyerToleranceActive === 'function') && window._loyerToleranceActive(window._loyerTodayLocal ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)));
-  // C2 — le drill lit le MÊME maître que la colonne P&L (byLot.months), fini _computeLoyerArrears
-  // (carry:false) qui divergeait de la colonne (netting carry:true) : le chiffre ET sa cause
-  // concordent désormais, report d'ouverture N-1 inclus. graceLast/lastMonth restent portés par la
-  // fenêtre côté moteur (byLot.months[].loyerRetard = résidu exigible du mois).
-  const _cur = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), scope, _W ? _W.constat : lastMonth) : null;
-  const byLot = (_cur && _cur.byLot) || {};
-  const blocks = []; let total = 0;
+  const yr = _finFen.yr, mo = _finFen.mo, ym = yr + '-' + String(mo).padStart(2, '0');
+  const scope = _finEntScope(_finPageEnt(), _finActiveImm());
+  const W = _finWindows(yr, scope);
+  const r = _finMonthly(yr, scope, W ? W.constat : undefined);
+  const byLot = (r && r.byLot) || {};
+  const sg = v => (v > 0.005 ? '+ ' : (v < -0.005 ? '− ' : '')) + f(Math.abs(v));
+  const enR = [], enA = [], aJour = [];
   for (const q in byLot) {
-    let cause = (byLot[q].months || []).map((m, idx) => ({ idx, short: Math.round((isLoy ? m.loyerRetard : m.chargeRetard) * 100) / 100, due: isLoy ? m.duHC : m.duCH, recv: m.encaisse })).filter(c => c.short > 0.005);
-    if (mo) cause = cause.filter(c => c.idx === (mo - 1));   // mois cliqué → ce mois seulement (année = tous les mois)
-    const arrear = Math.round(cause.reduce((s, c) => s + c.short, 0) * 100) / 100;
-    if (!(arrear > 0.005)) continue;
-    total += arrear;
-    const chips = cause.map(c =>
-      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:var(--warn-soft,rgba(143,98,14,.10));color:var(--warn);border:1px solid var(--warn-soft,rgba(143,98,14,.25));min-width:62px">'
-      + '<span style="font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.03em;opacity:.85">' + _FIN_MOIS[c.idx] + '</span>'
-      + '<span style="font-weight:800;font-size:13px">− ' + f(c.short) + '</span>'
-      + '<span style="font:600 10px Inter;color:var(--t3)">dû ' + f(c.due) + '</span></div>').join('');
-    // C-2 : le popup explique ET porte L'action issue de l'anomalie — « 📨 Créer une relance »
-    // (le courrier de relance existe côté Quittance : _lyRelance, réutilisé, jamais recopié).
-    const _canRelance = (typeof _lyRelance === 'function') && !String(q).startsWith('SCI:');
-    blocks.push('<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
-      + '<div style="font-weight:700;font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(_finLotNomAt(q, yr, cause[0].idx))
-      + ' <span style="font:700 11px Inter;color:var(--warn);background:var(--warn-soft,rgba(143,98,14,.10));padding:2px 8px;border-radius:6px">' + f(arrear) + ' en retard</span>'
-      + (_canRelance ? '<button type="button" class="btn bs" style="margin-left:auto;font-size:11.5px;padding:4px 10px" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(q) + '\')">' + _uiIcon('mail') + ' Créer une relance</button>' : '')
-      + '</div>'
-      + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + chips + '</div></div>');
+    if (String(q).indexOf('SCI:') === 0) continue;
+    const m = byLot[q].months && byLot[q].months[mo - 1];
+    if (!m) continue;
+    const pos = m.position || 0;
+    if (pos < -0.005) enR.push({ q, pos }); else if (pos > 0.005) enA.push({ q, pos });
+    else if ((m.duHC + m.duCH) > 0.005) aJour.push(q);
   }
-  total = Math.round(total * 100) / 100;
-  const scopeLbl = mo ? (' · ' + _FIN_MOIS[mo - 1] + ' ' + String(yr).slice(2)) : '';
-  const titre = (isLoy ? 'Cause du retard de loyer' : 'Cause du retard de charges') + scopeLbl + ' · ' + f(total);
-  const body = blocks.length
-    ? '<div style="padding:2px">' + blocks.join('') + '<div class="note" style="margin-top:2px">Réutilise le moteur <b>Suivi des loyers</b> (dû ↔ encaissé, mois par mois).</div></div>'
-    : '<div class="note" style="padding:18px 4px">Aucun retard ' + (isLoy ? 'de loyer' : 'de charges') + (mo ? ' en ' + _FIN_MOIS[mo - 1] : '') + ' sur ' + yr + '.</div>';
-  if (typeof openDashDrill === 'function') openDashDrill(titre, body);
+  enR.sort((a, b) => a.pos - b.pos); enA.sort((a, b) => b.pos - a.pos);
+  const total = Math.round((((r && r.months && r.months[mo - 1]) || {}).ecart || 0) * 100) / 100;
+  const L = (a, b) => '<div class="l"><span>' + a + '</span><b>' + b + '</b></div>';
+  const detail = (q) => {
+    const s = _finSuiviLot(q);
+    if (!s) return '<div class="ffn-ok">' + _uiIcon('warn', 14) + ' Calcul indisponible pour ce lot.</div>';
+    const p = _positionLot(s, ym);
+    const manques = _finManquesDuLot(q);
+    const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(q) : null;
+    return p.baux.map(pb => {
+      const b = (s.baux || []).find(x => x.debut === pb.debut);
+      const m = b && b.mois.find(x => x.ym === ym);
+      const nom = _finNomBail(q, pb.debut);
+      let h = (p.baux.length > 1 || pb.parti) ? '<div class="l"><span>' + esc(nom) + (pb.parti ? ' (parti)' : '') + '</span><b></b></div>' : '';
+      if (m) {
+        const du = Math.round((m.duHC + m.duCH) * 100) / 100;
+        h += L('Loyer attendu en ' + _FIN_MOIS_LONG[mo - 1], du > 0.005 ? f(du) : '—');
+        const pay = (m.paiements || []).map(x => '<a onclick="closeM(\'ov-dash-drill\');openEditMv(' + JSON.stringify(x.id).replace(/"/g, '&quot;') + ')">' + f(x.montant) + ' · virement du ' + esc(fd(x.date)) + (x.aConfirmer ? ' (à confirmer)' : '') + '</a>').join('<br>');
+        h += L('Reçu', pay || '—');
+      }
+      const recuMois = m ? m.encaisse : 0, duMois = m ? (m.duHC + m.duCH) : 0;
+      let res;
+      if (pb.retard > 0.005) {
+        res = (duMois > 0.005 && recuMois >= duMois - 0.005)
+          ? '✅ ' + _FIN_MOIS_LONG[mo - 1] + ' payé · ⚠ reste dû des mois précédents : ' + f(pb.retard) + (b && b.depuisYm ? ' (depuis ' + _FIN_MOIS_LONG[parseInt(b.depuisYm.slice(5, 7), 10) - 1] + ')' : '')
+          : '⚠ Il manque ' + f(pb.retard) + (b && b.depuisYm && b.depuisYm < ym ? ' (depuis ' + _FIN_MOIS_LONG[parseInt(b.depuisYm.slice(5, 7), 10) - 1] + ')' : '');
+      } else if (pb.avance > 0.005) res = '✅ Payé · ' + f(pb.avance) + ' d’avance' + (pb.parti ? ' (à rendre)' : ' pour les mois suivants');
+      else res = '✅ À jour';
+      h += '<div class="r">' + res + '</div>';
+      // manques déjà acceptés sur ce bail ce mois-ci
+      manques.filter(x => x.bailDebut === pb.debut && x.ym === ym).forEach(x => {
+        h += '<div class="l"><span>✅ Manque accepté : ' + f(x.montant) + ' (' + esc(x.motif) + ' · ' + esc(fd(x.date)) + ')</span><b><button class="btn bs bb" onclick="_finManqueAnnulerUI(' + JSON.stringify(x.id).replace(/"/g, '&quot;') + ')">Annuler</button></b></div>';
+      });
+      if (pb.retard > 0.005 && !pb.parti) {
+        if (_finFen.form && _finFen.ouvert === q) {
+          h += '<div class="ffn-form"><label>Montant<input class="inp" id="ffn-mq-montant" inputmode="decimal" value="' + String(pb.retard).replace('.', ',') + '"></label>'
+            + '<label>Date<input class="inp" type="date" id="ffn-mq-date" value="' + esc((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '') + '"></label>'
+            + '<label class="full">Motif (obligatoire)<input class="inp" id="ffn-mq-motif" maxlength="200"></label></div>'
+            + '<div class="ffn-acts"><button class="btn bs bb" onclick="_finFenetreOuvrir(\'' + _lyQ(q) + '\')">Annuler</button>'
+            + '<button class="btn bp" onclick="_finManqueValider(\'' + _lyQ(q) + '\',\'' + pb.debut + '\',\'' + ym + '\',' + pb.retard + ')">' + _uiIcon('check') + ' Accepter le manque</button></div>';
+        } else {
+          h += '<div class="ffn-acts">'
+            + ((cur && String(cur.debut || '').slice(0, 10) === pb.debut && typeof _lyRelance === 'function') ? '<button class="btn bs bb" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(q) + '\')">' + _uiIcon('mail') + ' Créer une relance</button>' : '')
+            + '<button class="btn bs bb" onclick="_finFenetreForm(\'' + _lyQ(q) + '\')">' + _uiIcon('check') + ' Accepter le manque</button></div>';
+        }
+      }
+      return h;
+    }).join('<div style="height:8px"></div>');
+  };
+  const ligne = (it) => {
+    const s = _finSuiviLot(it.q);
+    const p = s ? _positionLot(s, ym) : null;
+    const nom = p && p.baux.length ? p.baux.map(b => _finNomBail(it.q, b.debut)).join(' · ') : it.q;
+    const tags = [];
+    if (p && p.baux.some(b => b.parti)) tags.push('parti');
+    if (s && (s.baux || []).some(b => (b.mois.find(x => x.ym === ym) || { paiements: [] }).paiements.some(x => x.aConfirmer))) tags.push('à confirmer');
+    const ouvert = _finFen.ouvert === it.q;
+    return '<div class="ffn-lot"><button class="h" type="button" onclick="_finFenetreOuvrir(\'' + _lyQ(it.q) + '\')"><span class="n">' + esc(nom) + '<small>' + esc(_logLabel(it.q)) + '</small></span>'
+      + tags.map(t => '<span class="ffn-tag">' + t + '</span>').join('')
+      + '<span class="' + (it.pos < 0 ? 'ffn-neg' : 'ffn-pos') + '">' + sg(it.pos) + '</span><span style="color:var(--t3)">' + (ouvert ? '▾' : '›') + '</span></button>'
+      + (ouvert ? '<div class="ffn-d">' + detail(it.q) + '</div>' : '') + '</div>';
+  };
+  const phrase = [enR.length ? enR.length + ' en retard' : '', enA.length ? enA.length + ' en avance' : '', aJour.length ? aJour.length + ' à jour' : ''].filter(Boolean).join(' · ') || 'aucun loyer dû';
+  const body = '<div class="ffn-nav"><button type="button" onclick="_finFenetreNav(-1)"' + (mo <= 1 ? ' disabled' : '') + '>‹ ' + (mo > 1 ? _FIN_MOIS_LONG[mo - 2] : '') + '</button>'
+    + '<b>' + _FIN_MOIS_LONG[mo - 1].replace(/^./, c => c.toUpperCase()) + ' ' + yr + '</b>'
+    + '<button type="button" onclick="_finFenetreNav(1)"' + (mo >= 12 ? ' disabled' : '') + '>' + (mo < 12 ? _FIN_MOIS_LONG[mo] : '') + ' ›</button></div>'
+    + '<div class="ffn-sum"><span class="v ' + (total < -0.005 ? 'ffn-neg' : (total > 0.005 ? 'ffn-pos' : 'ffn-nul')) + '">' + sg(total) + '</span><span>' + phrase + '</span></div>'
+    + (enR.length ? '<div class="ffn-grp w">En retard</div>' + enR.map(ligne).join('') : '')
+    + (enA.length ? '<div class="ffn-grp a">En avance</div>' + enA.map(ligne).join('') : '')
+    + (aJour.length ? '<div class="ffn-grp">À jour · ' + aJour.length + '</div><div class="ffn-ok">' + aJour.map(q => esc(_logLabel(q))).join(' · ') + '</div>' : '');
+  const scLbl = (scope && scope.entKey) ? scope.entKey : 'Tout le parc';
+  if (typeof openDashDrill === 'function') openDashDrill('Avance / retard · ' + scLbl, body);
+}
+// Le geste « Accepter le manque » depuis la fenêtre : le plafond est la dette du bail à la fin du mois regardé.
+function _finManqueValider(ref, bailDebut, ym, dette) {
+  const v = (id) => { const e = el(id); return e ? e.value : ''; };
+  const montant = parseFloat(String(v('ffn-mq-montant')).replace(/\s/g, '').replace(',', '.'));
+  const e = _manqueAccepter({ ref, bailDebut, ym, montant, motif: v('ffn-mq-motif'), date: v('ffn-mq-date'), dette });
+  if (!e) return;
+  if (typeof showToast === 'function') showToast('Manque accepté : ' + fmt(e.montant) + ' sur ' + _FIN_MOIS_LONG[parseInt(ym.slice(5, 7), 10) - 1], 'ok');
+  if (_finFen) { _finFen.form = false; _finFenetreRendre(); }
+}
+function _finManqueAnnulerUI(id) {
+  if (!_manqueAnnuler(id)) return;
+  if (typeof showToast === 'function') showToast('Manque accepté annulé', 'ok');
+  if (_finFen) _finFenetreRendre();
 }
 
-// CAUSE de l'avance (« les + cliquables », décision user 2026-07-12) : quel locataire, quel mois,
-// combien perçu au-delà du dû. Loyer imposable dès l'encaissement (2044 à l'encaissement).
-function _finDrillAvance(yr, mo) {
-  yr = String(yr);
-  mo = (mo != null && mo !== '') ? parseInt(mo, 10) : 0;   // 0 = année (tout) ; sinon le mois cliqué seulement
-  const scope = _finEntScope(_finPageEnt(), _finActiveImm());
-  const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
-  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
-  // L'avance suit la fenêtre de CONSTAT (un encaissement post-daté peut en porter une).
-  const _W = _finWindows(parseInt(yr, 10), scope);
-  const lastMonth = _W ? _W.constat.lastMonth : ((parseInt(yr, 10) === new Date().getFullYear()) ? (new Date().getMonth() + 1) : 12);
-  const alloc = window._computeLoyerChargeAlloc;
-  const map = _finLotMonthsMap(yr, scope, lastMonth);
-  const blocks = []; let total = 0;
-  for (const q in map) {
-    const res = alloc ? alloc(map[q]) : null; if (!res) continue;
-    let avM = res.map((a, idx) => ({ idx, av: a.avance })).filter(x => x.av > 0.005);
-    if (mo) avM = avM.filter(x => x.idx === (mo - 1));   // mois cliqué → ce mois seulement
-    const lotAv = Math.round(avM.reduce((s, x) => s + x.av, 0) * 100) / 100;
-    if (!(lotAv > 0.005)) continue;
-    total += lotAv;
-    const chips = avM.map(x =>
-      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:var(--adv-bg);color:var(--adv);border:1px solid var(--adv-bg);min-width:62px">'
-      + '<span style="font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.03em;opacity:.85">' + _FIN_MOIS[x.idx] + '</span>'
-      + '<span style="font-weight:800;font-size:13px">+ ' + f(x.av) + '</span></div>').join('');
-    blocks.push('<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
-      + '<div style="font-weight:700;font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(_finLotNomAt(q, yr, avM[0].idx))
-      + ' <span style="font:700 11px Inter;color:var(--adv);background:var(--adv-bg);padding:2px 8px;border-radius:6px">' + f(lotAv) + ' perçu d\'avance</span></div>'
-      + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + chips + '</div></div>');
-  }
-  total = Math.round(total * 100) / 100;
-  const scopeLbl = mo ? (' · ' + _FIN_MOIS[mo - 1] + ' ' + String(yr).slice(2)) : '';
-  const titre = "Cause de l'avance sur loyer" + scopeLbl + ' · ' + f(total);
-  const body = blocks.length
-    ? '<div style="padding:2px">' + blocks.join('') + '<div class="note" style="margin-top:2px">Loyer <b>imposable dès l\'encaissement</b> (2044 à l\'encaissement) — l\'avance bascule sur les mois suivants.<br>💡 Si ce montant est en réalité un <b>solde de charges (régularisation)</b>, reclasse le mouvement en « Charges récupérables (eau, énergie…) » — sinon l\'avance roulera de mois en mois.</div></div>'
-    : '<div class="note" style="padding:18px 4px">Aucune avance' + (mo ? ' en ' + _FIN_MOIS[mo - 1] : '') + ' sur ' + yr + '.</div>';
-  if (typeof openDashDrill === 'function') openDashDrill(titre, body);
+// ═══ FINANCES-SUIVI-V2 — ALERTES DE MOUVEMENTS (non bloquantes, un geste + une croix) ═══
+// Sous un loyer reçu : (1) virement reçu ENTRE deux baux → « à qui ? » (décision Q3 du 06/10 : le choix est
+// mémorisé sur le mouvement, `mv.bailDebut`) ; (2) mois payé incomplet → « Il manque X € sur <mois> » + « Accepter
+// le manque » (ouvre la fenêtre du mois sur ce lot). Lu dans le moteur unique ; la croix masque l'alerte pour ce
+// navigateur seulement (commodité, aucune donnée modifiée).
+let _finAlertesCache = { k: '', map: null };
+function _finAlertesMouvements() {
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '';
+  const k = ((typeof window._dbGen === 'number') ? window._dbGen : 0) + '|' + today;
+  if (_finAlertesCache.k === k && _finAlertesCache.map) return _finAlertesCache.map;
+  const map = {};
+  const lots = new Set();
+  (DB.mouvements || []).forEach(m => { if (m && !m._deleted && m.qui && String(m.qui).indexOf('SCI:') !== 0 && (_finCatLigne(m.cat) || {}).ligne2044 === '211') lots.add(m.qui); });
+  const W = (typeof window._finWindowExigibilite === 'function') ? window._finWindowExigibilite({ year: Number(today.slice(0, 4)), today }) : null;
+  const dernier = (W && W.dueMonth > 0) ? today.slice(0, 4) + '-' + String(W.dueMonth).padStart(2, '0') : today.slice(0, 7);
+  const grace = !!(W && W.graceLast);
+  lots.forEach(q => {
+    const s = _finSuiviLot(q); if (!s) return;
+    const segs = (s.baux || []).map(b => ({ debut: b.debut, end: b.finDu || null }));
+    (s.baux || []).forEach(b => {
+      (b.aConfirmer || []).forEach(x => {
+        if (x.id == null) return;
+        const prev = segs.filter(g => g.end && g.end < x.date).pop(), next = segs.find(g => g.debut > x.date);
+        map[String(x.id)] = { type: 'q3', ref: q, date: x.date, choix: [next, prev].filter(Boolean).map(g => ({ debut: g.debut, nom: _finNomBail(q, g.debut) })), retenu: b.debut };
+      });
+      (b.mois || []).forEach(m => {
+        const reste = Math.round(((m.loyerRetard || 0) + (m.chargeRetard || 0)) * 100) / 100;
+        if (reste <= 0.005 || !(m.paiements || []).length || m.ym > dernier || (grace && m.ym === dernier)) return;
+        const der = m.paiements[m.paiements.length - 1];
+        if (der.id == null || map[String(der.id)]) return;
+        map[String(der.id)] = { type: 'manque', ref: q, bailDebut: b.debut, ym: m.ym, reste };
+      });
+    });
+  });
+  _finAlertesCache = { k, map };
+  return map;
 }
+function _mvAlerteVue(id, type) { try { return localStorage.getItem(_lsKey('fin-alerte-vue:') + String(type) + ':' + String(id)) === '1'; } catch (e) { return false; } }
+function _mvAlerteMasquer(id, type) { try { localStorage.setItem(_lsKey('fin-alerte-vue:') + String(type) + ':' + String(id), '1'); } catch (e) {} if (typeof rMv === 'function') rMv(); }
+function _mvAlerteHtml(m, phone) {
+  if (!m || m.id == null) return '';
+  let a = null; try { a = _finAlertesMouvements()[String(m.id)] || null; } catch (e) { a = null; }
+  if (!a || _mvAlerteVue(m.id, a.type)) return '';
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
+  const idA = JSON.stringify(m.id).replace(/"/g, '&quot;');
+  const croix = '<button type="button" class="fmv-x" title="Masquer" aria-label="Masquer" onclick="event.stopPropagation();_mvAlerteMasquer(' + idA + ',\'' + a.type + '\')">×</button>';
+  let corps;
+  if (a.type === 'q3') {
+    corps = '<span class="t">' + _uiIcon('warn', 14) + ' Reçu le ' + esc(fd(a.date)) + ', entre deux locataires : à qui ?</span>'
+      + a.choix.map(c => '<button type="button" class="btn bs bb" onclick="event.stopPropagation();_mvQ3Choisir(' + idA + ',\'' + c.debut + '\')">' + esc(c.nom) + '</button>').join('')
+      + '<button type="button" class="btn bs bb" onclick="event.stopPropagation();openEditMv(' + idA + ')">Pas du loyer</button>';
+  } else {
+    corps = '<span class="t">' + _uiIcon('warn', 14) + ' Il manque ' + fmt(a.reste) + ' sur ' + _FIN_MOIS_LONG[parseInt(a.ym.slice(5, 7), 10) - 1] + '</span>'
+      + '<button type="button" class="btn bs bb" onclick="event.stopPropagation();_finFenetre(' + a.ym.slice(0, 4) + ',' + parseInt(a.ym.slice(5, 7), 10) + ');_finFenetreForm(\'' + _lyQ(a.ref) + '\')">' + _uiIcon('check') + ' Accepter le manque</button>';
+  }
+  if (!document.getElementById('fmv-css')) {
+    const st = document.createElement('style'); st.id = 'fmv-css';
+    st.textContent = '.fmv-al{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 8px 10px;padding:8px 10px;border-radius:10px;border:1px solid var(--bor);border-left:3px solid var(--warn);background:var(--sur2);font-size:13px;color:var(--t1)}'
+      + '.fmv-al .t{flex:1;min-width:180px}.fmv-al .btn{min-height:40px}.fmv-x{margin-left:auto;background:none;border:0;color:var(--t3);font-size:20px;min-width:44px;min-height:44px;cursor:pointer}'
+      + '.fmv-row>td{padding:0!important;border:0!important}';
+    document.head.appendChild(st);
+  }
+  return '<tr class="fmv-row' + (phone ? ' mvph-row' : '') + '"><td colspan="7"><div class="fmv-al">' + corps + croix + '</div></td></tr>';
+}
+
 // Depuis le drill : ouvre le découpage d'un mouvement non ventilé (versement de gérance groupé)
 // pour le répartir par bien. Ferme le drill d'abord (le découpage le remplace ; on rouvrira le drill à jour).
 function _finVentiler(id) {

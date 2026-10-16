@@ -37,6 +37,7 @@
 // disparaître la résolution d'alias. Toute globale exportée ici qui dépend de `DB` ou d'une
 // constante du monolithe doit donc être ENVELOPPÉE avec son contexte, jamais assignée nue.
 
+import * as ManqueAccepte from './core/manque-accepte.js';
 import {
   escHtml, _esc, _h, _raw,
   _validateHC, _validateHCCH, _outlierVsMedian,
@@ -736,6 +737,8 @@ for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
 // par l'onglet Loyers ; index.html n'assemble que le contexte (du + encaisse).
 window.etatMoisLot = etatMoisLot;
 window.etatDepuisSuivi = etatDepuisSuivi;   // FINANCES-SUIVI-V2 : le verdict par mois lu dans le moteur unique
+// FINANCES-SUIVI-V2 — l'entrée de journal « manque accepté » (validation, création, annulation ; pur).
+window.ManqueAccepte = ManqueAccepte;
 window.peutQuittancer = peutQuittancer;
 window.moisProposables = moisProposables;
 window.moisAQuittancer = moisAQuittancer;

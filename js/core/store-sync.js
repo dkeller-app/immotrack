@@ -441,7 +441,10 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       // n'existe pas encore (uid posé par _identifierBaux dans ce même flush) ou dont l'uid recopié est celui
       // du bail précédent. Avant le 1er envoi, on recale TOUJOURS sur le bail vivant (même logement, même
       // début, même espace) : son uid, ou la ligne historique s'il n'en a pas (audit lot 2, I1).
-      if (e.type === 'avenant') {
+      // MANQUE ACCEPTÉ (FINANCES-SUIVI-V2) : même chemin. Il vise un bail par son DÉBUT, sans signature (`signedAt`
+      // absent : sinon le chemin « modification » le prendrait pour une modification du document signé). Bail courant
+      // → sa ligne ; bail ARCHIVÉ (aucun bail vivant de ce début) → l'uid posé à la création est conservé.
+      if (e.type === 'avenant' || e.type === 'manque_accepte') {
         if (base && base.has(String(e.id) + espTag(e))) continue
         // Bail réécrit juste avant (« Modifier le bail » : `DB.baux[ref] = {…}`) → il a perdu son tag d'espace
         // jusqu'à _adoptAll, et l'avenant créé entre-temps est parti SANS espace. Un seul bail candidat (même

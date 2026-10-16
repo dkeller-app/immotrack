@@ -110,6 +110,8 @@ export const REGISTRE = [
     'logGroupsCollapsed', 'RELAY_BASE',
   ].map(k => ({ motif: deuxNs(k), classe: 'pref', note: 'préférence d’écran', exemples: [k, '_test_' + k] })),
   ...['immo_backup_freq', 'immo_theme'].map(k => ({ motif: exacte(k), classe: 'pref', note: 'préférence', exemples: [k] })),
+  // FINANCES-SUIVI-V2 : alerte de Mouvements masquée par la croix (par appareil, commodité d'écran).
+  { motif: prefixe('fin-alerte-vue:'), classe: 'pref', note: 'alerte de Mouvements masquée (virement entre deux locataires, manque)', exemples: ['fin-alerte-vue:q3:123', '_test_fin-alerte-vue:manque:123'] },
 
   // ── secret résiduel : reconnu, mais HORS LOT 1 (signalé à part) — ni évincé ni nettoyé
   { motif: deuxNs('RELAY_APP_KEY'), classe: 'secret_residuel', note: 'ancienne clé du relais de signature (retirée) — traitement hors lot', exemples: ['RELAY_APP_KEY', '_test_RELAY_APP_KEY'] },
