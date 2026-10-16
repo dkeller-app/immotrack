@@ -401,8 +401,9 @@ export function _loyerArrearsPass(months, opts) {
   const graceLast = !!(opts && opts.graceLast);
   // FINANCES-SUIVI-V2 : seuil d'arrondi (0 = aucun, comportement historique). Le suivi passe 1 (€).
   const seuilArrondi = Math.max(0, Number(opts && opts.seuilArrondi) || 0);
-  let arrondiCumul = 0;
+  let arrondiNet = 0;
   const ms = months || [];
+  const parOrigine = { reglement: ms.map(() => 0), remise: ms.map(() => 0), arrondi: ms.map(() => 0) };
   const lastIdx = ms.length - 1;
   const loyerQ = [], chargeQ = [];                  // files des manques : {idx, short, due, recv}
   const sumQ = (q) => q.reduce((s, e) => s + e.short, 0);
@@ -504,7 +505,9 @@ export function _loyerArrearsPass(months, opts) {
     // plafonnés à la dette : ils ne créent JAMAIS d'avance et ne sont jamais un encaissement (2044 intacte).
     //   `reglement` : retenue pour loyer sur le dépôt de garantie (bail sorti, décision 05/10 n° 2) ;
     //   `remise`    : manque accepté par le bailleur (décision 05/10, Q1 du 06/10).
-    const solder = (amt) => {
+    // Chaque somme soldée est TRACÉE SUR LE MOIS D'ORIGINE de la dette (`parOrigine`), jamais sur le mois du geste :
+    // la quittance d'un mois ne peut dire « remise accordée » que pour SA dette (relecture Fable du 16/10).
+    const solder = (amt, trace) => {
       let a = Math.max(0, Number(amt) || 0);
       if (a <= 0.005) return 0;
       const avant = a;
@@ -513,33 +516,38 @@ export function _loyerArrearsPass(months, opts) {
           if (a <= 0.0000001) break;
           if (courant !== (e.idx === idx)) continue;
           const t = Math.min(a, e.short); e.short -= t; a -= t;
+          if (t > 0 && !e.opening) trace[e.idx] += t;
         }
       };
       prendre(loyerQ, true); prendre(chargeQ, true); prendre(loyerQ, false); prendre(chargeQ, false);
       return _r2(avant - a);
     };
-    const reglement = solder(m.reglement);
-    const remise = solder(m.remise);
+    solder(m.reglement, parOrigine.reglement);
+    solder(m.remise, parOrigine.remise);
     // Écart d'arrondi (décision 05/10 n° 2 : « sous 1 €, soldé d'office, trace visible ») : en fin de mois,
-    // une dette ou une avance totale strictement sous le seuil restant est soldée, et tracée (`arrondi`,
-    // signé : − = dette abandonnée, + = avance abandonnée). Le seuil est un plafond CUMULÉ par passe.
-    let arrondi = 0;
+    // une dette ou une avance totale strictement sous le seuil est soldée, et tracée (`arrondi`, signé :
+    // − = dette abandonnée, + = avance abandonnée). Plafond NET par passe : |Σ arrondis| < seuil — une avance
+    // abandonnée puis une dette du même ordre se compensent (jamais 0,50 € de retard affiché pour un net nul).
     if (seuilArrondi > 0) {
       const dette = sumQ(loyerQ) + sumQ(chargeQ);
-      const reste = seuilArrondi - arrondiCumul;
-      if (dette > 0.005 && dette < reste - 0.0000001) {
-        loyerQ.forEach((e) => { e.short = 0; }); chargeQ.forEach((e) => { e.short = 0; });
-        arrondi = -_r2(dette); arrondiCumul += dette;
-      } else if (carry && dette <= 0.005 && pool > 0.005 && pool < reste - 0.0000001) {
-        arrondi = _r2(pool); arrondiCumul += pool; pool = 0; frags = [];
+      if (dette > 0.005 && Math.abs(arrondiNet - dette) < seuilArrondi - 0.0000001) {
+        const zero = (e) => { if (e.short > 0) { if (!e.opening) parOrigine.arrondi[e.idx] -= e.short; e.short = 0; } };
+        loyerQ.forEach(zero); chargeQ.forEach(zero);
+        arrondiNet -= dette;
+      } else if (carry && dette <= 0.005 && pool > 0.005 && Math.abs(arrondiNet + pool) < seuilArrondi - 0.0000001) {
+        parOrigine.arrondi[idx] += pool; arrondiNet += pool; pool = 0; frags = [];
       }
     }
     const out = { loyerArrear: _r2(sumQ(loyerQ)), chargeArrear: _r2(sumQ(chargeQ)) };
-    if (reglement) out.reglement = reglement;
-    if (remise) out.remise = remise;
-    if (arrondi) out.arrondi = arrondi;
     if (carry) { avanceCarry = pool; out.avance = _r2(avanceCarry); }
     return out;
+  });
+  // Règlements, remises et arrondis rendus PAR MOIS D'ORIGINE (ce qu'ils ont soldé de la dette de ce mois-là).
+  perMonth.forEach((out, j) => {
+    const g = (k) => _r2(parOrigine[k][j]);
+    if (Math.abs(g('reglement')) > 0.005) out.reglement = g('reglement');
+    if (Math.abs(g('remise')) > 0.005) out.remise = g('remise');
+    if (Math.abs(g('arrondi')) > 0.005) out.arrondi = g('arrondi');
   });
   const clean = (q) => q.filter((e) => e.short > 0.005).map((e) => ({ idx: e.idx, short: _r2(e.short), due: _r2(e.due), recv: _r2(e.recv) }));
   const last = perMonth.length

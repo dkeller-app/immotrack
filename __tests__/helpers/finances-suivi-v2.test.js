@@ -74,8 +74,21 @@ describe('règlements sans virement (_loyerArrearsPass)', () => {
   const m = (hc, ch, recu, extra) => Object.assign({ hcDue: hc, chDue: ch, received: recu }, extra || {});
   it('une remise solde le mois d\'abord, puis la dette la plus ancienne ; plafonnée, jamais une avance', () => {
     const r = _loyerArrearsPass([m(600, 50, 0), m(600, 50, 650, { remise: 1000 })], { carry: true });
-    expect(r.months[1]).toMatchObject({ loyerArrear: 0, chargeArrear: 0, avance: 0, remise: 650 });
+    expect(r.months[1]).toMatchObject({ loyerArrear: 0, chargeArrear: 0, avance: 0 });
     expect(r.avance).toBe(0);
+    // tracée sur le mois d'ORIGINE de la dette soldée (le mois 1 était payé : tout part sur le mois 0)
+    expect(r.months[0].remise).toBe(650);
+    expect(r.months[1].remise).toBeUndefined();
+  });
+  it('relecture Fable : un manque de 700 € accepté en avril solde avril (50) PUIS mars (650) — chaque quittance dit sa remise', () => {
+    const r = _loyerArrearsPass([m(650, 0, 0), m(650, 0, 600, { remise: 700 })], { carry: true });
+    expect(r.months[1]).toMatchObject({ loyerArrear: 0, remise: 50 });
+    expect(r.months[0].remise).toBe(650);
+  });
+  it('arrondi NET : 650,50 puis 649,50 pour 650 et 650 → aucune dette résiduelle (l’avance abandonnée compense)', () => {
+    const r = _loyerArrearsPass([m(650, 0, 650.5), m(650, 0, 649.5)], { carry: true, seuilArrondi: 1 });
+    expect(r.months.map((x) => x.arrondi || 0)).toEqual([0.5, -0.5]);
+    expect(r.months[1]).toMatchObject({ loyerArrear: 0, avance: 0 });
   });
   it('remise partielle : H-1 (loyer du mois, charges du mois, puis arriérés)', () => {
     const r = _loyerArrearsPass([m(600, 50, 0), m(600, 50, 0, { remise: 620 })], { carry: true });

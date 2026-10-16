@@ -25707,7 +25707,11 @@ function _rgClotureImpayes(ref, from, to){
   const f10 = from ? String(from).slice(0,10) : null, t10 = to ? String(to).slice(0,10) : null;
   const f7 = f10 ? f10.slice(0,7) : null, t7 = t10 ? t10.slice(0,7) : null;
   let total = 0;
+  // Relecture Fable (16/10) : quand `from` EST le début d'un bail (restitution d'un dépôt : _calculerSoldeDG), seul CE
+  // bail compte — une fin contractuelle lointaine ne doit jamais faire entrer la dette du locataire suivant.
+  const exact = f10 && (s.baux||[]).some(b => b.debut === f10);
   (s.baux||[]).forEach(b => {
+    if(exact && b.debut !== f10) return;
     if(t10 && b.debut > t10) return;
     if(f10 && b.end && b.end < f10) return;
     (b.mois||[]).forEach(m => {
@@ -26695,9 +26699,13 @@ function computeRegul(from, to) {
     Object.values(res).forEach(e=>{
       const deb = e.bail && e.bail.debut ? String(e.bail.debut).slice(0,10) : '';
       if(!deb) return;
+      // Relecture Fable (16/10) : seulement si le mois est réellement SOLDÉ (un manque partiel ne vaut pas provision versée).
+      const _et = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(e.ref, { bailDebut: deb }) : null;
       _finManquesDuLot(e.ref).forEach(mq=>{
         if(mq.bailDebut!==deb || mq.ym < String(from).slice(0,7) || mq.ym > String(to).slice(0,7)) return;
         if(e.debutOcc && e.finOcc && (mq.ym < e.debutOcc.slice(0,7) || mq.ym > e.finOcc.slice(0,7))) return;
+        const _mm = _et && _et.byYm && _et.byYm[mq.ym];
+        if(!_mm || !_mm.solde) return;
         if(!e._moisSet) e._moisSet = new Set();
         e._moisSet.add(mq.ym);
       });

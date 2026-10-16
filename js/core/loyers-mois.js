@@ -190,7 +190,8 @@ export function etatDepuisSuivi(suivi, opts) {
   const o = opts || {};
   const garder = (b) => !Array.isArray(o.debuts) || o.debuts.includes(b.debut);
   const motifsDe = (debut, ym) => (Array.isArray(o.manques) ? o.manques : [])
-    .filter((m) => m && !m._deleted && String(m.bailDebut || '').slice(0, 10) === debut && String(m.ym) === ym && m.motif)
+    // un geste d'un mois donné peut solder la dette d'un mois ANTÉRIEUR (ordre H-1) : les motifs des gestes de ce mois ou après
+    .filter((m) => m && !m._deleted && String(m.bailDebut || '').slice(0, 10) === debut && String(m.ym) >= ym && m.motif)
     .map((m) => String(m.motif));
   const parYm = {};
   let ouverture = null;
