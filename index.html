@@ -263,6 +263,8 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
 <!-- BAIL-EN-COURS-SIGNE-HORS-PROPRYO : etat de signature d'un bail (non / partiel / electronique / externe), window.BailSignatureEtat, source js/core/bail-signature-etat.js. -->
 <script src="js/helpers/bail-signature-etat.global.js?v=e58cc36c" defer></script>
+<!-- MATRICE-ACCUEIL (16/10) : « Pilotage du parc » de l'Accueil, qu'y a-t-il à piloter sur ce lot (window.PilotageLot, source js/core/pilotage-lot.js). -->
+<script src="js/helpers/pilotage-lot.global.js?v=983302d3" defer></script>
 <!-- PARAPHE-UNIQUE : contr�le � onglet p�rim� � avant de signer / r�g�n�rer le PDF d'un bail sign� (window.VersionApp, source js/core/version-app.js). -->
 <script src="js/helpers/version-app.global.js?v=97798663" defer></script>
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
@@ -548,6 +550,13 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         #p-accueil .pil-mk{display:inline-block;width:14px;height:14px;color:var(--acc);vertical-align:middle}
         #p-accueil .pil-mk svg{width:100%;height:100%;display:block}
         #p-accueil .pil-mk-no{display:inline-block;width:14px;height:14px}
+        /* PILOTAGE DU PARC (16/10) : l'icône d'une case à faire est un BOUTON — clic = ce qui est à faire + le geste. */
+        #p-accueil button.pil-mkb{border:0;background:none;padding:0;margin:0;font:inherit;cursor:pointer;border-radius:4px;box-sizing:content-box}
+        #p-accueil button.pil-mkb:hover{transform:scale(1.15)}
+        #p-accueil button.pil-mkb:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+        @media (pointer:coarse){ #p-accueil table.pil-mx button.pil-mkb{padding:15px;margin:-15px} }
+        #p-accueil .pil-puce{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:6px 12px;border:1px solid var(--bor);border-radius:12px;background:var(--sur);color:var(--t1);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+        #p-accueil .pil-puce .pil-mk{width:14px;height:14px}
         #p-accueil table.pil-mx th.payc,#p-accueil table.pil-mx td.payc{text-align:left;padding-left:15px}
         #p-accueil .pil-loyer{display:inline-flex;align-items:center;gap:7px}
         #p-accueil .pil-loyer .pil-mk,#p-accueil .pil-loyer .pil-mk-no{width:12px;height:12px}
@@ -557,10 +566,6 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         #p-accueil .pil-q{display:inline-block;font-size:10.5px;font-weight:700;padding:2.5px 9px;border-radius:20px;white-space:nowrap;margin:1px 0}
         #p-accueil .pil-q.todo{background:var(--acc-soft);color:var(--acc)} #p-accueil .pil-q.ko{background:var(--neg-soft);color:var(--neg)} #p-accueil .pil-q.wn{background:var(--warn-soft);color:var(--warn)} #p-accueil .pil-q.vac{background:var(--info-soft);color:var(--info)} #p-accueil .pil-q.adv{background:var(--adv-bg);color:var(--adv)}
         #p-accueil .pil-pile{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
-        #p-accueil .pil-rep{font-size:9.5px;font-weight:800;letter-spacing:.3px;background:var(--adv-bg);color:var(--adv);border-radius:20px;padding:1px 6px;margin-left:6px;vertical-align:1px;text-transform:uppercase}
-        #pil-layer .pil-rep{font-size:10px;font-weight:800;letter-spacing:.3px;background:var(--adv-bg);color:var(--adv);border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:2px;text-transform:uppercase}
-        #pil-layer .pil-repbar{background:var(--adv-bg);color:var(--t2);font-size:11.5px;font-weight:600;padding:10px 17px;line-height:1.5;border-bottom:1px solid var(--bor2);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-        #pil-layer .pil-repbar .lk{margin-left:auto;border:0;background:0;color:var(--adv);font:inherit;font-size:11.5px;font-weight:800;cursor:pointer;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
         /* tablette / téléphone */
         @media(max-width:1100px){ #p-accueil .pil-duo{grid-template-columns:1fr} #p-accueil .pil-duo .pil-bub{grid-template-columns:repeat(4,1fr)} }
         @media(max-width:920px){ #p-accueil .pil-strip{grid-template-columns:repeat(3,1fr)} }
@@ -585,7 +590,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
           #p-accueil .pil-lc .pil-loyer .pil-mk,#p-accueil .pil-lc .pil-loyer .pil-mk-no{width:12px;height:12px}
         }
         /* couches (fiche lot, liste, écran d'action) */
-        #pil-layer .scrim{position:fixed;inset:0;background:rgba(8,10,16,.34);z-index:120;animation:pilfade .16s ease-out}
+        #pil-layer .scrim{position:fixed;inset:0;background:rgba(8,10,16,.4);z-index:120;animation:pilfade .16s ease-out}
         @keyframes pilfade{from{opacity:0}to{opacity:1}}
         #pil-layer .shw{position:fixed;inset:0;z-index:121;display:grid;place-items:center;padding:24px;pointer-events:none}
         #pil-layer .sh{position:relative;pointer-events:auto;background:var(--sur);border:1px solid var(--bor);border-radius:18px;box-shadow:0 18px 60px rgba(0,0,0,.30);display:flex;flex-direction:column;overflow:hidden;width:560px;max-width:100%;max-height:82vh;animation:pilfade .18s ease-out}
@@ -612,6 +617,24 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         #pil-layer .d.pos{background:var(--pos)} #pil-layer .d.neg{background:var(--neg)} #pil-layer .d.warn{background:var(--warn)} #pil-layer .d.adv{background:var(--adv)}
         #pil-layer .shf{border-top:1px solid var(--bor);padding:11px 17px;display:flex;justify-content:flex-end;flex:none}
         #pil-layer .shf .go{border:1px solid var(--bor);background:var(--sur);color:var(--t2);font:inherit;font-size:12px;font-weight:700;padding:8px 15px;border-radius:9px;cursor:pointer}
+        #pil-layer .ck .gos .go{min-height:34px}
+        @media (pointer:coarse){ #pil-layer .ck .gos .go, #pil-layer .sh-h .x{min-height:44px;min-width:44px} }
+        /* Téléphone : le détail d'une case est une PAGE plein écran (couche standard .ov, charte M-16). */
+        #ov-pil-detail .m-head h3 small{display:block;font-size:13px;font-weight:600;color:var(--t3);margin-top:2px}
+        #ov-pil-detail .pil-pg-l{padding:13px 2px;border-bottom:1px solid var(--bor2)}
+        #ov-pil-detail .pil-pg-l:last-child{border-bottom:0}
+        #ov-pil-detail .pil-pg-l .t{font-size:15px;line-height:1.45;color:var(--t1)}
+        #ov-pil-detail .pil-pg-l .t b{display:block;font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--t2);margin-bottom:3px}
+        #ov-pil-detail .pil-pg-l .a{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+        #ov-pil-detail .pil-pg-l .a:empty{display:none}
+        #ov-pil-detail .pil-pg-l .a .btn,#ov-pil-detail .m-foot .btn{min-height:44px}
+        #ov-pil-detail .m-foot .btn{flex:1 1 auto;justify-content:center}
+        @media (max-width:767px){
+          #ov-pil-detail{padding:0 !important}
+          #ov-pil-detail .modal{width:100% !important;max-width:none !important;height:100dvh;border-radius:0;display:flex;flex-direction:column;margin:0}
+          #ov-pil-detail .m-body{flex:1 1 auto;overflow-y:auto;max-height:none}
+          #ov-pil-detail .m-foot{margin-top:auto;border-radius:0}
+        }
       </style>
       <section class="pil" id="pil-root">
         <div id="cand-inbox-banner"></div>
@@ -4672,7 +4695,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/irl-dpe-gate.global.js?v=722abf97" defer></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
-<script src="js/helpers/alert-rules.global.js?v=cd16bde1" defer></script>
+<script src="js/helpers/alert-rules.global.js?v=058c6265" defer></script>
 <!-- BAUX-ECHUS — régime du bailleur (art. 10 / 13, window.BailDuree) puis LA règle d'échéance et de
      reconduction, une par type (window.BailEcheance) : pastille, agenda, frise, préavis, alerte « arrivé à terme ».
      BailDuree AVANT BailEcheance (sa dépendance). -->
@@ -4697,8 +4720,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=46e5589c" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=479efcb0" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=66e39462" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=53317dcb" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=b2a7b811" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->

@@ -3,7 +3,7 @@
  * Couvre notamment les 3 DIVERGENCES tranchées (audit 2026-07-06).
  */
 import { describe, it, expect } from 'vitest'
-import { mrhManquante, mrhEcheances, pnoEcheances, irlClassifier, regulAEmettre, bauxEcheance } from './alert-rules.js'
+import { mrhManquante, mrhEcheances, attestationCourante, pnoEcheances, irlClassifier, regulAEmettre, bauxEcheance } from './alert-rules.js'
 
 const TODAY = new Date('2026-07-06T00:00:00')
 
@@ -30,16 +30,22 @@ describe('mrhManquante — assurance habitation locataire', () => {
 })
 
 describe('mrhEcheances', () => {
-  const logements = [{ ref: 'A', entity: 'SCI X' }, { ref: 'B', entity: 'SCI Y' }]
+  const logements = [{ ref: 'A', entity: 'SCI X' }, { ref: 'B', entity: 'SCI Y' }, { ref: 'C', entity: 'SCI X' }]
   it('expirée (jours<0) et préavis (≤30 j), scopé entité', () => {
     const mrh = [
       { logement: 'A', echeance: '2026-07-01' },  // expirée (-5 j)
       { logement: 'B', echeance: '2026-07-20' },  // dans 14 j mais SCI Y
-      { logement: 'A', echeance: '2026-09-30' },  // trop loin
+      { logement: 'C', echeance: '2026-09-30' },  // trop loin
     ]
     const out = mrhEcheances(mrh, logements, 'SCI X', TODAY)
     expect(out).toHaveLength(1)
     expect(out[0]).toMatchObject({ ref: 'A', expiree: true })
+  })
+  // MATRICE-ACCUEIL FA2 : la nouvelle attestation ajoutée à côté de l'ancienne (saveMrh) éteint l'alerte « expirée ».
+  it('seule l’attestation la plus récente du logement compte (ancienne expirée + nouvelle valide = rien)', () => {
+    const mrh = [{ logement: 'A', echeance: '2026-07-01' }, { logement: 'A', echeance: '2027-06-30' }]
+    expect(mrhEcheances(mrh, logements, '', TODAY)).toEqual([])
+    expect(mrhEcheances([{ logement: 'A', echeance: '2026-07-01' }, { logement: 'A', echeance: '2026-06-01' }], logements, '', TODAY)).toMatchObject([{ ref: 'A', echeance: '2026-07-01', expiree: true }])
   })
   it('sans filtre entité, préavis ≤ 30 j inclus', () => {
     const out = mrhEcheances([{ logement: 'B', echeance: '2026-07-20' }], logements, '', TODAY)
@@ -174,5 +180,37 @@ describe('bauxEcheance', () => {
     expect(out.map(o => o.ref)).toEqual(['ET', 'SANS'])
     expect(out[0]).toMatchObject({ expire: true, fin: '2026-06-01' })
     expect(out[1]).toMatchObject({ expire: false, fin: '2026-08-15', jours: 40 })
+  })
+})
+
+// MATRICE-ACCUEIL (16/10) — quelle attestation compte pour le locataire en place.
+describe('attestation courante du locataire en place', () => {
+  const log = { ref: 'A', locataire: 'Mme Durand', debut: '2025-09-01' }
+  it('une attestation SANS échéance, saisie après l’attestation expirée, éteint « expirée » sans afficher « manquante »', () => {
+    const mrh = [{ id: 1751300000000, logement: 'A', echeance: '2026-07-01' }, { id: 1751700000000, logement: 'A', echeance: '' }]
+    expect(mrhEcheances(mrh, [log], '', TODAY)).toEqual([])
+    expect(mrhManquante([log], mrh)).toEqual([])
+    expect(attestationCourante(mrh, log).echeance).toBe('')
+  })
+  it('une attestation sans échéance PLUS ANCIENNE que l’attestation datée ne la remplace pas', () => {
+    const mrh = [{ id: 1751700000000, logement: 'A', echeance: '2026-07-01' }, { id: 1751300000000, logement: 'A' }]
+    expect(mrhEcheances(mrh, [log], '', TODAY)).toMatchObject([{ ref: 'A', expiree: true }])
+  })
+  it('l’attestation du locataire précédent ne compte pas : échue avant l’entrée, ou autre nom ET enregistrée plus de 60 jours avant l’entrée', () => {
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2025-06-30' }])).toMatchObject([{ ref: 'A' }])
+    expect(mrhEcheances([{ logement: 'A', echeance: '2025-06-30' }], [log], '', TODAY)).toEqual([])
+    // départ en cours d'année : l'attestation de M. Martin (enregistrée en 2024) court encore, elle ne couvre pas Mme Durand
+    expect(mrhManquante([log], [{ id: Date.parse('2024-11-02T10:00:00Z'), logement: 'A', echeance: '2026-12-31', locataire: 'M. Martin' }])).toMatchObject([{ ref: 'A' }])
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'M. Martin' }])).toMatchObject([{ ref: 'A' }])   // date d’enregistrement inconnue
+    // nom corrigé après l'entrée (attestation enregistrée après l'entrée sous une autre graphie) : couverte
+    expect(mrhManquante([log], [{ id: Date.parse('2025-09-10T10:00:00Z'), logement: 'A', echeance: '2026-12-31', locataire: 'Mme Durant' }])).toEqual([])
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'DURAND' }])).toEqual([])
+  })
+  it('à égalité de date de création inconnue, l’attestation datée reste la courante ; une échéance illisible ne crée ni « expirée » ni « manquante »', () => {
+    expect(mrhEcheances([{ id: 5, logement: 'A', echeance: '2026-07-01' }, { id: 6, logement: 'A' }], [log], '', TODAY)).toMatchObject([{ ref: 'A', expiree: true }])
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '31/12/2026' }])).toEqual([])
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '15/03/2027' }])).toEqual([])
+    expect(mrhEcheances([{ logement: 'A', echeance: '15/03/2027' }], [log], '', TODAY)).toEqual([])
+    expect(mrhEcheances([{ logement: 'A', echeance: '31/12/2026' }, { logement: 'A', echeance: '2026-07-01', id: 1 }], [log], '', TODAY)).toMatchObject([{ ref: 'A', expiree: true }])
   })
 })

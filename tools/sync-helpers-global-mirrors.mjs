@@ -82,6 +82,17 @@ const PAIRS = [
     ]
   },
   {
+    // MATRICE-ACCUEIL (16/10) — « Pilotage du parc » : qu'y a-t-il à piloter sur ce lot (phase, cases, textes des bulles).
+    name: 'pilotage-lot',
+    src: 'js/core/pilotage-lot.js',
+    dst: 'js/helpers/pilotage-lot.global.js',
+    globalName: 'PilotageLot',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     // PARAPHE-UNIQUE (audit 01/10) — contrôle « onglet périmé » avant de signer / régénérer un PDF signé.
     name: 'version-app',
     src: 'js/core/version-app.js',
@@ -295,7 +306,7 @@ const PAIRS = [
     src: '__tests__/helpers/alert-rules.js',
     dst: 'js/helpers/alert-rules.global.js',
     globalName: 'AlertRules',
-    exports: ['mrhManquante', 'mrhEcheances', 'pnoEcheances', 'irlClassifier', 'regulAEmettre', 'bauxEcheance'],
+    exports: ['mrhManquante', 'mrhEcheances', 'attestationCourante', 'attestationPourLocataire', 'pnoEcheances', 'irlClassifier', 'regulAEmettre', 'bauxEcheance'],
   },
   {
     // v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (scope + matchMv

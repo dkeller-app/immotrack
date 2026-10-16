@@ -3,7 +3,7 @@
  *
  * LE STATUT D'ENTRETIEN D'UN LOT, lu sur TOUTES les obligations qui le concernent.
  *
- * Remplace la branche `chauffage` de `_pilStatutDoc` (index.html), qui plantait :
+ * Remplaçait la branche `chauffage` de `_pilStatutDoc` (supprimé le 16/10 avec l’ancienne matrice), qui plantait :
  *   1. elle traitait `DB.equipements[ref]` comme un TABLEAU (`.find`) alors que c'est un
  *      OBJET indexé par clé de règle → `TypeError: eq.find is not a function` dès qu'un
  *      entretien est enregistré ;

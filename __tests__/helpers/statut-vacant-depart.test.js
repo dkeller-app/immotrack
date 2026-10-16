@@ -24,6 +24,7 @@ import * as DgDelai from '../../js/core/dg-delai.js';
 import { _dgVerseMontant } from '../../js/core/gestion-dg-impayes.js';   // dépôt VERSÉ : définition unique (R-0)
 import { createStoreSync } from '../../js/core/store-sync.js';
 import { extraireFonction } from './_extraction-source.js';
+import * as PilotageLot from '../../js/core/pilotage-lot.js';   // « Pilotage du parc » (window.PilotageLot de l'app)
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = ['app-part1.js', 'app-part2.js'].map((f) => readFileSync(resolve(root, 'js/app', f), 'utf8'));
@@ -48,7 +49,7 @@ function monter(DB, noms, extra = {}) {
     _logLabel: (x) => String((x && typeof x === 'object') ? x.ref : x), _logLabelRef: (x) => String((x && typeof x === 'object') ? x.ref : x), escHtml: (x) => String(x == null ? '' : x), _isAlive: (x) => !!x && !x._deleted, fmt: (n) => String(Math.round(n || 0)) + ' €',
     el: (id) => (els[id] = els[id] || { id, value: '', innerHTML: '', textContent: '', style: {}, classList: { contains: () => false } }),
     showToast: (m) => { (base._toasts = base._toasts || []).push(m); }, confirm2: () => false,
-    _isPhone: () => false, _PIL_MTX_COLS: [], _dgVerseMontant, _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
+    _isPhone: () => false, _dgVerseMontant, _lyQ: (x) => String(x == null ? '' : x), Math, JSON, Number, String, Object, Array, Set, Map, Date, parseInt, parseFloat, isNaN,
     ...extra,
   };
   base.window = { bailLoueAu, finOccupationBail, bailHistCle, DgDelai, ...(extra.window || {}) };   // `extra.window` complète, n'écrase pas
@@ -152,14 +153,18 @@ describe('5 · lecteurs câblés (vraies fonctions de rendu)', () => {
     });
     expect(fn._v4ComputeLotStatus({ ref: 'A1', hc: 500, ch: 100 }, '2026').vacant).not.toBe(true);
   });
-  it('matrice Pilotage (_pilLotLigne) : pastille de paiement en dette ET action « Relouer »', () => {
+  it('Pilotage du parc (_pilLotLigne) : icône Loyer en dette ET « Mise en location » (lot devenu vide)', () => {
     const { fn } = monter(dbDe({ A1: DEPART }), [...STATUT, '_pilLotLigne'], {
-      _pilEstRepris: () => false, window: { pilotagePay: (loue, ref, imp) => (!loue ? 'na' : (imp.has(ref) ? 'neg' : 'pos')) },
+      window: { PilotageLot, pilotagePay: (loue, ref, imp) => (!loue ? 'na' : (imp.has(ref) ? 'neg' : 'pos')) },
     });
-    const lig = fn._pilLotLigne({ ref: 'A1', imm: 'Tilleuls', hc: 500, ch: 100 }, { solde: -600 }, AUJ, new Set(['A1']), null, {});
+    const refs = { impaye: new Set(['A1']), impayes: { A1: { ref: 'A1', reste: 600, depuisYm: '2026-09' } }, parRef: {} };
+    const lig = fn._pilLotLigne({ ref: 'A1', imm: 'Tilleuls', hc: 500, ch: 100 }, { solde: -600 }, AUJ, refs.impaye, refs);
     expect(lig.pay).toBe('neg');
     expect(lig.vacant).toBe(true);
-    expect(lig.actions.map((a) => a.label)).toContain('Relouer');
+    expect(lig.phase).toBe('relocation');
+    expect(lig.cases.loyer.map((l) => l.texte)).toEqual(['Impayé : 600 € depuis septembre.']);
+    expect(lig.cases.loc.map((l) => l.texte)).toContain('Aucun candidat.');
+    expect(lig.aFaire).toBe(true);
   });
   it('archivage d\'un logement : refusé tant que le bail est OUVERT (même vacant)', () => {
     const { fn, base } = monter(dbDe({ A1: DEPART }), [...STATUT, 'archiveLogement']);

@@ -7,6 +7,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 import * as BSE from '../../js/core/bail-signature-etat.js'
+import * as PilotageLot from '../../js/core/pilotage-lot.js'
 import { CHAMPS_BAIL, CHAMPS_VIE, cheminAutorise, diffModificationsBail } from '../../js/core/bail-modifications.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -257,42 +258,42 @@ describe('affichage : badges, carte Documents, matrice', () => {
     expect(R).toMatch(/_bailExterneAppliquer\(bail, bail, ext, ref\)/)
   })
 
-  // Matrice : le vrai _pilLotLigne, le vrai _pilStatutDoc ; le bail repris signé hors Propryo ne « réclame » plus le bail au vendeur.
-  function matrice(bail, edl = []) {
+  // Pilotage du parc (Accueil, MATRICE-ACCUEIL 16/10) : le vrai _pilLotLigne + le module PilotageLot. Un bail EN COURS (repris
+  // ou signé sur papier avant Propryo) ne réclame plus rien à vie ; un bail en préparation dit ce qui manque.
+  function ligne(bail, edl = []) {
     const sb = {
-      DB: { baux: { 'R-1': bail }, edl, logements: [], documents: [] }, window: { BailSignatureEtat: BSE },
+      DB: { baux: { 'R-1': bail }, edl, logements: [], documents: [] }, window: { BailSignatureEtat: BSE, PilotageLot },
       Date, String, Object, Array, Number, RegExp,
-      _lotEstLoue: () => true, _lotBailOuvert: () => true, _pilIrlDot: () => 'na', _ddtComplet: () => ({ complet: true }),
-      computeEntretienStatut: undefined, EQUIP_RULES: undefined,
+      _lotEstLoue: () => true, _lotBailOuvert: () => true, _ddtComplet: () => ({ complet: true, manquants: [], expires: [] }),
     }
     vm.createContext(sb)
-    const consts = ['_PIL_MTX_COLS', '_PIL_MTX_ACT', '_PIL_REPRIS_COLS', '_PIL_MTX_ACT_REPRIS'].map(n => {
-      const i = P1.indexOf('const ' + n + ' =')
-      return P1.slice(i, P1.indexOf(';\r\n', i) + 1)
-    }).join('\n')
-    vm.runInContext(consts + '\n' + ['_pilDocToDot', '_pilEstRepris', '_pilLotLigne'].map(n => fn(P1, n)).join('\n')
-      + '\n' + fn(P1, '_bailSuivantDebut') + '\n' + ['_edlSens', '_edlEntreeDuBail', '_pilStatutDoc'].map(n => fn(P2, n)).join('\n'), sb)
-    return sb._pilLotLigne({ ref: 'R-1', id: 1 }, null, new Date('2026-10-06T12:00:00'), null, null, null)
+    vm.runInContext(['_pilLotLigne'].map(n => fn(P1, n)).join('\n') + '\n' + fn(P1, '_bailSuivantDebut') + '\n'
+      + ['_edlSens', '_edlEntreeDuBail'].map(n => fn(P2, n)).join('\n'), sb)
+    return sb._pilLotLigne({ ref: 'R-1', id: 1 }, null, '2026-10-06', null, null)
   }
   const eEntree = [{ logement: 'R-1', type: 'Entrée', date: '2019-05-01' }]
   const repris = (sg) => ({ ref: 'R-1', debut: '2019-05-01', typeContrat: 'repris', ...(sg ? { signatures: sg } : {}) })
-  it('bail REPRIS non signé : « Réclamer le bail au vendeur »', () => {
-    const r = matrice(repris(), eEntree)
-    expect(r.dots[0]).toBe('ko')
-    expect(r.actions.map(a => a.label)).toContain('Réclamer le bail au vendeur')
+  it('bail REPRIS en cours, jamais déclaré : plus aucune réclamation à vie (ni bail, ni EDL, ni caution)', () => {
+    const r = ligne(repris(), [])
+    expect(r.phase).toBe('en-cours')
+    expect(r.cases.loc).toBeNull()
+    expect(r.aFaire).toBe(false)
   })
-  it('bail REPRIS déclaré signé hors Propryo : la matrice passe à OK, plus de « Réclamer le bail au vendeur »', () => {
-    const r = matrice(repris(BSE.declarerSignatureExterne({ typeContrat: 'repris' }, { date: '2019-04-20', now: '2026-10-06T08:00:00Z' })), eEntree)
-    expect(r.dots[0]).toBe('ok')
-    expect(r.actions.map(a => a.label)).not.toContain('Réclamer le bail au vendeur')
+  it('bail REPRIS déclaré signé hors Propryo : toujours rien à faire', () => {
+    const r = ligne(repris(BSE.declarerSignatureExterne({ typeContrat: 'repris' }, { date: '2019-04-20', now: '2026-10-06T08:00:00Z' })), eEntree)
+    expect(r.aFaire).toBe(false)
   })
-  it('bail REPRIS en signature partielle : pas OK (corrige le constat 0.3)', () => {
-    expect(matrice(repris({ signedAt: '2026-09-20T10:00:00Z', mode: 'bailleur-seul' }), eEntree).dots[0]).not.toBe('ok')
+  it('signature commencée dans Propryo (bailleur seul) : « Mise en location » dit que le locataire n’a pas signé', () => {
+    const r = ligne(repris({ signedAt: '2026-09-20T10:00:00Z', mode: 'bailleur-seul' }), eEntree)
+    expect(r.phase).toBe('preparation')
+    expect(r.cases.loc.map(l => l.texte)).toContain('Bail : signature du locataire en attente.')
   })
-  it('bail ordinaire : externe = signé, partiel = en cours', () => {
-    const nu = (sg) => ({ ref: 'R-1', debut: '2024-03-01', signatures: sg })
-    expect(matrice(nu(BSE.declarerSignatureExterne({}, { date: '2024-02-20', now: '2026-10-06T08:00:00Z' })), []).dots[0]).toBe('ok')
-    expect(matrice(nu({ signedAt: '2026-09-20T10:00:00Z', mode: 'bailleur-seul' }), []).dots[0]).toBe('wn')
-    expect(matrice(nu({ signedAt: '2024-02-20T10:00:00Z', mode: 'avec-locataire' }), []).dots[0]).toBe('ok')
+  it('bail ordinaire à venir : externe = signé (rien sur le bail), non signé = « Bail à signer » + « Signé sur papier »', () => {
+    const nu = (sg) => ({ ref: 'R-1', debut: '2026-11-01', ...(sg ? { signatures: sg } : {}) })
+    const ext = ligne(nu(BSE.declarerSignatureExterne({}, { date: '2026-10-01', now: '2026-10-06T08:00:00Z' })), [])
+    expect(ext.cases.loc.map(l => l.texte)).not.toContain('Bail à signer (entrée le 01/11/2026).')
+    const non = ligne(nu(null), [])
+    expect(non.cases.loc[0].texte).toBe('Bail à signer (entrée le 01/11/2026).')
+    expect(non.cases.loc[0].gestes.map(g => g.geste)).toEqual(['bail', 'bail-papier'])
   })
 })

@@ -49,21 +49,66 @@
     return Math.round((d - t) / 86400000)
   }
 
+  // MATRICE-ACCUEIL (16/10) — QUELLE attestation compte pour le locataire en place :
+  //  - celle du locataire PRÉCÉDENT ne compte pas : échéance antérieure à l'entrée (log.debut), ou nom différent ET
+  //    enregistrée plus de 60 jours avant l'entrée (départ en cours d'année : son attestation court encore). Un nom différent
+  //    seul ne suffit pas : il est figé à l'enregistrement (correction d'orthographe après l'entrée, colocataire remplacé) ;
+  //  - parmi les autres, la plus récente : une attestation SANS échéance saisie après la dernière attestation datée la
+  //    remplace (ni « expirée », ni « manquante ») ; sinon l'échéance la plus lointaine.
+  const _creeLe = (m) => (Number(m && m.id) > 1e12 ? Number(m.id) : (Date.parse((m && m._modifiedAt) || '') || 0))
+  const _ISO = /^\d{4}-\d{2}-\d{2}/
+  const _nomNorm = (s) => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ').replace(/\b(m|mme|mlle|mr|monsieur|madame|mademoiselle|et)\b/g, ' ').replace(/\s+/g, ' ').trim()
+  // Même personne si l'un des noms contient tous les mots de l'autre (« Durand » / « Mme Durand », un couple / l'un des deux).
+  function _memeLocataire(a0, b0) {
+    const a = _nomNorm(a0), b = _nomNorm(b0)
+    if (!a || !b) return true
+    const ta = a.split(' '), tb = b.split(' ')
+    const inclus = (x, y) => x.every(t => y.indexOf(t) >= 0)
+    return inclus(ta, tb) || inclus(tb, ta)
+  }
+  function attestationPourLocataire(m, log) {
+    if (!m || !log) return true
+    const deb = _ISO.test(String(log.debut || '')) ? String(log.debut).slice(0, 10) : ''
+    if (!deb) return true
+    if (_ISO.test(String(m.echeance || '')) && String(m.echeance).slice(0, 10) < deb) return false
+    if (!_memeLocataire(m.locataire, log.locataire)) {
+      const limite = Date.parse(deb + 'T00:00:00Z') - 60 * 864e5
+      if (_creeLe(m) < limite) return false
+    }
+    return true
+  }
+  function attestationCourante(mrhList, log) {
+    const l = (mrhList || []).filter(alive).filter(m => m.logement === (log && log.ref) && attestationPourLocataire(m, log))
+    if (!l.length) return null
+    const datees = l.filter(m => _ISO.test(String(m.echeance || '')))
+    const derniereDatee = datees.slice().sort((a, b) => String(b.echeance).localeCompare(String(a.echeance)))[0] || null
+    const sansDate = l.filter(m => datees.indexOf(m) < 0).sort((a, b) => _creeLe(b) - _creeLe(a))[0] || null
+    if (sansDate && (!derniereDatee || _creeLe(sansDate) > _creeLe(derniereDatee))) return sansDate
+    return derniereDatee || sansDate
+  }
+
   /** Assurance habitation locataire MANQUANTE (obligatoire, art. 7g loi 89-462).
-   *  Source canonique : la collection mrh (PAS assurances). → [{ref, locataire}] */
+   *  Source canonique : la collection mrh (PAS assurances). → [{ref, locataire}]
+   *  L'attestation du locataire précédent ne compte pas (attestationPourLocataire). */
   function mrhManquante(scopeLogs, mrhList) {
     const list = (mrhList || []).filter(alive)
     return (scopeLogs || [])
-      .filter(l => l && l.locataire && !list.some(m => m.logement === l.ref))
+      .filter(l => l && l.locataire && !attestationCourante(list, l))
       .map(l => ({ ref: l.ref, locataire: l.locataire || '' }))
   }
 
   /** Échéances des attestations d'assurance habitation (expirées ou < horizon jours).
-   *  scopé entité via logements. → [{ref, echeance, jours, expiree}] */
+   *  scopé entité via logements. → [{ref, echeance, jours, expiree}]
+   *  MATRICE-ACCUEIL (16/10) — seule l'attestation COURANTE du logement compte (attestationCourante) : ajouter la
+   *  nouvelle attestation (saveMrh crée une fiche à côté de l'ancienne), même sans échéance, éteint l'alerte « expirée ». */
   function mrhEcheances(mrhList, logements, activeEnt, today, horizon = 30) {
     const out = []
-    ;(mrhList || []).filter(alive).forEach(m => {
-      if (!m.echeance) return
+    const list = (mrhList || []).filter(alive)
+    const logs = new Map((logements || []).filter(alive).map(l => [l.ref, l]))
+    const refs = [...new Set(list.map(m => m.logement))]
+    refs.map(ref => attestationCourante(list, logs.get(ref) || { ref })).forEach(m => {
+      if (!m || !m.echeance) return   // attestation courante sans échéance : rien à signaler
       if (activeEnt) {
         const log = (logements || []).find(l => alive(l) && l.ref === m.logement)
         if (!log || log.entity !== activeEnt) return
@@ -181,6 +226,8 @@
   global.AlertRules = {
     mrhManquante: mrhManquante,
     mrhEcheances: mrhEcheances,
+    attestationCourante: attestationCourante,
+    attestationPourLocataire: attestationPourLocataire,
     pnoEcheances: pnoEcheances,
     irlClassifier: irlClassifier,
     regulAEmettre: regulAEmettre,
