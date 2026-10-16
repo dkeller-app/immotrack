@@ -13464,7 +13464,7 @@ function _candCmpTaux(id){
   const S = AD.SOURCES;
   const pos = t.pct == null ? '' : (t.situation ? (_uiIcon(t.situation === 'dans' ? 'check' : 'arrow-up', 14) + escHtml(t.situation === 'dans' ? 'dans le repère (' : 'au-dessus du repère (') + escHtml(String(repere).replace('.', ',')) + ' %)') : 'aucun repère fixé');
   const h = '<div class="cmp-big"><b>' + (t.pct == null ? '—' : escHtml(String(t.pct)) + ' %') + '</b><span>' + pos + '</span></div>'
-    + '<div class="kv-grid">'
+    + '<div class="cmp-kv">'
     + '<div class="k">Loyer charges comprises</div><div class="v">' + (L.cc > 0 ? escHtml(fmt(L.cc)) + ' <span class="mu">(' + escHtml(fmt(L.hc)) + ' + ' + escHtml(fmt(L.ch)) + ')</span>' : '<span class="mu">à renseigner dans le logement</span>') + '</div>'
     + '<div class="k">Ressources nettes mensuelles<br><span class="mu sm">allocations comprises</span></div><div class="v">' + (t.ressources > 0 ? escHtml(fmt(t.ressources)) : '<span class="mu">non renseignées</span>')
     + ' <span class="conf-decl">' + (t.examinees ? 'examinées' : 'déclarées') + '</span></div>'
