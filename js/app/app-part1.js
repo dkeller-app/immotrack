@@ -14097,8 +14097,17 @@ function _candVerifBadgeHtml(e){
 }
 function _candVerifLigneHtml(d){
   const e = _candVerifEtat(d); if(!e) return '';
-  return '<div class="cand-vrf"><span class="k">Vérification</span><button type="button" class="cand-vbdg ' + e.etat + (e.vert ? ' vert' : '') + '" onclick="_candVerifDetail(\'' + _lyQ(d.id) + '\')" title="Voir le détail de la vérification">'
-    + _candVerifBadgeHtml(e) + '</button></div>';
+  const q = '\'' + _lyQ(d.id) + '\'';
+  return '<div class="cand-vrf"><span class="k">Vérification</span><button type="button" class="cand-vbdg ' + e.etat + (e.vert ? ' vert' : '') + '" onclick="_candVerifDetail(' + q + ')" title="Voir le détail de la vérification">'
+    + _candVerifBadgeHtml(e) + '</button></div>' + _candVerifRaisonHtml(e.resume, '_candVerifDetail(' + q + ')');
+}
+// REGLES-PAIE (décision de Didier, 16/10) : sous un badge « À vérifier » ou « Non vérifiable », UNE ligne visible sans clic —
+// la cause et quoi vérifier (textes : js/core, RAISONS_PIECE / raisonDe) ; « + N autre(s) » ouvre le détail.
+function _candVerifRaisonHtml(r, ouvrir){
+  if(!r || !r.texte) return '';
+  const n = Number(r.autres) || 0;
+  return '<div class="cand-vrf-raison"><span>' + escHtml(r.texte) + '</span>'
+    + (n ? ' <button type="button" class="lien" onclick="' + ouvrir + '">+ ' + n + ' autre' + (n > 1 ? 's' : '') + '</button>' : '') + '</div>';
 }
 // Ligne de tête des pièces : un compte de PIÈCES (jamais un avis sur la personne). `docs` = pièces affichées avec un état.
 function _candVerifResumeHtml(c, docs){
@@ -14108,7 +14117,8 @@ function _candVerifResumeHtml(c, docs){
   if(!r.texte && !dossier.length) return '';
   return '<div class="cand-vrf-resume"><span class="k">Pièces :</span>' + (r.texte ? '<span>' + escHtml(r.texte) + '</span>' : '')
     + (dossier.length ? '<button type="button" class="cand-vbdg averif" onclick="_candVerifDossierDetail(\'' + _lyQ(c.id) + '\')">' + _uiIcon('warn', 14) + '<span>Bulletins : à vérifier</span></button>' : '')
-    + '</div>';
+    + '</div>'
+    + (dossier.length && window.VerifPieces.resumeConstats ? _candVerifRaisonHtml(window.VerifPieces.resumeConstats(dossier), '_candVerifDossierDetail(\'' + _lyQ(c.id) + '\')') : '');
 }
 function _candVerifCopier(txt){
   try{ navigator.clipboard.writeText(String(txt)).then(() => showToast('Copié', 'ok', 1500), () => showToast('Copie impossible : sélectionner le texte à la main.', 'warn')); }

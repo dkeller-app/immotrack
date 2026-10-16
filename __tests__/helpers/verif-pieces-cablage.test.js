@@ -16,7 +16,7 @@ import * as LecturePhotoClient from '../../js/core/lecture-photo-client.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
-const SRC = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_ensureZxing', '_canvasVersGris', '_zxingLecteur', '_lecturePhotoClient', '_candVerifEtat', '_candVerifBadgeHtml', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifResumeHtml', '_candVerifLignesHtml', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
+const SRC = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_ensureZxing', '_canvasVersGris', '_zxingLecteur', '_lecturePhotoClient', '_candVerifEtat', '_candVerifBadgeHtml', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifRaisonHtml', '_candVerifResumeHtml', '_candVerifLignesHtml', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
   .map((n) => extraireFonction(P1, n)).join('\n') + '\n'
   + 'async ' + extraireFonction(P1, '_tddocConfiance') + '\n'
   + 'async ' + extraireFonction(P1, '_lirePhotoCanvas') + '\n'

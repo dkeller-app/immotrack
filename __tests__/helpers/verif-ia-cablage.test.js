@@ -14,7 +14,7 @@ import * as IaTransparence from '../../js/core/ia-transparence.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const NOMS = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_candIaClient', '_candIaPieces', '_candIaAnalyse', '_candIaAFaire', '_candIaLotHtml', '_candIaOuvrir', '_candIaDetailHtml', '_candIaCorriger',
-  '_candVerifEtat', '_candVerifBadgeHtml', '_candVerifLigneHtml', '_candVerifResumeHtml', '_candVerifParams', 'rParamsCandidatures', '_candVerifReglerLocaux', '_candVerifReglerIa', '_candVerifReglerModeIa', '_candVerifNoticeIa', '_candVerifActiverIa'];
+  '_candVerifEtat', '_candVerifBadgeHtml', '_candVerifLigneHtml', '_candVerifRaisonHtml', '_candVerifResumeHtml', '_candVerifParams', 'rParamsCandidatures', '_candVerifReglerLocaux', '_candVerifReglerIa', '_candVerifReglerModeIa', '_candVerifNoticeIa', '_candVerifActiverIa'];
 const SRC = NOMS.map((n) => extraireFonction(P1, n)).join('\n') + '\nasync ' + extraireFonction(P1, '_candIaDispo') + '\nasync ' + extraireFonction(P1, '_candIaServiceOuvert') + '\nasync ' + extraireFonction(P1, '_candIaLancer');
 const escHtml = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const LU_AOUT = { lisible: true, periode: '2026-08', salarie: 'DUPONT Camille', employeur: 'C', siret: '00000000100016', dateEntree: null, heures: 151.67, tauxHoraire: 19.4501, salaireBase: 2950, brut: 2950, totalCotisations: 658.6, autresLignes: [],
@@ -77,6 +77,10 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(e.lignes.some((l) => l.texte === 'Non lu : net à payer et impôt prélevé')).toBe(true);
     expect(e.note).toBe(IaTransparence.MENTION_PROPOSITION + '.');
     expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<span>Non vérifiable</span>');
+    // Décision de Didier (16/10) : la cause et quoi vérifier, visibles sans clic, échappées ; « + N autres » ouvre le détail.
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<div class="cand-vrf-raison"><span>Le net payé ne correspond pas au calcul — comparer avec le virement du salaire sur le relevé bancaire.</span>');
+    expect(app._candVerifRaisonHtml({ texte: '<img src=x onerror=alert(1)>', autres: 2 }, 'f()')).toBe('<div class="cand-vrf-raison"><span>&lt;img src=x onerror=alert(1)&gt;</span> <button type="button" class="lien" onclick="f()">+ 2 autres</button></div>');
+    expect(app._candVerifRaisonHtml(null, 'f()')).toBe('');
     await app._candIaLancer('c1');                                   // déjà lue : rien de plus
     expect(j.appels.length).toBe(1);
   });

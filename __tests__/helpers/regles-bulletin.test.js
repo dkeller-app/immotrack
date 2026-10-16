@@ -3,7 +3,7 @@
 // Données fictives (SIRET fictifs à clé valide).
 import { describe, it, expect } from 'vitest';
 import { reglesInternes, analyserBulletins, valeursRetenues, lireSaisie, libellePeriode, euros, TOLERANCES, categorieLigne,
-  variantesLecture, variantesChiffres, CHAMPS_BULLETIN, NUMERIQUES, LIGNES_MAX } from '../../js/core/regles-bulletin.js';
+  variantesLecture, variantesChiffres, CHAMPS_BULLETIN, NUMERIQUES, LIGNES_MAX, raisonDe } from '../../js/core/regles-bulletin.js';
 
 const INTERDITS = /fraude|frauduleu|\bfaux\b|fausse|falsifi|suspect|douteu|(?<!véri)fiable|truqu|mensong|\bscore\b/i;
 const LIGNES = [
@@ -195,7 +195,8 @@ describe('analyse du dossier', () => {
   });
   it('contrat (page 1) : date d\'entrée différente de celle du bulletin', () => {
     const a = analyserBulletins({ pieces: [piece('a', AOUT), { id: 'c', nom: 'contrat.pdf', type: 'contrat', ia: { lu: { lisible: true, dateDebut: '2024-03-01', siret: '00000000200014' } } }], identite: ID });
-    expect(a.constats.map((c) => c.code)).toEqual(['B7']);
+    expect(a.constats).toEqual([]);   // décision de Didier (16/10) : « Non vérifiable » avec sa raison
+    expect(a.parPiece.c.regles).toEqual([expect.objectContaining({ code: 'B7', ok: null, quoi: 'date' })]);
     expect(a.parPiece.c.etat).toBe('lu');
   });
   it('lecture illisible, erreur, pas encore lue : aucun constat', () => {
@@ -390,6 +391,54 @@ describe('relecture finale du 16/10 (« SÛR après corrections »)', () => {
     const proche = analyserBulletins({ pieces: [piece('a', AOUT), c('2023-10-02')], identite: ID });
     expect(proche.constats).toEqual([]);
     expect(proche.parPiece.c.regles).toEqual([expect.objectContaining({ code: 'B7', ok: null })]);
-    expect(analyserBulletins({ pieces: [piece('a', AOUT), c('2024-03-01')], identite: ID }).constats.map((x) => x.code)).toEqual(['B7']);
+    const loin = analyserBulletins({ pieces: [piece('a', AOUT), c('2024-03-01')], identite: ID });
+    expect(loin.constats).toEqual([]);
+    expect(loin.parPiece.c.regles[0]).toMatchObject({ code: 'B7', ok: null, proche: false });
+  });
+});
+
+describe('raisons affichées sans clic (décision de Didier, 16/10) : cause + quoi vérifier, au ton neutre', () => {
+  const TU_VOUS = /\b(tu|toi|ton|ta|tes|vous|votre|vos)\b/i;
+  it('chaque règle et chaque constat de dossier a une cause et quoi vérifier (infinitif, ni tu ni vous)', () => {
+    const cas = ['B1', 'N1', 'B4', 'CB', 'C2', 'B2', 'S1', 'L1', 'TL', 'CS', 'B6', 'B5', 'B7', 'X'].flatMap((code) => [{ code, ok: false }, { code, ok: null }]);
+    cas.push({ code: 'B6', quoi: 'siret', ok: false }, { code: 'B5', mois: 'août 2026', ok: false }, { code: 'B7', quoi: 'employeur', ok: false }, { code: 'B7', quoi: 'date', proche: true, ok: null });
+    for (const x of cas) {
+      const r = raisonDe(x);
+      expect(r.cause.length, x.code).toBeGreaterThan(5); expect(r.verifier.length, x.code).toBeGreaterThan(5);
+      expect(r.cause + ' ' + r.verifier).not.toMatch(TU_VOUS);
+      expect(r.verifier).toMatch(/^(comparer|vérifier|demander|chercher|un |date |une |lire|relancer)/);
+      expect(r.rang).toBeGreaterThan(0);
+    }
+    expect(raisonDe({ code: 'B5', mois: 'août 2026' })).toMatchObject({ cause: 'Mois manquant (août 2026)', verifier: 'demander le bulletin manquant' });
+  });
+  it('règles et constats portent leur raison ; TL cite le taux attendu ; B7 CDD puis CDI → « Non vérifiable » expliqué', () => {
+    const tl = analyserBulletins({ pieces: [piece('a', avecLigne(AOUT, 5, { taux: 5.8, montant: 175.14 }))], identite: ID });
+    expect(tl.constats[0]).toMatchObject({ code: 'TL', cause: 'Taux de « CSG déductible de l\'impôt sur le revenu » différent du taux légal 2026 (6,8 % attendu)', verifier: 'vérifier la pièce d\'origine' });
+    const net = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 })], identite: ID });
+    expect(net.parPiece.a.regles.find((r) => r.code === 'B1')).toMatchObject({ cause: 'Le net payé ne correspond pas au calcul', verifier: 'comparer avec le virement du salaire sur le relevé bancaire' });
+    const c = { id: 'c', nom: 'contrat.pdf', type: 'contrat', ia: { lu: { lisible: true, dateDebut: '2025-03-01', siret: '00000000200014' } } };
+    const b7 = analyserBulletins({ pieces: [piece('a', AOUT), c], identite: ID });
+    expect(b7.constats).toEqual([]);
+    expect(b7.parPiece.c.regles[0]).toMatchObject({ code: 'B7', ok: null, cause: 'Date d\'entrée différente du contrat', verifier: 'un CDD suivi d\'un CDI peut l\'expliquer ; vérifier l\'avenant ou le nouveau contrat' });
+  });
+  it('etatPiece : une ligne par pièce (cause la plus importante, « + N autres ») ; rien pour une pièce OK', async () => {
+    const VP = await import('../../js/core/verif-pieces.js');
+    const doc = { id: 'a', parentType: 'candidat', category: 'revenus', pieceType: 'I.D.2', mime: 'application/pdf' };
+    const etat = (v) => { const a = analyserBulletins({ pieces: [piece('a', v)], identite: ID }); return VP.etatPiece({ doc, verif: null, ia: Object.assign({}, a.parPiece.a, { constats: a.constats }), iaLue: true }); };
+    expect(etat(AOUT)).toMatchObject({ etat: 'ok', resume: null });
+    const nv = etat({ ...AOUT, netAPayer: 2140 });
+    expect(nv.resume.texte).toBe('Le net payé ne correspond pas au calcul — comparer avec le virement du salaire sur le relevé bancaire.');
+    const av = etat(avecLigne(AOUT, 5, { taux: 5.8, montant: 175.14 }));
+    expect(av.etat).toBe('averif'); expect(av.resume.texte).toMatch(/^Taux de « CSG déductible.*6,8 % attendu\) — vérifier la pièce d'origine\.$/);
+    const avis = VP.etatPiece({ doc: { id: 'x', parentType: 'candidat', pieceType: 'I.D.1', mime: 'application/pdf' }, verif: { constats: [], indices: { metadonnees: {} } }, ia: null, iaLue: false });
+    expect(avis.resume.texte).toBe('Code de l\'État illisible — vérifier l\'avis sur impots.gouv avec le numéro fiscal et la référence de l\'avis.');
+    expect(avis.resume.autres).toBeGreaterThanOrEqual(1);
+    for (const [cause, verifier] of Object.values(VP.RAISONS_PIECE)) expect(cause + ' ' + verifier).not.toMatch(TU_VOUS);
+  });
+  it('constats de dossier : mois manquant résumé en une ligne', async () => {
+    const VP = await import('../../js/core/verif-pieces.js');
+    const b = (p) => ({ ...AOUT, periode: p, cumulBrut: null, cumulNetImposable: null });
+    const a = analyserBulletins({ pieces: [piece('1', b('2026-01')), piece('4', b('2026-04')), piece('7', b('2026-07'))], identite: ID });
+    expect(VP.resumeConstats(a.constats.filter((k) => !k.pieceId)).texte).toMatch(/^Mois manquant \(février 2026, mars 2026, mai 2026, juin 2026\) — demander le bulletin manquant\.$/);
   });
 });

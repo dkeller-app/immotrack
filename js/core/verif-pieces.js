@@ -245,19 +245,60 @@ const RAISON_NON_VERIFIABLE = {
 };
 const phraseCourte = (t) => { const s = String(t || '').trim().replace(/\.$/, ''); return s.charAt(0).toUpperCase() + s.slice(1); };
 const sansPrefixe = (t) => phraseCourte(String(t || '').replace(/^[^:]*\s:\s/, ''));
+// ── Raisons affichées sous le badge (décision de Didier, 16/10) : pour « À vérifier » et « Non vérifiable », UNE ligne
+// visible sans clic : la CAUSE et QUOI VÉRIFIER, au ton neutre (infinitif). Données pures ; `rang` 1 = la plus importante.
+const IMPOTS_GOUV = 'vérifier l\'avis sur impots.gouv avec le numéro fiscal et la référence de l\'avis';
+export const RAISONS_PIECE = Object.freeze({
+  illisible: ['Fichier illisible', 'demander le fichier d\'origine en PDF', 1],
+  autreType: ['Le code officiel porte sur un autre type de document', 'vérifier que la pièce correspond à son intitulé', 1],
+  autreCode: ['Un autre code officiel de la pièce n\'est pas conforme', 'vérifier la pièce d\'origine', 1],
+  signeAbsent: ['Valeur signée absente du fichier', 'comparer la valeur signée et la valeur imprimée dans le détail', 1],
+  nomDiffere: ['Nom différent de celui déclaré', 'un nom d\'usage peut l\'expliquer ; vérifier la pièce d\'identité', 1],
+  avisAncien: ['Avis qui n\'est ni le dernier ni l\'avant-dernier', 'demander le dernier avis d\'imposition', 2],
+  signatureInvalide: ['Code officiel non conforme', IMPOTS_GOUV, 1],
+  signatureRevoquee: ['Signature révoquée par son émetteur', IMPOTS_GOUV, 1],
+  signatureNonVerifiable: ['Signature officielle non vérifiable', 'comparer avec la pièce d\'origine', 2],
+  signatureNonVerifiableAvis: ['Signature de l\'État non vérifiable', IMPOTS_GOUV, 2],
+  codeIllisible: ['Code de l\'État illisible', IMPOTS_GOUV, 2],
+  anneeNonComparee: ['Année des revenus non comparée', 'vérifier que l\'avis est le dernier ou l\'avant-dernier', 4],
+  fichierModifie: ['Fichier modifié ou ré-enregistré après sa création', 'un ré-enregistrement peut l\'expliquer ; comparer avec la pièce d\'origine', 3],
+  textesSuperposes: ['Deux textes superposés au même endroit', 'comparer les montants avec la pièce d\'origine', 2],
+  datesAbsentes: ['Dates du fichier absentes', 'comparer les montants avec les autres pièces du dossier', 5],
+  aucunCode: ['Aucun code officiel sur la pièce', 'comparer les montants avec les autres pièces du dossier', 6],
+  pageIllisible: ['Page illisible pour la lecture des montants', 'lire les montants sur la pièce', 2],
+  lectureReportee: ['Lecture des montants reportée', 'relancer la lecture plus tard', 4],
+  montantsBulletin: ['Montants non lus avec certitude', 'comparer le net payé avec le virement du salaire sur le relevé bancaire', 3],
+  montantsContrat: ['Contrat non comparé aux bulletins', 'vérifier la date d\'entrée et l\'employeur sur le contrat', 3],
+  defaut: ['Aucun contrôle n\'a pu conclure', 'comparer la pièce aux autres pièces du dossier', 9],
+});
+const avec = (cle, ligne) => { const r = RAISONS_PIECE[cle]; return Object.assign(ligne, { cause: r[0], verifier: r[1], rang: r[2] }); };
+/** Résumé d'une ligne pour un état « À vérifier » (écarts) ou « Non vérifiable » (contrôles non concluants) :
+ *  la raison la plus importante, et le nombre d'autres raisons (consultables au clic). Null pour les autres états. */
+export function resumeRaisons(etat, lignes) {
+  if (etat !== 'averif' && etat !== 'nonverif') return null;
+  const c = (lignes || []).filter((l) => l && l.cause && (etat === 'averif' ? l.type === 'ecart' : l.type === 'non')).sort((a, b) => (a.rang || 9) - (b.rang || 9));
+  const t = c[0] || { cause: RAISONS_PIECE.defaut[0], verifier: RAISONS_PIECE.defaut[1] };
+  return { cause: t.cause, verifier: t.verifier, texte: `${t.cause} — ${t.verifier}.`, autres: Math.max(0, c.length - 1) };
+}
+/** Résumé des constats de DOSSIER (période absente…) : même forme que resumeRaisons. */
+export function resumeConstats(constats) {
+  const c = (constats || []).filter((x) => x && x.cause).sort((a, b) => (a.rang || 9) - (b.rang || 9));
+  if (!c.length) return null;
+  return { cause: c[0].cause, verifier: c[0].verifier, texte: c[0].cause + ' — ' + c[0].verifier + '.', autres: c.length - 1 };
+}
 function lignesIndices(verif) {
   const out = []; const ind = verif.indices; if (!ind) return out;
   for (const t of indicesTechniques(ind)) {
     if (t.code === 'T1') {
       const a = lireDatePdf(ind.metadonnees && ind.metadonnees.creeLe), b = lireDatePdf(ind.metadonnees && ind.metadonnees.modifieLe);
       const j = a && b ? Math.floor((b - a) / 86400000) : 0;
-      out.push({ type: 'ecart', texte: j ? `Fichier modifié ${j} jour${j > 1 ? 's' : ''} après sa création` : 'Fichier modifié après sa création' });
-    } else if (t.code === 'T2') out.push({ type: 'ecart', texte: `Fichier enregistré ${ind.enregistrements} fois` });
-    else if (t.code === 'T3') out.push({ type: 'ecart', texte: phraseCourte(t.titre) });
+      out.push(avec('fichierModifie', { type: 'ecart', texte: j ? `Fichier modifié ${j} jour${j > 1 ? 's' : ''} après sa création` : 'Fichier modifié après sa création' }));
+    } else if (t.code === 'T2') out.push(avec('fichierModifie', { type: 'ecart', texte: `Fichier enregistré ${ind.enregistrements} fois` }));
+    else if (t.code === 'T3') out.push(avec('textesSuperposes', { type: 'ecart', texte: phraseCourte(t.titre) }));
   }
   if (!out.length) {
     const m = ind.metadonnees || {};
-    out.push(lireDatePdf(m.creeLe) && lireDatePdf(m.modifieLe) ? { type: 'ok', texte: 'Rien relevé dans le fichier' } : { type: 'non', texte: 'Dates du fichier absentes : modifications non contrôlées' });
+    out.push(lireDatePdf(m.creeLe) && lireDatePdf(m.modifieLe) ? { type: 'ok', texte: 'Rien relevé dans le fichier' } : avec('datesAbsentes', { type: 'non', texte: 'Dates du fichier absentes : modifications non contrôlées' }));
   }
   return out;
 }
@@ -283,16 +324,16 @@ export function etatPiece({ doc, verif, ia, iaLue, refuse }) {
   const estImage = /^image\//i.test(String(doc.mime || ''));
   const codes = new Set((v.constats || []).map((c) => c.code));
   const dd = v.deuxDDoc; let impots = null;
-  if (v.illisible) lignes.push({ type: 'non', texte: 'Fichier illisible' });
+  if (v.illisible) lignes.push(avec('illisible', { type: 'non', texte: 'Fichier illisible' }));
   else if (verif) {
     if (dd && dd.etat === ETAT.VALIDE) {
       lignes.push({ type: 'ok', vert: true, texte: estDgfip(dd) ? 'Signature de la DGFiP vérifiée' : 'Signature officielle vérifiée' });
-      if (codes.has('V8')) lignes.push({ type: 'ecart', texte: 'Le code signé porte sur un autre type de document' });
-      if (dd.autresNonConformes) lignes.push({ type: 'ecart', texte: 'Un autre code de la pièce n\'est pas conforme' });
+      if (codes.has('V8')) lignes.push(avec('autreType', { type: 'ecart', texte: 'Le code signé porte sur un autre type de document' }));
+      if (dd.autresNonConformes) lignes.push(avec('autreCode', { type: 'ecart', texte: 'Un autre code de la pièce n\'est pas conforme' }));
       const cmp = dd.comparaisons || [];
       if (cmp.length) {
         const abs = cmp.filter((c) => c.statut === 'absent');
-        if (abs.length) abs.forEach((c) => lignes.push({ type: 'ecart', texte: `${c.libelle} signé absent du fichier` }));
+        if (abs.length) abs.forEach((c) => lignes.push(Object.assign(avec('signeAbsent', { type: 'ecart', texte: `${c.libelle} signé absent du fichier` }), { cause: `${c.libelle} signé absent du fichier` })));
         else lignes.push({ type: 'ok', texte: 'Données signées retrouvées dans le fichier' });
       } else if (TYPES_AVIS_IMPOT.includes(dd.type)) {
         const rfr = (dd.champs || []).find((c) => c.id === '41');
@@ -300,37 +341,37 @@ export function etatPiece({ doc, verif, ia, iaLue, refuse }) {
       }
       const qui = dd.qui === 'garant' ? 'du garant' : 'du candidat';
       if (dd.identite === 'concorde') lignes.push({ type: 'ok', texte: `Nom identique au ${dd.qui === 'garant' ? 'garant' : 'candidat'}` });
-      else if (dd.identite === 'differe') lignes.push({ type: 'ecart', texte: `Nom différent de celui ${qui} : ${(dd.nomsSignes || []).join(' · ')} (déclaré : ${dd.identiteAttendue || '—'})` });
-      if (codes.has('V7')) lignes.push({ type: 'ecart', texte: `Revenus ${dd.annee} : ni le dernier ni l'avant-dernier avis` });
-      else if (TYPES_AVIS_IMPOT.includes(dd.type) && dd.annee) lignes.push(doc.uploadedAt ? { type: 'ok', texte: 'Avis de l\'année attendue' } : { type: 'non', texte: `Revenus ${dd.annee} : année non comparée` });
+      else if (dd.identite === 'differe') lignes.push(Object.assign(avec('nomDiffere', { type: 'ecart', texte: `Nom différent de celui ${qui} : ${(dd.nomsSignes || []).join(' · ')} (déclaré : ${dd.identiteAttendue || '—'})` }), { cause: `Nom différent de celui ${qui}` }));
+      if (codes.has('V7')) lignes.push(Object.assign(avec('avisAncien', { type: 'ecart', texte: `Revenus ${dd.annee} : ni le dernier ni l'avant-dernier avis` }), { cause: `Avis des revenus ${dd.annee} : ni le dernier ni l'avant-dernier` }));
+      else if (TYPES_AVIS_IMPOT.includes(dd.type) && dd.annee) lignes.push(doc.uploadedAt ? { type: 'ok', texte: 'Avis de l\'année attendue' } : avec('anneeNonComparee', { type: 'non', texte: `Revenus ${dd.annee} : année non comparée` }));
       if (dd.svair) impots = Object.assign({}, dd.svair);
     } else if (dd && dd.etat === ETAT.INVALIDE) {
-      lignes.push({ type: 'ecart', texte: dd.code === 'revoque' ? 'Signature révoquée par son émetteur' : 'Signature non conforme au code officiel' });
+      lignes.push(dd.code === 'revoque' ? avec('signatureRevoquee', { type: 'ecart', texte: 'Signature révoquée par son émetteur' }) : avec('signatureInvalide', { type: 'ecart', texte: 'Signature non conforme au code officiel' }));
     } else if (dd) {
-      lignes.push({ type: 'non', texte: 'Signature non vérifiable : ' + (RAISON_NON_VERIFIABLE[dd.code] || 'code non reconnu') });
+      lignes.push(avec(estAvis ? 'signatureNonVerifiableAvis' : 'signatureNonVerifiable', { type: 'non', texte: 'Signature non vérifiable : ' + (RAISON_NON_VERIFIABLE[dd.code] || 'code non reconnu') }));
     } else if (estAvis) {
-      lignes.push({ type: 'non', texte: estImage ? 'Code officiel illisible sur la photo' : 'Code officiel absent ou illisible' });
-    } else lignes.push({ type: 'non', texte: 'Aucun code officiel lu' });
+      lignes.push(avec('codeIllisible', { type: 'non', texte: estImage ? 'Code officiel illisible sur la photo' : 'Code officiel absent ou illisible' }));
+    } else lignes.push(avec('aucunCode', { type: 'non', texte: 'Aucun code officiel lu' }));
     lignes.push(...lignesIndices(v));
   }
   // Lecture des montants (règles quelconques) : seulement si une lecture a eu lieu.
   let note = '';
   if (iaLue && ia) {
-    if (ia.etat === 'illisible') { lignes.push({ type: 'non', texte: 'Non lu : page illisible', lu: true }); note = MENTION_PROPOSITION + '.'; }
-    else if (ia.etat === 'ia_erreur') lignes.push({ type: 'non', texte: 'Lecture reportée', lu: true });
+    if (ia.etat === 'illisible') { lignes.push(avec('pageIllisible', { type: 'non', texte: 'Non lu : page illisible', lu: true })); note = MENTION_PROPOSITION + '.'; }
+    else if (ia.etat === 'ia_erreur') lignes.push(avec('lectureReportee', { type: 'non', texte: 'Lecture reportée', lu: true }));
     else {
       const regles = ia.regles || [];
       for (const r of regles) {
         if (r.ok === true) lignes.push({ type: 'ok', texte: phraseCourte(r.titre), lu: true });
-        else if (r.ok === false) lignes.push({ type: 'ecart', texte: phraseCourte(r.titre), lu: true });
-        else { const t = phraseCourte(r.titre); lignes.push({ type: 'non', texte: 'Non lu : ' + t.charAt(0).toLowerCase() + t.slice(1), lu: true }); }
+        else if (r.ok === false) lignes.push(raisonRegle(r, { type: 'ecart', texte: phraseCourte(r.titre), lu: true }));
+        else { const t = phraseCourte(r.titre); lignes.push(raisonRegle(r, { type: 'non', texte: 'Non lu : ' + t.charAt(0).toLowerCase() + t.slice(1), lu: true })); }
       }
       const dejaVues = new Set(regles.map((r) => r.code));   // une règle abstenue (ok null) ne devient jamais un écart par son constat
-      for (const c of ia.constats || []) if (!dejaVues.has(c.code)) lignes.push({ type: 'ecart', texte: sansPrefixe(c.titre), lu: true });
-      if (!regles.some((r) => r.ok === true || r.ok === false) && !(ia.constats || []).some((c) => !dejaVues.has(c.code))) lignes.push({ type: 'non', texte: 'Montants non contrôlés', lu: true });
+      for (const c of ia.constats || []) if (!dejaVues.has(c.code)) lignes.push(raisonRegle(c, { type: 'ecart', texte: sansPrefixe(c.titre), lu: true }));
+      if (!regles.some((r) => r.ok === true || r.ok === false) && !(ia.constats || []).some((c) => !dejaVues.has(c.code))) lignes.push(avec(typeLectureIa(doc) === 'contrat' ? 'montantsContrat' : 'montantsBulletin', { type: 'non', texte: 'Montants non contrôlés', lu: true }));
       note = MENTION_PROPOSITION + '.';
     }
-  } else if (typeLectureIa(doc)) lignes.push({ type: 'non', texte: 'Montants non contrôlés' });
+  } else if (typeLectureIa(doc)) lignes.push(avec(typeLectureIa(doc) === 'contrat' ? 'montantsContrat' : 'montantsBulletin', { type: 'non', texte: 'Montants non contrôlés' }));
   if (estAvis) {
     lignes.push({ type: 'non', texte: 'Dernier avis émis : à voir sur impots.gouv' });
     if (!impots) impots = {};
@@ -345,7 +386,12 @@ export function etatPiece({ doc, verif, ia, iaLue, refuse }) {
   let etat = 'ok';
   if (ecart) etat = 'averif';
   else if (v.illisible || !controleFait || montantsNonConclus || (estAvis && !signatureOk) || (dd && dd.etat !== ETAT.VALIDE)) etat = 'nonverif';
-  return fin(etat, lignes, { vert: etat === 'ok' && signatureOk, impots, note });
+  return fin(etat, lignes, { vert: etat === 'ok' && signatureOk, impots, note, resume: resumeRaisons(etat, lignes) });
+}
+/** Raison d'une règle de lecture (cause et quoi vérifier fournis par le module de règles), sinon raison générique. */
+function raisonRegle(r, ligne) {
+  if (r && r.cause && r.verifier) return Object.assign(ligne, { cause: String(r.cause), verifier: String(r.verifier), rang: Number(r.rang) || 5 });
+  return avec('defaut', ligne);
 }
 /** Ligne de tête du dossier : compte des PIÈCES (jamais un avis sur la personne). Non lues et en attente hors du compte. */
 export function resumePieces(etats) {

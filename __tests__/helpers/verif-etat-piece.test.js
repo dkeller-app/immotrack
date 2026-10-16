@@ -93,7 +93,7 @@ describe('bulletin de salaire', () => {
       constats: [{ code: 'ZZ2', titre: 'Bulletin août 2026 : règle B non respectée.' }, { code: 'ZZ9', titre: 'Bulletin août 2026 : autre point.' }] };
     const e = etatPiece({ doc: d, verif: d.verif, ia, iaLue: true });
     expect(e.etat).toBe('averif');
-    expect(e.lignes.filter((l) => l.lu)).toEqual([
+    expect(e.lignes.filter((l) => l.lu).map(({ type, texte, lu }) => ({ type, texte, lu }))).toEqual([
       { type: 'ok', texte: 'Règle A respectée', lu: true }, { type: 'ecart', texte: 'Règle B non respectée', lu: true },
       { type: 'non', texte: 'Non lu : règle C', lu: true }, { type: 'ecart', texte: 'Autre point', lu: true }]);
     expect(e.note).toBe(MENTION_PROPOSITION + '.');

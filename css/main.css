@@ -9470,6 +9470,11 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 span.cand-vbdg{cursor:default}
 .cand-vrf-resume{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;font-weight:700;color:var(--t1);padding:0 2px 10px}
 .cand-vrf-resume .k{color:var(--t2);font-weight:600}
+/* REGLES-PAIE (16/10) : sous un badge « À vérifier » / « Non vérifiable », la cause et quoi vérifier, en une ligne visible
+   sans clic ; « + N autres » ouvre le détail. */
+.cand-vrf-raison{margin:0 2px 8px 34px;font-size:12.5px;line-height:1.45;color:var(--t2);overflow-wrap:anywhere}
+.cand-vrf-raison .lien{font:inherit;font-weight:700;color:var(--t1);background:none;border:0;padding:0 2px;cursor:pointer;text-decoration:underline;white-space:nowrap}
+.cand-vrf-resume + .cand-vrf-raison{margin:-6px 2px 10px}
 .vp-modal{max-width:720px}
 #vp-body{display:flex;flex-direction:column;gap:12px}
 #vp-body .ct{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin:4px 0 -4px}
@@ -9519,6 +9524,8 @@ span.cand-vbdg{cursor:default}
 .vp-reglage .sw-l.dis{cursor:default;color:var(--t3)}
 @media (max-width:767px){
   .cand-vrf{margin-left:2px}
+  .cand-vrf-raison{margin-left:2px}
+  .cand-vrf-raison .lien{display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
   .cand-vbdg{min-height:44px;padding:6px 14px}
   #ov-verif-piece{padding:0;align-items:stretch}
   #ov-verif-piece .vp-modal{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0 !important;border-radius:0 !important;display:flex;flex-direction:column}
