@@ -396,7 +396,7 @@ export function _computeFinancesMonthly(input) {
     });
     const lotFrise = order.map((ym, idx) => ({
       ym, duHC: lotMonths[idx].hcDue, duCH: lotMonths[idx].chDue,
-      encaisse: lotMonths[idx].received, loyerRetard: 0, chargeRetard: 0, avance: 0, position: 0, aRendre: 0, rattrapage: 0
+      encaisse: lotMonths[idx].received, loyerRetard: 0, chargeRetard: 0, avance: 0, position: 0, aRendre: 0, resteMois: 0, rattrapage: 0
     }));
     // R-2 : le dû CC du mois (barème historisé) — dénominateur unique du recouvrement.
     lotMonths.forEach((lm, idx) => { const b = buckets[order[idx]]; b.duHC += lm.hcDue; b.duCH += lm.chDue; });
@@ -415,7 +415,10 @@ export function _computeFinancesMonthly(input) {
       const b = buckets[ym];
       b.loyerRetard += p.retardLoyer; b.chargeRetard += p.retardCharge;
       b.avanceLot += p.avance; b.ecart += p.position; b.aRendre += p.aRendre;
-      Object.assign(lotFrise[idx], { loyerRetard: p.retardLoyer, chargeRetard: p.retardCharge, avance: p.avance, position: p.position, aRendre: p.aRendre });
+      // `resteMois` : ce qui reste dû AUJOURD'HUI de CE mois (baux comptés ce mois-là) — pour « reste à encaisser ce mois »
+      let resteMois = 0;
+      p.baux.forEach(pb => { const b = (s.baux || []).find(x => x.debut === pb.debut); const mm = b && b.mois && b.mois.find(x => x.ym === ym); if (mm) resteMois += (mm.loyerRetard || 0) + (mm.chargeRetard || 0); });
+      Object.assign(lotFrise[idx], { loyerRetard: p.retardLoyer, chargeRetard: p.retardCharge, avance: p.avance, position: p.position, aRendre: p.aRendre, resteMois });
     });
     const pAn = (s && dueYm) ? _positionLot(s, dueYm) : null;
     if (pAn && pAn.retard > 0.005 && q) lotsEnRetard.push(q);
@@ -432,7 +435,7 @@ export function _computeFinancesMonthly(input) {
         months: lotFrise.map(m => ({
           ym: m.ym, duHC: round2(m.duHC), duCH: round2(m.duCH), encaisse: round2(m.encaisse),
           loyerRetard: round2(m.loyerRetard), chargeRetard: round2(m.chargeRetard),
-          avance: round2(m.avance), position: round2(m.position), aRendre: round2(m.aRendre), rattrapage: round2(m.rattrapage)
+          avance: round2(m.avance), position: round2(m.position), aRendre: round2(m.aRendre), resteMois: round2(m.resteMois), rattrapage: round2(m.rattrapage)
         })),
         annual: {
           duHC, duCH, encaisse,
@@ -444,7 +447,9 @@ export function _computeFinancesMonthly(input) {
         },
         // position signée du lot : + avance / − retard (plus « encaissé − dû » de l'année)
         solde: position,
-        depuisYm
+        depuisYm,
+        // les baux comptés au dernier mois exigible : qui doit quoi (un locataire PARTI n'est jamais nommé à la place du suivant)
+        baux: pAn ? pAn.baux.map(b => ({ debut: b.debut, parti: b.parti, retard: b.retard, avance: b.avance })) : []
       };
     }
   });
@@ -852,8 +857,7 @@ export function _friseLot(suivi, annee, opts) {
       attenduAn += du;
       const p = _positionLot(suivi, ym);
       if (!p.baux.length || (du <= 0.005 && p.retard <= 0.005 && p.avance <= 0.005)) cls = 'vac';
-      else if (p.avance > 0.005) cls = 'avance';
-      else if (p.retard <= 0.005) cls = 'ok';
+      else if (p.retard <= 0.005) cls = p.avance > 0.005 ? 'avance' : 'ok';   // un retard (même d'un parti) l'emporte sur une avance
       else cls = (du > 0.005 && p.retard >= du - 0.005 && recu <= 0.005) ? 'imp' : 'warn';
     }
     months.push({ mi, cls, recu, attendu: du, due: du });

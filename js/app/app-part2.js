@@ -543,6 +543,9 @@ function _creerQuittance(ref, ym, opts) {
   // FINANCES-SUIVI-V2 : la remise du mois (manque accepté, écart d'arrondi abandonné), lue au moteur et FIGÉE ici.
   const _e = _loyerEtatLot(ref), _m = _e && _e.byYm && _e.byYm[ym];
   const _rem = _m && _m.remise > 0.005 ? Math.round(_m.remise * 100) / 100 : 0;
+  // Un mois ENTIÈREMENT remis (rien reçu) ne se quittance pas : une quittance atteste une somme reçue.
+  if (_rem > 0 && Math.round(((Number(du.hc) || 0) + (Number(du.ch) || 0) - _rem) * 100) / 100 <= 0.005)
+    return { ok: false, motif: 'mois soldé par une remise : aucune somme reçue à quittancer' };
   const q = {
     id: nid(), logement: ref,
     locataire: ((bail && bail.locataires) || []).map(l => l && l.nom).filter(Boolean).join(', ')
@@ -642,7 +645,7 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   // FINANCES-SUIVI-V2 (décision Didier Q1, 06/10) — mois soldé par un MANQUE ACCEPTÉ (ou un écart d'arrondi abandonné) :
   // la quittance est émise pour le montant REÇU, avec la mention de la remise (figée à l'émission : q.remise / q.remiseMotif).
   const _remise = Math.round((Number(q.remise) || 0) * 100) / 100;
-  const totalPaye = Math.round((total - _remise) * 100) / 100;
+  const totalPaye = Math.max(0, Math.round((total - _remise) * 100) / 100);
 
   // AUDIT I-3/S-2 — ce bloc vit APRÈS `total`, donc après le repli legacy champ par champ.
   // Le lire avant obligeait à recalculer un dû à part (`_duDoc`), qui n'était pas symétrique :
@@ -998,7 +1001,7 @@ function _lyDejaYm(ref) {
 /** L'état complet d'un lot pour l'écran : verdict + case du bail + retard. */
 function _lyEtatLot(l) {
   const bail = _findBailByRefTolerant(l.ref);
-  const etat = _loyerEtatLot(l.ref);
+  const etat = _loyerEtatLot(l.ref, { visibles: true });   // FINANCES-SUIVI-V2 : même chiffre que Finances (baux visibles)
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
   const tol = (typeof window._loyerToleranceActive === 'function') ? window._loyerToleranceActive(today) : false;
   return {
@@ -29082,7 +29085,10 @@ function _lyTousLoyersHtml(yr, ent, opts) {
   const _lyPos = (ref, monthly) => {
     const A = (_lyByLot[ref] && _lyByLot[ref].annual) || {};
     const ret = A.retard || 0, av = A.avance || 0;
-    if (ret > 0.5) return { cls: 'retard', montant: ret, nMois: monthly > 0.5 ? Math.round(ret / monthly) : 0, signe: -ret };
+    // FINANCES-SUIVI-V2 : une dette d'un locataire PARTI est dite (« dont parti »), jamais imputée au locataire en place
+    const bx = (_lyByLot[ref] && _lyByLot[ref].baux) || [];
+    const parti = Math.round(bx.filter(x => x.parti).reduce((t, x) => t + (x.retard || 0), 0) * 100) / 100;
+    if (ret > 0.5) return { cls: 'retard', montant: ret, nMois: monthly > 0.5 ? Math.round((ret - parti) / monthly) : 0, signe: -ret, parti };
     if (av > 0.5) return { cls: 'avance', montant: av, nMois: monthly > 0.5 ? Math.round(av / monthly) : 0, signe: av };
     return { cls: 'ajour', montant: 0, nMois: 0, signe: 0 };
   };
@@ -29095,7 +29101,7 @@ function _lyTousLoyersHtml(yr, ent, opts) {
     return '<span title="' + escHtml(tip) + '" style="flex:1;height:22px;border-radius:3px;background:' + c[0] + ';border:1px ' + (dash ? 'dashed' : 'solid') + ' ' + c[1] + ';display:grid;place-items:center;font:600 9px monospace;color:' + c[2] + '">' + (dash ? '' : _MO[m.mi - 1]) + '</span>';
   }).join('') + '</div>';
   const chip = (pos) => {   // Phase C : le montant vient du maître (byLot), plus du solde annuel de la frise
-    if (pos.cls === 'retard') return '<span style="background:var(--neg-soft);color:var(--neg);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
+    if (pos.cls === 'retard') return '<span style="background:var(--neg-soft);color:var(--neg);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↓ retard ' + fmt(pos.montant) + (pos.parti > 0.5 ? ' · dont ' + fmt(pos.parti) + ' d’un locataire parti' : (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '')) + '</span>';
     if (pos.cls === 'avance') return '<span style="background:var(--info-soft);color:var(--info);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">↑ avance ' + fmt(pos.montant) + (pos.nMois >= 1 ? ' · ' + pos.nMois + ' mois' : '') + '</span>';
     return '<span style="background:var(--pos-soft);color:var(--pos);font-weight:700;font-size:12px;padding:5px 11px;border-radius:8px;white-space:nowrap">✓ À jour</span>';
   };
@@ -34039,7 +34045,7 @@ function _finFenCss() {
     '.ffn-tag{font:700 11px Inter;padding:2px 8px;border-radius:6px;background:var(--sur3);color:var(--t2);white-space:nowrap}',
     '.ffn-d{border-top:1px solid var(--bor2);padding:10px 12px 12px;font-size:13.5px;color:var(--t2)}',
     '.ffn-d .l{display:flex;justify-content:space-between;gap:12px;padding:4px 0}.ffn-d .l b{color:var(--t1);text-align:right}',
-    '.ffn-d a{color:var(--acc);text-decoration:underline;cursor:pointer}',
+    '.ffn-d a{color:var(--acc);text-decoration:underline;cursor:pointer;display:inline-block;padding:12px 0}.ffn-d .btn{min-height:44px}',
     '.ffn-d .r{margin-top:6px;padding:8px 10px;border-radius:9px;background:var(--sur2);color:var(--t1);font-weight:600}',
     '.ffn-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ffn-acts .btn{min-height:44px}',
     '.ffn-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ffn-form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--t2)}',
@@ -34048,6 +34054,8 @@ function _finFenCss() {
   ].join('\n');
   document.head.appendChild(s);
 }
+// Une date ISO AAAA-MM-JJ, ou '' (jamais une chaîne arbitraire dans un attribut onclick).
+function _finIso(d) { const s = String(d || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : ''; }
 // Nom(s) du locataire d'un bail, par son début (bail en cours ou archivé).
 function _finNomBail(ref, debut) {
   const d = String(debut || '').slice(0, 10);
@@ -34058,11 +34066,13 @@ function _finNomBail(ref, debut) {
   return (h && _nomsDuBail(h)) || ref;
 }
 // yr, mo (1..12) ; sans mo : le dernier mois exigible de l'exercice (clic sur la colonne Année).
-function _finFenetre(yr, mo) {
-  const scope = _finEntScope(_finPageEnt(), _finActiveImm());
+// `ref` (optionnel, alerte de Mouvements) : la fenêtre s'ouvre sur le bailleur de CE lot, sans filtre d'immeuble.
+function _finFenetre(yr, mo, ref) {
+  const lg = ref ? (DB.logements || []).find(l => l && !l._deleted && l.ref === ref) : null;
+  const scope = lg ? _finEntScope(lg.entity || '', '') : _finEntScope(_finPageEnt(), _finActiveImm());
   const W = _finWindows(parseInt(yr, 10), scope);
   const due = W ? W.exigibilite.lastMonth : 12;
-  _finFen = { yr: parseInt(yr, 10), mo: mo ? parseInt(mo, 10) : Math.max(1, due || 1), ouvert: null, form: false };
+  _finFen = { yr: parseInt(yr, 10), mo: mo ? parseInt(mo, 10) : Math.max(1, due || 1), ouvert: null, form: false, ent: lg ? (lg.entity || '') : null };
   _finFenetreRendre();
 }
 function _finFenetreNav(d) { if (!_finFen) return; const m = _finFen.mo + d; if (m < 1 || m > 12) return; _finFen.mo = m; _finFen.ouvert = null; _finFen.form = false; _finFenetreRendre(); }
@@ -34074,10 +34084,12 @@ function _finFenetreRendre() {
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
   const yr = _finFen.yr, mo = _finFen.mo, ym = yr + '-' + String(mo).padStart(2, '0');
-  const scope = _finEntScope(_finPageEnt(), _finActiveImm());
+  const scope = (_finFen.ent != null) ? _finEntScope(_finFen.ent, '') : _finEntScope(_finPageEnt(), _finActiveImm());
   const W = _finWindows(yr, scope);
   const r = _finMonthly(yr, scope, W ? W.constat : undefined);
   const byLot = (r && r.byLot) || {};
+  const nonEchu = !!(W && W.exigibilite && mo > W.exigibilite.lastMonth);
+  const echecs = Object.keys(window._finSuiviEchecs || {});
   const sg = v => (v > 0.005 ? '+ ' : (v < -0.005 ? '− ' : '')) + f(Math.abs(v));
   const enR = [], enA = [], aJour = [];
   for (const q in byLot) {
@@ -34108,6 +34120,7 @@ function _finFenetreRendre() {
         h += L('Loyer attendu en ' + _FIN_MOIS_LONG[mo - 1], du > 0.005 ? f(du) : '—');
         const pay = (m.paiements || []).map(x => '<a onclick="closeM(\'ov-dash-drill\');openEditMv(' + JSON.stringify(x.id).replace(/"/g, '&quot;') + ')">' + f(x.montant) + ' · virement du ' + esc(fd(x.date)) + (x.aConfirmer ? ' (à confirmer)' : '') + '</a>').join('<br>');
         h += L('Reçu', pay || '—');
+        if (Math.abs(m.arrondi || 0) > 0.005) h += L('Écart d’arrondi soldé d’office (moins de 1 €)', (m.arrondi > 0 ? '+ ' : '− ') + f(Math.abs(m.arrondi)));
       }
       const recuMois = m ? m.encaisse : 0, duMois = m ? (m.duHC + m.duCH) : 0;
       let res;
@@ -34128,7 +34141,7 @@ function _finFenetreRendre() {
             + '<label>Date<input class="inp" type="date" id="ffn-mq-date" value="' + esc((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '') + '"></label>'
             + '<label class="full">Motif (obligatoire)<input class="inp" id="ffn-mq-motif" maxlength="200"></label></div>'
             + '<div class="ffn-acts"><button class="btn bs bb" onclick="_finFenetreOuvrir(\'' + _lyQ(q) + '\')">Annuler</button>'
-            + '<button class="btn bp" onclick="_finManqueValider(\'' + _lyQ(q) + '\',\'' + pb.debut + '\',\'' + ym + '\',' + pb.retard + ')">' + _uiIcon('check') + ' Accepter le manque</button></div>';
+            + '<button class="btn bp" onclick="_finManqueValider(\'' + _lyQ(q) + '\',\'' + _lyQ(_finIso(pb.debut)) + '\',\'' + ym + '\',' + Number(pb.retard) + ')">' + _uiIcon('check') + ' Accepter le manque</button></div>';
         } else {
           h += '<div class="ffn-acts">'
             + ((cur && String(cur.debut || '').slice(0, 10) === pb.debut && typeof _lyRelance === 'function') ? '<button class="btn bs bb" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(q) + '\')">' + _uiIcon('mail') + ' Créer une relance</button>' : '')
@@ -34156,6 +34169,8 @@ function _finFenetreRendre() {
   const body = '<div class="ffn-nav"><button type="button" onclick="_finFenetreNav(-1)"' + (mo <= 1 ? ' disabled' : '') + '>‹ ' + (mo > 1 ? _FIN_MOIS_LONG[mo - 2] : '') + '</button>'
     + '<b>' + _FIN_MOIS_LONG[mo - 1].replace(/^./, c => c.toUpperCase()) + ' ' + yr + '</b>'
     + '<button type="button" onclick="_finFenetreNav(1)"' + (mo >= 12 ? ' disabled' : '') + '>' + (mo < 12 ? _FIN_MOIS_LONG[mo] : '') + ' ›</button></div>'
+    + (echecs.length ? '<div class="ffn-ok" style="color:var(--warn)">' + _uiIcon('warn', 14) + ' Calcul indisponible pour : ' + echecs.map(esc).join(', ') + ' — chiffres incomplets.</div>' : '')
+    + (nonEchu ? '<div class="ffn-ok">Mois pas encore exigible : position au dernier mois échu.</div>' : '')
     + '<div class="ffn-sum"><span class="v ' + (total < -0.005 ? 'ffn-neg' : (total > 0.005 ? 'ffn-pos' : 'ffn-nul')) + '">' + sg(total) + '</span><span>' + phrase + '</span></div>'
     + (enR.length ? '<div class="ffn-grp w">En retard</div>' + enR.map(ligne).join('') : '')
     + (enA.length ? '<div class="ffn-grp a">En avance</div>' + enA.map(ligne).join('') : '')
@@ -34227,16 +34242,16 @@ function _mvAlerteHtml(m, phone) {
   let corps;
   if (a.type === 'q3') {
     corps = '<span class="t">' + _uiIcon('warn', 14) + ' Reçu le ' + esc(fd(a.date)) + ', entre deux locataires : à qui ?</span>'
-      + a.choix.map(c => '<button type="button" class="btn bs bb" onclick="event.stopPropagation();_mvQ3Choisir(' + idA + ',\'' + c.debut + '\')">' + esc(c.nom) + '</button>').join('')
+      + a.choix.map(c => '<button type="button" class="btn bs bb" onclick="event.stopPropagation();_mvQ3Choisir(' + idA + ',\'' + _lyQ(_finIso(c.debut)) + '\')">' + esc(c.nom) + '</button>').join('')
       + '<button type="button" class="btn bs bb" onclick="event.stopPropagation();openEditMv(' + idA + ')">Pas du loyer</button>';
   } else {
     corps = '<span class="t">' + _uiIcon('warn', 14) + ' Il manque ' + fmt(a.reste) + ' sur ' + _FIN_MOIS_LONG[parseInt(a.ym.slice(5, 7), 10) - 1] + '</span>'
-      + '<button type="button" class="btn bs bb" onclick="event.stopPropagation();_finFenetre(' + a.ym.slice(0, 4) + ',' + parseInt(a.ym.slice(5, 7), 10) + ');_finFenetreForm(\'' + _lyQ(a.ref) + '\')">' + _uiIcon('check') + ' Accepter le manque</button>';
+      + '<button type="button" class="btn bs bb" onclick="event.stopPropagation();_finFenetre(' + a.ym.slice(0, 4) + ',' + parseInt(a.ym.slice(5, 7), 10) + ',\'' + _lyQ(a.ref) + '\');_finFenetreForm(\'' + _lyQ(a.ref) + '\')">' + _uiIcon('check') + ' Accepter le manque</button>';
   }
   if (!document.getElementById('fmv-css')) {
     const st = document.createElement('style'); st.id = 'fmv-css';
     st.textContent = '.fmv-al{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 8px 10px;padding:8px 10px;border-radius:10px;border:1px solid var(--bor);border-left:3px solid var(--warn);background:var(--sur2);font-size:13px;color:var(--t1)}'
-      + '.fmv-al .t{flex:1;min-width:180px}.fmv-al .btn{min-height:40px}.fmv-x{margin-left:auto;background:none;border:0;color:var(--t3);font-size:20px;min-width:44px;min-height:44px;cursor:pointer}'
+      + '.fmv-al .t{flex:1;min-width:180px}.fmv-al .btn{min-height:44px}.fmv-x{margin-left:auto;background:none;border:0;color:var(--t3);font-size:20px;min-width:44px;min-height:44px;cursor:pointer}'
       + '.fmv-row>td{padding:0!important;border:0!important}';
     document.head.appendChild(st);
   }

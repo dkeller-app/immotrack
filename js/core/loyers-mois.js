@@ -200,7 +200,7 @@ export function etatDepuisSuivi(suivi, opts) {
   for (const b of ((suivi && suivi.baux) || [])) {
     if (!b || b.suiviAbsent || !garder(b) || !Array.isArray(b.mois)) continue;
     debuts.push(b.debut);
-    if (!b.finDu) avance += Number(b.avanceBrute) || 0;
+    if (!b.finDu || (b.to && String(b.finDu).slice(0, 7) > b.to)) avance += Number(b.avanceBrute) || 0;   // bail en cours (départ futur compris)
     const ouv = b.ouverture || null;
     for (const m of b.mois) {
       const e = parYm[m.ym] || (parYm[m.ym] = { ym: m.ym, hcDue: 0, chDue: 0, received: 0, resteLoyer: 0, resteCharge: 0,

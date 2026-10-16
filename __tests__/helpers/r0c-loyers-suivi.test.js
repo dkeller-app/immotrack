@@ -54,7 +54,7 @@ const trois = (app, DB, today = TODAY, ref = 'L', bailDebut = '2018-03-16') => {
   const y = Number(today.slice(0, 4));
   const grace = Number(today.slice(8, 10)) < 10;
   const f = app._finMonthly(y, null, computeConstatWindow({ year: y, today, mouvements: DB.mouvements })).byLot[ref];
-  const e = app._loyerEtatLot(ref, { graceLast: grace });
+  const e = app._loyerEtatLot(ref, { graceLast: grace, visibles: true });
   const d = app._finDetteBail(ref, bailDebut, null);
   return { loyers: e.reste, finances: f ? f.annual.retard : 0, dette: Math.round((d.loyer + d.charge) * 100) / 100, etat: e };
 };
@@ -106,7 +106,7 @@ describe('🟠3 — onglet Loyers = Finances = dette du bail', () => {
     const DB = lot();
     DB.baux = {};
     DB.baux_historique = [{ ref: 'L', debut: '2023-04-01', fin: '2024-03-31', finEffective: '2024-03-31', hc: 530, ch: 0 }];
-    const neuf = monter(DB, TODAY)._loyerEtatLot('L');
+    const neuf = monter(DB, TODAY)._loyerEtatLot('L', { visibles: true });   // le chemin de l'onglet Loyers (_lyEtatLot)
     expect(lignesRelance(neuf || { list: [] }, {})).toEqual([]);
   });
   it('30 parcs multi-lots sans date saisie : onglet Loyers (relance) = Finances au centime, lot par lot', () => {
@@ -116,7 +116,7 @@ describe('🟠3 — onglet Loyers = Finances = dette du bail', () => {
       const app = monter(DB, TODAY);
       const f = app._finMonthly(2026, null, computeConstatWindow({ year: 2026, today: TODAY, mouvements: DB.mouvements })).byLot;
       for (const l of DB.logements) {
-        const e = app._loyerEtatLot(l.ref, { graceLast: false });
+        const e = app._loyerEtatLot(l.ref, { graceLast: false, visibles: true });
         if (!e) continue;
         expect(e.reste).toBe(f[l.ref] ? f[l.ref].annual.retard : 0);
         lots++;

@@ -127,6 +127,12 @@ describe('C4/I5 — une seule fabrique de quittance, adossée au barème', () =>
     const body = fnBody(code, '_creerQuittance');
     expect(body).toMatch(/window\.peutQuittancer\(_loyerEtatLot\(ref\), ym\)/);
   });
+
+  it('FINANCES-SUIVI-V2 : un mois ENTIÈREMENT remis ne se quittance pas, et le montant reçu n\'est jamais négatif', () => {
+    const body = fnBody(code, '_creerQuittance');
+    expect(body).toMatch(/aucune somme reçue à quittancer/);
+    expect(code).toMatch(/const totalPaye = Math\.max\(0, /);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

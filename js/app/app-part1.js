@@ -7910,7 +7910,8 @@ function _renderAccueilPhone(ctx){
         // « reste 800 EUR a encaisser » pendant que « A regarder », deux lignes plus bas, disait
         // « tout est a jour ». `loyerRetard`/`chargeRetard` sont le residu reellement du, net
         // des avances et de la tolerance du 10 (finances-monthly.js:264-270).
-        resteMois += (_m.loyerRetard || 0) + (_m.chargeRetard || 0);
+        // FINANCES-SUIVI-V2 : le résidu de CE mois (loyerRetard/chargeRetard sont désormais des positions cumulées)
+        resteMois += (_m.resteMois != null) ? _m.resteMois : ((_m.loyerRetard || 0) + (_m.chargeRetard || 0));
       }
       _moisLu = true;
     }
@@ -9484,9 +9485,11 @@ function _duMoisLot(ref, ym) {
 // retenues pour loyer sur le dépôt, virements entre deux baux) et mis à la forme historique de `etatMoisLot`
 // (`etatDepuisSuivi`). L'onglet Loyers, la relance, les quittances, la fiche du logement et Finances lisent
 // donc le MÊME chiffre (lot E du 05/10 : « la relance peut annoncer un autre montant » est fermé).
-//   - par défaut : les baux VISIBLES aujourd'hui (bail en cours + locataire parti cette année, décision Q2) ;
+//   - par défaut : TOUS les baux du lot (quittances, y compris d'un ancien locataire — art. 21 ; rail 12 mois ;
+//     payé d'un mois) ;
 //   - `opts.bailDebut` : un seul bail (relance du locataire en place, restitution d'un dépôt) ;
-//   - `opts.tous` : tous les baux du lot ;
+//   - `opts.visibles` : les baux VISIBLES aujourd'hui (bail en cours + locataire parti cette année, décision Q2) —
+//     le chiffre de Finances (onglet Loyers, impayés) ;
 //   - `opts.graceLast` : tolérance du début de mois (affichage du retard) ; SANS elle (défaut), le verdict est
 //     « au centime » (quittances, D6).
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
@@ -9497,7 +9500,7 @@ function _loyerEtatLot(ref, opts) {
   if (!s) return null;
   let debuts = null;
   if (opts.bailDebut) debuts = [String(opts.bailDebut).slice(0, 10)];
-  else if (!opts.tous && typeof window._positionLot === 'function') {
+  else if (opts.visibles && typeof window._positionLot === 'function') {
     const auj = ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
     debuts = window._positionLot(s, auj).baux.map(b => b.debut);
   }
@@ -10183,6 +10186,12 @@ function _computeImpayes(ctx) {
     // (bail repris, saisie en cours), on prend les locataires du bail. Une ligne d'impayé sans
     // nom est illisible — et c'est précisément le cas que ce correctif fait réapparaître.
     let _nom = l.locataire || _nomsDuBail(_bienActiveBail && _bienActiveBail(l.ref));
+    // FINANCES-SUIVI-V2 (relecture Opus 16/10) : le nom vient des BAUX qui doivent — jamais la dette d'un locataire
+    // parti sous le nom de celui qui est en place (« parti » est dit).
+    if (!mo && Array.isArray(b.baux) && typeof _finNomBail === 'function') {
+      const dus = b.baux.filter(x => x.retard > 0.5);
+      if (dus.length) _nom = dus.map(x => _finNomBail(l.ref, x.debut) + (x.parti ? ' (parti)' : '')).join(' · ');
+    }
     if (!_nom) {
       // Locataire PARTI en devant de l'argent : le cas n'est pas marginal, il est garanti.
       // La clôture vide `log.locataire` ET retire le bail des actifs — les deux sources se
