@@ -11247,7 +11247,7 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .cia-ac .l1 b{font-weight:600;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cia-ac .l1 .eur{font-weight:700;font-variant-numeric:tabular-nums}
 .cia-ac .l2{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--t2)}
-.cia-ac .l2 .pc{margin-left:auto;white-space:nowrap}
+.cia-ac .l2 .cia-pct{margin-left:auto;white-space:nowrap}
 .cia-h4{font:800 11px var(--font);text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin:16px 0 8px}
 .cia-radios{display:flex;flex-direction:column;gap:6px}
 .cia-radio{display:flex;gap:9px;align-items:center;padding:9px 11px;border:1px solid var(--bor);border-radius:var(--r);font-size:13px;min-height:44px;cursor:pointer;color:var(--t1)}
@@ -11275,3 +11275,8 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 .cia-oc .kv{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--t2);padding:3px 0}
 .cia-oc .kv .inp{width:110px}
 @media(max-width:767px){.cia-champs{grid-template-columns:1fr}.cia-champs .inp,.cia-of .inp,.cia-oc .inp{font-size:16px;min-height:44px}.cia-etatl .cia-mois{margin-left:0;width:100%;justify-content:space-between}.cia-etatl .cia-mois .btn{min-width:44px;min-height:44px}.cia-tab{min-height:44px}}
+/* CONSO-IA — cibles tactiles de 44 px sur tablette et téléphone (geste réel 16/10). */
+@media(max-width:1024px){.btn.cia-plus,.cia-mois .btn,.cia-ofhd .btn,.cia-tab,.cia-pause-a .btn{min-height:44px}.cia-mois .btn{min-width:44px}.cia-champs .inp,.cia-of td .inp,.cia-oc .inp{min-height:44px}#ov-cia-compte .m-foot .btn,#ov-cia-usage .m-foot .btn{min-height:44px}}
+/* CONSO-IA — sous-titre des couches, cartes de compte au téléphone (geste réel 16/10). */
+.cia-modal .m-head h3 small{display:block;font-size:12px;font-weight:500;color:var(--t3);margin-top:2px}
+.cia-ac .l1,.cia-ac .l2{flex-direction:row;flex-wrap:nowrap}.cia-ac .l2 .fp{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

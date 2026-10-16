@@ -146,7 +146,7 @@ export function syntheseAdmin(data, { videoActive = false } = {}) {
     return { cle: f.cle, libelle: f.libelle, cout: nombre(x.cout), detail, off: f.cle === 'video' && !videoActive && !nombre(x.appels) };
   });
   const comptes = (Array.isArray(d.comptes) ? d.comptes : []).map((c) => {
-    const ls = lignes({ plafonds: c.plafonds, unites: c.unites }, { avecVideo: true });
+    const ls = lignes({ plafonds: c.plafonds, unites: c.unites }, { avecVideo: videoActive });
     const avec = ls.filter((l) => l.pct != null);
     const top = avec.length ? avec.reduce((a, b) => (b.pct > a.pct ? b : a)) : null;
     const pf2 = c.par_fonction || {};

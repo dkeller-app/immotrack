@@ -94,11 +94,13 @@ function boutonDicteePC(pi, bouton) {
 /** « Saisir à la main » : la première zone de saisie de la pièce reçoit le focus. */
 function saisirMain(pi) {
   const slot = document.querySelector('#ov-edl .evx-slot[data-evx-pi="' + Number(pi) + '"]')
-  let zone = slot && slot.parentElement
-  for (let i = 0; zone && i < 4; i++, zone = zone.parentElement) {
-    const champ = zone.querySelector('select, textarea, input:not([type=hidden]):not([type=file]):not([type=checkbox])')
-    if (champ) { try { champ.scrollIntoView({ block: 'center', behavior: 'smooth' }); champ.focus({ preventScroll: true }) } catch (e) { /* rien */ } return }
-  }
+  const bloc = (slot && slot.closest('.edl-piece-block')) || document.querySelector('#ov-edl .edl-piece-block[data-pidx="' + Number(pi) + '"]')
+  const visible = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden' }
+  // Première commande VISIBLE des éléments de la pièce (état, observation) ; à défaut, n'importe quelle saisie de la pièce.
+  // Ordre : l'observation du premier élément (la saisie la plus utile), puis tout autre champ ou état de la pièce.
+  const champs = bloc ? [...bloc.querySelectorAll('textarea'), ...bloc.querySelectorAll('tbody tr input:not([type=hidden]):not([type=file]), select, button[aria-label]')] : []
+  const champ = champs.find(visible)
+  if (champ) { try { champ.scrollIntoView({ block: 'center', behavior: 'smooth' }); champ.focus({ preventScroll: true }) } catch (e) { /* rien */ } return }
   toast('Saisir les éléments de la pièce ci-dessous.', 'info')
 }
 
@@ -191,18 +193,18 @@ async function renderConso(mois) {
   etat.admin = S; etat.mois = S.mois
   const courant = String(r.data.aujourdhui || '').slice(0, 7) === S.mois.slice(0, 7)
   const tete = '<div class="cia-etatl"><div class="cia-v"><b>' + esc(C.euros(S.total)) + '</b><span>estimés ' + (courant ? 'ce mois-ci' : 'sur le mois') + '</span></div><span class="cia-sep"></span>'
-    + '<div class="cia-v"><b class="m">' + S.appels + '</b><span>appels · ' + S.actifs + ' compte' + (S.actifs > 1 ? 's' : '') + ' actif' + (S.actifs > 1 ? 's' : '') + '</span></div>'
+    + '<div class="cia-v"><b class="m">' + esc(S.appels.toLocaleString('fr-FR')) + '</b><span>appels · ' + S.actifs + ' compte' + (S.actifs > 1 ? 's' : '') + ' actif' + (S.actifs > 1 ? 's' : '') + '</span></div>'
     + '<div class="cia-mois"><button type="button" class="btn bs" aria-label="Mois précédent" onclick="ConsoIa.mois(\'' + moisDecale(S.mois, -1) + '\')">' + ico('chevron-left', 15) + '</button><span>' + esc(C.moisLong(S.mois)) + '</span>'
     + '<button type="button" class="btn bs" aria-label="Mois suivant" ' + (courant ? 'disabled' : '') + ' onclick="ConsoIa.mois(\'' + moisDecale(S.mois, 1) + '\')">' + ico('chevron-right', 15) + '</button></div></div>'
   const regarder = S.aRegarder.length ? '<div class="card cia-card"><h4>' + ico('warn', 15) + ' À regarder <span class="rt">' + new Set(S.aRegarder.map((x) => x.userId)).size + ' compte(s)</span></h4>'
     + S.aRegarder.map((x) => '<button type="button" class="cia-alerte ' + (x.etat === 'pause' ? 'ps' : '') + '" data-uid="' + esc(x.userId) + '" onclick="ConsoIa.ouvrirCompte(this.dataset.uid)">' + ico(x.etat === 'pause' ? 'pause' : 'warn', 15)
-      + '<span><b>' + esc(x.email) + '</b> : ' + esc(x.libelle.toLowerCase()) + (x.etat === 'pause' ? ' en pause' : ' à ' + x.pct + ' %') + ' (' + x.utilise + ' sur ' + x.plafond + (x.unite === 'min' ? ' min' : ' ' + x.unite) + ')</span><span class="go">Voir ' + ico('chevron-right', 13) + '</span></button>').join('') + '</div>' : ''
+      + '<span><b>' + esc(x.email) + '</b> : ' + esc(x.libelle.charAt(0).toLowerCase() + x.libelle.slice(1)) + (x.etat === 'pause' ? ' en pause' : ' à ' + x.pct + ' %') + ' (' + x.utilise + ' sur ' + x.plafond + (x.unite === 'min' ? ' min' : ' ' + x.unite) + ')</span><span class="go">Voir ' + ico('chevron-right', 13) + '</span></button>').join('') + '</div>' : ''
   const maxF = Math.max(1, ...S.fonctions.map((f) => f.cout))
   const fonctions = '<div class="card cia-card"><h4>Par fonction <span class="rt">coût estimé</span></h4>' + S.fonctions.map((f) => '<div class="cia-fn' + (f.off ? ' off' : '') + '"><span class="nm">' + esc(f.libelle) + (f.off ? ' <span class="cia-off">éteint</span>' : '') + '</span><span class="eur">' + (f.off ? '—' : esc(C.euros(f.cout))) + '</span>'
     + '<span class="u">' + esc(f.off ? 'allumage prévu plus tard' : f.detail) + '</span><span></span><span class="cia-track"><i style="width:' + Math.round(f.cout / maxF * 100) + '%"></i></span></div>').join('') + '</div>'
   const jours = '<div class="card cia-card"><h4>Jour par jour <span class="rt">coût estimé, en euros</span></h4>' + graphique(S.jours) + '<div class="cia-leg">' + (S.jours.length ? 'Du 1er au ' + S.jours.length + ' ' + esc(C.moisLong(S.mois).split(' ')[0].toLowerCase()) + '.' + (courant ? ' Barre foncée : aujourd’hui.' : '') : 'Aucun jour.') + '</div></div>'
-  const comptes = S.comptes.length ? (tel() ? S.comptes.map((c) => '<button type="button" class="cia-ac" data-uid="' + esc(c.userId) + '" onclick="ConsoIa.ouvrirCompte(this.dataset.uid)"><span class="l1"><b>' + esc(c.email) + '</b><span class="eur">' + esc(C.euros(c.cout)) + '</span>' + ico('chevron-right', 14) + '</span>'
-      + '<span class="l2">' + badge(c) + '<span>' + esc(c.fonctionPrincipale) + '</span><span class="pc">' + mini(c) + '</span></span></button>').join('')
+  const comptes = S.comptes.length ? (tel() ? S.comptes.map((c) => '<div role="button" tabindex="0" class="cia-ac" data-uid="' + esc(c.userId) + '" onclick="ConsoIa.ouvrirCompte(this.dataset.uid)" onkeydown="if(event.key===\'Enter\')ConsoIa.ouvrirCompte(this.dataset.uid)"><div class="l1"><b>' + esc(c.email) + '</b><span class="eur">' + esc(C.euros(c.cout)) + '</span>' + ico('chevron-right', 14) + '</div>'
+      + '<div class="l2">' + badge(c) + '<span class="fp">' + esc(c.fonctionPrincipale) + '</span><span class="cia-pct">' + mini(c) + '</span></div></div>').join('')
     : '<table class="cia-tbl"><thead><tr><th>Compte</th><th>Offre</th><th class="r">Ce mois</th><th>Plafond le plus haut</th><th>État</th></tr></thead><tbody>'
       + S.comptes.map((c) => '<tr tabindex="0" data-uid="' + esc(c.userId) + '" onclick="ConsoIa.ouvrirCompte(this.dataset.uid)" onkeydown="if(event.key===\'Enter\')ConsoIa.ouvrirCompte(this.dataset.uid)"><td>' + esc(c.email) + '<div class="cia-mu">' + esc(c.fonctionPrincipale) + '</div></td><td>' + esc(c.offre) + (c.surcharge ? ' · personnalisé' : '') + '</td><td class="r">' + esc(C.euros(c.cout)) + '</td><td>' + mini(c) + (c.familleMax ? '<div class="cia-mu">' + esc(c.familleMax) + '</div>' : '') + '</td><td>' + badge(c) + '</td></tr>').join('')
       + '</tbody></table>')
@@ -306,7 +308,7 @@ async function renderOffres() {
   const prix = (o) => (o.prix_cents == null ? 'non commercialisée' : o.prix_cents === 0 ? '0 €' : (o.prix_cents / 100).toFixed(2).replace('.', ',') + ' €') + (o.limite_biens ? ' · ' + (o.limite_biens === 1 ? '1 lot' : '≤ ' + o.limite_biens + ' lots') : '')
   const champ = (o, k, col) => '<input class="inp cia-n" inputmode="numeric" aria-label="' + esc(o.nom + ' : ' + k) + '" data-plan="' + esc(o.plan_id) + '" data-k="' + k + '" value="' + (o[col] == null ? '' : esc(o[col])) + '" placeholder="sans" oninput="ConsoIa.offreModifiee(this)">'
   const cout = (o) => { const v = C.coutMaxOffre({ dictee: o.dictee_min, pieces: o.pieces_pages, liens: o.liens_demandes, factures: o.factures }); return v == null ? 'sans plafond' : C.euros(v) }
-  const corps = tel()
+  const corps = (tel() || (W.innerWidth || 1280) < 1100)
     ? etat.offres.map((o) => '<div class="cia-oc"><div class="l1"><b>' + esc(o.nom) + '</b><span class="cia-mu">' + esc(prix(o)) + '</span><span class="cout" data-cout="' + esc(o.plan_id) + '">max ' + esc(cout(o)) + '</span></div>'
         + COLS.map(([k, col, t, u]) => '<label class="kv"><span>' + esc(t) + ' <span class="cia-mu">' + esc(u) + '</span></span>' + champ(o, k, col) + '</label>').join('') + '</div>').join('')
     : '<table class="cia-of"><thead><tr><th>Offre</th>' + COLS.map(([, , t, u]) => '<th>' + esc(t) + '<br>' + esc(u) + '</th>').join('') + '<th>Coût max<br>par compte</th></tr></thead><tbody>'
