@@ -153,7 +153,7 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
       return erreurIA(c, 'structure', e, t0);
     }
     await compter(kv, gate.userId, { jetonsE: r.jetonsE, jetonsS: r.jetonsS }, 'conso');
-    const s = t.validerSortie(r.data, v.input);
+    const s = t.validerSortie(r.data, v.input, { texte: r.texte });   // texte reconnu (OCR) : contrôle seulement, jamais renvoyé
     if (!s.ok) { mesure('structure', 502, { tache: t.nom, code: 'invalid_output', ms: Date.now() - t0 }); return c.json({ error: 'ai_invalid_output' }, 502); }
     mesure('structure', 200, { tache: t.nom, je: r.jetonsE, js: r.jetonsS, rejets: s.rejets, ...(nImages ? { images: nImages } : {}), ms: Date.now() - t0 });
     return c.json({ data: s.data, rejets: s.rejets, modele: r.modele });

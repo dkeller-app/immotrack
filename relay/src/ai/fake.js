@@ -227,7 +227,18 @@ export function fauxLectureFacture() {
 }
 // VERIF-DOCUMENTS : lecture simulée d'un bulletin (août 2026, net à payer cohérent) ou de la page 1 d'un contrat — données fictives.
 export function fauxBulletinPaie(input) {
-  if (input && input.type === 'contrat') return { lisible: true, salarie: 'DUPONT Camille', employeur: 'Clinique des Trois-Frontières', siret: '00000000100017', dateDebut: '2022-05-02', typeContrat: 'CDI' };
-  return { lisible: true, periode: '2026-08', salarie: 'DUPONT Camille', employeur: 'Clinique des Trois-Frontières', siret: '00000000100017', dateEntree: '2022-05-02',
-    brut: 2950, netSocial: 2312.6, netAvantImpot: 2291.4, impotBase: 2341.8, impotTaux: 4.2, impotMontant: 98.36, netAPayer: 2193.04, netImposable: 2341.8, cumulNetImposable: 18734.4 };
+  if (input && input.type === 'contrat') return { lisible: true, salarie: 'DUPONT Camille', employeur: 'Clinique des Trois-Frontières', siret: '00000000100016', dateDebut: '2022-05-02', typeContrat: 'CDI' };
+  return { lisible: true, periode: '2026-08', salarie: 'DUPONT Camille', employeur: 'Clinique des Trois-Frontières', siret: '00000000100016', dateEntree: '2022-05-02',
+    heures: 151.67, tauxHoraire: 19.4501, salaireBase: 2950, brut: 2950, totalCotisations: 658.6,
+    lignes: [
+      { libelle: 'Complémentaire santé', base: 4005, taux: 0.8, montant: 32.04 },
+      { libelle: 'Sécurité sociale plafonnée', base: 2950, taux: 6.9, montant: 203.55 },
+      { libelle: 'Sécurité sociale déplafonnée', base: 2950, taux: 0.4, montant: 11.8 },
+      { libelle: 'Complémentaire tranche 1', base: 2950, taux: 3.15, montant: 92.93 },
+      { libelle: 'CEG tranche 1', base: 2950, taux: 0.86, montant: 25.37 },
+      { libelle: "CSG déductible de l'impôt sur le revenu", base: 3019.69, taux: 6.8, montant: 205.34 },
+      { libelle: "CSG/CRDS non déductible de l'impôt sur le revenu", base: 3019.69, taux: 2.9, montant: 87.57 },
+    ],
+    autresLignes: [],
+    netSocial: 2312.6, netAvantImpot: 2291.4, impotBase: 2341.8, impotTaux: 4.2, impotMontant: 98.36, netAPayer: 2193.04, netImposable: 2341.8, cumulBrut: 23600, cumulNetImposable: 18734.4 };
 }

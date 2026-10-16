@@ -128,7 +128,10 @@ function mistral(env, fetchImpl) {
       try { data = typeof a === 'string' ? JSON.parse(a) : a; } catch { throw new AiError('invalid_output'); }
       if (!data || typeof data !== 'object') throw new AiError('invalid_output');
       const pages = Number(j.usage_info && j.usage_info.pages_processed) || 1;
-      return { data, pages, modele: j.model || body.model };
+      // Texte reconnu : gardé en mémoire le temps du contrôle de présence des nombres (validerSortie), borné ; jamais renvoyé
+      // au client ni journalisé (la route ne renvoie que les champs validés).
+      const texte = Array.isArray(j.pages) ? j.pages.map((p) => (p && typeof p.markdown === 'string' ? p.markdown : '')).join(' ').slice(0, 200000) : '';
+      return { data, pages, modele: j.model || body.model, texte };
     },
   };
 }
