@@ -725,7 +725,8 @@ async function _rParamsPartageCloud(wrap) {
   }).join('');
 
   wrap.innerHTML =
-    (window.__immoIsAdmin ? '<div id="beta-admin-mount"></div>' : '')
+    // Administration (super-admin) : onglets « Accès bêta » | « Consommation IA » | « Plafonds par offre » (CONSO-IA).
+    (window.__immoIsAdmin ? '<div id="adm-mount"><div id="adm-onglets"></div><div id="beta-admin-mount"></div><div id="adm-ia-mount" hidden></div></div>' : '')
     + '<div class="flex-b" style="align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:14px">'
     + '<div><div class="ct" style="margin:0 0 4px">👥 Partage &amp; accès</div>'
     +   '<div class="mu sm" style="max-width:560px;line-height:1.5">Inviter une personne à accéder à un ou plusieurs périmètres (SCI ou Perso). En <b>écriture</b>, la gestion est partagée à parts égales ; en <b>lecture</b>, la personne consulte sans modifier. Chacun n\'accède qu\'aux périmètres partagés.</div></div>'
@@ -734,7 +735,10 @@ async function _rParamsPartageCloud(wrap) {
     + billing
     + '<div class="ct">Membres de l\'espace</div>'
     + cards;
-  if (window.__immoIsAdmin) _renderBetaAdmin();
+  if (window.__immoIsAdmin) {
+    try { if (window.ConsoIa) window.ConsoIa.adminOnglets(); } catch (e) {}
+    if (!window.ConsoIa || window.ConsoIa.ongletAdmin() === 'beta') _renderBetaAdmin();
+  }
 }
 
 // ── Écran admin bêta (super-admin global uniquement) : gère l'allowlist d'inscription ──

@@ -960,6 +960,25 @@ async function boot() {
   }
   window.__immoAdmin = { isAppAdmin: _isAppAdmin, listAllowlist: _listAllowlist, addEmail: _addAllowedEmail, removeEmail: _removeAllowedEmail }
 
+  // ── CONSO-IA (migration 0062) : utilisation de l'IA du compte, et écran admin (droits vérifiés en base). ──
+  // Migration pas encore appliquée (fonction absente) → { absent: true } : l'app masque simplement l'indicateur.
+  async function _iaRpc (fn, args) {
+    const { data, error } = await client.rpc(fn, args || {})
+    if (error) {
+      const absent = error.code === 'PGRST202' || error.code === '42883' || /could not find the function/i.test(error.message || '')
+      return { error: absent ? 'absent' : (error.code === '42501' ? 'interdit' : 'base'), absent }
+    }
+    return { data }
+  }
+  window.__immoIaConso = {
+    monUsage: () => _iaRpc('ia_mon_usage'),
+    adminConso: (mois) => _iaRpc('ia_admin_conso', { p_mois: mois || null }),
+    adminPlafonds: () => _iaRpc('ia_admin_plafonds'),
+    adminPlafondsMaj: (planId, v) => _iaRpc('ia_admin_plafonds_maj', { p_plan: planId, p_dictee_min: v.dictee, p_pieces_pages: v.pieces, p_liens_demandes: v.liens, p_factures: v.factures, p_video_images: v.video }),
+    adminSurchargeMaj: (userId, v) => _iaRpc('ia_admin_surcharge_maj', { p_user: userId, p_sans_plafond: !!v.sansPlafond, p_dictee_min: v.dictee, p_pieces_pages: v.pieces, p_liens_demandes: v.liens, p_factures: v.factures, p_video_images: v.video, p_motif: v.motif || null, p_jusqu_au: v.jusquAu || null }),
+    adminSurchargeRetirer: (userId) => _iaRpc('ia_admin_surcharge_retirer', { p_user: userId })
+  }
+
   // Lien d'INVITATION (?invite=<token>) : aperçu + acceptation (connexion OU création de compte) AVANT
   // le login normal. acceptInviteFlow enchaîne ensuite sur l'app (la RLS scope l'invité à ses SCIs).
   const _inviteTok = (new URLSearchParams(location.search)).get('invite')

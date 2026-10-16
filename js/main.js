@@ -958,6 +958,8 @@ window.IncidentCircuit = IncidentCircuit;
 try { import('./app/incident-circuit-app.js').then((m) => m.demarrer()).catch((e) => console.warn('[circuit]', e)) } catch (e) { /* jamais bloquant */ }
 // Accueil d'un nouvel utilisateur (carte « Premiers pas » + visite guidée, docs/CDC-PREMIERS-PAS.md) : tous les modes.
 try { import('./app/premiers-pas-app.js').then((m) => m.demarrer()).catch((e) => console.warn('[premiers-pas]', e)) } catch (e) { /* jamais bloquant */ }
+// CONSO-IA : utilisation de l'IA du compte (Mon profil, pause au plafond dans l'EDL) et écran de l'administrateur.
+try { import('./app/conso-ia-app.js').then((m) => m.demarrer()).catch((e) => console.warn('[conso-ia]', e)) } catch (e) { /* jamais bloquant */ }
 // COMPTE DÉMO (?demo=1 seulement : window.__immoDemo est posé par le script du <head> d'index.html) — nuage fictif local,
 // compléments calculés du jeu de données, espace locataire. Import dynamique : aucun poids pour les vrais comptes.
 if (window.__immoDemo === true) { try { import('./app/demo-app.js').then((m) => m.demarrer()).catch((e) => console.warn('[demo]', e)) } catch (e) { /* jamais bloquant */ } }

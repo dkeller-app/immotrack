@@ -6,7 +6,8 @@
 //   (tâche `edl-photos` = état des lieux filmé : seulement si l'interrupteur AI_VIDEO est posé, cf. video.js)
 //
 // Toutes exigent un utilisateur connecté (même garde JWT/JWKS que POST /sessions).
-// Garde-fous : taille et type de l'audio contrôlés AVANT lecture, quota par compte et par jour (KV),
+// Garde-fous : taille et type de l'audio contrôlés AVANT lecture, quota par compte et par jour (KV), plafond MENSUEL par
+// compte selon l'offre (base, migration 0062, src/ai/conso.js ; absent → seulement le quota du jour),
 // sortie du modèle validée par la tâche, erreurs propres et non bloquantes pour l'app.
 // JOURNAUX : une ligne de mesure par appel (route, statut, octets, secondes, jetons, durée) — JAMAIS
 // d'audio, de texte, d'extrait, de nom de pièce ni d'identifiant (règle vérifiée par test).
@@ -15,6 +16,8 @@ import { limites, lireUsageJour, decider, enregistrer } from './quota.js';
 import { tache, JSON_MAX_IMAGES } from './tasks/index.js';
 import { videoActif, annonceVideo, VIDEO_DEFAUTS } from './video.js';
 import { ocrActif, annonceOcr } from './ocr.js';
+// Plafonds MENSUELS par compte selon l'offre (migration 0062) : en plus du garde-fou journalier ci-dessus (KV).
+import { reserver, consigner, consignerPlusTard, pourcentage, fonctionTache, estimationAudioSec, ANALYSE_DICTEE } from './conso.js';
 
 export const AUDIO_TYPES = new Set(['audio/mp3', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav']);
 export const AUDIO_MAX_DEFAUT = 10 * 1024 * 1024;   // 10 Mo ≈ 20 min d'Opus, ≈ 5 min de WAV 16 kHz
@@ -47,6 +50,20 @@ export async function lireCorps(req, max) {
 async function compter(kv, uid, delta, part = '') {
   try { await enregistrer(kv, uid, delta, new Date(), part); } catch { mesure('quota', 'ecriture_kv_echouee'); }
 }
+/** Consigne la consommation du compte (base, migration 0062) sans retarder la réponse quand c'est possible. */
+async function consignerCompte(c, res, args) {
+  const p = consignerPlusTard(c, consigner(c.env, res, args));
+  if (p) await p;
+}
+/** Refus au plafond MENSUEL de l'offre (fonction en pause pour ce compte seulement, jusqu'au 1er du mois suivant). */
+function refusMois(c, route, res) {
+  mesure(route, 429, { motif: 'mois', fn: res.fonction });
+  return c.json({ error: 'quota', motif: 'mois', famille: res.famille, renouvellement: res.renouvellement }, 429);
+}
+const avecConso = (corps, res, reelles) => {
+  const pct = pourcentage(res, reelles);
+  return pct == null ? corps : { ...corps, conso: { famille: res.famille, pct } };
+};
 function erreurIA(c, route, e, t0) {
   const code = e instanceof AiError ? e.code : 'unavailable';
   const st = code === 'refused' ? 422 : 502;
@@ -94,13 +111,18 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     // (KV n'est pas atomique : des appels simultanés d'un même compte peuvent encore passer le contrôle —
     // borne réelle = taille max × appels simultanés ; un compteur atomique (Durable Object) est à prévoir
     // avant l'ouverture publique.)
+    // Plafond MENSUEL (minutes de dictée de l'offre) : réservation atomique d'une estimation haute, corrigée après.
+    const res = await reserver(c.env, { uid: gate.userId, fonction: 'dictee', estimation: estimationAudioSec(audio.byteLength) });
+    if (res.mode === 'base' && !res.ok) return refusMois(c, 'transcribe', res);
     await compter(kv, gate.userId, { appels: 1 });
     try {
       const r = await ia.transcrire({ audio, mime, langue, vocabulaire: (t && t.VOCABULAIRE) || [] });
       await compter(kv, gate.userId, { audioSec: r.audioSec }, 'conso');
-      mesure('transcribe', 200, { ko: Math.round(audio.byteLength / 1024), s: r.audioSec, ms: Date.now() - t0 });
-      return c.json({ text: r.text, segments: r.segments, audioSec: r.audioSec, modele: r.modele });
+      await consignerCompte(c, res, { uid: gate.userId, reelles: r.audioSec, mesures: { appels: 1, audioSec: r.audioSec } });
+      mesure('transcribe', 200, { fn: 'dictee', ko: Math.round(audio.byteLength / 1024), s: r.audioSec, ms: Date.now() - t0 });
+      return c.json(avecConso({ text: r.text, segments: r.segments, audioSec: r.audioSec, modele: r.modele }, res, r.audioSec));
     } catch (e) {
+      await consignerCompte(c, res, { uid: gate.userId, reelles: 0, mesures: { appels: 1 } });   // réservation rendue
       return erreurIA(c, 'transcribe', e, t0);
     }
   });
@@ -142,20 +164,32 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     const d = decider(await lireUsageJour(kv, gate.userId), lim, { images: nImages });
     if (!d.ok) { mesure('structure', 429, { motif: d.motif }); return c.json({ error: 'quota', motif: d.motif, limites: lim }, 429); }
 
+    // Plafond MENSUEL de la famille de la tâche (migration 0062). Unités : pages lues (pièces), images (vidéo),
+    // 1 par lecture de facture ou demande ; l'analyse d'une dictée consomme 15 s de dictée, avec une tolérance de 1 800 s
+    // au-delà du plafond (la dernière dictée transcrite et payée est analysée ; un texte libre ne contourne pas la pause).
+    const fonction = fonctionTache(t.nom);
+    const unitesPrevues = (f) => (f === 'video' ? nImages : f === 'dictee' ? ANALYSE_DICTEE.estimation : 1);
+    const res = await reserver(c.env, { uid: gate.userId, fonction, estimation: unitesPrevues(fonction), marge: fonction === 'dictee' ? ANALYSE_DICTEE.marge : 0 });
+    if (res.mode === 'base' && !res.ok) return refusMois(c, 'structure', res);
     await compter(kv, gate.userId, nImages ? { appels: 1, images: nImages } : { appels: 1 });   // réservation avant l'appel payant
     let r;
     try {
       r = t.ocr
-        // Lecture de document (OCR, point d'accès UE) : une page, annotation selon le schéma de la tâche ; pas de jetons facturés.
+        // Lecture de document (OCR, point d'accès UE) : une page, annotation selon le schéma de la tâche ; facturée à la page.
         ? Object.assign(await ia.lireDocument({ tache: t.nom, image: v.input.images[0], jsonSchema: t.schema ? t.schema(v.input) : t.jsonSchema, consigne: t.consigne ? t.consigne(v.input) : '', input: v.input, delaiMs: t.DELAI_MS }), { jetonsE: 0, jetonsS: 0 })
         : await ia.structurer({ tache: t.nom, messages: t.messages(v.input), jsonSchema: t.jsonSchema, input: v.input, delaiMs: t.DELAI_MS });
     } catch (e) {
+      await consignerCompte(c, res, { uid: gate.userId, reelles: 0, mesures: { appels: 1 } });   // réservation rendue
       return erreurIA(c, 'structure', e, t0);
     }
     await compter(kv, gate.userId, { jetonsE: r.jetonsE, jetonsS: r.jetonsS }, 'conso');
+    // Pages réellement lues (usage_info.pages_processed de l'OCR), jamais moins d'une.
+    const pages = t.ocr ? Math.max(1, Number(r.pages) || 1) : 0;
+    const reelles = fonction === 'pieces' ? pages : unitesPrevues(fonction);
+    await consignerCompte(c, res, { uid: gate.userId, reelles, mesures: { appels: 1, jetonsE: r.jetonsE, jetonsS: r.jetonsS, pages, images: nImages } });
     const s = t.validerSortie(r.data, v.input, { texte: r.texte });   // texte reconnu (OCR) : contrôle seulement, jamais renvoyé
     if (!s.ok) { mesure('structure', 502, { tache: t.nom, code: 'invalid_output', ms: Date.now() - t0 }); return c.json({ error: 'ai_invalid_output' }, 502); }
-    mesure('structure', 200, { tache: t.nom, je: r.jetonsE, js: r.jetonsS, rejets: s.rejets, ...(nImages ? { images: nImages } : {}), ...(t.ocr ? { txt: typeof r.texte === 'string' && r.texte.trim() ? 1 : 0 } : {}), ms: Date.now() - t0 });
-    return c.json({ data: s.data, rejets: s.rejets, modele: r.modele });
+    mesure('structure', 200, { tache: t.nom, fn: fonction, je: r.jetonsE, js: r.jetonsS, rejets: s.rejets, ...(nImages ? { images: nImages } : {}), ...(t.ocr ? { pages, txt: typeof r.texte === 'string' && r.texte.trim() ? 1 : 0 } : {}), ms: Date.now() - t0 });
+    return c.json(avecConso({ data: s.data, rejets: s.rejets, modele: r.modele }, res, reelles));
   });
 }

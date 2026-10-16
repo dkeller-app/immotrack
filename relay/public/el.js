@@ -414,7 +414,8 @@ async function transcrireSig(blob) {
     const r = await fetch('/api/el/ia/transcrire', { method: 'POST', headers: { 'X-El-Jeton': S.jeton, 'Content-Type': blob.type || 'audio/webm' }, body: blob, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
     if (r.status === 410) { S.inactif = true; S.couche = null; return render(); }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.erreur === 'quota' ? 'Limite de dictée atteinte pour aujourd\'hui : écrire directement.' : 'Dictée non comprise : écrire plutôt.');
+    // Plafond mensuel du propriétaire (motif « mois ») : message neutre, sans parler de son offre.
+    if (!r.ok) throw new Error(j.erreur === 'quota' ? (j.motif === 'mois' ? 'La dictée n\'est pas disponible pour le moment : écrire directement.' : 'Limite de dictée atteinte pour aujourd\'hui : écrire directement.') : 'Dictée non comprise : écrire plutôt.');
     s.texte = (s.texte ? s.texte + ' ' : '') + (j.text || '');
   } catch (e) { toast(e.message); } finally { s.charge = false; render(); }
 }

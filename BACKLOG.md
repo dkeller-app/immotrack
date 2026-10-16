@@ -1,4 +1,25 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.756 (16/10, pilotage Desktop, GO Didier)** — **Consommation IA + plafonds par compte selon l'offre** (`feat/conso-ia`, 660cfd32, renuméroté v15.757 → v15.756 ; tests : 8 346 app + 486 relais verts ; relecture Opus sans bloquant, 4 importants corrigés ; relecture Fable : atomicité / admin / RLS sans défaut, 1 important corrigé).
+>
+> **Livré :**
+> - Comptage par fonction (dictée, pièces, locataire, artisan, factures, vidéo), pages OCR comprises.
+> - Coût en euros via `relay/src/ai/prix.js` (relevé du 16/10, 0,87 € pour 1 $, à confirmer sur la 1ʳᵉ facture).
+> - Plafond mensuel par utilisateur, selon l'offre de l'espace qu'il a créé ; au plafond, réponse 429 pour ce compte seulement, jamais bloquant.
+> - Mon profil : ligne d'état, sans euros.
+> - Admin (Réglages › Partage) : onglets Accès bêta | Consommation IA | Plafonds par offre, plus surcharges par compte.
+> - Faille fermée : un propriétaire ne peut plus changer `plan_id` ni `created_by`.
+>
+> ⚠️ **Migration 0062 à appliquer par Didier** (`node scripts/db-run.mjs migrate supabase/migrations/0062_ia_conso_plafonds.sql`) :
+> - espaces existants → `beta` ;
+> - compte admin → sans plafond.
+>
+> Le front et le relais fonctionnent avant comme après la migration.
+>
+> **Relais à redéployer** (`deployer-relais.cmd`).
+>
+> **Au lancement public** (PLANS-QUOTAS-ESSAI) : changer le défaut `beta` ET le `'beta'` codé en dur dans le garde.
+>
+> **En cours :** `feat/finances-suivi-v2` → v15.757 (maquette dépôt détenu présentée à Didier).
 > 🚦 **MAIN = v15.755 (16/10, pilotage Desktop, GO Didier)** — **Candidats : comparer les dossiers** (`feat/aide-decision-candidats`, 591c619a ; tests : 8 316 app + 468 relais verts ; relecture Opus : 1 🔴 + 2 🟠 + 11 🟡, tous corrigés).
 > - Bouton « Comparer les N dossiers » dès que 2 dossiers au moins visent le même bien.
 > - Critères affichés : dossier (décret 2015-1437), pièces (un mot, sans compte ni tri), taux d'effort (loyer charges comprises ÷ ressources allocations comprises), garantie, dates.

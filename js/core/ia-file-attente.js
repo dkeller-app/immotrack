@@ -125,7 +125,8 @@ export function creerFileDictees({ store, client, maintenant = () => new Date(),
       return x;
     });
   }
-  const erreur = (r) => ({ erreur: { code: r.code, motif: r.motif || null, limites: r.limites || null, le: jour() } });
+  const erreur = (r) => ({ erreur: { code: r.code, motif: r.motif || null, limites: r.limites || null, le: jour(),
+    ...(r.motif === 'mois' ? { renouvellement: r.renouvellement || null } : {}) } });
 
   async function un(item) {
     let x = item;
@@ -186,6 +187,8 @@ export function creerFileDictees({ store, client, maintenant = () => new Date(),
   function reessayableSeule(e) {
     if (!e) return true;
     if (CODES_REESSAYABLES.has(e.code) || e.code === 'disabled') return true;
+    // CONSO-IA : plafond MENSUEL (motif « mois ») → repart seule à la date de reprise annoncée (1er du mois suivant).
+    if (e.code === 'quota' && e.motif === 'mois') return !!e.renouvellement && jour() >= String(e.renouvellement).slice(0, 10) || (!e.renouvellement && String(e.le || '').slice(0, 7) !== jour().slice(0, 7));
     return e.code === 'quota' && e.le !== jour();
   }
 

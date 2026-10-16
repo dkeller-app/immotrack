@@ -5490,12 +5490,15 @@ function _edlVoixSlotInner(pi) {
   // EDL-VIDEO-IA : envoi des prises de la pièce, et « Filmer la pièce » si le relais a ouvert la vidéo.
   const vbans = (typeof _edlVideoBannieres === 'function') ? _edlVideoBannieres(pi) : '';
   const video = (typeof _edlVideoDispo === 'function') && _edlVideoDispo();
-  return bans + vbans + (_edlVoixDispo() ? (video ? window.EdlVideoVues.barrePieceVideo(pi, { ic: _evxIc }) : M.EdlVoixVues.barrePiece(pi, { ic: _evxIc })) : '');
+  const barre = _edlVoixDispo() ? (video ? window.EdlVideoVues.barrePieceVideo(pi, { ic: _evxIc }) : M.EdlVoixVues.barrePiece(pi, { ic: _evxIc })) : '';
+  // CONSO-IA : à 80 % une ligne sous la barre ; au plafond mensuel la barre cède la place à « Dictée en pause ».
+  return bans + vbans + ((barre && window.ConsoIa && typeof window.ConsoIa.barreDictee === 'function') ? window.ConsoIa.barreDictee(pi, barre) : barre);
 }
 function _edlVoixBoutonPC(pi) {
   const M = _evxM();
   if (!M || !_edlVoixDispo()) return '';
-  return ((typeof _edlVideoDispo === 'function') && _edlVideoDispo()) ? window.EdlVideoVues.boutonsPiecePCVideo(pi, { ic: _evxIc }) : M.EdlVoixVues.boutonPiecePC(pi, { ic: _evxIc });
+  const b = ((typeof _edlVideoDispo === 'function') && _edlVideoDispo()) ? window.EdlVideoVues.boutonsPiecePCVideo(pi, { ic: _evxIc }) : M.EdlVoixVues.boutonPiecePC(pi, { ic: _evxIc });
+  return (window.ConsoIa && typeof window.ConsoIa.boutonDicteePC === 'function') ? window.ConsoIa.boutonDicteePC(pi, b) : b;
 }
 /** Les dictées de l'EDL ouvert (par identifiant, ou par session si l'EDL n'est pas encore enregistré). */
 function _edlVoixItemsEDL() {
@@ -5564,6 +5567,8 @@ async function _edlVoixStatut() {
   }
   else if (r.code === 'disabled') { _EVX.actif = false; _edlVoixActifMemo(false); _EVX.video = { actif: false }; if (typeof _edlVideoActifMemo === 'function') _edlVideoActifMemo(false); }
   _edlVoixRafraichir();
+  // CONSO-IA : utilisation du mois (plafond de dictée de l'offre) relue à l'ouverture de l'EDL ; jamais bloquant.
+  if (_EVX.actif && window.ConsoIa && typeof window.ConsoIa.rafraichir === 'function') window.ConsoIa.rafraichir().then(() => _edlVoixRafraichir()).catch(() => {});
 }
 /** Chaque ouverture d'un EDL : nouvelle session, file relue, analyse relancée, statut vérifié. */
 function _edlVoixReset() {
@@ -17314,7 +17319,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.756 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.757 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -27160,7 +27165,10 @@ function rParamsProfile() {
         </div>
         <button class="btn bp bb" onclick="saveGlobalParams()">${_uiIcon('save',14)} Enregistrer</button>
       </div>
+      <div id="cia-profil-mount"></div>
     </div>`;
+  // CONSO-IA : « Utilisation de l'IA ce mois-ci » (compte connecté au cloud seulement ; absent sinon).
+  try { if (window.ConsoIa) window.ConsoIa.carteProfil(el('cia-profil-mount')); } catch(e) {}
   // PREMIERS-PAS : « Relancer la visite guidée », réaffichage de la liste, partage de la progression (D6).
   try { if (window.PremiersPas) window.PremiersPas.profil(wrap); } catch(e) {}
 }

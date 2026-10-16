@@ -58,6 +58,8 @@ export const FONCTIONS_RELAIS = new Set([
   'el_ouvrir', 'el_documents', 'el_signalements', 'el_messages', 'el_fichier', 'el_depot', 'el_depot_fin', 'el_signaler',
   'el_message_envoyer', 'el_accord', 'el_contact', 'el_creneau_confirmer', 'el_ia_autorise',
   'ar_ouvrir', 'ar_fichier', 'ar_depot', 'ar_depot_fin', 'ar_document', 'ar_creneau', 'ar_constat', 'ar_ia_autorise',
+  // Consommation IA (migration 0062) : compteur plafonné et mesures, réservés à l'identité du relais (src/ai/conso.js).
+  'ia_reserver', 'ia_consigner',
 ])
 export async function rpc(env, fn, args, fetchImpl = fetch) {
   if (!FONCTIONS_RELAIS.has(fn)) throw new ElErreur(500, 'fonction');
@@ -71,7 +73,9 @@ export async function rpc(env, fn, args, fetchImpl = fetch) {
   try { corps = await r.json(); } catch { corps = null; }
   if (!r.ok) {
     if (r.status === 401) _session = null;
-    throw erreurDepuis(r.status, corps);
+    const err = erreurDepuis(r.status, corps);
+    err.pg = String((corps && corps.code) || '');   // code PostgREST / SQL (PGRST202 = fonction absente) : jamais renvoyé au navigateur
+    throw err;
   }
   return corps;
 }

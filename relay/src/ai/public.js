@@ -17,6 +17,8 @@ import { limites, lireUsageJour, decider, enregistrer } from './quota.js';
 import { tache, TACHES_LIEN } from './tasks/index.js';
 import { AUDIO_TYPES, AUDIO_MAX_DEFAUT, lireCorps } from './routes.js';
 import { ctxLien, appel, jsonErreur, inactif } from '../espace-locataire.js';
+// Plafond MENSUEL du compte du propriétaire selon son offre (migration 0062) : famille « liens » (locataire + artisan).
+import { reserver, consigner, consignerPlusTard } from './conso.js';
 
 // Quota PAR LIEN et par jour (D15) : assez pour un signalement ou une intervention, borné contre l'abus d'un lien.
 export const QUOTA_LIEN = Object.freeze({
@@ -48,6 +50,17 @@ async function quotas(c, type, a, besoin) {
   if (!dp.ok) return { motif: dp.motif };
   return null;
 }
+// Une demande = un appel (dictée ou analyse). Au plafond mensuel du propriétaire : refus SANS nommer son offre (D15).
+const fonctionLien = (type) => (type === 'el' ? 'locataire' : 'artisan');
+async function reserverMois(c, type, a, route) {
+  const res = await reserver(c.env, { uid: a.proprietaire, fonction: fonctionLien(type), estimation: 1 });
+  if (res.mode === 'base' && !res.ok) { mesure(route, 429, { motif: 'mois' }); return { reponse: c.json({ erreur: 'quota', motif: 'mois' }, 429) }; }
+  return { res };
+}
+async function consignerLien(c, res, a, reelles, mesures) {
+  const p = consignerPlusTard(c, consigner(c.env, res, { uid: a.proprietaire, reelles, mesures }));
+  if (p) await p;
+}
 const erreurIA = (c, route, e, t0) => {
   const code = e instanceof AiError ? e.code : 'unavailable';
   const st = code === 'refused' ? 422 : 502;
@@ -72,14 +85,16 @@ export function registerAiPublicRoutes(app, { providerFactory = makeAiProvider }
       const lu = await lireCorps(c.req, max);
       if (lu.trop || lu.buf.byteLength > max) { mesure(route, 413); return jsonErreur(c, 413, 'audio_trop_gros'); }
       if (!lu.buf.byteLength) { mesure(route, 400); return jsonErreur(c, 400, 'audio_vide'); }
+      const m = await reserverMois(c, type, a, route); if (m.reponse) return m.reponse;
       const kv = c.env.SESSIONS_KV;
       await compter(kv, cleLien(type, a.lien), { appels: 1 }); await compter(kv, a.proprietaire, { appels: 1 });
       try {
         const r = await ia.transcrire({ audio: lu.buf, mime, langue: 'fr', vocabulaire: [] });
         await compter(kv, cleLien(type, a.lien), { audioSec: r.audioSec }, 'conso'); await compter(kv, a.proprietaire, { audioSec: r.audioSec }, 'conso');
+        await consignerLien(c, m.res, a, 1, { appels: 1, audioSec: r.audioSec });
         mesure(route, 200, { ko: Math.round(lu.buf.byteLength / 1024), s: r.audioSec, ms: Date.now() - t0 });
         return c.json({ text: r.text, audioSec: r.audioSec });
-      } catch (e) { return erreurIA(c, route, e, t0); }
+      } catch (e) { await consignerLien(c, m.res, a, 0, { appels: 1 }); return erreurIA(c, route, e, t0); }
     });
 
     app.post(`/api/${type}/ia/structurer`, async (c) => {
@@ -103,13 +118,15 @@ export function registerAiPublicRoutes(app, { providerFactory = makeAiProvider }
       const nImages = t.images && Array.isArray(v.input.images) ? v.input.images.length : 0;
       const q = await quotas(c, type, a, { images: nImages });
       if (q) { mesure(route, 429, q); return c.json({ erreur: 'quota', motif: q.motif }, 429); }
+      const m = await reserverMois(c, type, a, route); if (m.reponse) return m.reponse;
       const kv = c.env.SESSIONS_KV;
       const res = nImages ? { appels: 1, images: nImages } : { appels: 1 };
       await compter(kv, cleLien(type, a.lien), res); await compter(kv, a.proprietaire, res);
       let r;
       try { r = await ia.structurer({ tache: t.nom, messages: t.messages(v.input), jsonSchema: t.jsonSchema, input: v.input, delaiMs: t.DELAI_MS }); }
-      catch (e) { return erreurIA(c, route, e, t0); }
+      catch (e) { await consignerLien(c, m.res, a, 0, { appels: 1 }); return erreurIA(c, route, e, t0); }
       await compter(kv, a.proprietaire, { jetonsE: r.jetonsE, jetonsS: r.jetonsS }, 'conso');
+      await consignerLien(c, m.res, a, 1, { appels: 1, jetonsE: r.jetonsE, jetonsS: r.jetonsS, images: nImages });
       const s = t.validerSortie(r.data, v.input);
       if (!s.ok) { mesure(route, 502, { tache: t.nom, code: 'invalid_output' }); return jsonErreur(c, 502, 'ia_sortie'); }
       mesure(route, 200, { tache: t.nom, je: r.jetonsE, js: r.jetonsS, rejets: s.rejets, ...(nImages ? { images: nImages } : {}), ms: Date.now() - t0 });

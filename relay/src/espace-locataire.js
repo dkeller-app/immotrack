@@ -24,7 +24,7 @@ import { makeSender, emailsOperationnels } from './email-sender.js';
 import { modeleEmail } from './email-modeles.js';
 import { consommer, parHeure, parJour, reglesProprietaire, debitEmail, LIMITES } from './email-limites.js';
 
-export const EL_ASSET_VERSION = '3';   // 3 : assistant IA, créneau, résultat (0060) — el.js importe lien-commun.js
+export const EL_ASSET_VERSION = '4';   // 3 : assistant IA, créneau, résultat (0060) — el.js importe lien-commun.js ; 4 : message du plafond mensuel (CONSO-IA)
 
 // En-têtes de TOUTE réponse de l'espace locataire (page et API) — exigence pilotage : CSP, Referrer-Policy, no-store.
 export const EL_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; "
