@@ -39,19 +39,25 @@ describe('clientLecturePhoto', () => {
     await c.lire(G); await c.lire(G);
     expect(repli).toHaveBeenCalledTimes(2); expect(w.termine).toBe(true);
   });
-  it('sans Worker ni repli → aucune lecture (null), sans exception', async () => {
-    expect((await clientLecturePhoto({}).lire(G)).texte).toBeNull();
+  it('sans Worker ni repli → aucune lecture, marquée « indisponible » (jamais confondue avec « aucun code »)', async () => {
+    expect(await clientLecturePhoto({}).lire(G)).toMatchObject({ texte: null, indisponible: true });
   });
   it('réponse trop lente → null au bout du délai (la page n\'attend jamais indéfiniment)', async () => {
     vi.useFakeTimers();
-    const c = clientLecturePhoto({ creerWorker: () => fauxWorker(null), delaiMs: 1000 });
-    const p = c.lire(G); await vi.advanceTimersByTimeAsync(1100);
-    expect(await p).toMatchObject({ texte: null, delai: true });
+    const crees = []; const c = clientLecturePhoto({ creerWorker: () => { const w = fauxWorker(null); crees.push(w); return w; }, delaiMs: 1000 });
+    const p = c.lire(G); const p2 = c.lire(G); await vi.advanceTimersByTimeAsync(1100);
+    expect(await p).toMatchObject({ texte: null, delai: true }); expect(await p2).toMatchObject({ texte: null, delai: true });
+    expect(crees[0].termine).toBe(true);                               // travail orphelin arrêté
+    c.lire(G); expect(crees).toHaveLength(2);                          // nouveau Worker (pas de passage au repli)
     vi.useRealTimers();
+  });
+  it('lecture arrêtée faute de temps dans le Worker → « interrompu » transmis', async () => {
+    const w = fauxWorker((ww, m) => ww.onmessage({ data: { id: m.id, texte: null, interrompu: true } }));
+    expect(await clientLecturePhoto({ creerWorker: () => w }).lire(G)).toMatchObject({ texte: null, interrompu: true });
   });
   it('le Worker répond une erreur de lecture → null', async () => {
     const w = fauxWorker((ww, m) => ww.onmessage({ data: { id: m.id, erreur: 'boom' } }));
-    expect((await clientLecturePhoto({ creerWorker: () => w }).lire(G)).texte).toBeNull();
+    expect(await clientLecturePhoto({ creerWorker: () => w }).lire(G)).toMatchObject({ texte: null, interrompu: true });
   });
 });
 

@@ -91,6 +91,16 @@ describe('écarts sur un avis signé', () => {
     expect(ver.deuxDDoc.comparaisons).toEqual([]);
     expect(ep({ ...AVIS, mime: 'image/jpeg' }, ver)).toMatchObject({ etat: 'ok', vert: true });
   });
+  it('LECTURE-PHOTOS : code lu sur une page scannée d\'un PDF → le texte (autres pages, texte reconnu) n\'est pas comparé ; pas de V5', () => {
+    const ver = v({ estPdf: true, codes: ['x'], texte: 'Autre page | 12 345 €', metadonnees: META, codeParPhoto: true }, [VALIDE]);
+    expect(ver.deuxDDoc.comparaisons).toEqual([]); expect(ver.codeParPhoto).toBe(true);
+    expect(ver.constats.some((x) => x.code === 'V5')).toBe(false);
+  });
+  it('LECTURE-PHOTOS : lecture reportée (délai) → pas de relecture avant une heure, puis relecture', () => {
+    const d = { ...AVIS, mime: 'image/jpeg', verifReportee: NOW.toISOString() };
+    expect(aAnalyser(d, NOW.getTime() + 10 * 60000)).toBe(false);
+    expect(aAnalyser(d, NOW.getTime() + 61 * 60000)).toBe(true);
+  });
   it('avis trop ancien → V7 (décret : dernier ou avant-dernier avis)', () => {
     const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE, metadonnees: META }, [{ ...VALIDE, champs: CHAMPS.map((c) => (c.id === '45' ? { ...c, valeur: '2021' } : c)) }]);
     expect(ver.constats.find((x) => x.code === 'V7').detail).toBe('Le décret n° 2015-1437 prévoit le dernier ou l\'avant-dernier avis d\'imposition. Pour une pièce reçue le 12/10/2026, il s\'agit en principe des revenus 2025 ou 2024.');

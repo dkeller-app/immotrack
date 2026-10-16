@@ -38,38 +38,42 @@ const ICO = {
 };
 const AVEC_AVIS = ['ressources', 'garant'];             // zones où un avis d'imposition peut être déposé
 let _lecteurPromesse = null, _issue = null;
+// Lecteur chargé à la demande, dans un Worker de module SEULEMENT : sans Worker, aucune lecture (silence) — jamais de
+// calcul sur le fil de la page (envois, boutons) ; import borné à 15 s.
 function lecteurPhotos(){
   if(_lecteurPromesse) return _lecteurPromesse;
-  _lecteurPromesse = (async () => {
+  const borne = new Promise((_, rej) => setTimeout(() => rej(new Error('lecteur : délai')), 15000));
+  _lecteurPromesse = Promise.race([borne, (async () => {
     const [C, L] = await Promise.all([import('/vendor/lecture-photo-client.js?v=' + V), import('/vendor/lecture-photo.js?v=' + V)]);
     _issue = L.issueControle;
-    const client = C.clientLecturePhoto({
-      creerWorker: () => new Worker('/vendor/lecture-photo-worker.js?v=' + V, { type: 'module' }),
-      repli: async (g, o) => {                            // navigateur sans Worker de module : lecture sur le fil principal
-        const m = await import('/vendor/zxing-library-0.21.3.min.js?v=' + V);
-        const ZX = globalThis.ZXing || (m && m.MultiFormatReader ? m : m && m.default);
-        const r = await L.lirePhoto(g, L.lecteurZxing(ZX), o);
-        return { ...r, nettete: o && o.nettete ? L.nettete(g) : null };
-      },
-      delaiMs: 30000
-    });
+    const client = C.clientLecturePhoto({ creerWorker: () => new Worker('/vendor/lecture-photo-worker.js?v=' + V, { type: 'module' }), delaiMs: 30000 });
     return { client, sourceVersGris: C.sourceVersGris };
-  })();
+  })()]);
   _lecteurPromesse.catch(() => { _lecteurPromesse = null; });
   return _lecteurPromesse;
 }
 const creerCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
 const typeDeTuile = (tile) => { const s = tile.querySelector('.tsel select'); return s ? s.value : ''; };
-async function controlerPhoto(tile, file){
+// Contrôles l'un après l'autre (mémoire des téléphones : une photo de 12 Mpx décodée pèse ~48 Mo) ; au-delà de 3 en
+// attente, les suivants ne sont pas contrôlés (rien n'est dit, le dépôt continue).
+let _fileControles = Promise.resolve(), _enAttente = 0;
+function controlerPhoto(tile, file){
+  if (_enAttente >= 3) return;
+  _enAttente++;
   tile._controle = { etat: 'en' }; afficherControle(tile);
+  _fileControles = _fileControles.then(() => controlerMaintenant(tile, file)).catch(() => {}).then(() => { _enAttente--; });
+}
+async function controlerMaintenant(tile, file){
   try {
+    if (tile._retiree) return;
     const L = await lecteurPhotos();
     const bmp = await createImageBitmap(file);
-    const g = L.sourceVersGris(bmp, bmp.width, bmp.height, creerCanvas, 3000);
-    try { if (bmp.close) bmp.close(); } catch(_) {}
+    let g;
+    try { g = L.sourceVersGris(bmp, bmp.width, bmp.height, creerCanvas, 3000); } finally { try { if (bmp.close) bmp.close(); } catch(_) {} }
     const r = await L.client.lire(g, { essais: 40, delaiMs: 25000, nettete: true });
-    tile._controle = r && !r.delai ? { etat: 'fait', code: r.texte || null, nettete: r.nettete } : null;   // trop lent : rien n'est dit
-  } catch(_) { tile._controle = null; }                   // lecture impossible : rien n'est dit (jamais bloquant)
+    // pas de réponse, lecture pas finie ou impossible : rien n'est dit (« pas de code » ne vaut que pour une lecture finie)
+    tile._controle = r && !r.delai && !r.interrompu && !r.indisponible ? { etat: 'fait', code: r.texte || null, nettete: r.nettete } : null;
+  } catch(_) { tile._controle = null; }
   afficherControle(tile);
 }
 function afficherControle(tile){
@@ -86,13 +90,16 @@ function afficherControle(tile){
   if (k) k.addEventListener('click', () => { tile._garde = true; afficherControle(tile); });
 }
 // « Prendre en photo » : viseur (caméra du navigateur) ; caméra refusée ou absente → appareil photo du téléphone.
+let _priseEnCours = false;
 async function prendrePhoto(cat){
   const repli = () => { const i = $(`input[data-camera="${cat}"]`); if (i) i.click(); };
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function' || typeof Worker === 'undefined') { repli(); return; }
+  if (_priseEnCours) return;                            // double appui : un seul viseur
+  _priseEnCours = true;
   try {
     const [L, Vs] = await Promise.all([lecteurPhotos(), import('/viseur.js?v=' + V)]);
-    await Vs.ouvrirViseur({ lecteur: L.client, sourceVersGris: L.sourceVersGris, surPhoto: (f) => uploadFile(cat, f), surRepli: repli });
-  } catch(_) { repli(); }
+    await Vs.ouvrirViseur({ lecteur: L.client, sourceVersGris: L.sourceVersGris, surPhoto: (f) => uploadFile(cat, f), surRepli: repli, surFermeture: () => { _priseEnCours = false; } });
+  } catch(_) { _priseEnCours = false; repli(); }
 }
 const STEP_LABELS = ['Identité', 'Situation', 'Garantie', 'Pièces'];
 
@@ -251,7 +258,7 @@ function build() {
       <section class="sec" data-step="4" hidden>
         <div class="sec-h"><span class="si">📎</span> Pièces justificatives</div>
         <div class="info" style="margin-bottom:12px"><span class="i">⚖️</span><span>Seules les pièces de la liste fixée par le décret n° 2015-1437 peuvent être demandées. Aucune autre pièce n'est à fournir (relevé bancaire, photo, carte Vitale…), et aucune somme ne peut être réclamée avant la signature du bail. <b>JPG, PNG ou PDF · 20 Mo max par fichier.</b> Plusieurs fichiers possibles ; reprise plus tard avec le même lien.</span></div>
-        <div class="info" style="margin-bottom:12px"><span class="i">🔎</span><span><b>Contrôles des pièces.</b> Le propriétaire peut vérifier l'authenticité des pièces déposées : signature électronique du code 2D-Doc des avis d'imposition (vérifiée sur son appareil, d'après la liste de confiance publiée par l'État), cohérence des calculs des bulletins de salaire (si le propriétaire l'active : montants lus par une intelligence artificielle, Mistral AI, dans l'Union européenne), informations techniques des fichiers PDF. Ces contrôles relèvent des faits : ils ne donnent ni note ni avis, et la décision appartient au propriétaire. Pour un avis d'imposition, déposer le PDF téléchargé sur impots.gouv permet le contrôle de sa signature. Une photo est d'abord lue sur ce téléphone (photo floue, code illisible) : rien n'est envoyé pour cette lecture.</span></div>
+        <div class="info" style="margin-bottom:12px"><span class="i">🔎</span><span><b>Contrôles des pièces.</b> Le propriétaire peut vérifier l'authenticité des pièces déposées : signature électronique du code 2D-Doc des avis d'imposition (vérifiée sur son appareil, d'après la liste de confiance publiée par l'État), cohérence des calculs des bulletins de salaire (si le propriétaire l'active : montants lus par une intelligence artificielle, Mistral AI, dans l'Union européenne), informations techniques des fichiers PDF. Ces contrôles relèvent des faits : ils ne donnent ni note ni avis, et la décision appartient au propriétaire. Pour un avis d'imposition, déposer le PDF téléchargé sur impots.gouv permet le contrôle de sa signature. Une photo est d'abord lue sur cet appareil (photo floue, code illisible) : rien n'est envoyé pour cette lecture.</span></div>
         ${piecesHtml}
         <div class="conseil photo-conseil" style="margin-top:12px">${ICO.soleil}<span>Photo : à plat, bien éclairé, page entière, sans reflet.</span></div>
         <div class="rgpd" style="margin-top:14px"><a id="rgpd-toggle">Mentions d'information RGPD ▾</a></div>

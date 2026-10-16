@@ -7,12 +7,23 @@ import { versGris } from './lecture-photo.js';
 
 /**
  * @param {{creerWorker?:()=>Worker, repli?:(g:{w,h,d}, opts:object)=>Promise<{texte,etape,essais,nettete?}>, delaiMs?:number}} deps
- * @returns {{lire:(g:{w,h,d:Uint8Array}, opts?:object)=>Promise<{texte:string|null, etape?:string|null, essais?:number, nettete?:number|null, delai?:boolean}>, fermer:()=>void}}
+ * @returns {{lire:(g:{w,h,d:Uint8Array}, opts?:object)=>Promise<{texte:string|null, etape?:string|null, essais?:number, nettete?:number|null,
+ *   delai?:boolean, interrompu?:boolean, indisponible?:boolean}>, fermer:()=>void}}
+ *   delai : pas de réponse à temps (le Worker est alors arrêté puis recréé à la lecture suivante) ; interrompu : la lecture
+ *   s'est arrêtée faute de temps ; indisponible : aucune lecture possible (ni Worker ni repli). Dans ces trois cas, « pas
+ *   de code » ne veut PAS dire « aucun code sur la pièce ».
  */
 export function clientLecturePhoto({ creerWorker, repli, delaiMs = 60000 } = {}) {
   let w = null, hs = false, seq = 0;
   const attente = new Map();
-  const viaRepli = async (g, opts) => { if (!repli) return { texte: null, etape: null, essais: 0 }; try { return await repli(g, opts); } catch { return { texte: null, etape: null, essais: 0 }; } };
+  const RIEN = { texte: null, etape: null, essais: 0, indisponible: true };
+  const viaRepli = async (g, opts) => { if (!repli) return { ...RIEN }; try { return await repli(g, opts); } catch { return { ...RIEN }; } };
+  // Délai dépassé : le Worker est arrêté (travail orphelin) et les autres lectures en cours rendues « délai » ; un nouveau
+  // Worker sera créé à la lecture suivante (ce n'est pas une panne : pas de passage au repli).
+  const relancer = () => {
+    try { if (w) w.terminate(); } catch { /* rien */ } w = null;
+    const enCours = [...attente.values()]; attente.clear(); for (const a of enCours) a.rendre({ texte: null, etape: null, essais: 0, delai: true });
+  };
   const casser = () => {
     hs = true; try { if (w) w.terminate(); } catch { /* rien */ } w = null;
     const enCours = [...attente.values()]; attente.clear(); for (const a of enCours) a.basculer();
@@ -23,7 +34,7 @@ export function clientLecturePhoto({ creerWorker, repli, delaiMs = 60000 } = {})
     try {
       w = creerWorker();
       w.onmessage = (e) => { const d = (e && e.data) || {}; const a = attente.get(d.id); if (!a) return; attente.delete(d.id);
-        a.rendre(d.erreur ? { texte: null, etape: null, essais: d.essais || 0 } : { texte: d.texte || null, etape: d.etape || null, essais: d.essais || 0, nettete: d.nettete == null ? null : d.nettete }); };
+        a.rendre(d.erreur ? { texte: null, etape: null, essais: d.essais || 0, interrompu: true } : { texte: d.texte || null, etape: d.etape || null, essais: d.essais || 0, interrompu: !!d.interrompu, nettete: d.nettete == null ? null : d.nettete }); };
       w.onerror = () => casser();
       w.onmessageerror = () => casser();
     } catch { hs = true; w = null; }
@@ -35,7 +46,7 @@ export function clientLecturePhoto({ creerWorker, repli, delaiMs = 60000 } = {})
       if (!ww) return viaRepli(g, opts);
       return new Promise((resoudre) => {
         const id = ++seq;
-        const t = setTimeout(() => { attente.delete(id); resoudre({ texte: null, etape: null, essais: 0, delai: true }); }, delaiMs);
+        const t = setTimeout(() => { attente.delete(id); resoudre({ texte: null, etape: null, essais: 0, delai: true }); relancer(); }, delaiMs);
         attente.set(id, {
           rendre: (v) => { clearTimeout(t); resoudre(v); },
           basculer: () => { clearTimeout(t); viaRepli(g, opts).then(resoudre); }

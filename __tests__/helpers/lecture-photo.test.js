@@ -147,7 +147,7 @@ describe('lirePhoto : photo entière', () => {
   it('aucun code : null, sans exception, dans le budget d\'essais', async () => {
     const p = photo({ rows: ['0'], quad: carre(-50, -50, 1) });
     let n = 0; const r = await lirePhoto(p, (g) => { n++; return lire(g); }, { essais: 12 });
-    expect(r.texte).toBeNull(); expect(n).toBeLessThanOrEqual(12); expect(r.essais).toBe(n);
+    expect(r.texte).toBeNull(); expect(r.interrompu).toBe(false); expect(n).toBeLessThanOrEqual(12); expect(r.essais).toBe(n);
   }, 30000);
   it('un texte qui n\'est pas un 2D-Doc est ignoré et la recherche continue', async () => {
     const p = photo({ rows: MAT.specimens['30'], quad: carre(640, 60, 200), graine: 2 });
@@ -157,8 +157,8 @@ describe('lirePhoto : photo entière', () => {
   }, 30000);
   it('délai dépassé : s\'arrête et rend null', async () => {
     const p = photo({ rows: MAT.specimens['30'], quad: carre(640, 60, 200), flou: 6, graine: 2 });
-    const t0 = Date.now(); const r = await lirePhoto(p, (g) => { const f = Date.now() + 30; while (Date.now() < f); return null; }, { delaiMs: 200 });
-    expect(r.texte).toBeNull(); expect(Date.now() - t0).toBeLessThan(3000);
+    const t0 = Date.now(); const r = await lirePhoto(p, (g) => { const f = Date.now() + 300; while (Date.now() < f); return null; }, { delaiMs: 200 });
+    expect(r.texte).toBeNull(); expect(r.interrompu).toBe(true); expect(Date.now() - t0).toBeLessThan(3000);   // « pas fini » ≠ « aucun code »
   }, 30000);
   it('localiser : la zone du code est proposée (elle recouvre le code)', () => {
     const p = photo({ rows: MAT.specimens['22'], quad: carre(560, 70, 260), graine: 7 });

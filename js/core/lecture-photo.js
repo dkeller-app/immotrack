@@ -425,7 +425,7 @@ const DEUX_D_DOC = (t) => typeof t === 'string' && /^DC/.test(t);          // un
  * @param {{essais?:number, delaiMs?:number, rapide?:boolean, accepter?:(t:string)=>boolean, trace?:object}} [opts]
  *   essais : décodages au plus (40) ; delaiMs : temps au plus (arrêt entre deux étapes) ;
  *   rapide : viseur (image d'une vidéo) — 2 zones, segmentation fine seule, grille seule.
- * @returns {Promise<{texte:string|null, essais:number, etape:string|null}>}
+ * @returns {Promise<{texte:string|null, essais:number, etape:string|null, interrompu:boolean}>}
  */
 export async function lirePhoto(g, lire, opts = {}) {
   let essais = opts.essais || ESSAIS_PHOTO, n = 0;
@@ -433,7 +433,8 @@ export async function lirePhoto(g, lire, opts = {}) {
   const accepter = opts.accepter || DEUX_D_DOC;
   const epuise = () => essais <= 0 || Date.now() > fin;
   const essai = async (img, etape) => { if (epuise()) return null; essais--; n++; const t = await lire(img); return t && accepter(t) ? { texte: t, etape } : null; };
-  const rendu = (r) => ({ texte: r ? r.texte : null, etape: r ? r.etape : null, essais: n });
+  // interrompu : arrêt par le TEMPS sans code lu — « pas fini », à ne pas confondre avec « aucun code » (relecture plus tard)
+  const rendu = (r) => ({ texte: r ? r.texte : null, etape: r ? r.etape : null, essais: n, interrompu: !r && Date.now() > fin });
   // 0. image entière (cas facile : photo nette et cadrée)
   let r = await essai(g, 'entier'); if (r) return rendu(r);
   const zones = epuise() ? [] : localiser(g, { max: opts.rapide ? 2 : 5 });

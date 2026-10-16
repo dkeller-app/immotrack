@@ -77,7 +77,9 @@ export function imageVersCanvas(obj, creerCanvas) {
  * @param {{pdfjs?:object, lire:(canvas)=>string|null, creerCanvas:(w,h)=>object, chargerImage?:(octets,mime)=>Promise<{source,largeur,hauteur}>,
  *          lirePhoto?:(canvas)=>Promise<string|null>}} deps  lirePhoto (LECTURE-PHOTOS) : lecteur de photos, utilisé pour une
  *          image, et pour une page de PDF quand la recherche directe n'a rien donné (page scannée ou photographiée)
- * @returns {Promise<{illisible:boolean, estPdf:boolean, pages?:number, codes:string[], texte:string, metadonnees?:object, enregistrements?:number, superpositions?:Array}>}
+ * @returns {Promise<{illisible:boolean, estPdf:boolean, pages?:number, codes:string[], texte:string, metadonnees?:object, enregistrements?:number, superpositions?:Array,
+ *   inacheve?:true, codeParPhoto?:true}>}  inacheve : la lecture d'une photo n'a pas pu finir (à relire) ; codeParPhoto : le code
+ *   vient d'une photo ou d'une page scannée (le texte du PDF n'est alors pas comparable aux données signées)
  */
 export async function analyserFichier(fichier, deps) {
   const octets = fichier && fichier.octets; const mime = String((fichier && fichier.mime) || '').toLowerCase();
@@ -93,7 +95,7 @@ export async function analyserFichier(fichier, deps) {
     catch { return { illisible: true, estPdf: true, codes: [], texte: '' }; }
     try {
       let meta = {}; try { meta = ((await doc.getMetadata()) || {}).info || {}; } catch { meta = {}; }
-      const items = []; let texte = '';
+      const items = []; let texte = '', inacheve = false, parPhoto = false;
       const n = Math.min(doc.numPages || 0, MAX_PAGES);
       for (let p = 1; p <= n; p++) {
         const page = await doc.getPage(p);
@@ -107,32 +109,40 @@ export async function analyserFichier(fichier, deps) {
             if (texte.length < MAX_TEXTE) texte += it.str + (it.hasEOL ? '\n' : ' | ');
           }
         } catch { /* couche texte absente : pas de comparaison */ }
-        let trouve = null, vues = 0;
+        let trouve = null, examinees = 0, grandeImage = false;
         try {
           const ops = await page.getOperatorList();
           const OPS = deps.pdfjs.OPS || {};
-          for (let i = 0; i < ops.fnArray.length && !trouve && vues < IMAGES_PAR_PAGE && budget.essais > 0; i++) {
+          for (let i = 0; i < ops.fnArray.length && !trouve && examinees < IMAGES_PAR_PAGE; i++) {
             if (ops.fnArray[i] !== OPS.paintImageXObject && ops.fnArray[i] !== OPS.paintInlineImageXObject) continue;
+            examinees++;
             const arg = ops.argsArray[i] && ops.argsArray[i][0];
             const obj = typeof arg === 'string' ? await attendreObjet(page, arg, deps.delaiObjetMs) : arg;
-            if (!obj || !obj.width || !obj.height || obj.width * obj.height > 16e6) continue;
+            if (!obj || !obj.width || !obj.height) continue;
+            if (obj.width * obj.height >= 1e6) grandeImage = true;        // image d'au moins 1 Mpx : page scannée ou photographiée
+            if (obj.width * obj.height > 16e6) continue;
             // Un 2D-Doc est presque carré et lisible : on ignore vignettes, filets et bandeaux.
             const ratio = Math.max(obj.width, obj.height) / Math.min(obj.width, obj.height);
             if (Math.min(obj.width, obj.height) < 16 || ratio > 3) continue;
-            vues++;
+            if (budget.essais <= 0) continue;
             const c = imageVersCanvas(obj, deps.creerCanvas); if (c) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
             await pause();
           }
         } catch { /* liste d'opérations indisponible : on passe au rendu */ }
-        if (!trouve && budget.essais > 0) {
+        // LECTURE-PHOTOS : page SCANNÉE ou photographiée — sans couche texte, ou portée par une grande image (les applications
+        // de numérisation ajoutent souvent un texte reconnu) → lecteur de photos, indépendamment du budget de la recherche
+        // directe. Une page numérique (PDF d'impots.gouv, bulletin de logiciel de paie) n'y passe pas (temps borné).
+        const photoProbable = !!deps.lirePhoto && (caracteresPage < 20 || grandeImage);
+        if (!trouve && (budget.essais > 0 || photoProbable)) {
           const vp1 = page.getViewport({ scale: 1 }); const k = Math.min(3, 2400 / Math.max(vp1.width, vp1.height));
           const vp = page.getViewport({ scale: k }); const c = deps.creerCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
           await page.render({ canvasContext: c.getContext('2d'), viewport: vp, intent: 'print' }).promise;
-          trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
+          if (budget.essais > 0) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
           await pause();
-          // LECTURE-PHOTOS : page SCANNÉE ou photographiée (sans couche texte ; le code n'y est ni une image propre ni droit)
-          // → lecteur de photos. Une page avec du texte (PDF d'impots.gouv, bulletin numérique) n'y passe pas (temps borné).
-          if (!trouve && deps.lirePhoto && caracteresPage < 20) { try { trouve = await deps.lirePhoto(c); } catch { trouve = null; } }
+          if (!trouve && photoProbable) {
+            // une exception = lecture pas finie (délai) : « inacheve », la pièce sera relue — jamais « aucun code »
+            try { trouve = await deps.lirePhoto(c); if (trouve) parPhoto = true; } catch { inacheve = true; }
+          }
         }
         ajouter(trouve);
       }
@@ -140,7 +150,8 @@ export async function analyserFichier(fichier, deps) {
       return {
         illisible: false, estPdf: true, pages: doc.numPages || 0, codes, texte,
         metadonnees: { producteur: String(meta.Producer || '').slice(0, 120), createur: String(meta.Creator || '').slice(0, 120), creeLe: String(meta.CreationDate || ''), modifieLe: String(meta.ModDate || '') },
-        enregistrements: enr.enregistrements, superpositions: trouverSuperpositions(items)
+        enregistrements: enr.enregistrements, superpositions: trouverSuperpositions(items),
+        ...(inacheve ? { inacheve: true } : {}), ...(parPhoto ? { codeParPhoto: true } : {})
       };
     } finally { try { doc.destroy && doc.destroy(); } catch { /* rien */ } }
   }
@@ -153,11 +164,12 @@ export async function analyserFichier(fichier, deps) {
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img.source, 0, 0, c.width, c.height);
     try { if (img.source && typeof img.source.close === 'function') img.source.close(); } catch { /* rien */ }   // mémoire (téléphones)
     // LECTURE-PHOTOS : une photo passe par le lecteur de photos (localisation, redressement, grille) s'il est fourni
-    let t = null;
-    if (deps.lirePhoto) { try { t = await deps.lirePhoto(c); } catch { t = null; } }
+    // (une exception = lecture pas finie, faute de temps : « inacheve », la pièce sera relue — jamais « aucun code »)
+    let t = null, inacheve = false;
+    if (deps.lirePhoto) { try { t = await deps.lirePhoto(c); } catch { inacheve = true; } }
     else t = chercherCode(c, deps.lire, deps.creerCanvas, budget);
     ajouter(t);
-    return { illisible: false, estPdf: false, codes, texte: '' };
+    return { illisible: false, estPdf: false, codes, texte: '', ...(inacheve ? { inacheve: true } : {}), ...(t && deps.lirePhoto ? { codeParPhoto: true } : {}) };
   }
   return { illisible: true, estPdf: false, codes: [], texte: '' };
 }

@@ -98,6 +98,24 @@ describe('LECTURE-PHOTOS : lecteur de photos fourni (localisation, redressement,
     const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire, creerCanvas, lirePhoto: async () => { n++; return 'X'; } });
     expect(a.codes).toEqual([]); expect(n).toBe(0);
   });
+  it('PDF scanné AVEC texte reconnu (application de numérisation) : la grande image de la page l\'envoie au lecteur de photos', async () => {
+    const scan = { width: 4960, height: 7016, data: new Uint8Array(3), kind: 3 };           // page A4 scannée à 600 dpi (trop grande pour la recherche directe)
+    const f = fauxPdf({ images: [[scan]], textes: [[['Avis d\'impôt sur les revenus 2025 — texte reconnu', 40, 700]]] });
+    const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire: () => null, creerCanvas, lirePhoto: async () => 'DC04SCANOCR' });
+    expect(a).toMatchObject({ codes: ['DC04SCANOCR'], codeParPhoto: true });
+  });
+  it('budget de la recherche directe épuisé : les pages scannées suivantes passent quand même au lecteur de photos', async () => {
+    const f = fauxPdf({ pages: 2 }); const vues = [];
+    const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire: () => null, creerCanvas, essaisMax: 1, lirePhoto: async () => { vues.push(1); return null; } });
+    expect(vues).toHaveLength(2); expect(a.codes).toEqual([]);
+  });
+  it('lecture de photo pas finie (délai) → « inacheve », jamais confondue avec « aucun code »', async () => {
+    const lirePhoto = async () => { throw new Error('délai'); };
+    const img = await analyserFichier({ octets: new Uint8Array([1, 2]), mime: 'image/jpeg' }, { lire, creerCanvas, lirePhoto, chargerImage: async () => ({ source: {}, largeur: 100, hauteur: 100 }) });
+    expect(img).toMatchObject({ codes: [], inacheve: true });
+    const pdf = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: fauxPdf({}).pdfjs, lire, creerCanvas, lirePhoto });
+    expect(pdf).toMatchObject({ codes: [], inacheve: true });
+  });
   it('PDF : code trouvé directement → le lecteur de photos n\'est pas appelé', async () => {
     const f = fauxPdf({ codeAuRendu: ['DC04RENDU'] }); let n = 0;
     const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire, creerCanvas, lirePhoto: async () => { n++; return 'X'; } });

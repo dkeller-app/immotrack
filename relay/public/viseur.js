@@ -14,9 +14,10 @@ const creerCanvas = (w, h) => { const c = document.createElement('canvas'); c.wi
 const horodatage = () => new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
 
 /**
- * @param {{lecteur:{lire:Function}, sourceVersGris:Function, surPhoto:(f:File, info:{repere:boolean})=>void, surRepli:()=>void}} p
+ * @param {{lecteur:{lire:Function}, sourceVersGris:Function, surPhoto:(f:File, info:{repere:boolean})=>void, surRepli:()=>void, surFermeture?:()=>void}} p
  */
-export async function ouvrirViseur({ lecteur, sourceVersGris, surPhoto, surRepli }) {
+export async function ouvrirViseur({ lecteur, sourceVersGris, surPhoto, surRepli, surFermeture }) {
+  const origine = document.activeElement;                // le focus y revient à la fermeture
   const racine = document.createElement('div');
   racine.className = 'vs';
   racine.setAttribute('role', 'dialog'); racine.setAttribute('aria-modal', 'true'); racine.setAttribute('aria-label', 'Photo de la pièce');
@@ -32,8 +33,17 @@ export async function ouvrirViseur({ lecteur, sourceVersGris, surPhoto, surRepli
     if (fini) return; fini = true;
     try { if (flux) flux.getTracks().forEach((t) => t.stop()); } catch { /* rien */ }
     racine.remove(); document.body.classList.remove('vs-ouvert'); document.removeEventListener('keydown', clavier);
+    try { if (origine && origine.isConnected && origine.focus) origine.focus(); } catch { /* rien */ }
+    if (surFermeture) surFermeture();
   };
-  const clavier = (e) => { if (e.key === 'Escape') fermer(); };
+  // Échap ferme ; Tab reste dans le viseur (boîte de dialogue modale)
+  const clavier = (e) => {
+    if (e.key === 'Escape') { fermer(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...racine.querySelectorAll('button')].filter((b) => !b.disabled); if (!f.length) return;
+    const i = f.indexOf(document.activeElement), j = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i + 1) % f.length;
+    e.preventDefault(); f[j].focus();
+  };
   document.addEventListener('keydown', clavier);
   racine.querySelector('.vs-retour').addEventListener('click', fermer);
   const puce = racine.querySelector('.vs-puce'), declic = racine.querySelector('.vs-declic'), video = racine.querySelector('video');
@@ -58,13 +68,16 @@ export async function ouvrirViseur({ lecteur, sourceVersGris, surPhoto, surRepli
   declic.disabled = false; declic.focus();
 
   // Repérage en direct : une image de la vidéo toutes les 0,7 s, lecture rapide dans le Worker (rien n'est envoyé).
+  // Un seul canvas réutilisé (mémoire des canvas limitée sur iPhone).
+  let toile = null;
+  const canvasDirect = (w, h) => { if (!toile) toile = creerCanvas(w, h); if (toile.width !== w || toile.height !== h) { toile.width = w; toile.height = h; } return toile; };
   (async () => {
     while (!fini) {
       await new Promise((r) => setTimeout(r, 700));
       if (fini || occupe || repere || !video.videoWidth) continue;
       occupe = true;
       try {
-        const g = sourceVersGris(video, video.videoWidth, video.videoHeight, creerCanvas, 2400);
+        const g = sourceVersGris(video, video.videoWidth, video.videoHeight, canvasDirect, 2400);
         const r = await lecteur.lire(g, { rapide: true, essais: 8, delaiMs: 3000 });
         if (!fini && r && r.texte) { repere = true; puce.classList.add('ok'); puce.innerHTML = ICO.ok + 'Code de l\'État repéré'; }
       } catch { /* image suivante */ }
@@ -78,8 +91,9 @@ export async function ouvrirViseur({ lecteur, sourceVersGris, surPhoto, surRepli
     const c = creerCanvas(video.videoWidth, video.videoHeight);
     c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
     const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92));
+    if (!blob) { puce.classList.remove('ok'); puce.textContent = 'Photo non prise : réessayer'; declic.disabled = false; return; }   // le viseur reste ouvert
     const vu = repere;
     fermer();
-    if (blob) surPhoto(new File([blob], 'photo-' + horodatage() + '.jpg', { type: 'image/jpeg' }), { repere: vu });
+    surPhoto(new File([blob], 'photo-' + horodatage() + '.jpg', { type: 'image/jpeg' }), { repere: vu });
   };
 }

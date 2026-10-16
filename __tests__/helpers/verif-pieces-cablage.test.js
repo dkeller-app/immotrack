@@ -119,10 +119,17 @@ describe('déclenchement et enregistrement', () => {
     expect(DB.documents[1].verif).toBeUndefined();
   });
   it('jamais bloquant : binaire absent, lecture en échec, réglage coupé → rien d\'enregistré', async () => {
-    for (const o of [{ binaire: null, analyse: SANS_CODE }, { analyse: new Error('pdf') }]) {
-      const DB = parc(); const { app, j } = monter(DB, o);
+    { const DB = parc(); const { app, j } = monter(DB, { binaire: null, analyse: SANS_CODE });
       await app._candVerifierPieces('c1');
-      expect(DB.documents[0].verif).toBeUndefined(); expect(j.saves).toBe(0);
+      expect(DB.documents[0].verif).toBeUndefined(); expect(j.saves).toBe(0); }
+    // LECTURE-PHOTOS : lecture en échec ou pas finie → aucune vérification écrite, pièce « reportée » (pas de relecture en
+    // boucle à chaque ouverture : au plus une fois par heure)
+    for (const analyse of [new Error('pdf'), { illisible: false, estPdf: false, codes: [], texte: '', inacheve: true }]) {
+      const DB = parc([AVIS({ mime: 'image/jpeg' })]); const { app, j } = monter(DB, { analyse });
+      await app._candVerifierPieces('c1');
+      expect(DB.documents[0].verif).toBeUndefined(); expect(DB.documents[0].verifReportee).toBeTruthy(); expect(j.saves).toBe(1);
+      await app._candVerifierPieces('c1');
+      expect(j.lus).toBe(1);                                              // pas relue aussitôt
     }
     const DB = parc(); DB.params.verifPieces = { locaux: false };
     const { app, j } = monter(DB, { analyse: SANS_CODE });

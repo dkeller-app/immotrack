@@ -54,6 +54,8 @@ export const LECTEUR_PHOTO = 1;
 /** Faut-il (re)lancer l'analyse locale ? */
 export function aAnalyser(doc, maintenant = Date.now()) {
   if (!pieceConcernee(doc)) return false;
+  // LECTURE-PHOTOS : lecture pas finie (délai sur un appareil lent) → rien n'est conclu, nouvel essai au plus une fois par heure
+  if (doc.verifReportee && maintenant - Date.parse(doc.verifReportee) < REESSAI_MS) return false;
   const v = doc.verif;
   if (!v || v.v !== VERSION_VERIF) return true;
   if (!v.illisible && !v.deuxDDoc && (v.lecteurPhoto || 0) < LECTEUR_PHOTO) return true;
@@ -102,6 +104,7 @@ export function construireVerif({ doc, candidat, analyse, resultats, maintenant 
   const a = analyse || {};
   const verif = { v: VERSION_VERIF, le: now.toISOString(), illisible: !!a.illisible, deuxDDoc: null, indices: null, constats: [], reessayer: false, lecteurPhoto: LECTEUR_PHOTO };
   if (a.illisible) return verif;
+  if (a.codeParPhoto) verif.codeParPhoto = true;       // LECTURE-PHOTOS : code lu sur une photo ou une page scannée
   if (a.estPdf) verif.indices = { metadonnees: a.metadonnees || {}, enregistrements: a.enregistrements || 0, superpositions: a.superpositions || [] };
 
   // Un DataMatrix qui n'est pas un 2D-Doc (code d'archivage, de La Poste…) n'est pas un « code 2D-Doc présent » : écarté.
@@ -117,7 +120,8 @@ export function construireVerif({ doc, candidat, analyse, resultats, maintenant 
       champs, comparaisons: [], identite: null, annee: '',
       autresNonConformes: r.etat === ETAT.VALIDE ? tries.filter((x) => x.etat === ETAT.INVALIDE).length : 0 };
     if (r.etat === ETAT.VALIDE) {
-      dd.comparaisons = comparerAvecTexte(h.type, r.champs, a.texte);
+      // code lu sur une photo / page scannée : le texte du PDF (autres pages, texte reconnu) n'est pas comparable → aucune comparaison
+      dd.comparaisons = comparerAvecTexte(h.type, r.champs, a.codeParPhoto ? '' : a.texte);
       dd.nomsSignes = nomsSignes(h.type, r.champs);
       appliquerIdentite(doc, dd, candidat);
       if (TYPES_AVIS_IMPOT.includes(h.type)) dd.annee = ((r.champs || []).find((c) => c.id === '45') || {}).valeur || '';
