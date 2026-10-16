@@ -677,7 +677,8 @@ export function _computeDetteBail(input) {
     if (ym === ymRetenue) o.reglement = retenue;
     return o;
   });
-  const graceLast = !!W.graceLast && yms.length > 0 && yms[yms.length - 1] === moisCourant;
+  // Tolérance du début de mois (< 10) : `sansTolerance` la coupe (quittances, D6 « au centime »).
+  const graceLast = !i.sansTolerance && !!W.graceLast && yms.length > 0 && yms[yms.length - 1] === moisCourant;
   // Seule l'antériorité NOTÉE sur ce bail (Q1 révisé) est posée, une fois, au mois du début du suivi.
   const ouv = i.ouverture ? { loyer: Math.max(0, Number(i.ouverture.loyer) || 0), charge: Math.max(0, Number(i.ouverture.charge) || 0), avance: Math.max(0, Number(i.ouverture.avance) || 0) } : null;
   const opening = ouv ? Object.assign({}, ouv, { idx: debutSuivi ? Math.max(0, yms.indexOf(debutSuivi.slice(0, 7))) : 0 }) : null;
@@ -746,7 +747,12 @@ export function _computeDetteBail(input) {
     depuisYm: prem ? prem.ym : null,
     manquesIgnores,
     retenue: { montant: retenue, appliquee: round2(mois.reduce((s, m) => s + m.reglement, 0)) },
-    arrondis: mois.filter(m => Math.abs(m.arrondi) > 0.005).map(m => ({ ym: m.ym, montant: m.arrondi }))
+    arrondis: mois.filter(m => Math.abs(m.arrondi) > 0.005).map(m => ({ ym: m.ym, montant: m.arrondi })),
+    // R0-C (2ᵉ audit 🟠3) — ce qui reste dû de l'antériorité NOTÉE (jamais la dette d'un mois suivi) et ce qui l'a soldée.
+    ouverture: (r.ouvertureReste && (r.ouvertureReste.loyer + r.ouvertureReste.charge) > 0.005 && yms[r.ouvertureReste.idx])
+      ? { date: debutSuivi, ym: yms[r.ouvertureReste.idx], loyer: r.ouvertureReste.loyer, charge: r.ouvertureReste.charge,
+          paiements: (r.imputationsOuverture || []).filter(p => p.date) }
+      : null
   };
 }
 
@@ -810,4 +816,51 @@ export function _positionLot(suivi, ym) {
   out.avance = r2(out.avance); out.aRendre = r2(out.aRendre);
   out.position = r2(out.avance - out.retard);
   return out;
+}
+
+/**
+ * FINANCES-SUIVI-V2 — LA FRISE 12 MOIS D'UN LOT (bandeau « Tous les loyers », fiche du logement, Accueil),
+ * lue dans le suivi. Une case = la position du lot à la FIN du mois (`_positionLot`) :
+ *   'avenir' mois pas encore exigible · 'vac' aucun bail suivi · 'avance' · 'ok' à jour ·
+ *   'imp' retard au moins égal au dû du mois · 'warn' retard partiel, ou mois payé avec une dette ancienne.
+ * `solde` = position au dernier mois exigible de l'année (même chiffre que Finances).
+ * @param {{baux:Array}|null} suivi
+ * @param {number|string} annee
+ * @param {{dernierExigible:string, monthlyFull?:number, curMo?:number}} opts dernierExigible 'YYYY-MM'
+ * @returns {{months:Array<{mi:number, cls:string, recu:number, attendu:number, due:number}>, solde:number,
+ *            recu:number, attendu:number, curMo:number, monthlyFull:number}}
+ */
+export function _friseLot(suivi, annee, opts) {
+  const o = opts || {};
+  const r2 = n => Math.round(n * 100) / 100;
+  const y = String(annee);
+  const dernier = String(o.dernierExigible || '');
+  const months = [];
+  let recuAn = 0, attenduAn = 0;
+  for (let mi = 1; mi <= 12; mi++) {
+    const ym = y + '-' + String(mi).padStart(2, '0');
+    let du = 0, recu = 0;
+    ((suivi && suivi.baux) || []).forEach(b => {
+      const m = (b && Array.isArray(b.mois)) ? b.mois.find(x => x.ym === ym) : null;
+      if (m) { du += m.duHC + m.duCH; recu += m.encaisse; }
+    });
+    du = r2(du); recu = r2(recu);
+    recuAn += recu;
+    let cls;
+    if (ym > dernier) cls = 'avenir';
+    else {
+      attenduAn += du;
+      const p = _positionLot(suivi, ym);
+      if (!p.baux.length || (du <= 0.005 && p.retard <= 0.005 && p.avance <= 0.005)) cls = 'vac';
+      else if (p.avance > 0.005) cls = 'avance';
+      else if (p.retard <= 0.005) cls = 'ok';
+      else cls = (du > 0.005 && p.retard >= du - 0.005 && recu <= 0.005) ? 'imp' : 'warn';
+    }
+    months.push({ mi, cls, recu, attendu: du, due: du });
+  }
+  const fin = dernier && dernier.slice(0, 4) === y ? dernier : (dernier > y + '-12' ? y + '-12' : null);
+  return {
+    months, solde: fin ? _positionLot(suivi, fin).position : 0, recu: r2(recuAn), attendu: r2(attenduAn),
+    curMo: o.curMo || 0, monthlyFull: Number(o.monthlyFull) || 0
+  };
 }

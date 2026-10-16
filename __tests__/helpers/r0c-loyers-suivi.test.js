@@ -16,9 +16,9 @@ import { fileURLToPath } from 'node:url';
 import { extraireFonction } from './_extraction-source.js';
 import * as Anteriorite from '../../js/core/anteriorite.js';
 import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, finOccupationBail } from '../../js/core/loyer-du-mois.js';
-import { _computeFinancesMonthly, _computeDetteBail, _avantBorne } from '../../js/core/finances-monthly.js';
+import { _computeFinancesMonthly, _computeDetteBail, _avantBorne, _computeSuiviLot, _positionLot, _friseLot } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
-import { etatMoisLot, ymRange as ymRangeCore, retardLot, lignesRelance, moisAQuittancer } from '../../js/core/loyers-mois.js';
+import { etatMoisLot, etatDepuisSuivi, ymRange as ymRangeCore, retardLot, lignesRelance, moisAQuittancer } from '../../js/core/loyers-mois.js';
 import { jeuAnteriorite, dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -27,20 +27,20 @@ const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
 const F1 = ['_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog', '_getLogementStartIso', '_getLogementStartMi', '_duMoisLot',
   '_getActiveBailHcChProratedSplit', '_getActiveBailHcChProrated', '_loyerEtatLot'];
 const F2 = ['_finLotStartMi', '_finImmDuLot', '_finDuRaw', '_finLotSuivi', '_finBailHcChAt', '_finActiveLotsInScope',
-  '_finLotOccupe', '_finIsRecupACharge', '_finDetteBail', '_finChargeHf', '_fin250Genre', '_finMonthly'];
+  '_finLotOccupe', '_finIsRecupACharge', '_finCleNue', '_finManquesDuLot', '_finPremierLoyerBase', '_finEntreesSuivi', '_finSuiviLot', '_finDetteBail', '_finChargeHf', '_fin250Genre', '_finMonthly'];
 const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraireFonction(P2, n))).join('\n');
 
 function monter(DB, today, { avecModule = true } = {}) {
   const window = {
-    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, etatMoisLot, finOccupationBail, ymRange: ymRangeCore,
+    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, etatMoisLot, etatDepuisSuivi, _positionLot, finOccupationBail, ymRange: ymRangeCore,
     _loyerTodayLocal: () => today,
-    _computeFinancesMonthly: (i) => _computeFinancesMonthly({ today, ...i }), _computeDetteBail: (i) => _computeDetteBail({ today, ...i }),
+    _computeFinancesMonthly: (i) => _computeFinancesMonthly({ today, ...i }), _computeDetteBail: (i) => _computeDetteBail({ today, ...i }), _computeSuiviLot: (i) => _computeSuiviLot({ today, ...i }),
     _anteriorite: avecModule ? Anteriorite : undefined, _avantBorne: avecModule ? _avantBorne : undefined
   };
   const deps = { DB, window, _isLoyerCategory: estLoyer, _finCatLigne: catLigne,
     _finCatMere: () => null, _finScopeWeight: (s, m) => ((!m || m._deleted) ? 0 : 1) };
   const noms = Object.keys(deps);
-  const lets = 'let _finLotStartCache = { gen: -1, map: {} }; let _finLotSuiviCache = { gen: -1, map: {} }; let _finMonthlyCache = { gen: -1, m: new Map() };\n';
+  const lets = 'let _finLotStartCache = { gen: -1, map: {} }; let _finLotSuiviCache = { gen: -1, map: {} }; let _finMonthlyCache = { gen: -1, m: new Map() }; let _finSuiviCache = { k: \'\', map: {} }; let _finPremierLoyerCache = { gen: -1, v: null };\n';
   return new Function(...noms, lets + SRC + '\nreturn { ' + F1.concat(F2).join(', ') + ' };')(...noms.map((n) => deps[n]));
 }
 const pay = (qui, date, cr = 700) => ({ qui, date, cat: 'Loyers encaissés', cr, db: 0 });
@@ -76,46 +76,49 @@ describe('🟠3 — onglet Loyers = Finances = dette du bail', () => {
     expect(r.etat.list[0].ym).toBe('2026-02');
     expect(r.etat.byYm['2026-02'].vacance).toBe(true);   // rien à quittancer, rien à relancer en février
   });
-  it('date provisoire (b) : rien de saisi → l\'onglet Loyers garde EXACTEMENT l\'ancienne fenêtre (1ᵉʳ janvier), comme le maître garde la sienne', () => {
+  // FINANCES-SUIVI-V2 (lot E du 05/10, point « trois débuts de suivi ») : l'onglet Loyers, la relance et les quittances
+  // lisent le MÊME suivi que Finances. Date PROVISOIRE (b, décision 05/10) = 1ᵉʳ jour du mois du 1ᵉʳ loyer encaissé,
+  // « à confirmer » tant que la date d'achat ou une antériorité n'est pas saisie. Fin de l'écart (b) assumé.
+  it('date provisoire (b) : rien de saisi → l’onglet Loyers suit la MÊME fenêtre que Finances (1ᵉʳ loyer encaissé)', () => {
     const DB = lot();   // bail depuis 2018, aucune date saisie, 1ᵉʳ loyer le 05/03/2026
     DB.mouvements = ymRange('2026-03', '2026-09').map((ym) => pay('L', ym + '-05'));
     const app = monter(DB, TODAY);
     expect(app._finLotSuivi('L')).toMatchObject({ source: 'provisoire', date: '2026-03-01' });
-    const neuf = app._loyerEtatLot('L'), ancien = monter(DB, TODAY, { avecModule: false })._loyerEtatLot('L');
-    expect(JSON.stringify(neuf)).toBe(JSON.stringify(ancien));
-    expect(neuf.list[0].ym).toBe('2026-01');
-    // écart (b) assumé jusqu'à ce que la date soit saisie : l'onglet Loyers réclame janvier-février, Finances non
-    expect(trois(app, DB)).toMatchObject({ loyers: 1400, finances: 0, dette: 0 });
-    // … la date d'achat saisie les aligne
+    const neuf = app._loyerEtatLot('L');
+    expect(neuf.list[0].ym).toBe('2026-03');
+    expect(trois(app, DB)).toMatchObject({ loyers: 0, finances: 0, dette: 0 });
     DB.entites[0].immeubles[0].dateAcquisition = '2026-03-01';
     expect(trois(monter(DB, TODAY), DB)).toMatchObject({ loyers: 0, finances: 0, dette: 0 });
   });
-  it('A2 · loyer de janvier payé en rattrapage le 09/02 (F-002) : sans date saisie, la quittance de janvier reste due et datée du 09/02, mai impayé n\'est pas quittançable', () => {
+  it('A2 · 1ᵉʳ loyer encaissé en février (F-002), rien de saisi : janvier hors suivi (à confirmer), le 09/02 est une avance — Loyers = Finances', () => {
     const DB = lot({ debut: '2021-12-07', hc: 410 });
     DB.mouvements = [pay('L', '2026-02-05', 410), pay('L', '2026-02-09', 410), pay('L', '2026-03-05', 410), pay('L', '2026-04-06', 410)];
-    const e = monter(DB, TODAY)._loyerEtatLot('L');
-    expect(JSON.stringify(e)).toBe(JSON.stringify(monter(DB, TODAY, { avecModule: false })._loyerEtatLot('L')));
-    expect(e.byYm['2026-01']).toMatchObject({ solde: true, datePaiement: '2026-02-09' });
-    expect(moisAQuittancer(e, [])).not.toContain('2026-05');
+    const app = monter(DB, TODAY);
+    const e = app._loyerEtatLot('L');
+    expect(e.byYm['2026-01']).toBeUndefined();
+    expect(e.byYm['2026-02']).toMatchObject({ solde: true, datePaiement: '2026-02-05' });
+    expect(e.byYm['2026-05']).toMatchObject({ solde: true });   // couvert par l'avance (un loyer de trop le 09/02)
+    expect(moisAQuittancer(e, [])).not.toContain('2026-06');
+    const r = trois(app, DB, TODAY, 'L', '2021-12-07');
+    expect(r.loyers).toBe(r.finances);
   });
   it('A3 · bail clos en 2024, jamais saisi, aucun loyer : aucune relance fantôme (rien ne bouge)', () => {
     const DB = lot();
     DB.baux = {};
     DB.baux_historique = [{ ref: 'L', debut: '2023-04-01', fin: '2024-03-31', finEffective: '2024-03-31', hc: 530, ch: 0 }];
-    const neuf = monter(DB, TODAY)._loyerEtatLot('L'), ancien = monter(DB, TODAY, { avecModule: false })._loyerEtatLot('L');
-    expect(JSON.stringify(neuf)).toBe(JSON.stringify(ancien));
-    expect(lignesRelance(neuf, {})).toEqual([]);
+    const neuf = monter(DB, TODAY)._loyerEtatLot('L');
+    expect(lignesRelance(neuf || { list: [] }, {})).toEqual([]);
   });
-  it('(b) PREUVE sur 30 parcs multi-lots sans date saisie : l\'onglet Loyers, les relances et les quittances sont IDENTIQUES à l\'ancien chemin', () => {
+  it('30 parcs multi-lots sans date saisie : onglet Loyers (relance) = Finances au centime, lot par lot', () => {
     let lots = 0;
     for (let seed = 1000; seed < 1030; seed++) {
       const DB = dbAppDe(seed);
-      const neuf = monter(DB, TODAY), ancien = monter(DB, TODAY, { avecModule: false });
+      const app = monter(DB, TODAY);
+      const f = app._finMonthly(2026, null, computeConstatWindow({ year: 2026, today: TODAY, mouvements: DB.mouvements })).byLot;
       for (const l of DB.logements) {
-        const a = neuf._loyerEtatLot(l.ref), b = ancien._loyerEtatLot(l.ref);
-        expect(JSON.stringify(a)).toBe(JSON.stringify(b));
-        expect(lignesRelance(a, {})).toEqual(lignesRelance(b, {}));
-        expect(moisAQuittancer(a, [])).toEqual(moisAQuittancer(b, []));
+        const e = app._loyerEtatLot(l.ref, { graceLast: false });
+        if (!e) continue;
+        expect(e.reste).toBe(f[l.ref] ? f[l.ref].annual.retard : 0);
         lots++;
       }
     }

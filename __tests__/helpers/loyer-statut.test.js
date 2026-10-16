@@ -379,13 +379,17 @@ describe('_computeLoyerArrears — arriérés courants + CAUSE résiduelle FIFO 
 });
 
 describe('verrou : un règlement de régul ne pollue JAMAIS le pool loyers', () => {
-  it('le wrapper _suiviLoyerStrip filtre par _isLoyerCategory (211 seulement) — un mouvement « Divers (non déductible) » est exclu', () => {
+  it('le wrapper _suiviLoyerStrip lit le moteur unique (ligne 211 seulement) — un mouvement « Divers (non déductible) » est exclu', () => {
     const src = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
     const i = src.indexOf('function _suiviLoyerStrip(');
     expect(i).toBeGreaterThan(0);
     const body = src.slice(i, src.indexOf('\n}', i));
-    expect(body).toContain('isLoy(m.cat)');                        // le pool ne prend que les loyers 211
-    expect(body).toContain('_computeLoyerStatut');                 // et délègue bien au moteur unique
+    // FINANCES-SUIVI-V2 : la frise lit le suivi du lot (moteur unique), dont le collecteur ne prend que la ligne 211
+    expect(body).toContain('_finSuiviLot(log.ref)');
+    expect(body).toContain('_friseLot');
+    expect(body).not.toContain('_computeLoyerStatut');
+    const fm = readFileSync(new URL('../../js/core/finances-monthly.js', import.meta.url), 'utf8');
+    expect(fm).toMatch(/if \(!r0 \|\| r0\.ligne2044 !== '211'\) return;/);
     // La catégorie de règlement de régul reste hors 211 (special, ligne vide) :
     expect(src).toMatch(/nom: 'Divers \(non déductible\)',\s+ligne2044:'',\s+type:'special'/);
   });

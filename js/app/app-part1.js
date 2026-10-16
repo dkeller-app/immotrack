@@ -7522,33 +7522,16 @@ function _v4ComputeLotStatus(log, yr, mo, mvs) {
 // réel par mois (payé/partiel/retard) et détection de l'avance (mois futur pré-payé).
 // Retourne { months:[{mi,cls,recu,attendu,due}], solde, recu, attendu, curMo }.
 function _suiviLoyerStrip(log, yr) {
-  // SUIVI-LOYERS-SOURCE-UNIQUE Phase A : le calcul vit dans js/core/loyer-statut.js
-  // (_computeLoyerStatut, allocation chronologique + solde — TDD 17 tests). Ce wrapper
-  // ne fait plus que : résoudre les entrées depuis la DB + mémoïser.
-  if (typeof window._computeLoyerStatut !== 'function') return null;   // module requis (main.js) — appelants dégradent
-  const y = parseInt(yr);
-  // Mémoïsation par (lot, année, génération DB, jour local) — patron _departEstimDu v15.415 :
-  // les rendus multiples d'un même refresh = 1 seul calcul par lot. Invalidé par saveDB (_dbGen),
-  // par _backupRestoreApply (bump direct) et au changement de jour (curMo dépend de la date).
-  const gen = ((typeof window._dbGen !== 'undefined') ? window._dbGen : 0) + '|'
-    + ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '');
-  const C = window._suiviStripCache || (window._suiviStripCache = { gen: -1, map: {} });
-  if (C.gen !== gen) { C.gen = gen; C.map = {}; }
-  const key = log.ref + '|' + y;
-  if (C.map[key]) return C.map[key];
-  const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  const aliveFn = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
-  const monthlyFull = (Number(log.hc) || 0) + (Number(log.ch) || 0);
-  // Total encaissé loyer sur l'année pour ce logement (le moteur alloue chronologiquement).
-  const totalPaid = (DB.mouvements || []).filter(aliveFn).filter(m =>
-    m.qui === log.ref && (m.cr || 0) > 0 && isLoy(m.cat) && m.date && m.date.startsWith(String(y))
-  ).reduce((s, m) => s + (m.cr || 0), 0);
-  const s = window._computeLoyerStatut({
-    year: y, monthlyFull, totalPaid,
-    dueOfMonth: (mi0) => (typeof _getActiveBailHcChProrated === 'function') ? _getActiveBailHcChProrated(log.ref, y, mi0) : monthlyFull
-  });
-  C.map[key] = s;
-  return s;
+  // FINANCES-SUIVI-V2 : la frise LIT le moteur unique (`_finSuiviLot` → `_friseLot`) : une case = la position du
+  // lot à la fin du mois, le solde = celui de Finances au centime. Fin du 3ᵉ moteur (pool
+  // annuel sans report ni bail) qui faisait diverger le bandeau de Finances et de l'onglet Loyers (lot E du 05/10).
+  if (!log || typeof window._friseLot !== 'function' || typeof _finSuiviLot !== 'function') return null;   // file:// : les appelants dégradent
+  const y = parseInt(yr, 10);
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const W = (typeof window._finWindowExigibilite === 'function') ? window._finWindowExigibilite({ year: Number(today.slice(0, 4)), today }) : null;
+  const dernier = (W && W.dueMonth > 0) ? today.slice(0, 4) + '-' + String(W.dueMonth).padStart(2, '0') : today.slice(0, 7);
+  return window._friseLot(_finSuiviLot(log.ref), y, { dernierExigible: dernier, monthlyFull: (Number(log.hc) || 0) + (Number(log.ch) || 0),
+    curMo: (String(y) === today.slice(0, 4)) ? parseInt(today.slice(5, 7), 10) : 0 });
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -9495,87 +9478,34 @@ function _duMoisLot(ref, ym) {
 // ════════════════════════════════════════════════════════════════════════════
 // CDC-QUITTANCES-IRL étape 1 — LE VERDICT « ce mois est-il soldé ? » d'un lot.
 //
-// Ici on n'assemble QUE le contexte : le dû vient de _duMoisLot (bail + barème historisé,
-// résolveur unique), le payé des mouvements de loyer encaissés. L'IMPUTATION — quel
-// paiement couvre quel mois — n'est PAS écrite ici : elle est déléguée à
-// js/core/loyers-mois.js, qui consomme `_loyerArrearsPass` (cascade loyer→charges→arriérés
-// FIFO + netting avance↔retard). C'est l'invariant I6 : une seule source d'imputation.
-// Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
-// supprimé, pas corrigé (C3).
-//
-// Fenêtre de suivi (R0-C) — dès qu'une date est SAISIE (date d'achat ou antériorité notée), LE point
-// de départ de Finances (`_finLotSuivi` → js/core/anteriorite.js), le dû de Finances (`_finBailHcChAt` :
-// 1ᵉʳ terme exigible après l'achat), son solde d'ouverture, et la même règle pour les encaissements
-// d'avant : jamais imputés (3ᵉ audit A1). L'onglet Loyers, les relances et les quittances lisent alors la même dette
-// que Finances et la restitution.
-// Date PROVISOIRE (b) — rien de saisi : l'ancienne fenêtre `_debutSuivi` (1ᵉʳ janvier de l'année du
-// 1ᵉʳ versement), exactement comme le maître, qui ne reçoit jamais `debutDu` pour elle (3ᵉ audit A2/A3 :
-// la borne provisoire tombe sur le mois du PAIEMENT, elle décalait les quittances — actes opposables —
-// et faisait naître des relances sur des baux clos). Rien ne bouge tant que rien n'est saisi.
-// Repli (modules absents) : la même ancienne fenêtre.
+// FINANCES-SUIVI-V2 (16/10/2026) : plus AUCUNE imputation ici. Le verdict est LU dans le moteur unique du
+// suivi (`_finSuiviLot` → `_computeSuiviLot`, bail par bail : point de départ, antériorité, manques acceptés,
+// retenues pour loyer sur le dépôt, virements entre deux baux) et mis à la forme historique de `etatMoisLot`
+// (`etatDepuisSuivi`). L'onglet Loyers, la relance, les quittances, la fiche du logement et Finances lisent
+// donc le MÊME chiffre (lot E du 05/10 : « la relance peut annoncer un autre montant » est fermé).
+//   - par défaut : les baux VISIBLES aujourd'hui (bail en cours + locataire parti cette année, décision Q2) ;
+//   - `opts.bailDebut` : un seul bail (relance du locataire en place, restitution d'un dépôt) ;
+//   - `opts.tous` : tous les baux du lot ;
+//   - `opts.graceLast` : tolérance du début de mois (affichage du retard) ; SANS elle (défaut), le verdict est
+//     « au centime » (quittances, D6).
 // Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
 function _loyerEtatLot(ref, opts) {
   opts = opts || {};
-  if (typeof window === 'undefined' || typeof window.etatMoisLot !== 'function'
-      || typeof window.ymRange !== 'function') return null;
-  const key = String(ref) + '|' + (opts.graceLast ? 'g' : 's');
-  const gen = ((typeof window._dbGen !== 'undefined') ? window._dbGen : 0) + '|'
-    + ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '');
-  const C = window._loyerEtatCache || (window._loyerEtatCache = { gen: -1, map: {} });
-  if (C.gen !== gen) { C.gen = gen; C.map = {}; }
-  if (C.map[key]) return C.map[key];
-
-  const isLoy = _isLoyerCategory;   // NORMALISATION-LOYERS : plus de repli sur la catégorie héritée « Loyers »
-  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
-  const recuParYm = {};
-  // LOT 0 (CDC-LOYERS-DESIGN §4) — on ne jette plus la date : `recuParYm` gardait le
-  // montant seul, si bien qu'aucune surface ne pouvait dire « ce mois a été soldé par le
-  // mouvement du JJ/MM » (et la quittance retombait sur sa propre date d'émission, faux).
-  // `srcParYm` transporte les mouvements eux-mêmes jusqu'à la cascade, qui les rend
-  // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
-  const srcParYm = {};
-  let firstPaymentYm = null;
-  const _s = (typeof _finLotSuivi === 'function' && typeof _finBailHcChAt === 'function') ? _finLotSuivi(ref) : null;
-  const suivi = (_s && _s.source && _s.source !== 'provisoire') ? _s : null;   // (b) : seule une date SAISIE fait foi
-  const borne = suivi ? suivi.date : null;
-  const avant = [];   // encaissements d'avant la date saisie : jamais imputés (A1), signalés après un achat (C1)
-  for (const m of (DB.mouvements || [])) {
-    if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
-    const ym = String(m.date).slice(0, 7);
-    if (!/^\d{4}-\d{2}$/.test(ym)) continue;
-    if (borne && String(m.date).slice(0, 10) < borne) { avant.push({ date: String(m.date).slice(0, 10), montant: m.cr || 0 }); continue; }
-    recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
-    (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
-    if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
+  if (typeof window === 'undefined' || typeof window.etatDepuisSuivi !== 'function' || typeof _finSuiviLot !== 'function') return null;
+  const s = _finSuiviLot(ref, { sansTolerance: !opts.graceLast });
+  if (!s) return null;
+  let debuts = null;
+  if (opts.bailDebut) debuts = [String(opts.bailDebut).slice(0, 10)];
+  else if (!opts.tous && typeof window._positionLot === 'function') {
+    const auj = ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
+    debuts = window._positionLot(s, auj).baux.map(b => b.debut);
   }
-  let startYm = null, duDe = (ym) => _duMoisLot(ref, ym), opening = null;
-  if (suivi) {
-    startYm = borne ? borne.slice(0, 7) : null;
-    duDe = (ym) => _finBailHcChAt(ref, ym);
-    const o = suivi.ouverture;
-    if (o) opening = { idx: 0, date: borne, loyer: o.loyer, charge: o.charge, avance: o.avance };
-  } else {
-    const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
-    const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
-    startYm = (typeof window._debutSuivi === 'function')
-      ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
-  }
-  const endYm = ((typeof window._loyerTodayLocal === 'function')
-    ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
-  const months = (startYm && startYm <= endYm)
-    ? window.ymRange(startYm, endYm).map(ym => {
-        const d = duDe(ym);
-        return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0, sources: srcParYm[ym] || [] };
-      })
-    : [];
-  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast, opening });
-  // R0-C C1 — tant que le geste « rattacher » n'existe pas (lot 2) : un versement du mois qui précède une
-  // DATE D'ACHAT est peut-être le 1ᵉʳ terme, déjà sur le compte. Il n'est pas imputé, mais il est
-  // SIGNALÉ (onglet Loyers, relance) : jamais un impayé relancé sans le dire.
-  etat.aVerifier = (suivi && suivi.source === 'acquisition' && avant.length && typeof window._avantBorne === 'function')
-    ? window._avantBorne(avant, borne, { achat: true }).horsSuivi.filter(h => h.aRattacher).map(h => ({ date: h.date, montant: h.montant }))
-    : [];
-  C.map[key] = etat;
+  const etat = window.etatDepuisSuivi(s, { debuts, manques: (typeof _finManquesDuLot === 'function') ? _finManquesDuLot(ref) : [] });
+  // R0-C C1 — un versement du mois qui précède une DATE D'ACHAT est peut-être le 1ᵉʳ terme, déjà sur le compte : il
+  // n'est pas imputé, mais il est SIGNALÉ (onglet Loyers, relance) — jamais un impayé relancé sans le dire.
+  const aV = [];
+  (s.baux || []).forEach(b => { if ((!debuts || debuts.includes(b.debut)) && s.sourceSuivi === 'acquisition') (b.horsSuivi || []).forEach(h => { if (h.aRattacher) aV.push({ date: h.date, montant: h.montant }); }); });
+  etat.aVerifier = aV;
   return etat;
 }
 
@@ -10140,7 +10070,8 @@ function _computeImpayes(ctx) {
       const A = b.annual || {};
       reste = A.retard || 0; enc = A.encaisse || 0; attendu = Math.round(((A.duHC || 0) + (A.duCH || 0)) * 100) / 100;
       // Ancienneté (fin du « toujours null », audit) : 1er mois du maître portant un résidu.
-      if (Array.isArray(b.months)) { for (let k = 0; k < b.months.length; k++) { const m = b.months[k]; if ((m.loyerRetard + m.chargeRetard) > 0.5) { depuisYm = m.ym; break; } } }
+      // FINANCES-SUIVI-V2 : le plus vieux mois ENCORE dû, lu dans le moteur unique (byLot.depuisYm).
+      depuisYm = b.depuisYm || null;
     }
     // Le NOM affiché ne vient plus du seul cache : si le bail existe mais que le cache est vide
     // (bail repris, saisie en cours), on prend les locataires du bail. Une ligne d'impayé sans
@@ -25430,22 +25361,25 @@ function _rgN1Charges(ref){
            moyenne, moyennePrev, spike, moves:n1.moves, year:n1.year };
 }
 
-// CDC Charges Lot 4 (mockup 11) — total des loyers/charges impayés d'une occupation.
-// Réutilise le résolveur unique _loyerEtatLot (byYm[ym].reste = dû non soldé du mois).
+// CDC Charges Lot 4 (mockup 11) — loyer impayé d'une occupation [from ; to].
+// FINANCES-SUIVI-V2 : lu dans le moteur unique, BAIL PAR BAIL (seuls les baux qui chevauchent l'occupation),
+// AVANT la retenue pour loyer sur le dépôt (`sansRetenue`) : la restitution déduit elle-même ce loyer du dépôt,
+// il ne doit pas l'être deux fois. Seul le LOYER compte (resteLoyer) : les provisions impayées relèvent de la
+// régularisation (anti-double-compte).
 function _rgClotureImpayes(ref, from, to){
-  const e = (typeof _loyerEtatLot==='function') ? _loyerEtatLot(ref) : null;
-  if(!e || !e.byYm) return 0;
-  const f7 = from ? String(from).slice(0,7) : null, t7 = to ? String(to).slice(0,7) : null;
+  const s = (typeof _finSuiviLot==='function') ? _finSuiviLot(ref, { sansRetenue: true }) : null;
+  if(!s) return 0;
+  const f10 = from ? String(from).slice(0,10) : null, t10 = to ? String(to).slice(0,10) : null;
+  const f7 = f10 ? f10.slice(0,7) : null, t7 = t10 ? t10.slice(0,7) : null;
   let total = 0;
-  Object.keys(e.byYm).forEach(ym => {
-    if(f7 && ym < f7) return;
-    if(t7 && ym > t7) return;
-    const m = e.byYm[ym];
-    // AUDIT-FIX (double-comptage) : ne sommer QUE le loyer impayé (resteLoyer). La provision de
-    // charge impayée (resteCharge) est déjà portée par la régularisation (regulDu = charges − provisions
-    // versées) ; la sommer ici la compterait deux fois. Fallback prudent sur m.reste si resteLoyer absent.
-    const rl = (m && m.resteLoyer != null) ? m.resteLoyer : (m ? m.reste : 0);
-    if(rl > 0) total += rl;
+  (s.baux||[]).forEach(b => {
+    if(t10 && b.debut > t10) return;
+    if(f10 && b.end && b.end < f10) return;
+    (b.mois||[]).forEach(m => {
+      if(f7 && m.ym < f7) return;
+      if(t7 && m.ym > t7) return;
+      if(m.loyerRetard > 0) total += m.loyerRetard;
+    });
   });
   return Math.round(total*100)/100;
 }

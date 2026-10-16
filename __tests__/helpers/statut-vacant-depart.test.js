@@ -226,7 +226,7 @@ describe('6 · lecteurs sous mutation (dépôts, onglet Loyers, règle)', () => 
     const DB = dbDe({ A1: DEPART, B2: BAIL });
     DB.logements[1].locataire = 'Bob';
     const m = monter(DB, [...STATUT, '_lyTousLoyersHtml'], {
-      window: { _computeLoyerStatut: () => ({}), _loyerChipVerdict: () => ({}) },
+      window: { _friseLot: () => ({}), _loyerChipVerdict: () => ({}) },   // FINANCES-SUIVI-V2 : la frise lit le moteur unique
       _suiviLoyerStrip: () => ({ monthlyFull: 600, months: [] }), _SUIVI_CC: {}, _suiviOpen: null,
       _finEntScope: () => ({}), _finWindows: () => ({ constat: '' }),
       _finMonthly: () => ({ byLot: { A1: { annual: { retard: 600 } }, B2: { annual: {} } } }),

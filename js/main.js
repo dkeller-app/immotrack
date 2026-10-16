@@ -76,7 +76,7 @@ import {
 
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
 import {
-  _computeFinancesMonthly, _computeDetteBail, _avantBorne, _ligne250DejaComptee, _computeSuiviLot, _positionLot, _bailDuPaiement
+  _computeFinancesMonthly, _computeDetteBail, _avantBorne, _ligne250DejaComptee, _computeSuiviLot, _positionLot, _bailDuPaiement, _friseLot
 } from './core/finances-monthly.js';
 
 // REFONTE FINANCES étape 2 — LE résolveur de périmètre unique (P-1/P-2/P-3) + les deux
@@ -272,7 +272,7 @@ import * as BankImport from './core/bank-import.js';
 // CDC-QUITTANCES-IRL etape 1 - LE socle du verdict « ce mois est-il solde ? » (D6/D7).
 // Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
 import {
-  etatMoisLot, peutQuittancer, moisProposables, moisAQuittancer,
+  etatMoisLot, etatDepuisSuivi, peutQuittancer, moisProposables, moisAQuittancer,
   retardLot, lignesRelance, niveauRelance, datePaiementMois, mentionDateRecu,
   moisFrToYm, ymToMoisFr, ymRange
 } from './core/loyers-mois.js';
@@ -554,6 +554,7 @@ window._computeDetteBail = _computeDetteBail;
 window._computeSuiviLot = _computeSuiviLot;
 window._positionLot = _positionLot;
 window._bailDuPaiement = _bailDuPaiement;
+window._friseLot = _friseLot;
 // R0-C C1 — encaissements d'avant une date d'achat « à rattacher » : lus par `_loyerEtatLot` (note de
 // l'onglet Loyers et de la relance). La règle reste unique (finances-monthly.js).
 window._avantBorne = _avantBorne;
@@ -732,6 +733,7 @@ for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
 // LOYERS - verdict « mois solde » (CDC-QUITTANCES-IRL etape 1). Source unique consommee
 // par l'onglet Loyers ; index.html n'assemble que le contexte (du + encaisse).
 window.etatMoisLot = etatMoisLot;
+window.etatDepuisSuivi = etatDepuisSuivi;   // FINANCES-SUIVI-V2 : le verdict par mois lu dans le moteur unique
 window.peutQuittancer = peutQuittancer;
 window.moisProposables = moisProposables;
 window.moisAQuittancer = moisAQuittancer;

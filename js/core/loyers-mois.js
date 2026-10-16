@@ -172,6 +172,87 @@ export function etatMoisLot(months, opts) {
 }
 
 /**
+ * FINANCES-SUIVI-V2 — LE VERDICT PAR MOIS, LU DANS LE MOTEUR UNIQUE. L'onglet Loyers, la relance, les
+ * quittances, la fiche du logement et la restitution ne refont plus aucune imputation : ils lisent le suivi
+ * du lot (`_computeSuiviLot`, bail par bail) mis à la forme historique de `etatMoisLot` (mêmes champs, mêmes
+ * lecteurs : `peutQuittancer`, `moisProposables`, `retardLot`, `lignesRelance`, `datePaiementMois`).
+ *
+ * Un mois partagé par deux baux (rotation en cours de mois) additionne la part de chacun.
+ * Un manque accepté ou un écart d'arrondi abandonné qui solde un mois y est rendu (`remise`, `remiseMotifs`) :
+ * la quittance est émise pour le montant reçu, avec la mention de la remise (décision Didier Q1, 06/10).
+ *
+ * @param {{baux:Array}|null} suivi sortie de `_computeSuiviLot`
+ * @param {{debuts?:string[]|null, manques?:Array<{bailDebut:string, ym:string, motif?:string}>}} [opts]
+ *        `debuts` : ne garder que ces baux (début 'YYYY-MM-DD') ; absent = tous
+ * @returns même forme que `etatMoisLot` (+ `bauxDebuts`, et `bailDebut`/`remise` par mois)
+ */
+export function etatDepuisSuivi(suivi, opts) {
+  const o = opts || {};
+  const garder = (b) => !Array.isArray(o.debuts) || o.debuts.includes(b.debut);
+  const motifsDe = (debut, ym) => (Array.isArray(o.manques) ? o.manques : [])
+    .filter((m) => m && !m._deleted && String(m.bailDebut || '').slice(0, 10) === debut && String(m.ym) === ym && m.motif)
+    .map((m) => String(m.motif));
+  const parYm = {};
+  let ouverture = null;
+  let avance = 0;
+  const debuts = [];
+  for (const b of ((suivi && suivi.baux) || [])) {
+    if (!b || b.suiviAbsent || !garder(b) || !Array.isArray(b.mois)) continue;
+    debuts.push(b.debut);
+    if (!b.finDu) avance += Number(b.avanceBrute) || 0;
+    const ouv = b.ouverture || null;
+    for (const m of b.mois) {
+      const e = parYm[m.ym] || (parYm[m.ym] = { ym: m.ym, hcDue: 0, chDue: 0, received: 0, resteLoyer: 0, resteCharge: 0,
+        brut: [], remise: 0, remiseMotifs: [], bailDebut: b.debut });
+      e.hcDue += m.duHC; e.chDue += m.duCH; e.received += m.encaisse;
+      const surOuv = !!ouv && ouv.ym === m.ym;
+      e.resteLoyer += Math.max(0, m.loyerRetard - (surOuv ? ouv.loyer : 0));
+      e.resteCharge += Math.max(0, m.chargeRetard - (surOuv ? ouv.charge : 0));
+      (m.imputations || []).forEach((p) => e.brut.push(p));
+      if (m.remise > EPS_CENTIME) { e.remise += m.remise; motifsDe(b.debut, m.ym).forEach((x) => e.remiseMotifs.push(x)); }
+      if (m.arrondi < -EPS_CENTIME) { e.remise += -m.arrondi; e.remiseMotifs.push('écart d’arrondi'); }
+    }
+    if (ouv && (ouv.loyer + ouv.charge) > EPS_CENTIME) {
+      ouverture = ouverture
+        ? { date: ouverture.date, ym: ouverture.ym, loyer: _r2(ouverture.loyer + ouv.loyer), charge: _r2(ouverture.charge + ouv.charge), paiements: ouverture.paiements.concat(ouv.paiements || []) }
+        : { date: ouv.date || null, ym: ouv.ym, loyer: _r2(ouv.loyer), charge: _r2(ouv.charge), paiements: (ouv.paiements || []).slice() };
+    }
+  }
+  const list = Object.keys(parYm).sort().map((ym) => {
+    const e = parYm[ym];
+    const du = _r2(e.hcDue + e.chDue);
+    const resteLoyer = _r2(e.resteLoyer), resteCharge = _r2(e.resteCharge);
+    const reste = _r2(resteLoyer + resteCharge);
+    const vacance = du <= EPS_CENTIME;
+    const solde = !vacance && reste <= EPS_CENTIME;
+    const paiements = e.brut.filter((p) => p.date).map((p) => ({ date: p.date, id: p.id, montant: p.montant, poste: p.poste }));
+    const totalImpute = _r2(e.brut.reduce((s, p) => s + p.montant, 0));
+    const totalDate = _r2(paiements.reduce((s, p) => s + p.montant, 0));
+    const complet = totalImpute - totalDate <= EPS_CENTIME;
+    const datesVersements = [...new Set(paiements.map((p) => p.date))].sort();
+    return {
+      ym, hcDue: _r2(e.hcDue), chDue: _r2(e.chDue), du, received: _r2(e.received),
+      resteLoyer, resteCharge, reste, solde,
+      partiel: !vacance && reste > EPS_CENTIME && reste < du - EPS_CENTIME,
+      vacance, paiements, montantImpute: totalImpute, datesVersements, nbVersements: datesVersements.length,
+      datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null,
+      remise: _r2(e.remise), remiseMotifs: [...new Set(e.remiseMotifs)], bailDebut: e.bailDebut
+    };
+  });
+  const byYm = {};
+  list.forEach((e) => { byYm[e.ym] = e; });
+  const nonSoldes = list.filter((e) => !e.vacance && e.reste > EPS_CENTIME);
+  const oL = ouverture ? ouverture.loyer : 0, oC = ouverture ? ouverture.charge : 0;
+  const resteLoyer = _r2(list.reduce((s, e) => s + e.resteLoyer, 0) + oL);
+  const resteCharge = _r2(list.reduce((s, e) => s + e.resteCharge, 0) + oC);
+  return {
+    list, byYm, resteLoyer, resteCharge, reste: _r2(resteLoyer + resteCharge), avance: _r2(avance), ouverture,
+    nbMoisNonSoldes: nonSoldes.length, premierMoisNonSolde: nonSoldes.length ? nonSoldes[0].ym : null,
+    bauxDebuts: debuts
+  };
+}
+
+/**
  * I-DATE (V5, CDC-LOYERS-DESIGN) — LA porte unique de la « date de paiement » d'un mois.
  * Aucune surface ne recompose cette date : elle la demande ici, et si la réponse est
  * `null` elle n'affiche RIEN (jamais la date d'émission, jamais `aujourd'hui`).

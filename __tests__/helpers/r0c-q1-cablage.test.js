@@ -18,7 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { extraireFonction } from './_extraction-source.js';
 import * as Anteriorite from '../../js/core/anteriorite.js';
 import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationBail } from '../../js/core/loyer-du-mois.js';
-import { _computeFinancesMonthly, _computeDetteBail } from '../../js/core/finances-monthly.js';
+import { _computeFinancesMonthly, _computeDetteBail, _computeSuiviLot, _positionLot, _friseLot } from '../../js/core/finances-monthly.js';
+import { etatDepuisSuivi } from '../../js/core/loyers-mois.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
 
@@ -28,13 +29,13 @@ const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
 const F1 = ['_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog', '_getLogementStartIso', '_getLogementStartMi', '_duMoisLot',
   '_getActiveBailHcChProratedSplit', '_getActiveBailHcChProrated', '_computeExpectedRent'];
 const F2 = ['_finLotStartMi', '_finImmDuLot', '_finDuRaw', '_finLotSuivi', '_finBailHcChAt', '_finActiveLotsInScope',
-  '_finLotOccupe', '_finIsRecupACharge', '_finDetteBail', '_finChargeHf', '_fin250Genre', '_finMonthly'];
+  '_finLotOccupe', '_finIsRecupACharge', '_finCleNue', '_finManquesDuLot', '_finPremierLoyerBase', '_finEntreesSuivi', '_finSuiviLot', '_finDetteBail', '_finChargeHf', '_fin250Genre', '_finMonthly'];
 const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraireFonction(P2, n))).join('\n');
 
 /** Monte le vrai code autour d'un DB ; `avecModule:false` = le même code SANS le module (= règle d'avant). */
 function monter(DB, { avecModule = true } = {}) {
   const window = {
-    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _computeFinancesMonthly, _computeDetteBail, finOccupationBail,
+    _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _computeFinancesMonthly, _computeDetteBail, finOccupationBail, _computeSuiviLot, _positionLot, etatDepuisSuivi, _friseLot,
     _anteriorite: avecModule ? Anteriorite : undefined
   };
   const deps = {
@@ -45,13 +46,16 @@ function monter(DB, { avecModule = true } = {}) {
     _finScopeWeight: (scope, m) => ((!m || m._deleted) ? 0 : 1)
   };
   const noms = Object.keys(deps);
-  const lets = 'let _finLotStartCache = { gen: -1, map: {} }; let _finLotSuiviCache = { gen: -1, map: {} }; let _finMonthlyCache = { gen: -1, m: new Map() };\n';
+  const lets = 'let _finLotStartCache = { gen: -1, map: {} }; let _finLotSuiviCache = { gen: -1, map: {} }; let _finMonthlyCache = { gen: -1, m: new Map() }; let _finSuiviCache = { k: \'\', map: {} }; let _finPremierLoyerCache = { gen: -1, v: null };\n';
   const exp = '\nreturn { ' + F1.concat(F2).join(', ') + ' };';
   return new Function(...noms, lets + SRC + exp)(...noms.map((n) => deps[n]));
 }
 
 const dbDe = dbAppDe;
 const SEEDS = Array.from({ length: 30 }, (_, i) => 1000 + i);
+// Projection FISCALE et CASH du maître (sans les postes du suivi : retard, avance, position).
+const SUIVI = ['loyerRetard', 'chargeRetard', 'avanceLot', 'ecart', 'aRendre'];
+const fiscal = (r) => r && ({ months: r.months.map((m) => Object.fromEntries(Object.entries(m).filter(([k]) => !SUIVI.includes(k)))), annual: Object.fromEntries(Object.entries(r.annual).filter(([k]) => !SUIVI.includes(k))), byLot: Object.fromEntries(Object.entries(r.byLot).map(([q, b]) => [q, { months: b.months.map((m) => [m.ym, m.duHC, m.duCH, m.encaisse]), du: [b.annual.duHC, b.annual.duCH, b.annual.encaisse] }])) });
 const TODAY = '2026-09-30';
 const mois = ymRange('2021-01', '2026-12');
 
@@ -69,8 +73,10 @@ describe('R0-C · (b) PREUVE — sans date saisie, le dû et Finances sont IDENT
       for (const l of DB.logements) for (const ym of mois) expect(neuf._finBailHcChAt(l.ref, ym)).toEqual(ancien._finBailHcChAt(l.ref, ym));
       for (const yr of [2024, 2025, 2026]) {
         const win = computeConstatWindow({ year: yr, today: TODAY, mouvements: DB.mouvements });
-        expect(JSON.stringify(neuf._finMonthly(yr, null, win))).toBe(JSON.stringify(ancien._finMonthly(yr, null, win)));
-        expect(JSON.stringify(neuf._finMonthly(yr, null, 7))).toBe(JSON.stringify(ancien._finMonthly(yr, null, 7)));
+        // FINANCES-SUIVI-V2 : le P&L (fiscal, cash) et le dû sont identiques ; retard / avance / position viennent du
+        // moteur unique du suivi, qui lit la date provisoire — ils ne font plus partie de cette preuve.
+        expect(JSON.stringify(fiscal(neuf._finMonthly(yr, null, win)))).toBe(JSON.stringify(fiscal(ancien._finMonthly(yr, null, win))));
+        expect(JSON.stringify(fiscal(neuf._finMonthly(yr, null, 7)))).toBe(JSON.stringify(fiscal(ancien._finMonthly(yr, null, 7))));
       }
     });
   }
@@ -157,7 +163,7 @@ describe('R0-C · 2ᵉ audit — câblage : les mutations qui survivaient (B3, B
     DB.mouvements = ymRange('2025-06', '2026-09').map((ym) => pay('F-BAR', ym + '-02'));
     const neuf = monter(DB), ancien = monter(DB, { avecModule: false });
     expect(neuf._finLotSuivi('V')).toMatchObject({ source: 'provisoire', date: '2024-01-01' });
-    for (const y of [2025, 2026]) expect(JSON.stringify(neuf._finMonthly(y, null, win(DB, y)))).toBe(JSON.stringify(ancien._finMonthly(y, null, win(DB, y))));
+    for (const y of [2025, 2026]) expect(JSON.stringify(fiscal(neuf._finMonthly(y, null, win(DB, y))))).toBe(JSON.stringify(fiscal(ancien._finMonthly(y, null, win(DB, y)))));
     // la pré-passe part du 1ᵉʳ relevé (06/2025), pas de l'entrée du bail de V : 7 mois de 2025 reportés, pas 24
     expect(neuf._finMonthly(2026, null, win(DB)).byLot.V.months[0].loyerRetard).toBe(7 * 500 + 500);
   });

@@ -85,8 +85,8 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
     const code = codeOf('index.html');
     expect((code.match(/function _loyerEtatLot\(/g) || []).length).toBe(1);
     expect((code.match(/function _loyerPayeDuMois\(/g) || []).length).toBe(1);
-    // et il délègue bien au module (pas de re-implémentation locale)
-    expect(code).toMatch(/window\.etatMoisLot\(months/);
+    // et il délègue bien au module : le verdict est LU dans le moteur unique (FINANCES-SUIVI-V2)
+    expect(code).toMatch(/window\.etatDepuisSuivi\(s, /);
   });
 
   it('le document quittance ne re-somme plus les mouvements d\'un mois calendaire', () => {
