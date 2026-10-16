@@ -252,7 +252,7 @@ SMIC horaire 12,02 € (décret 2025-1228) puis **12,31 € au 01/06/2026** (arr
 1. Quorum : constats seulement si **au moins 2 égalités d'ancrage** tiennent (B1, N1, L2, S1) ; sinon « valeurs lues », aucun constat.
 2. Un écart qu'**une** erreur de lecture plausible d'**une** valeur explique (chiffre remplacé, deux chiffres inversés, chiffre en trop/en moins, virgule déplacée, signe perdu), **sans casser une autre égalité qui tient**, n'est pas un constat (rangé dans `incertaines`, non affiché).
 3. Lignes décalées (taux légal d'une autre ligne, plusieurs taux hors norme) : pas de constat de taux. Cumul égal au mois hors janvier : colonne du mois lue, ignoré. Période : les cumuls tranchent entre trou réel et mois mal lu. Nom à une lettre près, SIRET / date à un chiffre près : pas de constat.
-4. Relais : SIRET à clé de Luhn (La Poste à part), **chaque nombre de l'annotation doit figurer dans le texte reconnu** de la page (sinon écarté, compté) ; lignes bornées à 40 ; texte reconnu jamais renvoyé ni journalisé.
+4. Relais : SIRET à clé de Luhn (La Poste : Luhn ou somme des chiffres multiple de 5), **chaque nombre de l'annotation doit figurer dans le texte reconnu** de la page (sinon écarté, compté ; texte reçu mais vide = tout montant non nul écarté ; journal : drapeau txt=0/1, jamais le contenu) ; lignes bornées à 40 ; libellé portant 13 chiffres ou plus (NIR, IBAN) écarté ; texte reconnu jamais renvoyé ni journalisé. Limites connues (relecture Fable) : petits entiers presque toujours présents dans le texte, zéro et signe non contrôlés, champs permutés et erreurs communes à l'OCR et à l'annotation non vus — c'est le rôle du garde-fou côté app.
 
 ### 9.4 Mesures (corpus 100 % synthétique, `node mockups/REGLES-PAIE/mesure-ia.mjs --essais 10`)
 - Dossiers légitimes lus parfaitement : **0 / 88** constat.
@@ -261,4 +261,4 @@ SMIC horaire 12,02 € (décret 2025-1228) puis **12,31 € au 01/06/2026** (arr
 - Phase 1 (lecteur local pdf.js, non retenu en V1) : 99,7 % de valeurs exactes sur 6 mises en page connues, mais lecture fausse sur mises en page inconnues → reste un **banc de mesure R&D** (`mockups/REGLES-PAIE/lecteur.mjs`), cf. §7 verrou 2.
 
 ### 9.5 Coût et taille
-Prix inchangé : l'OCR annoté est facturé **à la page** (§6) ; le schéma étendu ne change que la taille de la réponse (≤ 8 Ko au pire : 40 lignes bornées, libellés ≤ 80 caractères). Délai de la tâche inchangé (45 s).
+Prix inchangé : l'OCR annoté est facturé **à la page** (§6) ; le schéma étendu ne change que la taille de la réponse (≈ 12 Ko au pire avec l'échappement JSON : 40 lignes, libellés ≤ 80 caractères ; ~3 Ko en pratique). À l'activation : essayer `maxItems` (40 / 8) en mode strict avec `relay/scripts/verif-ocr-ue.mjs`. Délai de la tâche inchangé (45 s).

@@ -153,7 +153,7 @@ describe('REGLES-PAIE (16/10/2026) : schéma étendu, contrôles de sortie, text
     expect(T.siretValide('00000000100016')).toBe(true);
     expect(T.siretValide('00000000100017')).toBe(false);
     expect(T.siretValide('00000000100061')).toBe(false);   // deux chiffres voisins inversés
-    expect(T.siretValide('35600000000047')).toBe(true);   // La Poste : somme des chiffres multiple de 5
+    expect(T.siretValide('35600000000047')).toBe(true);   // La Poste : somme des chiffres multiple de 5 (Luhn invalide)
     expect(T.validerSortie({ ...BASE, siret: '000 000 001 00017' }, { type: 'bulletin' }).data.siret).toBeNull();
   });
   it('texte reconnu : un nombre absent du texte de la page est écarté (compté) ; sans texte, aucun contrôle', () => {
@@ -189,5 +189,41 @@ describe('REGLES-PAIE (16/10/2026) : schéma étendu, contrôles de sortie, text
     expect(JSON.stringify(j).length).toBeLessThan(4000);
     const max = T.validerSortie({ ...BASE, lignes: Array.from({ length: 60 }, () => ({ libelle: 'L'.repeat(80), base: 999999.99, taux: 99.9999, montant: 999999.99 })) }, { type: 'bulletin' });
     expect(JSON.stringify(max.data).length).toBeLessThan(8000);
+  });
+});
+
+describe('REGLES-PAIE : corrections de la relecture Fable du 16/10', () => {
+  it('I1 : texte reconnu fourni mais vide (pages absentes) → tout montant non nul écarté et compté ; texte absent → pas de contrôle', () => {
+    const lu = { lisible: true, periode: '2026-08', brut: 2950, netAPayer: 2193.04, impotMontant: 0, lignes: [{ libelle: 'L', base: 2950, taux: 6.9, montant: 203.55 }], autresLignes: [] };
+    const vide = T.validerSortie(lu, { type: 'bulletin' }, { texte: '' });
+    expect(vide.data).toMatchObject({ brut: null, netAPayer: null, impotMontant: 0 });
+    expect(vide.data.lignes[0]).toMatchObject({ base: null, taux: null, montant: null });
+    expect(vide.rejets).toBe(5);
+    expect(T.validerSortie(lu, { type: 'bulletin' }).data.brut).toBe(2950);
+  });
+  it('I1 : Mistral sans `pages` → montants écartés ; le journal porte txt=0 (jamais le contenu)', async () => {
+    const f = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ model: 'mistral-ocr-2607', usage_info: { pages_processed: 1 },
+      document_annotation: JSON.stringify({ lisible: true, periode: '2026-08', brut: 2950, netAPayer: 2193.04, lignes: [], autresLignes: [] }) }), { status: 200 }));
+    const a = new Hono();
+    registerAiRoutes(a, { requireSupabaseUser: async () => ({ userId: uid() }), providerFactory: (x) => makeAiProvider({ ...x, AI_PROVIDER: 'mistral', MISTRAL_API_KEY: 'cle-test' }, f) });
+    const lignes = []; const spy = vi.spyOn(console, 'log').mockImplementation((...x) => lignes.push(x.join(' ')));
+    let r; try { r = await a.request('/ai/structure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: 'bulletin-paie', input: { type: 'bulletin', images: [IMG] } }) }, { ...env, AI_OCR: 'true', MISTRAL_API_KEY: 'cle-test' }); } finally { spy.mockRestore(); }
+    const j = await r.json();
+    expect(j.data).toMatchObject({ brut: null, netAPayer: null });
+    expect(lignes.join(' ')).toMatch(/txt.{0,3}0/);
+    expect(lignes.join(' ')).not.toMatch(/2950|2193/);
+  });
+  it('M1 : milliers par espace avec point décimal, espaces fines et tabulaires', () => {
+    for (const [t, v] of [['2 950.45', 2950.45], ['2 950,45', 2950.45], ['2 950,45', 2950.45], ['12 345 678,90', 12345678.9], ['6,9000', 6.9], ['1.234,56', 1234.56]]) expect(T.nombresDuTexte(t).has(v), t).toBe(true);
+  });
+  it('M2 : La Poste — clé de Luhn ou somme des chiffres multiple de 5', () => {
+    expect(T.siretValide('35600000000048')).toBe(true);
+    expect(T.siretValide('35600000000047')).toBe(true);
+    expect(T.siretValide('35600000000049')).toBe(false);
+  });
+  it('M3 : libellé portant une longue suite de chiffres (NIR, IBAN) écarté', () => {
+    const s = T.validerSortie({ lisible: true, lignes: [{ libelle: 'N° SS 1 85 05 78 006 084 36', base: null, taux: null, montant: null }, { libelle: 'CSG déductible', base: null, taux: 6.8, montant: null }], autresLignes: [{ libelle: 'FR76 3000 6000 0112 3456 7890 189', montant: null }] }, { type: 'bulletin' });
+    expect(s.data.lignes.map((l) => l.libelle)).toEqual([null, 'CSG déductible']);
+    expect(s.data.autresLignes[0].libelle).toBeNull();
   });
 });

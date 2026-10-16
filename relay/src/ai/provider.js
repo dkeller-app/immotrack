@@ -130,7 +130,8 @@ function mistral(env, fetchImpl) {
       const pages = Number(j.usage_info && j.usage_info.pages_processed) || 1;
       // Texte reconnu : gardé en mémoire le temps du contrôle de présence des nombres (validerSortie), borné ; jamais renvoyé
       // au client ni journalisé (la route ne renvoie que les champs validés).
-      const texte = Array.isArray(j.pages) ? j.pages.map((p) => (p && typeof p.markdown === 'string' ? p.markdown : '')).join(' ').slice(0, 200000) : '';
+      let texte = '';
+      if (Array.isArray(j.pages)) for (const p of j.pages) { if (texte.length >= 200000) break; if (p && typeof p.markdown === 'string') texte += (texte ? ' ' : '') + p.markdown.slice(0, 200000 - texte.length); }
       return { data, pages, modele: j.model || body.model, texte };
     },
   };

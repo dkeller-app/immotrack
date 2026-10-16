@@ -81,16 +81,16 @@ const date = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !
  *  lecture d'un chiffre (ou deux chiffres voisins inversés) rend la clé invalide : la valeur est écartée. */
 export function siretValide(d) {
   if (!/^\d{14}$/.test(d)) return false;
-  if (d.startsWith('356000000')) return d.split('').reduce((s, c) => s + +c, 0) % 5 === 0;
   let s = 0;
   for (let i = 0; i < 14; i++) { let n = +d[13 - i]; if (i % 2 === 1) { n *= 2; if (n > 9) n -= 9; } s += n; }
-  return s % 10 === 0;
+  if (s % 10 === 0) return true;
+  return d.startsWith('356000000') && d.split('').reduce((t, c) => t + +c, 0) % 5 === 0;
 }
 const siret = (v) => { const s = typeof v === 'string' ? v.replace(/[\s.]/g, '') : ''; return siretValide(s) ? s : null; };
 
 /** Nombres présents dans le texte reconnu (formats français et anglais, milliers par espace ou point), en valeur absolue. */
 export function nombresDuTexte(texte) {
-  const out = new Set(); const t = String(texte || '').replace(/[  ]/g, ' ');
+  const out = new Set(); const t = String(texte || '').replace(/[\u00A0\u2007\u2009\u202F]/g, ' ');
   const ajout = (x) => { if (Number.isFinite(x)) out.add(Math.round(Math.abs(x) * 10000) / 10000); };
   const lire = (tok) => {
     let s = tok;
@@ -98,10 +98,13 @@ export function nombresDuTexte(texte) {
     if (/^\d{1,3}(\.\d{3})+$/.test(s)) { ajout(+s.replace(/\./g, '')); ajout(+s.replace(/\.(?=\d{3}$)/, '').replace(/\./g, '')); ajout(parseFloat(s)); return; }
     ajout(+s.replace(/ /g, ''));
   };
-  const RE = /\d{1,3}(?:[ .]\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?/g; let m;
+  const RE = /\d{1,3}(?:[ .]\d{3})+(?:,\d+|\.\d{1,2}(?!\d))?|\d+(?:[.,]\d+)?/g; let m;
   while ((m = RE.exec(t))) { lire(m[0]); for (const p of m[0].split(' ')) if (p) lire(p); }
   return out;
 }
+
+/** Libellé de ligne : borné ; écarté s'il porte une longue suite de chiffres (NIR, IBAN…) — jamais stocké. */
+const libelle = (v) => { const t = texteBorne(v, LIMITES.libelleMax); return t && t.replace(/\D/g, '').length >= 13 ? null : t; };
 
 export function validerSortie(raw, input, ctx) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false };
@@ -114,7 +117,9 @@ export function validerSortie(raw, input, ctx) {
     return { ok: true, rejets, data };
   }
   // Contrôle de présence dans le texte reconnu (seulement si le fournisseur l'a fourni).
-  const texte = ctx && typeof ctx.texte === 'string' && ctx.texte.trim() ? nombresDuTexte(ctx.texte) : null;
+  // Texte FOURNI (Mistral) : contrôle, même vide (aucun nombre retrouvé → tout montant non nul écarté). Texte ABSENT
+  // (fournisseur simulé) : pas de contrôle.
+  const texte = ctx && typeof ctx.texte === 'string' ? nombresDuTexte(ctx.texte) : null;
   const vu = (x) => (x == null || x === 0 || !texte ? x : (texte.has(Math.round(Math.abs(x) * 10000) / 10000) ? x : null));
   const nb = (v, f) => garde(v, vu(f(v)));
   const periode = typeof raw.periode === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw.periode) ? raw.periode : null;
@@ -129,10 +134,10 @@ export function validerSortie(raw, input, ctx) {
   const L = Array.isArray(raw.lignes) ? raw.lignes : [];
   if (L.length > LIMITES.lignesMax) data.lignesTronquees = true;
   data.lignes = L.slice(0, LIMITES.lignesMax).filter((l) => l && typeof l === 'object' && !Array.isArray(l)).map((l) => ({
-    libelle: texteBorne(l.libelle, LIMITES.libelleMax), base: nb(l.base, montant), taux: nb(l.taux, (v) => borne(v, -100, 100, 4)), montant: nb(l.montant, montant),
+    libelle: libelle(l.libelle), base: nb(l.base, montant), taux: nb(l.taux, (v) => borne(v, -100, 100, 4)), montant: nb(l.montant, montant),
   }));
   const A = Array.isArray(raw.autresLignes) ? raw.autresLignes : [];
-  data.autresLignes = A.slice(0, LIMITES.autresMax).filter((l) => l && typeof l === 'object' && !Array.isArray(l)).map((l) => ({ libelle: texteBorne(l.libelle, LIMITES.libelleMax), montant: nb(l.montant, montant) }));
+  data.autresLignes = A.slice(0, LIMITES.autresMax).filter((l) => l && typeof l === 'object' && !Array.isArray(l)).map((l) => ({ libelle: libelle(l.libelle), montant: nb(l.montant, montant) }));
   if (A.length > LIMITES.autresMax) data.autresTronquees = true;
   return { ok: true, rejets, data };
 }
