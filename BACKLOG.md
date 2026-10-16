@@ -1,4 +1,28 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.750 (16/10, pilotage Desktop, GO Didier)** — **Pilotage du parc** (`feat/matrice-accueil`, f3faa69c, 8 146 tests verts ; 3 relectures Opus : « SÛR après corrections », corrections faites).
+> **Accueil :**
+> - colonnes Loyer · Assurance · Entretiens · Révision · Mise en location (lot vide / congé reçu / bail en préparation) ;
+> - une icône seulement si une action est due ; détail au clic ;
+> - téléphone : « À regarder » ouvre « Pilotage du parc », puis « Par sujet » ;
+> - bulles = mêmes règles que le tableau.
+>
+> **Correctifs :**
+> - caution via `_bailCautionEtat` ;
+> - assurance = attestation courante (`AlertRules.attestationCourante`), sans compter celle du locataire précédent ;
+> - bail repris ou signé sur papier : plus d'alerte à vie ;
+> - parc réel : 70 → 34 icônes, 0 extinction inexpliquée.
+>
+> **Agenda :**
+> - rappel « Demander l'attestation d'assurance » (MRH) ;
+> - un rappel automatique modifié garde sa clé (plus de doublon) ;
+> - un rappel supprimé n'est plus recréé (`DB.params.agendaAutoEcartes`).
+>
+> **Restes :**
+> - membre de SCI en lecture seule : écritures automatiques de l'Agenda refusées en boucle (défaut antérieur, toutes catégories) ;
+> - pas de rappel MRH pour un bail sans date d'entrée ;
+> - colocation : un seul rappel par lot ;
+> - recalcul répété à l'affichage de l'Accueil ;
+> - smoke Didier.
 > 🚦 **MAIN = v15.749 (16/10, pilotage Desktop, GO Didier)** — **Vérification lisible des pièces** (`feat/verif-lisible`, e9e6ed43, renuméroté v15.750 → v15.749 ; 8 135 tests verts ; relecture Opus : 12 constats, 11 corrigés).
 >
 > **Livré :**
