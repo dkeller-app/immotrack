@@ -26689,6 +26689,20 @@ function computeRegul(from, to) {
           e._moisSet.add(m.date.slice(0,7));
         });
     });
+  // FINANCES-SUIVI-V2 (décision Didier Q1, 06/10) : un mois soldé par un MANQUE ACCEPTÉ ne voit pas sa provision
+  // réclamée à la régularisation (provision abandonnée) — même sans aucun virement ce mois-là.
+  if (typeof _finManquesDuLot === 'function') {
+    Object.values(res).forEach(e=>{
+      const deb = e.bail && e.bail.debut ? String(e.bail.debut).slice(0,10) : '';
+      if(!deb) return;
+      _finManquesDuLot(e.ref).forEach(mq=>{
+        if(mq.bailDebut!==deb || mq.ym < String(from).slice(0,7) || mq.ym > String(to).slice(0,7)) return;
+        if(e.debutOcc && e.finOcc && (mq.ym < e.debutOcc.slice(0,7) || mq.ym > e.finOcc.slice(0,7))) return;
+        if(!e._moisSet) e._moisSet = new Set();
+        e._moisSet.add(mq.ym);
+      });
+    });
+  }
   Object.values(res).forEach(e=>{
     if(!e._moisSet) return;
     const ch = e.bail?.ch ?? 0;
