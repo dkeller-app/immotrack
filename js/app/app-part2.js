@@ -28470,7 +28470,9 @@ function _pilStatutDoc(bail, log, type, dateRef) {
     return _edlEntreeDuBail(bail, log) ? _ok : _absent;
   }
   if (type === 'mrh') {
-    const mrh = (DB.mrh||[]).find(m => m && !m._deleted && m.logement === log.ref);
+    // MATRICE-ACCUEIL (FA2) : l'attestation la PLUS RÉCENTE du lot (saveMrh ajoute la nouvelle à côté de l'ancienne).
+    const _mrhs = (DB.mrh||[]).filter(m => m && !m._deleted && m.logement === log.ref);
+    const mrh = _mrhs.slice().sort((a, b) => String(b.echeance || '').localeCompare(String(a.echeance || '')))[0];
     if (!mrh) return _absent;
     if (mrh.echeance) {
       const ech = new Date(mrh.echeance + 'T23:59:59');
@@ -28494,10 +28496,11 @@ function _pilStatutDoc(bail, log, type, dateRef) {
     return _expire;                          // 'wn' : au moins un contrôle dépassé
   }
   if (type === 'caution') {
-    // Garant déclaré dans le bail OU acte signé
+    // MATRICE-ACCUEIL (FA1) : `bail.signatures.garant` n'est écrit par aucun code (caution allumée à vie). La caution est
+    // DÉTENUE quand chaque garant inscrit au bail a son acte (fichier ou « je l'ai en papier ») : prédicat du lot 2.
     const hasGarant = !!(bail.garant || bail.garant2);
     if (!hasGarant) return _na; // pas de garant = pas de cautionnement requis
-    if (bail.signatures && bail.signatures.garant) return _ok;
+    if (typeof _bailCautionDetenue === 'function' && _bailCautionDetenue(log.ref, bail)) return _ok;
     return _absent;
   }
   if (type === 'ddt') {

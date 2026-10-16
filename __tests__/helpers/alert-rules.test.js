@@ -30,16 +30,22 @@ describe('mrhManquante — assurance habitation locataire', () => {
 })
 
 describe('mrhEcheances', () => {
-  const logements = [{ ref: 'A', entity: 'SCI X' }, { ref: 'B', entity: 'SCI Y' }]
+  const logements = [{ ref: 'A', entity: 'SCI X' }, { ref: 'B', entity: 'SCI Y' }, { ref: 'C', entity: 'SCI X' }]
   it('expirée (jours<0) et préavis (≤30 j), scopé entité', () => {
     const mrh = [
       { logement: 'A', echeance: '2026-07-01' },  // expirée (-5 j)
       { logement: 'B', echeance: '2026-07-20' },  // dans 14 j mais SCI Y
-      { logement: 'A', echeance: '2026-09-30' },  // trop loin
+      { logement: 'C', echeance: '2026-09-30' },  // trop loin
     ]
     const out = mrhEcheances(mrh, logements, 'SCI X', TODAY)
     expect(out).toHaveLength(1)
     expect(out[0]).toMatchObject({ ref: 'A', expiree: true })
+  })
+  // MATRICE-ACCUEIL FA2 : la nouvelle attestation ajoutée à côté de l'ancienne (saveMrh) éteint l'alerte « expirée ».
+  it('seule l’attestation la plus récente du logement compte (ancienne expirée + nouvelle valide = rien)', () => {
+    const mrh = [{ logement: 'A', echeance: '2026-07-01' }, { logement: 'A', echeance: '2027-06-30' }]
+    expect(mrhEcheances(mrh, logements, '', TODAY)).toEqual([])
+    expect(mrhEcheances([{ logement: 'A', echeance: '2026-07-01' }, { logement: 'A', echeance: '2026-06-01' }], logements, '', TODAY)).toMatchObject([{ ref: 'A', echeance: '2026-07-01', expiree: true }])
   })
   it('sans filtre entité, préavis ≤ 30 j inclus', () => {
     const out = mrhEcheances([{ logement: 'B', echeance: '2026-07-20' }], logements, '', TODAY)

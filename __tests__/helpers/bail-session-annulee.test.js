@@ -21,7 +21,7 @@ function extraire(src, marqueur) {
   throw new Error('accolades non équilibrées : ' + marqueur)
 }
 const fn = (nom, asy = false) => extraire(P1, (asy ? 'async ' : '') + 'function ' + nom + '(')
-const NOMS = [['_bailEtatSig'], ['_rsPreflight', 1], ['annulerSessionSignature', 1], ['sessionExpireeSigneHors', 1], ['_bailExterneApresSave', 1], ['_bailScanDocsExternes'], ['_bailScanExterne'], ['_bailScansExternesOrphelins'],
+const NOMS = [['_bailEtatSig'], ['_rsPreflight', 1], ['annulerSessionSignature', 1], ['sessionExpireeSigneHors', 1], ['_bailOuvrirDeclarationExterne'], ['_bailExterneApresSave', 1], ['_bailScanDocsExternes'], ['_bailScanExterne'], ['_bailScansExternesOrphelins'],
   ['_rsPurgeGardee', 1], ['_rsArchiveDeSession'], ['_rsPurgesLire'], ['_rsPurgesEcrire'], ['_rsPurgeEchouee'], ['_rsPurgesRetenter', 1], ['_rsRecupererApresArchivage', 1], ['_bailExterneRecontrole']]
 
 const RS = (extra = {}) => ({ sessionId: 'S1', ownerToken: 'T1', signUrl: 'u', relayUrl: 'https://r', status: 'expired', createdAt: '2026-09-01T08:00:00.000Z',

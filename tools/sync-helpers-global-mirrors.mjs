@@ -82,6 +82,17 @@ const PAIRS = [
     ]
   },
   {
+    // MATRICE-ACCUEIL (16/10) — « Pilotage du parc » : qu'y a-t-il à piloter sur ce lot (phase, cases, textes des bulles).
+    name: 'pilotage-lot',
+    src: 'js/core/pilotage-lot.js',
+    dst: 'js/helpers/pilotage-lot.global.js',
+    globalName: 'PilotageLot',
+    exports: '*',
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     // PARAPHE-UNIQUE (audit 01/10) — contrôle « onglet périmé » avant de signer / régénérer un PDF signé.
     name: 'version-app',
     src: 'js/core/version-app.js',

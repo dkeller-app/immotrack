@@ -45,10 +45,18 @@ export function mrhManquante(scopeLogs, mrhList) {
 }
 
 /** Échéances des attestations d'assurance habitation (expirées ou < horizon jours).
- *  scopé entité via logements. → [{ref, echeance, jours, expiree}] */
+ *  scopé entité via logements. → [{ref, echeance, jours, expiree}]
+ *  MATRICE-ACCUEIL (16/10) — seule l'attestation la PLUS RÉCENTE d'un logement compte : ajouter la nouvelle
+ *  attestation (saveMrh crée une fiche à côté de l'ancienne) éteint l'alerte « expirée » de l'ancienne. */
 export function mrhEcheances(mrhList, logements, activeEnt, today, horizon = 30) {
   const out = []
+  const derniere = {}
   ;(mrhList || []).filter(alive).forEach(m => {
+    if (!m.echeance || joursEntre(m.echeance, today) == null) return
+    const d = derniere[m.logement]
+    if (!d || String(m.echeance) > String(d.echeance)) derniere[m.logement] = m
+  })
+  Object.values(derniere).forEach(m => {
     if (!m.echeance) return
     if (activeEnt) {
       const log = (logements || []).find(l => alive(l) && l.ref === m.logement)

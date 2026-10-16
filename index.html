@@ -261,6 +261,8 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <script src="js/helpers/bail-paraphes.global.js?v=bc8c13ad" defer></script>
 <!-- BAIL-EN-COURS-SIGNE-HORS-PROPRYO : etat de signature d'un bail (non / partiel / electronique / externe), window.BailSignatureEtat, source js/core/bail-signature-etat.js. -->
 <script src="js/helpers/bail-signature-etat.global.js?v=e58cc36c" defer></script>
+<!-- MATRICE-ACCUEIL (16/10) : « Pilotage du parc » de l'Accueil, qu'y a-t-il à piloter sur ce lot (window.PilotageLot, source js/core/pilotage-lot.js). -->
+<script src="js/helpers/pilotage-lot.global.js?v=00000000" defer></script>
 <!-- PARAPHE-UNIQUE : contr�le � onglet p�rim� � avant de signer / r�g�n�rer le PDF d'un bail sign� (window.VersionApp, source js/core/version-app.js). -->
 <script src="js/helpers/version-app.global.js?v=97798663" defer></script>
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
@@ -546,6 +548,13 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         #p-accueil .pil-mk{display:inline-block;width:14px;height:14px;color:var(--acc);vertical-align:middle}
         #p-accueil .pil-mk svg{width:100%;height:100%;display:block}
         #p-accueil .pil-mk-no{display:inline-block;width:14px;height:14px}
+        /* PILOTAGE DU PARC (16/10) : l'icône d'une case à faire est un BOUTON — clic = ce qui est à faire + le geste. */
+        #p-accueil button.pil-mkb{border:0;background:none;padding:0;margin:0;font:inherit;cursor:pointer;border-radius:4px;box-sizing:content-box}
+        #p-accueil button.pil-mkb:hover{transform:scale(1.15)}
+        #p-accueil button.pil-mkb:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+        @media (pointer:coarse){ #p-accueil table.pil-mx button.pil-mkb{padding:15px;margin:-15px} }
+        #p-accueil .pil-puce{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:6px 12px;border:1px solid var(--bor);border-radius:12px;background:var(--sur);color:var(--t1);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+        #p-accueil .pil-puce .pil-mk{width:14px;height:14px}
         #p-accueil table.pil-mx th.payc,#p-accueil table.pil-mx td.payc{text-align:left;padding-left:15px}
         #p-accueil .pil-loyer{display:inline-flex;align-items:center;gap:7px}
         #p-accueil .pil-loyer .pil-mk,#p-accueil .pil-loyer .pil-mk-no{width:12px;height:12px}
@@ -610,6 +619,24 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
         #pil-layer .d.pos{background:var(--pos)} #pil-layer .d.neg{background:var(--neg)} #pil-layer .d.warn{background:var(--warn)} #pil-layer .d.adv{background:var(--adv)}
         #pil-layer .shf{border-top:1px solid var(--bor);padding:11px 17px;display:flex;justify-content:flex-end;flex:none}
         #pil-layer .shf .go{border:1px solid var(--bor);background:var(--sur);color:var(--t2);font:inherit;font-size:12px;font-weight:700;padding:8px 15px;border-radius:9px;cursor:pointer}
+        #pil-layer .ck .gos .go{min-height:34px}
+        @media (pointer:coarse){ #pil-layer .ck .gos .go, #pil-layer .sh-h .x{min-height:44px;min-width:44px} }
+        /* Téléphone : le détail d'une case est une PAGE plein écran (couche standard .ov, charte M-16). */
+        #ov-pil-detail .m-head h3 small{display:block;font-size:13px;font-weight:600;color:var(--t3);margin-top:2px}
+        #ov-pil-detail .pil-pg-l{padding:13px 2px;border-bottom:1px solid var(--bor2)}
+        #ov-pil-detail .pil-pg-l:last-child{border-bottom:0}
+        #ov-pil-detail .pil-pg-l .t{font-size:15px;line-height:1.45;color:var(--t1)}
+        #ov-pil-detail .pil-pg-l .t b{display:block;font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--t2);margin-bottom:3px}
+        #ov-pil-detail .pil-pg-l .a{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+        #ov-pil-detail .pil-pg-l .a:empty{display:none}
+        #ov-pil-detail .pil-pg-l .a .btn,#ov-pil-detail .m-foot .btn{min-height:44px}
+        #ov-pil-detail .m-foot .btn{flex:1 1 auto;justify-content:center}
+        @media (max-width:767px){
+          #ov-pil-detail{padding:0 !important}
+          #ov-pil-detail .modal{width:100% !important;max-width:none !important;height:100dvh;border-radius:0;display:flex;flex-direction:column;margin:0}
+          #ov-pil-detail .m-body{flex:1 1 auto;overflow-y:auto;max-height:none}
+          #ov-pil-detail .m-foot{margin-top:auto;border-radius:0}
+        }
       </style>
       <section class="pil" id="pil-root">
         <div id="cand-inbox-banner"></div>
