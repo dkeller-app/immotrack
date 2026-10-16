@@ -687,7 +687,8 @@ async function lireAvecIA(blob, type) {
   const images = await imagesDe(blob)
   if (!images.length) return { ok: false, message: 'Document non lisible automatiquement : saisir les valeurs.' }
   const r = await c.structurer('lecture-facture', { type, images })
-  if (!r.ok) return { ok: false, message: r.code === 'quota' ? 'Limite d\'analyses du jour atteinte : saisir les valeurs.' : 'Lecture automatique indisponible : saisir les valeurs.' }
+  // CONSO-IA : plafond MENSUEL de l'offre (motif « mois ») → lecture en pause ce mois-ci ; la saisie reste ouverte.
+  if (!r.ok) return { ok: false, message: r.code === 'quota' ? (r.motif === 'mois' ? 'Lecture de facture en pause ce mois-ci : saisir les valeurs.' : 'Limite d\'analyses du jour atteinte : saisir les valeurs.') : 'Lecture automatique indisponible : saisir les valeurs.' }
   return { ok: true, data: r.data }
 }
 async function lireDepot(incId, depotId) {

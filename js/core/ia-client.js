@@ -48,8 +48,18 @@ export function creerClientIA({ base, getToken, fetchImpl, enLigne, demo } = {})
     }
     let body = null;
     try { body = await res.json(); } catch (_) { body = null; }
-    if (!res.ok) return { ok: false, code: codeDepuisReponse(res.status, body), motif: body && body.motif, limites: body && body.limites };
+    // CONSO-IA : plafond MENSUEL de l'offre (429 motif « mois ») et part utilisée après un appel réussi (`conso`) sont
+    // signalés à l'indicateur de l'app (js/app/conso-ia-app.js), qui met la fonction en pause ou avertit à 80 %.
+    if (!res.ok) {
+      const motif = body && body.motif;
+      if (res.status === 429 && motif === 'mois') signaler({ famille: body.famille, pause: true, renouvellement: body.renouvellement });
+      return { ok: false, code: codeDepuisReponse(res.status, body), motif, limites: body && body.limites, famille: body && body.famille, renouvellement: body && body.renouvellement };
+    }
+    if (body && body.conso && typeof body.conso === 'object') signaler({ famille: body.conso.famille, pct: body.conso.pct });
     return { ok: true, body: body || {} };
+  }
+  function signaler(x) {
+    try { if (typeof globalThis !== 'undefined' && typeof globalThis.__iaConsoSignal === 'function') globalThis.__iaConsoSignal(x); } catch (_) { /* jamais bloquant */ }
   }
 
   return {
@@ -82,9 +92,20 @@ export function creerClientIA({ base, getToken, fetchImpl, enLigne, demo } = {})
   };
 }
 
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+/** « 2027-01-01 » → « 1er janvier » (CONSO-IA : date de reprise d'une fonction en pause). */
+export function dateReprise(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? (Number(m[3]) === 1 ? '1er' : String(Number(m[3]))) + ' ' + MOIS_FR[Number(m[2]) - 1] : 'le mois prochain';
+}
+
 /** Message d'erreur affiché (ton neutre, M-13). `limites` = renvoyées par le relais en cas de quota. */
-export function messageErreur(code, { motif, limites } = {}) {
+export function messageErreur(code, { motif, limites, renouvellement } = {}) {
   const minutes = limites && limites.audioSecJour ? Math.round(limites.audioSecJour / 60) : 60;
+  // CONSO-IA : plafond MENSUEL de l'offre atteint — la fonction est en pause pour ce compte seulement.
+  if (code === 'quota' && motif === 'mois') {
+    return { titre: 'Dictée en pause jusqu’au ' + dateReprise(renouvellement), texte: 'Le plafond mensuel de dictée de l’offre est atteint. La dictée est gardée sur l’appareil et repartira seule ; la saisie à la main reste disponible pour toutes les pièces.', reessayable: false };
+  }
   switch (code) {
     case 'offline': return { titre: 'Pas de réseau', texte: 'La dictée est gardée sur l’appareil. Elle sera analysée dès le retour du réseau.', reessayable: true };
     case 'auth': return { titre: 'Session à renouveler', texte: 'La connexion au compte a expiré. La dictée est gardée sur l’appareil et repartira après reconnexion.', reessayable: true };

@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.755';
+const IMMOTRACK_VERSION = '15.757';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -14414,6 +14414,7 @@ function _candVerifDossierDetail(candId){
 // lecture Mistral OCR sur le point d'accès UE ; interrupteur AI_OCR). L'IA recopie ; les règles (regles-bulletin.js)
 // produisent les constats ; chaque valeur se corrige (journal d'audit). Résultat posé sur la pièce (`verifIa`), purgé avec elle.
 let _candIaOcr = { actif: null, le: 0 };
+let _candIaReprise = null;   // CONSO-IA : date de reprise de la lecture quand le plafond mensuel de l'offre est atteint
 function _candIaClient(){
   const cfg = (typeof _relayCfg === 'function') ? _relayCfg() : null;
   return (cfg && window.IaClient) ? window.IaClient.creerClientIA({ base: cfg.base, getToken: cfg.getToken }) : null;
@@ -14523,6 +14524,8 @@ async function _candIaLancer(candId, opts){
       image = null;                                                // l'image n'est gardée nulle part
       const cible2 = (DB.documents||[]).find(x => x && !x._deleted && x.id === d.id); if(!cible2) continue;   // pièce supprimée pendant la lecture
       if(!r.ok){
+        // CONSO-IA : plafond MENSUEL de l'offre atteint (motif « mois ») → lecture en pause jusqu'au 1er du mois suivant.
+        if(r.code === 'quota' && r.motif === 'mois'){ arret = 'mois'; _candIaReprise = r.renouvellement || null; break; }
         if(['disabled', 'quota', 'offline', 'auth'].includes(r.code)){ arret = r.code; break; }
         cible2.verifIa = { le: new Date().toISOString(), type: VP.typeLectureIa(cible2), erreur: r.code || 'unavailable' }; _stamp(cible2); lues++;
         continue;
@@ -14537,6 +14540,7 @@ async function _candIaLancer(candId, opts){
   if(!opts.auto){
     const M = { disabled: 'Lecture par l\'IA pas encore ouverte sur ce compte.', quota: 'Limite de lectures du jour atteinte : reprise possible demain.', offline: 'Pas de réseau : lecture reportée.', auth: 'Session à renouveler : lecture reportée.', unavailable: 'Service de lecture indisponible : réessayer plus tard.' };
     M.arret = 'Lecture interrompue.';
+    M.mois = 'Lecture automatique en pause jusqu’au ' + ((window.IaClient && typeof window.IaClient.dateReprise === 'function') ? window.IaClient.dateReprise(_candIaReprise) : 'mois prochain') + ' : vérifier les pièces à la main.';
     showToast(arret ? (M[arret] || M.unavailable) : (lues ? 'Lecture terminée : état des pièces mis à jour' : 'Aucune pièce lue'), arret ? 'warn' : 'ok', 4000);
   }
   try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
