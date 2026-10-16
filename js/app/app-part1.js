@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.747';
+const IMMOTRACK_VERSION = '15.749';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -6310,6 +6310,8 @@ function _renderMoreSheet() {
     + '<span class="more-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>'
     + '<span>Personnaliser ma barre</span>'
     + '<svg class="more-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>';
+  // PREMIERS-PAS (retour Didier 16/10) : en tête de la feuille, visible sans défiler — la liste des étapes et la visite.
+  html += '<button type="button" class="more-it" data-pp-entree="1" onclick="_closeMoreSheet();if(window.PremiersPas)window.PremiersPas.liste()"><span class="more-ic">' + _V4_NAV_ICONS.premiersPas + '</span><span>Premiers pas</span></button>';
   let pendingZone = null;
   _V4_NAV_MODEL.forEach(m => {
     if (m.h6) { pendingZone = m.h6; return; }
@@ -6952,6 +6954,7 @@ function _setDashV4Mode() {
 
 // Icones SVG pour la nav sidebar V4 (Feather-style, stroke 1.7).
 const _V4_NAV_ICONS = {
+  premiersPas: '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h13l-2 4 2 4H5"/></svg>',   // PREMIERS-PAS : entrée « Premiers pas » (barre latérale, Plus)
   dashboard: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
   biens:     '<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   agenda:    '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
@@ -7150,6 +7153,9 @@ function _v4NavHtml(counts, candUnread, showDash) {
       out += '<div class="v4s-a' + (m.id === activeId ? ' act' : '') + '" data-nav="' + m.id + '" onclick="go(\'' + landing + '\',this)"><span class="v4s-ic">' + (_V4_NAV_ICONS[m.ic] || '') + '</span><span>' + m.lb + '</span>' + badge + '</div>';
     }
   });
+  // PREMIERS-PAS (retour Didier 16/10 : « souvent on dit ok au début sans bien regarder ») — entrée toujours visible
+  // en fin de barre latérale : ouvre la liste des étapes (avec « Revoir la visite guidée »), même carte masquée.
+  out += '<h6>Aide</h6><div class="v4s-a" data-pp-entree="1" onclick="if(window.PremiersPas)window.PremiersPas.liste()"><span class="v4s-ic">' + _V4_NAV_ICONS.premiersPas + '</span><span>Premiers pas</span></div>';
   return out;
 }
 
