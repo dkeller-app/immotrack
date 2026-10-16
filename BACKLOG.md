@@ -1,4 +1,25 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.753 (16/10, pilotage Desktop, décision Didier)** — **Pilotage du parc : anticipation + Agenda** (`feat/pilotage-anticipation`, ec4ea222 ; 8 196 tests verts ; relecture Opus : 1 critique + 2 importants, tous corrigés).
+>
+> **Accueil** (tableau, bulles et fiche du lot suivent les mêmes règles) :
+> - Révision : 30 jours avant la date, y compris quand l'indice IRL n'est pas encore publié (« à préparer » puis « due depuis »).
+> - Assurance et entretiens : 15 jours avant, pour relancer le locataire.
+>
+> **Agenda :**
+> - Assurance et entretiens tombent à leur date, sans rappel anticipé.
+> - IRL : un événement à la date de révision, avec un rappel un mois avant. Les événements existants sont recalés sur place (clé inchangée).
+> - Un rappel de révision non fait dont la date est passée passe en `--neg` (dernier rappel du lot seulement).
+> - Généraliser la couleur aux autres catégories n'a pas été retenu : rien ne marque « fait » un entretien ou une assurance traités hors de l'Agenda.
+>
+> **Reste :**
+> - Révision affichée avec deux montants identiques quand le nouveau loyer égale l'ancien (antérieur).
+> - Smoke Didier.
+>
+> **En attente du GO Didier :**
+> - `feat/regles-paie` : ligne cause + quoi vérifier en cours.
+> - `feat/aide-decision-candidats` : maquette prête.
+> - `feat/finances-suivi-v2` : phase 1 en cours.
+> - Redéploiement du relais : `deployer-relais.cmd` lancé par Didier, car le déploiement est refusé à l'agent.
 > 🚦 **MAIN = v15.752 (16/10, pilotage Desktop, décision Didier)** — **Règles d'import : futur seulement** (`fix/regles-futur`, e61f79dc, renuméroté v15.754 → v15.752 ; 8 184 tests verts ; relecture Opus SÛR).
 > - La page « Appliquer aussi aux mouvements déjà enregistrés » du lot 2 (v15.746) est **RETIRÉE** : elle remplace la ligne v15.746 plus bas. Une règle ne touche que les prochains imports et le mouvement de départ.
 > - Une confirmation s'affiche avant de reclasser un mouvement de départ « classé à la main ».
