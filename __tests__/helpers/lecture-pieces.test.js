@@ -116,10 +116,22 @@ describe('LECTURE-PHOTOS : lecteur de photos fourni (localisation, redressement,
     const pdf = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: fauxPdf({}).pdfjs, lire, creerCanvas, lirePhoto });
     expect(pdf).toMatchObject({ codes: [], inacheve: true });
   });
-  it('PDF : code trouvé directement → le lecteur de photos n\'est pas appelé', async () => {
-    const f = fauxPdf({ codeAuRendu: ['DC04RENDU'] }); let n = 0;
+  it('PDF numérique : code trouvé directement → le lecteur de photos n\'est pas appelé', async () => {
+    const f = fauxPdf({ codeAuRendu: ['DC04RENDU'], textes: [[['Avis d\'impôt sur les revenus 2025', 40, 700]]] }); let n = 0;
     const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire, creerCanvas, lirePhoto: async () => { n++; return 'X'; } });
     expect(a.codes).toEqual(['DC04RENDU']); expect(n).toBe(0);
+  });
+  it('page scannée : le lecteur de photos SEUL (pas de fenêtres sur le fil principal avant lui)', async () => {
+    let fenetres = 0;
+    const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: fauxPdf({}).pdfjs, lire: () => { fenetres++; return null; }, creerCanvas, lirePhoto: async () => 'DC04SCAN' });
+    expect(a.codes).toEqual(['DC04SCAN']); expect(fenetres).toBe(0);
+  });
+  it('relecture adverse : 7 logos avant le code d\'un PDF numérique → l\'image du code est quand même examinée', async () => {
+    const logo = { width: 400, height: 60, bitmap: { tag: null } };                 // bandeaux (ratio > 3) : filtrés
+    const code = { width: 120, height: 120, bitmap: { tag: 'DC04CODE' } };
+    const f = fauxPdf({ images: [[logo, logo, logo, logo, logo, logo, logo, code]], textes: [[['Avis', 40, 700], ['Revenu fiscal de référence', 40, 632]]] });
+    const a = await analyserFichier({ octets: PDF, mime: 'application/pdf' }, { pdfjs: f.pdfjs, lire, creerCanvas });
+    expect(a.codes).toEqual(['DC04CODE']); expect(f.rendus).toEqual([]);
   });
 });
 

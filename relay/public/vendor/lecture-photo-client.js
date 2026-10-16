@@ -46,7 +46,8 @@ export function clientLecturePhoto({ creerWorker, repli, delaiMs = 60000 } = {})
       if (!ww) return viaRepli(g, opts);
       return new Promise((resoudre) => {
         const id = ++seq;
-        const t = setTimeout(() => { attente.delete(id); resoudre({ texte: null, etape: null, essais: 0, delai: true }); relancer(); }, delaiMs);
+        // opts.attenteMs : attente propre à cette lecture (temps restant de l'appelant + marge), sinon delaiMs
+        const t = setTimeout(() => { attente.delete(id); resoudre({ texte: null, etape: null, essais: 0, delai: true }); relancer(); }, opts.attenteMs || delaiMs);
         attente.set(id, {
           rendre: (v) => { clearTimeout(t); resoudre(v); },
           basculer: () => { clearTimeout(t); viaRepli(g, opts).then(resoudre); }

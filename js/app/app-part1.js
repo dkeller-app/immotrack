@@ -13993,7 +13993,8 @@ function _lecturePhotoClient(){
 async function _lirePhotoCanvas(canvas, echeance){
   const reste = (echeance || (Date.now() + 45000)) - Date.now() - 2000;
   if(reste < 3000) throw new Error('délai');
-  const r = await _lecturePhotoClient().lire(_canvasVersGris(canvas), { essais: window.LecturePhoto.ESSAIS_PHOTO, delaiMs: Math.min(40000, reste) });
+  const d = Math.min(40000, reste);
+  const r = await _lecturePhotoClient().lire(_canvasVersGris(canvas), { essais: window.LecturePhoto.ESSAIS_PHOTO, delaiMs: d, attenteMs: d + 3000 });
   if(!r || r.delai || r.interrompu || r.indisponible) throw new Error('lecture de la photo inachevée');
   return r.texte || null;
 }
@@ -14035,7 +14036,7 @@ async function _candVerifierPieces(candId, opts){
       let analyse;
       // LECTURE-PHOTOS : lecture pas finie (délai, appareil lent) → rien n'est conclu ; la pièce est marquée « reportée »
       // (relue au plus une fois par heure, VerifPieces.aAnalyser) au lieu d'être relue en boucle à chaque ouverture.
-      const reporter = () => { const x = (DB.documents||[]).find(y => y && !y._deleted && y.id === d.id); if(x){ x.verifReportee = new Date().toISOString(); _stamp(x); change = true; } };
+      const reporter = () => { const x = (DB.documents||[]).find(y => y && !y._deleted && y.id === d.id); if(x){ x.verifReportee = new Date().toISOString(); x.verifReports = (x.verifReports || 0) + 1; _stamp(x); change = true; } };
       const echeance = Date.now() + 55000;
       try{ analyse = await _candAvecDelai(LP.analyserFichier({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, lire, creerCanvas, chargerImage, lirePhoto: (cv) => _lirePhotoCanvas(cv, echeance) }), 60000); }
       catch(e){ console.warn('[vérification] lecture de la pièce reportée', e && e.message); reporter(); continue; }
@@ -14048,7 +14049,7 @@ async function _candVerifierPieces(candId, opts){
       const dd = (DB.documents||[]).find(x => x && !x._deleted && x.id === d.id);
       if(!dd) continue;                                           // pièce supprimée pendant la lecture
       dd.verif = VP.construireVerif({ doc: dd, candidat: c, analyse, resultats });
-      delete dd.verifReportee;
+      delete dd.verifReportee; delete dd.verifReports;
       _stamp(dd); change = true;
       await new Promise(r => setTimeout(r, 0));
     }

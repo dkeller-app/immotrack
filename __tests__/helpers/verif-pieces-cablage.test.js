@@ -127,7 +127,7 @@ describe('déclenchement et enregistrement', () => {
     for (const analyse of [new Error('pdf'), { illisible: false, estPdf: false, codes: [], texte: '', inacheve: true }]) {
       const DB = parc([AVIS({ mime: 'image/jpeg' })]); const { app, j } = monter(DB, { analyse });
       await app._candVerifierPieces('c1');
-      expect(DB.documents[0].verif).toBeUndefined(); expect(DB.documents[0].verifReportee).toBeTruthy(); expect(j.saves).toBe(1);
+      expect(DB.documents[0].verif).toBeUndefined(); expect(DB.documents[0].verifReportee).toBeTruthy(); expect(DB.documents[0].verifReports).toBe(1); expect(j.saves).toBe(1);
       await app._candVerifierPieces('c1');
       expect(j.lus).toBe(1);                                              // pas relue aussitôt
     }

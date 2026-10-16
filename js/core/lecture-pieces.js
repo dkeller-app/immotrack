@@ -14,6 +14,7 @@ const MAX_TEXTE = 200000;
 const MAX_FENETRES = 48;
 export const ESSAIS_MAX = 60;          // décodages DataMatrix au plus par document (temps de calcul borné, téléphones)
 const IMAGES_PAR_PAGE = 6;
+const IMAGES_EXAMINEES = 20;           // images peintes regardées par page (détection d'une page scannée)
 const DELAI_OBJET_MS = 2000;
 const ceder = () => new Promise((r) => setTimeout(r, 0));   // rend la main au navigateur entre deux lectures lourdes
 /** Objet image de pdf.js : les images partagées entre pages (« g_… ») sont dans commonObjs, les autres dans objs ;
@@ -109,11 +110,13 @@ export async function analyserFichier(fichier, deps) {
             if (texte.length < MAX_TEXTE) texte += it.str + (it.hasEOL ? '\n' : ' | ');
           }
         } catch { /* couche texte absente : pas de comparaison */ }
-        let trouve = null, examinees = 0, grandeImage = false;
+        // deux compteurs : toutes les images peintes (détection d'une page scannée, 20 au plus) ; les images CANDIDATES au code
+        // après filtres (6 au plus, comme avant) — des logos placés avant le code ne l'empêchent pas d'être examiné
+        let trouve = null, examinees = 0, vues = 0, grandeImage = false;
         try {
           const ops = await page.getOperatorList();
           const OPS = deps.pdfjs.OPS || {};
-          for (let i = 0; i < ops.fnArray.length && !trouve && examinees < IMAGES_PAR_PAGE; i++) {
+          for (let i = 0; i < ops.fnArray.length && !trouve && examinees < IMAGES_EXAMINEES; i++) {
             if (ops.fnArray[i] !== OPS.paintImageXObject && ops.fnArray[i] !== OPS.paintInlineImageXObject) continue;
             examinees++;
             const arg = ops.argsArray[i] && ops.argsArray[i][0];
@@ -124,7 +127,8 @@ export async function analyserFichier(fichier, deps) {
             // Un 2D-Doc est presque carré et lisible : on ignore vignettes, filets et bandeaux.
             const ratio = Math.max(obj.width, obj.height) / Math.min(obj.width, obj.height);
             if (Math.min(obj.width, obj.height) < 16 || ratio > 3) continue;
-            if (budget.essais <= 0) continue;
+            if (budget.essais <= 0 || vues >= IMAGES_PAR_PAGE) continue;
+            vues++;
             const c = imageVersCanvas(obj, deps.creerCanvas); if (c) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
             await pause();
           }
@@ -137,12 +141,12 @@ export async function analyserFichier(fichier, deps) {
           const vp1 = page.getViewport({ scale: 1 }); const k = Math.min(3, 2400 / Math.max(vp1.width, vp1.height));
           const vp = page.getViewport({ scale: k }); const c = deps.creerCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
           await page.render({ canvasContext: c.getContext('2d'), viewport: vp, intent: 'print' }).promise;
-          if (budget.essais > 0) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
-          await pause();
-          if (!trouve && photoProbable) {
-            // une exception = lecture pas finie (délai) : « inacheve », la pièce sera relue — jamais « aucun code »
+          if (photoProbable) {
+            // page scannée : le lecteur de photos SEUL (il essaie d'abord l'image entière) — pas les fenêtres sur le fil principal.
+            // Une exception = lecture pas finie (délai) : « inacheve », la pièce sera relue — jamais « aucun code ».
             try { trouve = await deps.lirePhoto(c); if (trouve) parPhoto = true; } catch { inacheve = true; }
-          }
+          } else if (budget.essais > 0) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
+          await pause();
         }
         ajouter(trouve);
       }

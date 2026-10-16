@@ -51,6 +51,13 @@ describe('clientLecturePhoto', () => {
     c.lire(G); expect(crees).toHaveLength(2);                          // nouveau Worker (pas de passage au repli)
     vi.useRealTimers();
   });
+  it('attente propre à une lecture (temps restant de l\'appelant) prioritaire sur le délai général', async () => {
+    vi.useFakeTimers();
+    const c = clientLecturePhoto({ creerWorker: () => fauxWorker(null), delaiMs: 60000 });
+    const p = c.lire(G, { attenteMs: 500 }); await vi.advanceTimersByTimeAsync(600);
+    expect(await p).toMatchObject({ delai: true });
+    vi.useRealTimers();
+  });
   it('lecture arrêtée faute de temps dans le Worker → « interrompu » transmis', async () => {
     const w = fauxWorker((ww, m) => ww.onmessage({ data: { id: m.id, texte: null, interrompu: true } }));
     expect(await clientLecturePhoto({ creerWorker: () => w }).lire(G)).toMatchObject({ texte: null, interrompu: true });

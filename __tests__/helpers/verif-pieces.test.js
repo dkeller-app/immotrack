@@ -100,6 +100,9 @@ describe('écarts sur un avis signé', () => {
     const d = { ...AVIS, mime: 'image/jpeg', verifReportee: NOW.toISOString() };
     expect(aAnalyser(d, NOW.getTime() + 10 * 60000)).toBe(false);
     expect(aAnalyser(d, NOW.getTime() + 61 * 60000)).toBe(true);
+    // 3 reports : plus de relecture automatique (appareil trop lent) ; « Vérifier à nouveau » (force) reste possible
+    expect(aAnalyser({ ...d, verifReports: 3 }, NOW.getTime() + 5 * 3600000)).toBe(false);
+    expect(aAnalyser({ ...d, verifReports: 2 }, NOW.getTime() + 5 * 3600000)).toBe(true);
   });
   it('avis trop ancien → V7 (décret : dernier ou avant-dernier avis)', () => {
     const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE, metadonnees: META }, [{ ...VALIDE, champs: CHAMPS.map((c) => (c.id === '45' ? { ...c, valeur: '2021' } : c)) }]);
