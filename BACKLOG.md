@@ -1,4 +1,38 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.754 (16/10, pilotage Desktop, GO Didier)** — **Fiches de paie : lecture IA + règles 2026 + cause visible** (`feat/regles-paie`, f1ee82cc ; tests : 8 244 app + 451 relais verts).
+>
+> **Relectures :**
+> - Fable sur le relais : SÛR après corrections.
+> - 2 passes Opus « PAS SÛR », puis relecture finale « SÛR après corrections » (1 🔴 faux « OK », 3 🟠). Tout est corrigé.
+>
+> **Lecture des bulletins :**
+> - L'IA lit tous les bulletins (PDF et photo), via la tâche `bulletin-paie` au schéma étendu.
+> - Un nombre n'est retenu que s'il figure dans le texte reconnu. SIRET contrôlé par sa clé de Luhn.
+>
+> **Règles :**
+> - Retenues : B1, B2, B4-B7, N1, L1, L2, S1, CB, C2, TL, CS.
+> - B3 retirée.
+> - Abstention en cas de lecture douteuse.
+>
+> **Trois états :**
+> - OK ;
+> - À vérifier (taux CSG/CRDS illégal, assiette CSG, mois manquant, nom ou employeur différent) ;
+> - Non vérifiable (calcul qui ne tombe pas juste, CDD puis CDI).
+>
+> **Cause affichée :** une ligne visible sans clic, sous chaque badge À vérifier / Non vérifiable, pour toutes les pièces. Elle donne la cause et quoi vérifier.
+>
+> **Mesures (corpus synthétique) :**
+> - 0 « À vérifier » sur 10 080 erreurs de lecture simulées.
+> - 0 faux « OK » sur 15 familles de retouches sur 16 (9,1 % sur le cumul net imposable).
+>
+> ⚠️ **Inerte tant que `AI_OCR` est éteint.** À allumer après la rétention zéro Mistral (à faire avec Didier). Le relais doit être redéployé pour le nouveau schéma.
+>
+> **Restes :**
+> - Mesure sur les vrais bulletins de Didier à l'activation (décision 3).
+> - Sélecteur de type « contrat » affiché « Type non précisé ».
+> - Taux de Mayotte et des régimes spéciaux non sourcés.
+>
+> **Relais :** redéployé le 16/10 par Didier (page de dépôt avec photo + viseur, `ASSET_VERSION` 5).
 > 🚦 **MAIN = v15.753 (16/10, pilotage Desktop, décision Didier)** — **Pilotage du parc : anticipation + Agenda** (`feat/pilotage-anticipation`, ec4ea222 ; 8 196 tests verts ; relecture Opus : 1 critique + 2 importants, tous corrigés).
 >
 > **Accueil** (tableau, bulles et fiche du lot suivent les mêmes règles) :
