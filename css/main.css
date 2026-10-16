@@ -9536,6 +9536,82 @@ span.cand-vbdg{cursor:default}
   .cand-pvi .act .btn{min-height:44px}
   .cand-pvi .dd,.cand-pvi .src,.cand-pvi .act{margin-left:0}
 }
+/* AIDE-DECISION (v15.755) — comparer les dossiers d'un même logement : un état par critère (icône + un mot), sans note,
+   sans total, sans couleur de verdict (vert seulement pour « Complet », comme la liste). Tableau sur PC et tablette,
+   cartes en page plein écran sur téléphone (M-16). Tokens du design-system uniquement. */
+#cand-cmp-btn svg{flex:0 0 auto}
+.cmp-modal{max-width:1180px;width:100%}
+.cmpd-modal{max-width:560px;width:100%}
+#cmp-body{display:flex;flex-direction:column;gap:12px}
+.cmp-tete{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.cmp-bien{font-size:13px;color:var(--t2);min-width:0;overflow-wrap:anywhere}
+.cmp-bien b{color:var(--t1)}
+.cmp-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cmp-acts .btn svg{flex:0 0 auto}
+.cmp-ordre{width:auto;min-width:200px}
+#cmp-table .tbl th,#cmp-table .tbl td{vertical-align:middle}
+#cmp-table .cmp-so button{display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;white-space:nowrap}
+#cmp-table .cmp-so.on{color:var(--t1)}
+#cmp-table .cmp-etroit{display:none}
+.cmp-te{display:inline-flex;align-items:center;gap:8px;font:inherit;color:var(--t1);background:none;border:1px solid transparent;border-radius:var(--r);padding:3px 6px;margin:-3px -6px;cursor:pointer;min-height:30px}
+.cmp-te:hover{border-color:var(--bor);background:var(--sur2)}
+.cmp-te b{font-family:var(--display);font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+.cmp-rp{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);white-space:nowrap}
+.cmp-rp svg{flex:0 0 auto}
+.cmp-gar{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.cmp-gar .s{font-size:11.5px;color:var(--t3)}
+.cmp-gar .badge svg{vertical-align:-2px}
+.cmp-regle{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--t2);line-height:1.45}
+.cmp-regle svg{flex:0 0 auto;margin-top:1px}
+.cmp-big{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.cmp-big b{font-family:var(--display);font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--t1)}
+.cmp-big span{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--t2)}
+#cmpd-body{display:flex;flex-direction:column;gap:12px}
+#cmpd-body .vp-src a{color:var(--t2)}
+#cmpd-foot{flex-wrap:wrap;gap:8px}
+.cmp-plist{display:flex;flex-direction:column;gap:6px}
+.cmp-prow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur2)}
+.cmp-prow .pn{font-size:13px;font-weight:500;color:var(--t1);min-width:0;overflow-wrap:anywhere}
+.cmp-prow .pn .d{display:block;font-size:12px;font-weight:400;color:var(--t2)}
+.cmp-pick{display:flex;flex-direction:column;gap:6px}
+.cmp-pick label{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);font-size:13.5px;color:var(--t1);min-height:46px;cursor:pointer}
+.cmp-pick label.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.cmp-pick input[type=radio]{accent-color:var(--acc);width:17px;height:17px}
+.cmp-pct{display:inline-flex;align-items:center;gap:6px}
+.cmp-pct .inp{width:80px;text-align:right;font-weight:600}
+@media (max-width:1023px){
+  #cmp-table .cmp-large{display:none}
+  #cmp-table .cmp-etroit{display:block}
+  .cmp-te{flex-direction:column;align-items:flex-end;gap:0}
+}
+@media (max-width:767px){
+  #ov-cand-comparer,#ov-cand-cmp-detail{padding:0;align-items:stretch}
+  #ov-cand-comparer .cmp-modal,#ov-cand-cmp-detail .cmpd-modal{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0 !important;border-radius:0 !important;display:flex;flex-direction:column}
+  #ov-cand-comparer .m-body,#ov-cand-cmp-detail .m-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;max-height:none}
+  #ov-cand-cmp-detail .m-foot{display:grid;grid-template-columns:1fr;gap:8px}
+  #ov-cand-cmp-detail .m-foot .btn{width:100%;min-height:46px;justify-content:center;white-space:normal;text-align:center}
+  #ov-cand-cmp-detail .m-foot .btn.bp{order:-1}
+  #cand-cmp-btn{width:100%;min-height:46px;justify-content:center}
+  .cmp-acts{width:100%}
+  .cmp-acts .btn,.cmp-ordre{flex:1 1 100%;min-height:44px;font-size:16px}
+  .cmp-ordre{min-width:0}
+  .cmp-pct .inp{font-size:16px;min-height:44px}
+  #cmp-table thead{display:none}
+  #cmp-table table,#cmp-table tbody,#cmp-table tr{display:block;width:100%}
+  #cmp-table.tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #cmp-table tbody tr{background:var(--sur);margin-bottom:10px;border-radius:12px;border:1px solid var(--bor);padding:8px 12px;box-shadow:var(--shadow-card,none)}
+  #cmp-table tbody tr:hover td{background:transparent}
+  #cmp-table td{display:flex;justify-content:space-between;align-items:center;gap:10px;border:none;padding:2px 0;min-height:44px;font-size:13.5px;text-align:left}
+  #cmp-table td::before{content:attr(data-label);font-size:13px;font-weight:500;color:var(--t2)}
+  #cmp-table td:first-child{display:block;min-height:0;border-bottom:1px solid var(--bor);padding:4px 0 8px;margin-bottom:2px}
+  #cmp-table td:first-child::before,#cmp-table td[colspan]::before{display:none}
+  #cmp-table td[colspan]{display:block}
+  #cmp-table .cmp-large{display:none}
+  #cmp-table .cand-vbdg,.cmp-te{min-height:44px}
+  .cmp-te{flex-direction:row;align-items:center;gap:8px;margin:0;padding:0 8px}
+  .cmp-gar{align-items:flex-end}
+  .cmp-prow .cand-vbdg{min-height:44px}
+}
 .conf-decl{background:rgba(90,110,135,.12);color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:8px;cursor:help}
 .note-lien{display:inline-flex;align-items:center;background:rgba(124,58,237,.12);color:var(--pur);font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;letter-spacing:.2px}
 .avatar{width:34px;height:34px;border-radius:50%;background:#5566aa;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:12px;color:#fff;flex-shrink:0;letter-spacing:.02em}

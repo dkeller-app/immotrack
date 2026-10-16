@@ -336,6 +336,8 @@ import * as LecturePhoto from './core/lecture-photo.js';
 import * as LecturePhotoClient from './core/lecture-photo-client.js';
 import * as VerifPieces from './core/verif-pieces.js';
 import * as ReglesBulletin from './core/regles-bulletin.js';
+// AIDE-DECISION — comparer les dossiers d'un même logement : critères objectifs, sans note ni classement imposé.
+import * as AideDecision from './core/aide-decision-candidats.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
 import {
@@ -844,6 +846,7 @@ window.LecturePhoto = LecturePhoto;
 window.LecturePhotoClient = LecturePhotoClient;
 window.VerifPieces = VerifPieces;
 window.ReglesBulletin = ReglesBulletin;
+window.AideDecision = AideDecision;
 window._candidatVersLocataire = _candidatVersLocataire;
 window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;
