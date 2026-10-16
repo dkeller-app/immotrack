@@ -329,9 +329,13 @@ export function etatPiece({ doc, verif, ia, iaLue, refuse }) {
   const ecart = lignes.some((l) => l.type === 'ecart');
   const signatureOk = !!(dd && dd.etat === ETAT.VALIDE);
   const controleFait = lignes.some((l) => l.type === 'ok');
+  // REGLES-PAIE : bulletin lu par l'IA dont les montants n'ont pas tous conclu (règle à ok null hors B6, ou lecture sans
+  // quorum) → jamais « OK », même si le contrôle local du fichier n'a rien relevé (net retapé dans un PDF aux dates cohérentes).
+  const montantsNonConclus = !!(iaLue && ia && typeLectureIa(doc) && ia.etat !== 'illisible' && ia.etat !== 'ia_erreur'
+    && ((typeLectureIa(doc) === 'bulletin' && ia.etat === 'lu') || (ia.regles || []).some((r) => r.ok !== true && r.ok !== false && r.code !== 'B6')));
   let etat = 'ok';
   if (ecart) etat = 'averif';
-  else if (v.illisible || !controleFait || (estAvis && !signatureOk) || (dd && dd.etat !== ETAT.VALIDE)) etat = 'nonverif';
+  else if (v.illisible || !controleFait || montantsNonConclus || (estAvis && !signatureOk) || (dd && dd.etat !== ETAT.VALIDE)) etat = 'nonverif';
   return fin(etat, lignes, { vert: etat === 'ok' && signatureOk, impots, note });
 }
 /** Ligne de tête du dossier : compte des PIÈCES (jamais un avis sur la personne). Non lues et en attente hors du compte. */

@@ -224,6 +224,19 @@ describe('REGLES-PAIE : corrections de la relecture Fable du 16/10', () => {
   it('M3 : libellé portant une longue suite de chiffres (NIR, IBAN) écarté', () => {
     const s = T.validerSortie({ lisible: true, lignes: [{ libelle: 'N° SS 1 85 05 78 006 084 36', base: null, taux: null, montant: null }, { libelle: 'CSG déductible', base: null, taux: 6.8, montant: null }], autresLignes: [{ libelle: 'FR76 3000 6000 0112 3456 7890 189', montant: null }] }, { type: 'bulletin' });
     expect(s.data.lignes.map((l) => l.libelle)).toEqual([null, 'CSG déductible']);
-    expect(s.data.autresLignes[0].libelle).toBeNull();
+    expect(s.data.autresLignes[0]).toEqual({ montant: null });   // minimisation : montant seul
+  });
+});
+
+describe('REGLES-PAIE : relecture finale du 16/10', () => {
+  it('nombres collés par l\'espace des milliers (« Brut 2 950 203,55 ») : toutes les coupures sont retrouvées', () => {
+    const n = T.nombresDuTexte('Brut 2 950 203,55');
+    for (const v of [2950, 203.55]) expect(n.has(v)).toBe(true);
+  });
+  it('minimisation : lignes entre le total et le net sans libellé ; salarié ou employeur portant 13 chiffres ou plus écarté', () => {
+    const s = T.validerSortie({ lisible: true, salarie: 'DUPONT 1 85 05 78 006 084 36', employeur: 'FR76 3000 6000 0112 3456 7890 189', autresLignes: [{ libelle: 'Acompte', montant: -50 }] }, { type: 'bulletin' });
+    expect(s.data.autresLignes).toEqual([{ montant: -50 }]);
+    expect(s.data.salarie).toBeNull(); expect(s.data.employeur).toBeNull();
+    expect(T.validerSortie({ lisible: true, salarie: 'DUPONT Camille', employeur: 'THR Logistique' }, { type: 'bulletin' }).data).toMatchObject({ salarie: 'DUPONT Camille', employeur: 'THR Logistique' });
   });
 });

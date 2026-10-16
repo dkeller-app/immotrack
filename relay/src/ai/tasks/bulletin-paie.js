@@ -100,12 +100,19 @@ export function nombresDuTexte(texte) {
     ajout(+s.replace(/ /g, ''));
   };
   const RE = /\d{1,3}(?:,\d{3})+\.\d{1,2}(?!\d)|\d{1,3}(?:[ .]\d{3})+(?:,\d+|\.\d{1,2}(?!\d))?|\d+(?:[.,]\d+)?/g; let m;
-  while ((m = RE.exec(t))) { lire(m[0]); for (const p of m[0].split(' ')) if (p) lire(p); }
+  while ((m = RE.exec(t))) {
+    lire(m[0]);
+    // « Brut 2 950 203,55 » : deux nombres collés par l'espace des milliers → toutes les coupures (2 950 | 203,55…).
+    const parts = m[0].split(' ').filter(Boolean);
+    for (const p of parts) lire(p);
+    for (let k = 1; k < parts.length; k++) { lire(parts.slice(0, k).join(' ')); lire(parts.slice(k).join(' ')); }
+  }
   return out;
 }
 
 /** Libellé de ligne : borné ; écarté s'il porte une longue suite de chiffres (NIR, IBAN…) — jamais stocké. */
-const libelle = (v) => { const t = texteBorne(v, LIMITES.libelleMax); return t && t.replace(/\D/g, '').length >= 13 ? null : t; };
+const sansNumero = (t) => (t && t.replace(/\D/g, '').length >= 13 ? null : t);
+const libelle = (v) => sansNumero(texteBorne(v, LIMITES.libelleMax));
 
 export function validerSortie(raw, input, ctx) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false };
@@ -126,7 +133,7 @@ export function validerSortie(raw, input, ctx) {
   const periode = typeof raw.periode === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw.periode) ? raw.periode : null;
   const data = {
     lisible: raw.lisible !== false, periode: garde(raw.periode, periode),
-    salarie: texteBorne(raw.salarie, LIMITES.texteMax), employeur: texteBorne(raw.employeur, LIMITES.texteMax),
+    salarie: sansNumero(texteBorne(raw.salarie, LIMITES.texteMax)), employeur: sansNumero(texteBorne(raw.employeur, LIMITES.texteMax)),
     siret: garde(raw.siret, siret(raw.siret)), dateEntree: garde(raw.dateEntree, date(raw.dateEntree)),
     impotTaux: nb(raw.impotTaux, (v) => borne(v, 0, 60, 2)),
     heures: nb(raw.heures, (v) => borne(v, 0, 400, 2)), tauxHoraire: nb(raw.tauxHoraire, (v) => borne(v, 0, 1000, 4)),
@@ -138,7 +145,7 @@ export function validerSortie(raw, input, ctx) {
     libelle: libelle(l.libelle), base: nb(l.base, montant), taux: nb(l.taux, (v) => borne(v, -100, 100, 4)), montant: nb(l.montant, montant),
   }));
   const A = Array.isArray(raw.autresLignes) ? raw.autresLignes : [];
-  data.autresLignes = A.slice(0, LIMITES.autresMax).filter((l) => l && typeof l === 'object' && !Array.isArray(l)).map((l) => ({ libelle: libelle(l.libelle), montant: nb(l.montant, montant) }));
+  data.autresLignes = A.slice(0, LIMITES.autresMax).filter((l) => l && typeof l === 'object' && !Array.isArray(l)).map((l) => ({ montant: nb(l.montant, montant) }));   // minimisation : montant seul
   if (A.length > LIMITES.autresMax) data.autresTronquees = true;
   return { ok: true, rejets, data };
 }

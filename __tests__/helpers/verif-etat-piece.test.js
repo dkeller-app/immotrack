@@ -105,10 +105,10 @@ describe('bulletin de salaire', () => {
     expect(textes(e)).toContain('Non lu : page illisible');
     expect(e.note).toBe(MENTION_PROPOSITION + '.');
   });
-  it('règle abstenue qui émet quand même un constat : pas d\'écart (contrat générique)', () => {
+  it('règle abstenue qui émet quand même un constat : pas d\'écart ; montants non conclus → jamais « OK » (REGLES-PAIE, relecture finale)', () => {
     const d = pdf(META);
     const e = etatPiece({ doc: d, verif: d.verif, ia: { etat: 'lu', regles: [{ code: 'N1', ok: null, titre: 'Règle N.' }], constats: [{ code: 'N1', titre: 'Bulletin : règle N.' }] }, iaLue: true });
-    expect(e.etat).toBe('ok');
+    expect(e.etat).toBe('nonverif');
     expect(e.lignes.some((l) => l.type === 'ecart')).toBe(false);
   });
   it('lu mais aucune règle concluante → « Montants non contrôlés » ; seule, la pièce n\'est pas « OK »', () => {

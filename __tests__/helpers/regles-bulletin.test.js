@@ -186,14 +186,15 @@ describe('analyse du dossier', () => {
     const b = analyserBulletins({ pieces: [piece('a', AOUT)], identite: ID, siretDeclare: '000000002' });
     expect(b.constats).toEqual([]);
   });
-  it('périodes : mois manquant entre deux bulletins ; bulletin le plus récent trop ancien', () => {
-    const a = analyserBulletins({ pieces: [piece('j', JUIL), piece('s', SEPT)], identite: ID, recuLe: '2026-10-11' });
-    expect(a.constats.find((c) => c.code === 'B5').titre).toBe('Bulletins : période absente entre les bulletins reçus (août 2026).');
+  it('périodes : deux mois manquants (un chiffre ne comble pas les deux) ; bulletin le plus récent trop ancien', () => {
+    const sansCumul = (v) => ({ ...v, cumulBrut: null, cumulNetImposable: null });
+    const a = analyserBulletins({ pieces: [piece('f', sansCumul({ ...AOUT, periode: '2026-02' })), piece('m', sansCumul({ ...AOUT, periode: '2026-05' })), piece('a', sansCumul(AOUT))], identite: ID, recuLe: '2026-10-11' });
+    expect(a.constats.find((c) => c.code === 'B5').titre).toBe('Bulletins : périodes absentes entre les bulletins reçus (mars 2026, avril 2026, juin 2026, juillet 2026).');
     const b = analyserBulletins({ pieces: [piece('j', JUIL)], identite: ID, recuLe: '2026-12-20' });
     expect(b.constats.find((c) => c.code === 'B5').titre).toBe('Bulletins : le plus récent porte sur juillet 2026.');
   });
   it('contrat (page 1) : date d\'entrée différente de celle du bulletin', () => {
-    const a = analyserBulletins({ pieces: [piece('a', AOUT), { id: 'c', nom: 'contrat.pdf', type: 'contrat', ia: { lu: { lisible: true, dateDebut: '2023-10-02', siret: '00000000200014' } } }], identite: ID });
+    const a = analyserBulletins({ pieces: [piece('a', AOUT), { id: 'c', nom: 'contrat.pdf', type: 'contrat', ia: { lu: { lisible: true, dateDebut: '2024-03-01', siret: '00000000200014' } } }], identite: ID });
     expect(a.constats.map((c) => c.code)).toEqual(['B7']);
     expect(a.parPiece.c.etat).toBe('lu');
   });
@@ -340,7 +341,55 @@ describe('seconde relecture adverse Opus du 16/10 : pratiques légitimes et lect
     const eff = avecLigne(AOUT, 5, { base: 2950, taux: 6.681, montant: 197.09 });
     expect(constats([piece('a', eff)])).toEqual([]);
   });
-  it('trou réel attesté par les cumuls (juillet et septembre seulement) : B5 maintenu', () => {
-    expect(constats([piece('j', JUIL), piece('s', SEPT)]).map((c) => c.code)).toEqual(['B5']);
+  it('un seul mois manquant (juillet, septembre) : comblé par une lecture d\'un chiffre, cumul plus haut = complémentaire possible → pas de constat', () => {
+    expect(constats([piece('j', JUIL), piece('s', SEPT)]).filter((c) => c.code === 'B5')).toEqual([]);
+  });
+});
+
+describe('relecture finale du 16/10 (« SÛR après corrections »)', () => {
+  const doc = { id: 'a', parentType: 'candidat', category: 'revenus', pieceType: 'I.D.2', mime: 'application/pdf', verifIa: { lu: {} } };
+  const rienReleve = { indices: { metadonnees: { creeLe: 'D:20260901090000Z', modifieLe: 'D:20260901090000Z' } } };
+  it('🔴1 faux « OK » : net retapé dans un PDF aux dates cohérentes (« Rien relevé dans le fichier ») → « Non vérifiable »', async () => {
+    const VP = await import('../../js/core/verif-pieces.js');
+    const net = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 })], identite: ID }).parPiece.a;
+    const e = VP.etatPiece({ doc, verif: rienReleve, ia: net, iaLue: true });
+    expect(e.lignes.some((l) => l.type === 'ok' && /Rien relevé/.test(l.texte))).toBe(true);
+    expect(e.etat).toBe('nonverif');
+    const sansQuorum = analyserBulletins({ pieces: [piece('a', { lisible: true, periode: '2026-08', netAvantImpot: 2291.4, impotMontant: 98.36, netAPayer: 2140 })], identite: ID }).parPiece.a;
+    expect(VP.etatPiece({ doc, verif: rienReleve, ia: sansQuorum, iaLue: true }).etat).toBe('nonverif');
+    const cumul = analyserBulletins({ pieces: [piece('a', AOUT), piece('s', { ...SEPT, cumulBrut: 28150.75 })], identite: ID }).parPiece.s;
+    expect(VP.etatPiece({ doc: { ...doc, id: 's' }, verif: rienReleve, ia: cumul, iaLue: true }).etat).toBe('nonverif');
+    const coherent = analyserBulletins({ pieces: [piece('a', AOUT)], identite: ID }).parPiece.a;
+    expect(VP.etatPiece({ doc, verif: rienReleve, ia: coherent, iaLue: true }).etat).toBe('ok');
+  });
+  it('🟠2 TL : libellé CSG collé sur une ligne voisine (CEG, complémentaire T1, santé) ou libellés échangés → aucun constat', () => {
+    const lib = (i, l) => ({ ...AOUT, lignes: LIGNES.map((x, j) => (j === i ? { ...x, libelle: l } : x)) });
+    for (const v of [lib(4, 'CSG déductible'), lib(3, 'CSG déductible'), lib(0, 'CSG/CRDS non déductible'),
+      { ...AOUT, lignes: LIGNES.map((x, j) => (j === 5 ? { ...x, libelle: LIGNES[6].libelle } : j === 6 ? { ...x, libelle: LIGNES[5].libelle } : x)) }]) {
+      expect(analyserBulletins({ pieces: [piece('a', v)], identite: ID }).constats).toEqual([]);
+    }
+    expect(analyserBulletins({ pieces: [piece('a', avecLigne(AOUT, 5, { taux: 5.8, montant: 175.14 }))], identite: ID }).constats.map((c) => c.code)).toEqual(['TL']);
+  });
+  it('🟠3 B5 : juin, juillet, août + bulletin complémentaire en juillet, août lu « 2026-09 » → aucun mois réputé absent', () => {
+    const JUIN = { ...AOUT, periode: '2026-06', cumulBrut: 17700, cumulNetImposable: 10926.8 };
+    const AOUT2 = { ...AOUT, periode: '2026-09', cumulBrut: 24100, cumulNetImposable: 16010.4 };   // +500 de complémentaire
+    expect(analyserBulletins({ pieces: [piece('j', JUIN), piece('k', JUIL), piece('a', AOUT2)], identite: ID, recuLe: '2026-10-05' }).constats.filter((c) => c.code === 'B5')).toEqual([]);
+  });
+  it('🟠3 B5 : trous qu\'aucun chiffre ne comble (janvier, avril, juillet) → constat maintenu', () => {
+    const b = (p) => ({ ...AOUT, periode: p, cumulBrut: null, cumulNetImposable: null });
+    const a = analyserBulletins({ pieces: [piece('1', b('2026-01')), piece('4', b('2026-04')), piece('7', b('2026-07'))], identite: ID });
+    expect(a.constats.filter((c) => c.code === 'B5').length).toBe(1);
+  });
+  it('🟠4 B6 : confusions de lecture « BEMARD » / « Carnille » → pas de constat ; autre nom → constat', () => {
+    const IDB = { nom: 'Bernard', prenom: 'Camille' };
+    for (const s of ['BEMARD Camille', 'BERNARD Carnille']) expect(analyserBulletins({ pieces: [piece('a', { ...AOUT, salarie: s })], identite: IDB }).constats).toEqual([]);
+    expect(analyserBulletins({ pieces: [piece('a', { ...AOUT, salarie: 'DURAND Paul' })], identite: IDB }).constats.map((c) => c.code)).toEqual(['B6']);
+  });
+  it('🟠4 B7 : moins de 3 mois d\'écart → non concluant sur le contrat ; au-delà → constat (décision 3 ouverte)', () => {
+    const c = (d) => ({ id: 'c', nom: 'contrat.pdf', type: 'contrat', ia: { lu: { lisible: true, dateDebut: d, siret: '00000000200014' } } });
+    const proche = analyserBulletins({ pieces: [piece('a', AOUT), c('2023-10-02')], identite: ID });
+    expect(proche.constats).toEqual([]);
+    expect(proche.parPiece.c.regles).toEqual([expect.objectContaining({ code: 'B7', ok: null })]);
+    expect(analyserBulletins({ pieces: [piece('a', AOUT), c('2024-03-01')], identite: ID }).constats.map((x) => x.code)).toEqual(['B7']);
   });
 });

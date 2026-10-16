@@ -314,7 +314,7 @@ function analyseInterne(v, gardeFou = true) {
   if (v.periode && ANNEES_TAUX.includes(String(v.periode).slice(0, 4)) && lignesSures) {
     // Taux qu'une lecture décalée peut donner : taux légal d'une autre ligne, taux patronaux 2026 (Urssaf, Agirc-Arrco),
     // taux de CSG/CRDS des revenus de remplacement (6,2 / 3,8 / 4,3 / 0,5).
-    const tous = [...new Set([...Object.values(TAUX_LEGAUX).flat(), 8.55, 2.11, 2.02, 4.72, 1.29, 12.95, 1.62, 0.21, 0.036, 13, 7, 5.25, 3.45, 4, 4.05, 0.25, 0.3, 0.1, 0.5, 0.016, 6.2, 3.8, 4.3, 6.6, 9.2])];
+    const tous = [...new Set([...Object.values(TAUX_LEGAUX).flat(), 8.55, 2.11, 2.02, 4.72, 1.29, 12.95, 1.62, 0.21, 0.036, 13, 7, 5.25, 3.45, 4, 4.05, 0.25, 0.3, 0.1, 0.5, 0.016, 6.2, 3.8, 4.3, 6.6, 9.2, 3.15, 0.86, 0.14, 8.64, 1.08, 0.024])];
     const ecarts = [];
     L.forEach((l, i) => {
       const cat = categorieLigne(l.libelle); if (!cat || cat === 'redhs' || l.taux == null) return;
@@ -322,7 +322,10 @@ function analyseInterne(v, gardeFou = true) {
       const t = Math.abs(l.taux), legal = TAUX_LEGAUX[cat];
       // Taux légal, ou taux effectif imprimé sur une base égale au brut (taux × 98,25 %, ex. 6,681 % pour 6,80 %).
       if (legal.some((x) => Math.abs(x - t) <= 0.005 || Math.abs(x * 0.9825 - t) <= 0.0015)) return;
-      ecarts.push({ l, cat, t, legal, decale: tous.includes(Math.round(t * 100) / 100) });
+      // Libellé collé sur une ligne voisine : taux d'une autre ligne connue, OU même catégorie portée ailleurs avec un taux
+      // légal, OU taux légal de cette catégorie présent sur une autre ligne (relecture finale du 16/10).
+      const ailleurs = L.some((m, j) => j !== i && m.taux != null && ((categorieLigne(m.libelle) === cat && legal.some((x) => Math.abs(x - Math.abs(m.taux)) <= 0.005)) || legal.some((x) => Math.abs(x - Math.abs(m.taux)) <= 0.005)));
+      ecarts.push({ l, cat, t, legal, decale: tous.some((x) => Math.abs(x - t) <= 0.005) || ailleurs });
     });
     // Plusieurs taux hors norme sur un même bulletin, ou un taux légal d'une AUTRE ligne : lignes décalées à la lecture.
     if (gardeFou && ecarts.length >= 2) for (const x of ecarts) res.incertaines.push({ code: 'TL', titre: x.l.libelle });
@@ -350,10 +353,17 @@ function analyseInterne(v, gardeFou = true) {
 
 /** Deux noms qui ne diffèrent que d'une lettre (lecture) : distance d'édition ≤ 1 sur la chaîne normalisée. */
 function uneLettre(a, b) {
-  a = norm(a).replace(/[^a-z ]/g, ''); b = norm(b).replace(/[^a-z ]/g, '');
-  if (a === b) return true; if (Math.abs(a.length - b.length) > 1) return false;
-  let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
-  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i);
+  // Lecture plausible d'un nom : confusions de l'OCR (rn↔m, cl↔d, ii↔u, vv↔w, 0↔o, 1↔l) puis distance d'édition ≤ 2.
+  const n = (x) => norm(x).replace(/0/g, 'o').replace(/1/g, 'l').replace(/[^a-z ]/g, '').replace(/rn/g, 'm').replace(/cl/g, 'd').replace(/ii/g, 'u').replace(/vv/g, 'w');
+  a = n(a); b = n(b);
+  if (a === b) return true; if (Math.abs(a.length - b.length) > 2) return false;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length] <= 2;
 }
 const memeAUneErreurPres = (a, b) => a === b || variantesChiffres(a).has(b);
 
@@ -464,7 +474,7 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
         if (!sur.has(A.t) || !sur.has(B.t) || moisIndex(B.p) - moisIndex(A.p) !== 1 || A.p.slice(0, 4) !== B.p.slice(0, 4)) continue;
         for (const [kc, kv] of [['cumulBrut', 'brut'], ['cumulNetImposable', 'netImposable']]) {
           const ca = A.t.v[kc], cb = B.t.v[kc], vb = B.t.v[kv];
-          if (ca != null && cb != null && vb != null && Math.abs(cb - ca - vb) > TOLERANCES.cumul) return false;
+          if (ca != null && cb != null && vb != null && cb < ca + vb - TOLERANCES.cumul) return false;   // plus haut : complémentaire possible
         }
       }
       return true;
@@ -483,9 +493,11 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
     }
   }
   // Contrat de travail (page 1) ↔ bulletins : employeur et date d'entrée (un chiffre d'écart = lecture incertaine).
-  for (const { p, v } of contrats) {
+  for (const { p, v, e } of contrats) {
     for (const { p: pb, v: vb } of fiables) {
       const inverse = (d) => d.slice(0, 5) + d.slice(8, 10) + '-' + d.slice(5, 7);   // AAAA-JJ-MM
+      const mi = (d) => +String(d).slice(0, 4) * 12 + +String(d).slice(5, 7);
+      if (G && v.dateDebut && vb.dateEntree && v.dateDebut !== vb.dateEntree && Math.abs(mi(v.dateDebut) - mi(vb.dateEntree)) < 3) { e.regles.push({ code: 'B7', ok: null, titre: 'Date d\'entrée du contrat', detail: 'Lecture à confirmer : date de signature ou d\'ancienneté possible.', source: { libelle: 'garde-fou de lecture' } }); break; }
       if (v.dateDebut && vb.dateEntree && v.dateDebut !== vb.dateEntree && !(G && (memeAUneErreurPres(v.dateDebut.replace(/-/g, ''), vb.dateEntree.replace(/-/g, '')) || inverse(v.dateDebut) === vb.dateEntree))) {
         constats.push({ code: 'B7', icone: 'doc', titre: `Contrat ${nom(p)} et bulletin ${libellePeriode(vb.periode) || nom(pb)} : dates d'entrée différentes.`, detail: `Contrat : ${fdate(v.dateDebut)} ; bulletin : ${fdate(vb.dateEntree)}. Un avenant ou une reprise d'ancienneté peut l'expliquer.`, source: 'lecture du contrat et du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
         break;
