@@ -2145,7 +2145,10 @@ function agendaAutoSync() {
     const oldKeys = new Set(oldIRL.map(e=>e.autoKey));
     DB.agenda = DB.agenda.filter(e => !oldKeys.has(e.autoKey));
   }
-  const existing = new Set(DB.agenda.filter(e=>e.auto).map(e=>e.autoKey));
+  // Clés déjà prises : tout événement qui porte une autoKey (y compris un rappel modifié à la main, auto:false) et les rappels
+  // supprimés par l'utilisateur (DB.params.agendaAutoEcartes, config synchronisée) — jamais recréés à la synchronisation suivante.
+  const existing = new Set(DB.agenda.filter(e => e && e.autoKey).map(e => e.autoKey)
+    .concat(Array.isArray(DB.params && DB.params.agendaAutoEcartes) ? DB.params.agendaAutoEcartes : []));
   const toAdd = [];
   let _irlAgendaRecale = false;   // IRL-REVISION M5 : un rappel IRL existant a été recalé
   // Clés BAIL/BAIL_PREVIS valides ce run — sert à purger les doublons dont la date a bougé
@@ -2388,7 +2391,8 @@ function agendaAutoSync() {
   // Purge des rappels d'assurance dont l'attestation n'est plus la courante (nouvelle attestation, locataire parti) : un
   // seul événement par lot, à la bonne date, d'une synchronisation à l'autre.
   let _mrhPurged = false;
-  if (DB.agenda && DB.agenda.length) {
+  const _mrhCalculable = typeof window !== 'undefined' && window.AlertRules && typeof window.AlertRules.attestationCourante === 'function';
+  if (_mrhCalculable && DB.agenda && DB.agenda.length) {
     const _before = DB.agenda.length;
     DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'MRH' && !validMrhKeys.has(e.autoKey)));
     _mrhPurged = DB.agenda.length !== _before;
@@ -23830,6 +23834,7 @@ function saveMrh() {
     DB.mrh.push(m);
   }
   saveDB(); closeM('ov-mrh');
+  try { if (typeof agendaAutoSync === 'function') agendaAutoSync(); } catch (e) {}   // rappel d'attestation déplacé / retiré
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   showToast('Assurance habitation enregistrée','ok');
 }
@@ -23852,6 +23857,7 @@ function delMrh(id) {
       };
     }
     saveDB();
+    try { if (typeof agendaAutoSync === 'function') agendaAutoSync(); } catch (e) {}   // rappel d'attestation déplacé / retiré
     _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   });
   _undoToast('Assurance habitation supprimée');

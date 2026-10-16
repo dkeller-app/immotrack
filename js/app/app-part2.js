@@ -27695,6 +27695,14 @@ function agendaMarkDone(domEvt, id) {
 function deleteAgendaEvt(domEvt, id) {
   domEvt.stopPropagation();
   if(!confirm('Supprimer cet événement ?')) return;
+  // Rappel automatique supprimé : sa clé est mémorisée (config synchronisée) pour qu'agendaAutoSync ne le recrée pas.
+  // Une autre échéance (nouvelle clé) recrée bien un rappel.
+  const _ev = (DB.agenda||[]).find(x=>x.id===id);
+  if (_ev && _ev.autoKey) {
+    DB.params = DB.params || {};
+    const _ec = Array.isArray(DB.params.agendaAutoEcartes) ? DB.params.agendaAutoEcartes : [];
+    if (_ec.indexOf(_ev.autoKey) < 0) DB.params.agendaAutoEcartes = _ec.concat([_ev.autoKey]).slice(-500);
+  }
   DB.agenda = (DB.agenda||[]).filter(x=>x.id!==id);
   saveDB();
   rAgenda();
@@ -28208,7 +28216,8 @@ function saveAgendaEvt() {
     recurrence:{ type:recType, interval:parseInt(el('agenda-evt-rec-int').value)||1, fin:el('agenda-evt-rec-fin').value||'' },
     rappels:   (el('agenda-evt-rappels').value||'').split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x)),
     auto:      false,
-    autoKey:   '',
+    // Un rappel automatique modifié à la main GARDE sa clé (auto:false) : la synchronisation ne le recrée pas en double.
+    autoKey:   (_agendaEditId && ((DB.agenda || []).find(x => x.id === _agendaEditId) || {}).autoKey) || '',
     done:      el('agenda-evt-done')?.checked||false,
     createdAt: new Date().toISOString().slice(0,10),
   };
@@ -28217,9 +28226,9 @@ function saveAgendaEvt() {
   if(_agendaEditId) {
     const idx = DB.agenda.findIndex(x=>x.id===_agendaEditId);
     // FAMILLE « écritures destructrices » — l'événement est reconstruit puis remplace l'ancien.
-    // `auto` / `autoKey` sont volontairement remis à zéro par le formulaire (une édition manuelle
-    // détache l'événement de l'auto-sync) : ces clés sont PRÉSENTES, la préservation ne les touche
-    // donc pas. Elle rattrape le reste (tag multi-espace, tombstones, champs ajoutés ailleurs).
+    // `auto` est remis à faux par le formulaire (une édition manuelle détache l'événement de l'auto-sync : plus
+    // de recalage ni de purge) ; `autoKey` est gardée pour que la synchronisation ne recrée pas le rappel. La
+    // préservation rattrape le reste (tag multi-espace, tombstones, champs ajoutés ailleurs).
     if(idx>=0) _preserverChampsExistants(evt, DB.agenda[idx]);
     if(idx>=0) DB.agenda[idx]=evt; else DB.agenda.push(evt);
   } else {
