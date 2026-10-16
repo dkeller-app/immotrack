@@ -12,13 +12,13 @@ import { extraireFonction } from './_extraction-source.js'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8')
 
-function monde(DB, { loue = true } = {}) {
+function monde(DB, { loue = true, irl = null } = {}) {
   let n = 0
   const reel = {
     DB, window: { AlertRules }, Date, String, Object, Array, Number, Set, Map, JSON, Math, RegExp,
-    _lotEstLoue: () => loue, computeIRLRevision: null, _bailEcheanceEffective: () => null, _bailPreavisInfo: () => null,
+    _lotEstLoue: () => loue, computeIRLRevision: irl ? (() => ({ dateRevision: new Date(irl + 'T00:00:00') })) : null, _bailEcheanceEffective: () => null, _bailPreavisInfo: () => null,
     agendaId: () => 'ev' + (++n), saveDB: () => {}, fd: (s) => String(s).split('-').reverse().join('/'), fmt: String,
-    _isoLocal: (d) => d.toISOString().slice(0, 10),
+    _isoLocal: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), _stamp: () => {},
   }
   const proxy = new Proxy(reel, { has: () => true, get: (t, k) => (k === Symbol.unscopables ? undefined : t[k]), set: (t, k, v) => { t[k] = v; return true } })
   const code = '(function(__p){ with(__p){ ' + extraireFonction(P1, 'agendaAutoSync') + '\nreturn agendaAutoSync; } })'
@@ -33,10 +33,10 @@ const base = () => ({
 const mrhEv = (DB) => DB.agenda.filter(e => e.cat === 'MRH')
 
 describe('Agenda — rappel d’attestation d’assurance habitation', () => {
-  it('crée « Demander l’attestation d’assurance » à l’échéance, rappel 30 jours avant', () => {
+  it('crée « Demander l’attestation d’assurance » à l’échéance, sans rappel anticipé (Didier 16/10)', () => {
     const DB = base(); monde(DB)()
     expect(mrhEv(DB)).toHaveLength(1)
-    expect(mrhEv(DB)[0]).toMatchObject({ titre: 'Demander l’attestation d’assurance — A', date: '2027-03-31', rappels: [30], auto: true, autoKey: 'MRH:A:2027-03-31', logement: 'A' })
+    expect(mrhEv(DB)[0]).toMatchObject({ titre: 'Demander l’attestation d’assurance — A', date: '2027-03-31', rappels: [], auto: true, autoKey: 'MRH:A:2027-03-31', logement: 'A' })
   })
   it('idempotent : une deuxième synchronisation ne crée aucun doublon', () => {
     const DB = base(); const sync = monde(DB); sync(); sync()
@@ -99,5 +99,47 @@ describe('Agenda — rappel automatique modifié à la main ou supprimé', () =>
     const DB = base(); DB.agenda = []
     formulaire(DB, null).saveAgendaEvt()
     expect(DB.agenda[0]).toMatchObject({ auto: false, autoKey: '' })
+  })
+})
+
+// Didier 16/10 — Agenda : assurance et entretiens à date sans rappel anticipé ; révision IRL à la date de révision, rappel un mois avant.
+describe('Agenda — anticipation (16/10)', () => {
+  const irlEv = (DB) => DB.agenda.filter(e => e.cat === 'IRL')
+  const an = new Date().getFullYear()
+  it('révision IRL : un événement par année, à la date de révision, rappel 30 jours avant', () => {
+    const DB = base(); monde(DB, { irl: '2026-11-15' })()
+    const ev = irlEv(DB).find(e => e.autoKey === 'IRL:A:' + an)
+    expect(ev).toMatchObject({ date: an + '-11-15', rappels: [30], autoDate: an + '-11-15', titre: 'Révision IRL — A (le 15/11/' + an + ')' })
+    expect(new Set(irlEv(DB).map(e => e.autoKey)).size).toBe(irlEv(DB).length)
+  })
+  it('migration : l’ancien rappel « Préparer révision IRL » (1er du mois précédent, rappel 7 j) est recalé, sans orphelin ni doublon', () => {
+    const DB = base()
+    DB.agenda = [{ id: 'old', cat: 'IRL', auto: true, autoKey: 'IRL:A:' + an, autoDate: an + '-10-01', date: an + '-10-01', dateFin: an + '-10-01', rappels: [7], titre: 'Préparer révision IRL — A (éch. 15/11/' + an + ')', done: false }]
+    const sync = monde(DB, { irl: '2026-11-15' }); sync(); sync()
+    const evs = irlEv(DB).filter(e => e.autoKey === 'IRL:A:' + an)
+    expect(evs).toHaveLength(1)
+    expect(evs[0]).toMatchObject({ id: 'old', date: an + '-11-15', rappels: [30] })
+  })
+  it('un rappel IRL déplacé à la main ou déjà fait n’est pas recalé', () => {
+    const DB = base()
+    DB.agenda = [
+      { id: 'main', cat: 'IRL', auto: true, autoKey: 'IRL:A:' + an, autoDate: an + '-10-01', date: an + '-10-20', rappels: [7], titre: 'Préparer révision IRL — A (déplacé)', done: false },
+      { id: 'fait', cat: 'IRL', auto: true, autoKey: 'IRL:A:' + (an + 1), autoDate: (an + 1) + '-10-01', date: (an + 1) + '-10-01', rappels: [7], titre: 'Préparer révision IRL — A (fait)', done: true },
+    ]
+    monde(DB, { irl: '2026-11-15' })()
+    expect(DB.agenda.find(e => e.id === 'main')).toMatchObject({ date: an + '-10-20', rappels: [7] })
+    expect(DB.agenda.find(e => e.id === 'fait')).toMatchObject({ date: (an + 1) + '-10-01', done: true })
+  })
+  it('assurance et entretiens automatiques existants : leurs rappels anticipés sont retirés ; un événement modifié à la main garde les siens', () => {
+    const DB = base()
+    DB.agenda = [
+      { id: 'm', cat: 'MRH', auto: true, autoKey: 'MRH:A:2027-03-31', date: '2027-03-31', rappels: [30], done: false },
+      { id: 'e', cat: 'CHAUDIERE', auto: true, autoKey: 'EQUIP:A:CHAUDIERE_GAZ:2027-01-10', date: '2027-01-10', rappels: [30, 7], done: false },
+      { id: 'h', cat: 'MRH', auto: false, autoKey: 'MRH:A:2026-01-01', date: '2026-01-01', rappels: [30], done: false },
+    ]
+    monde(DB)()
+    expect(DB.agenda.find(e => e.id === 'm').rappels).toEqual([])
+    expect(DB.agenda.find(e => e.id === 'e').rappels).toEqual([])
+    expect(DB.agenda.find(e => e.id === 'h').rappels).toEqual([30])
   })
 })

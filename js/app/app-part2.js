@@ -17299,7 +17299,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.751 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.753 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -27336,6 +27336,11 @@ function rAgenda() {
   rAgendaList();
 }
 
+// Didier 16/10 : un rappel de RÉVISION IRL non fait dont la date est passée change de couleur (jeton d'alerte --neg).
+function _agendaRevisionEnRetard(e) {
+  const today = new Date().toISOString().slice(0,10);
+  return !!(e && !e.done && e.cat === 'IRL' && e.autoKey && String(e.date || '') < today);
+}
 function _agendaEvtCard(e, compact=false) {
   if(_isPhone()) return _agendaEvtCardPhone(e);
   const cat = AGENDA_CATS[e.cat] || AGENDA_CATS.AUTRE;
@@ -27355,7 +27360,7 @@ function _agendaEvtCard(e, compact=false) {
           ? `<span class="badge ora">J-${daysLeft}</span>`
           : `<span class="badge acc">À réaliser</span>`;
 
-  return `<div class="agenda-card${e.done?' agenda-done':' agenda-todo'}" onclick="openAgendaEvt('${e.id}')">
+  return `<div class="agenda-card${e.done?' agenda-done':' agenda-todo'}${_agendaRevisionEnRetard(e)?' agenda-late':''}" onclick="openAgendaEvt('${e.id}')">
     <div class="agenda-card-top">
       <span class="agenda-cat-badge">${_agendaIconSvg(e.cat,13)} ${cat.label}</span>
       ${badge}
@@ -27450,6 +27455,7 @@ function _ensureAgendaPhCss(){
     '.agph-sec-h.late .cnt{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border-color:transparent}',
     '.agph-card{background:var(--sur);border:1px solid var(--bor);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}',
     '.agph-card.todo{box-shadow:inset 3px 0 0 var(--acc)}',
+    '.agph-card.late{box-shadow:inset 3px 0 0 var(--neg);background:var(--neg-soft);border-color:var(--neg)}',
     '.agph-card.done{opacity:.62}',
     '.agph-card.done .agph-ti{text-decoration:line-through;text-decoration-color:var(--t3)}',
     '.agph-top{display:flex;gap:11px;align-items:flex-start}',
@@ -27552,7 +27558,7 @@ function _agendaEvtCardPhone(e){
   const acts=e.done
     ? `<button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Supprimer</button>`
     : `<button class="done" onclick="agendaMarkDone(event,'${e.id}')">${_uiIcon('check')}Marquer fait</button><button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Suppr.</button>`;
-  return `<div class="agph-card${e.done?' done':' todo'}" onclick="openAgendaEvt('${e.id}')">
+  return `<div class="agph-card${e.done?' done':' todo'}${_agendaRevisionEnRetard(e)?' late':''}" onclick="openAgendaEvt('${e.id}')">
     <div class="agph-top"><div class="agph-ico">${_agendaIconSvg(e.cat,19)}</div>
       <div style="flex:1;min-width:0"><div class="agph-ti">${escHtml(e.titre)}</div><div class="agph-meta">${meta.join('')}${badge}</div></div></div>
     <div class="agph-acts">${acts}</div>

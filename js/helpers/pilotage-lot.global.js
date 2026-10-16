@@ -42,6 +42,10 @@
   /** Un bail reste « en préparation » jusqu'à 60 jours après l'entrée s'il manque la signature ou l'EDL d'entrée. */
   const FENETRE_ENTREE_JOURS = 60
 
+  /** Anticipation de l'Accueil (Didier 16/10) : l'icône apparaît N jours AVANT l'échéance, puis reste tant que rien n'est fait.
+   *  Révision : 30 jours (sinon « on aura toujours un mois de décalage ») ; assurance et entretiens : 15 jours (relancer le locataire). */
+  const ANTICIPATION_JOURS = { irl: 30, ass: 15, entr: 15 }
+
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
   const DIAG = { dpe: 'DPE', crep: 'plomb', amiante: 'amiante', gaz: 'gaz', elec: 'électricité', erp: 'ERP', termites: 'termites', merule: 'mérule', bruit: 'bruit' }
   const ISO = /^(\d{4})-(\d{2})-(\d{2})/
@@ -95,9 +99,9 @@
    *   today, phase (phaseDuLot), fmt (montant → texte, facultatif)
    *   impaye        : null | { reste:number, depuisYm?:'AAAA-MM' }           (bail ouvert seulement)
    *   enPlace       : le locataire est entré dans les lieux (bail loué, début ≤ aujourd'hui)
-   *   assurance     : null | { etat:'manquante'|'expiree', echeance? }       (moteur des alertes)
-   *   entretiens    : [{ libelle, retardJours }]                              (en retard seulement)
-   *   revision      : null | { dateAnniv, hc, nouveauHC }                     (due seulement)
+   *   assurance     : null | { etat:'manquante'|'expiree'|'bientot', echeance? }   (moteur des alertes ; « bientôt » ≤ 15 j montré)
+   *   entretiens    : [{ libelle, retardJours, joursAvant?, echeance? }]      (en retard, ou à venir : montré à 15 j)
+   *   revision      : null | { etat:'applicable'|'preavis', dateAnniv, hc, nouveauHC }   (préavis montré à 30 j)
    *   vacant        : le lot n'est pas loué
    *   dateSortie    : date de sortie du congé reçu ('' sinon)
    *   candidats     : { retenus:number, aEtudier:number }
@@ -118,14 +122,32 @@
       out.loyer = [ligne('Impayé : ' + fmt(o.impaye.reste) + mois + '.', [g('loyer', 'Voir le suivi du loyer')])]
     }
     if (o.enPlace) {
-      if (o.assurance && o.assurance.etat === 'manquante') out.ass = [ligne('Aucune attestation d’assurance habitation.', [g('ass', 'Ajouter l’attestation')])]
-      else if (o.assurance && o.assurance.etat === 'expiree') out.ass = [ligne('Attestation expirée' + (jour(o.assurance.echeance) ? ' le ' + dateFr(o.assurance.echeance) : '') + '.', [g('ass', 'Ajouter l’attestation')])]
-      const e = (Array.isArray(o.entretiens) ? o.entretiens : []).filter(x => x && x.libelle)
-      if (e.length) out.entr = e.map(x => ligne(String(x.libelle) + ' : en retard' + (Number(x.retardJours) > 0 ? ' de ' + Math.round(x.retardJours) + ' jours' : '') + '.', [g('entr', 'Planifier l’entretien')]))
-      if (o.revision) {
-        const r = o.revision
-        const montants = (r.nouveauHC != null && r.hc != null) ? ' : ' + fmt(r.hc) + ' → ' + fmt(r.nouveauHC) + ' hors charges' : ''
-        out.irl = [ligne('Révision due' + (jour(r.dateAnniv) ? ' depuis le ' + dateFr(r.dateAnniv) : '') + montants + '.', [g('irl', 'Réviser le loyer')])]
+      const A = ANTICIPATION_JOURS
+      const ass = o.assurance
+      if (ass && ass.etat === 'manquante') out.ass = [ligne('Aucune attestation d’assurance habitation.', [g('ass', 'Ajouter l’attestation')])]
+      else if (ass && ass.etat === 'expiree') out.ass = [ligne('Attestation expirée' + (jour(ass.echeance) ? ' le ' + dateFr(ass.echeance) : '') + '.', [g('ass', 'Ajouter l’attestation')])]
+      else if (ass && ass.etat === 'bientot' && jour(ass.echeance)) {
+        const j = ecartJours(today, ass.echeance)
+        if (j != null && j >= 0 && j <= A.ass) out.ass = [ligne('Attestation à renouveler le ' + dateFr(ass.echeance) + ' : demander la nouvelle au locataire.', [g('ass', 'Ajouter l’attestation')])]
+      }
+      // Entretiens : en retard, ou échéance dans les 15 jours.
+      const e = (Array.isArray(o.entretiens) ? o.entretiens : []).filter(x => x && x.libelle).filter(x => {
+        if (!(Number(x.joursAvant) >= 0) || x.retardJours > 0) return true                 // en retard (ou ancien appel sans échéance)
+        return Number(x.joursAvant) <= A.entr
+      })
+      if (e.length) out.entr = e.map(x => (Number(x.joursAvant) >= 0 && !(x.retardJours > 0))
+        ? ligne(String(x.libelle) + ' : à faire' + (jour(x.echeance) ? ' avant le ' + dateFr(x.echeance) : '') + '.', [g('entr', 'Planifier l’entretien')])
+        : ligne(String(x.libelle) + ' : en retard' + (Number(x.retardJours) > 0 ? ' de ' + Math.round(x.retardJours) + ' jours' : '') + '.', [g('entr', 'Planifier l’entretien')]))
+      // Révision : due, ou à préparer dans les 30 jours avant la date de révision.
+      const r = o.revision
+      if (r) {
+        const j = jour(r.dateAnniv) ? ecartJours(today, r.dateAnniv) : null
+        const montrer = r.etat === 'preavis' ? (j != null && j <= A.irl) : true   // due (applicable)
+        if (montrer) {
+          const montants = (r.nouveauHC != null && r.hc != null) ? ' : ' + fmt(r.hc) + ' → ' + fmt(r.nouveauHC) + ' hors charges' : ''
+          const quand = (j != null && j > 0) ? 'Révision à préparer (le ' + dateFr(r.dateAnniv) + ')' : 'Révision due' + (jour(r.dateAnniv) ? ' depuis le ' + dateFr(r.dateAnniv) : '')
+          out.irl = [ligne(quand + montants + '.', [g('irl', 'Réviser le loyer')])]
+        }
       }
     }
     if (o.phase === 'relocation' || o.phase === 'preparation') {
@@ -176,6 +198,7 @@
     COLONNES: COLONNES,
     TITRES: TITRES,
     FENETRE_ENTREE_JOURS: FENETRE_ENTREE_JOURS,
+    ANTICIPATION_JOURS: ANTICIPATION_JOURS,
     ecartJours: ecartJours,
     dateFr: dateFr,
     phaseDuLot: phaseDuLot,
