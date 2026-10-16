@@ -166,3 +166,33 @@ describe('propriété : jamais retard ET avance sur un bail le même mois (400 j
     }
   });
 });
+
+describe('lecteurs du moteur : etatDepuisSuivi (onglet Loyers, relance, quittances) et _friseLot (bandeau)', async () => {
+  const { etatDepuisSuivi, peutQuittancer, lignesRelance, retardLot } = await import('../../js/core/loyers-mois.js');
+  const { _friseLot } = await import('../../js/core/finances-monthly.js');
+  it('la relance du locataire en place ne réclame QUE son bail (jamais la dette de l’ancien)', () => {
+    const s = _computeSuiviLot({ ref: REF, ctx, mouvements: MVTS, catLigne, today: TODAY, debutSuivi: '2026-03-01', seuilArrondi: 1 });   // sans retenue : l’ancien doit 303,33
+    const lot = etatDepuisSuivi(s);
+    const nouveau = etatDepuisSuivi(s, { debuts: ['2026-05-03'] });
+    expect(lot.reste).toBe(323.33);
+    expect(nouveau.reste).toBe(20);
+    expect(lignesRelance(nouveau, {}).map((l) => [l.ym, l.montant])).toEqual([['2026-08', 20]]);
+    expect(retardLot(nouveau, {}).depuisYm).toBe('2026-08');
+  });
+  it('quittance d’un mois soldé par un manque accepté : quittançable, remise et motif rendus', () => {
+    const s = _computeSuiviLot({ ref: REF, ctx, mouvements: MVTS, catLigne, today: TODAY, debutSuivi: '2026-03-01', seuilArrondi: 1, manques: [MANQUE_AOUT] });
+    const e = etatDepuisSuivi(s, { debuts: ['2026-05-03'], manques: [MANQUE_AOUT] });
+    expect(peutQuittancer(e, '2026-08')).toEqual({ ok: true, motif: '', reste: 0 });
+    expect(e.byYm['2026-08']).toMatchObject({ remise: 20, remiseMotifs: ['panne électrique'], received: 760 });
+  });
+  it('juillet payé d’avance le 27/06 : soldé et daté du 27/06', () => {
+    const e = etatDepuisSuivi(suivi(), { debuts: ['2026-05-03'] });
+    expect(e.byYm['2026-07']).toMatchObject({ solde: true, datePaiement: '2026-06-27' });
+  });
+  it('frise : une case = position de fin de mois ; solde = position au dernier mois exigible', () => {
+    const f = _friseLot(suivi(), 2026, { dernierExigible: '2026-10', monthlyFull: 780 });
+    expect(f.months.map((m) => m.cls).slice(0, 10)).toEqual(['vac', 'vac', 'ok', 'ok', 'ok', 'avance', 'ok', 'warn', 'warn', 'warn']);
+    expect(f.months[10].cls).toBe('avenir');
+    expect(f.solde).toBe(-20);
+  });
+});

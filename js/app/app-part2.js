@@ -34088,7 +34088,8 @@ function _finFenetreRendre() {
     const p = _positionLot(s, ym);
     const manques = _finManquesDuLot(q);
     const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(q) : null;
-    return p.baux.map(pb => {
+    // un locataire parti n'apparaît que s'il doit encore (ou a une avance à rendre) — Q2
+    return p.baux.filter(pb => !pb.parti || pb.retard > 0.005 || pb.avance > 0.005).map(pb => {
       const b = (s.baux || []).find(x => x.debut === pb.debut);
       const m = b && b.mois.find(x => x.ym === ym);
       const nom = _finNomBail(q, pb.debut);
@@ -34131,9 +34132,10 @@ function _finFenetreRendre() {
   const ligne = (it) => {
     const s = _finSuiviLot(it.q);
     const p = s ? _positionLot(s, ym) : null;
-    const nom = p && p.baux.length ? p.baux.map(b => _finNomBail(it.q, b.debut)).join(' · ') : it.q;
+    const vis = p ? p.baux.filter(b => !b.parti || b.retard > 0.005 || b.avance > 0.005) : [];
+    const nom = vis.length ? vis.map(b => _finNomBail(it.q, b.debut)).join(' · ') : it.q;
     const tags = [];
-    if (p && p.baux.some(b => b.parti)) tags.push('parti');
+    if (vis.some(b => b.parti)) tags.push('parti');
     if (s && (s.baux || []).some(b => (b.mois.find(x => x.ym === ym) || { paiements: [] }).paiements.some(x => x.aConfirmer))) tags.push('à confirmer');
     const ouvert = _finFen.ouvert === it.q;
     return '<div class="ffn-lot"><button class="h" type="button" onclick="_finFenetreOuvrir(\'' + _lyQ(it.q) + '\')"><span class="n">' + esc(nom) + '<small>' + esc(_logLabel(it.q)) + '</small></span>'
