@@ -49,7 +49,8 @@ export async function ouvrirViseur({ lecteur, sourceVersGris, surPhoto, surRepli
   };
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') { sansCamera(); return; }
   try {
-    flux = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+    // 4:3 : format du capteur, comme une photo ; le téléphone donne la meilleure définition qu'il sait filmer
+    flux = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 4032 }, height: { ideal: 3024 } } });
   } catch { if (!fini) sansCamera(); return; }
   if (fini) { flux.getTracks().forEach((t) => t.stop()); return; }
   video.srcObject = flux;
@@ -63,7 +64,7 @@ export async function ouvrirViseur({ lecteur, sourceVersGris, surPhoto, surRepli
       if (fini || occupe || repere || !video.videoWidth) continue;
       occupe = true;
       try {
-        const g = sourceVersGris(video, video.videoWidth, video.videoHeight, creerCanvas, 1920);
+        const g = sourceVersGris(video, video.videoWidth, video.videoHeight, creerCanvas, 2400);
         const r = await lecteur.lire(g, { rapide: true, essais: 8, delaiMs: 3000 });
         if (!fini && r && r.texte) { repere = true; puce.classList.add('ok'); puce.innerHTML = ICO.ok + 'Code de l\'État repéré'; }
       } catch { /* image suivante */ }

@@ -188,6 +188,13 @@ Soit **moins de 0,10 € par dossier** dans le pire cas. Quota proposé : 300 pa
 - **Séparation** : jeu de réglage / jeu d'évaluation figé (empreinte SHA-256 publiée), script reproductible (`relay/src/ai/eval-*` existe déjà pour l'EDL : même patron).
 - **Terrain** (bêta de décembre, avec accord des candidats) : part des constats jugés utiles par les bailleurs ; si > 50 % des constats B/T sont jugés inutiles, ils passent repliés par défaut (seuil repris de l'étude du dossier BP).
 
+### 7.1 Verrou n° 1 — lecture du code sur photo : résultats (LECTURE-PHOTOS, 15-16/10/2026, v15.751)
+- **Protocole appliqué** : 884 photos 100 % synthétiques (les 39 spécimens officiels « imprimés » sur une page fictive puis « photographiés » : 11 familles de dégradation × 5 niveaux + 195 photos à défauts combinés), jeu de réglage séparé, jeu d'évaluation figé (SHA-256 `05f99544…`) ; prototype et résultats : `mockups/LECTURE-PHOTOS/prototype/` (`node eval/banc.mjs`).
+- **Méthode** (`js/core/lecture-photo.js`, sur l'appareil) : localisation des zones (texture dense, ~50 % d'encre), quadrilatère du code (deux segmentations), redressement de la perspective, **relecture de la grille module par module** ajustée sur le motif connu du DataMatrix, **égalisation** contre le flou, code redessiné net pour le décodeur.
+- **Mesures** (codes lus) : lecteur de l'app v15.744 **5 %** → prétraitement **71 %** (photo correcte 33 → 100 % ; dégradations 5 → 81 % ; photos combinées sévères 1 → 32 %). zxing-wasm seul 58 % ; prétraitement + zxing-wasm 71 % : **aucun gain du WebAssembly** (CSP inchangée). **0 faux « valide »** ; un bogue du lecteur de l'app (lecture de codes-barres 1D dans du texte) corrigé.
+- **Limites mesurées** (illisible par tous les lecteurs testés) : flou σ ≥ 2,2 px (≈ 0,6 module), bougé ≥ 7 px, page sur moins de la moitié de la hauteur de la photo, écart encre/papier < 30 niveaux. Elles sont couvertes côté usage par le viseur (code repéré en direct) et le contrôle immédiat de la page de dépôt.
+- **Pistes restantes (R&D)** : déconvolution aveugle (estimation du flou sur le motif en L), fusion de plusieurs images du viseur (rafale, super-résolution), mesure sur photos réelles consenties (taille réelle d'un module d'avis, téléphones variés).
+
 ---
 
 ## 8. Décisions (arrêtées le 14/10/2026 : recommandations retenues)
