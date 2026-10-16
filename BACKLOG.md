@@ -1,4 +1,13 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.751 (16/10, pilotage Desktop, GO Didier)** — **Lecture des photos des pièces** (`feat/lecture-photos`, d4a1496a ; 8 200 tests app + 438 relais verts ; 2 passes Opus, 0 🔴, 🟠 corrigés).
+> - Bogue `_zxingLecteur` corrigé (DataMatrix seul, texte « DC… »).
+> - `js/core/lecture-photo.js` : repérage, redressement, relecture de la grille, dans un Worker ; 2D-Doc lu sur photo de 5 % → 71 % (884 photos synthétiques), 0 faux « valide ».
+> - Pièces déjà lues sans code : relues une fois à l'ouverture de la fiche.
+> - CSP inchangée, pas de WASM.
+> - Page de dépôt : « Prendre en photo » avec viseur, contrôle immédiat « Code de l'État lu / Code illisible (avis seulement) / Photo floue », jamais bloquant, `ASSET_VERSION` 5.
+> - ⚠️ **La page de dépôt (relais) n'est PAS en ligne tant que le relais n'est pas redéployé** (GO Didier) ; cela vaut aussi pour le texte de verif-lisible (`ASSET_VERSION` 4).
+> - Restes : smoke avec une vraie photo d'avis de Didier (iPhone et Android) ; seuils `SEUIL_FLOU` et taille d'un module ; bleu existant de la page de dépôt à 3,8:1 (M-17).
+> - En cours : `feat/regles-paie` (corrections relecture finale, 1 🔴 faux « OK ») → v15.752.
 > 🚦 **MAIN = v15.750 (16/10, pilotage Desktop, GO Didier)** — **Pilotage du parc** (`feat/matrice-accueil`, f3faa69c, 8 146 tests verts ; 3 relectures Opus : « SÛR après corrections », corrections faites).
 > **Accueil :**
 > - colonnes Loyer · Assurance · Entretiens · Révision · Mise en location (lot vide / congé reçu / bail en préparation) ;
