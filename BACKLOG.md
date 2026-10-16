@@ -1,4 +1,12 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.752 (16/10, pilotage Desktop, décision Didier)** — **Règles d'import : futur seulement** (`fix/regles-futur`, e61f79dc, renuméroté v15.754 → v15.752 ; 8 184 tests verts ; relecture Opus SÛR).
+> - La page « Appliquer aussi aux mouvements déjà enregistrés » du lot 2 (v15.746) est **RETIRÉE** : elle remplace la ligne v15.746 plus bas. Une règle ne touche que les prochains imports et le mouvement de départ.
+> - Une confirmation s'affiche avant de reclasser un mouvement de départ « classé à la main ».
+> - Décision citée dans CDC-IMPORT §⑦.6, CDC-DESIGN-MOUVEMENTS §3 et RETOURS-2026-10-05 n°3.
+> **Aussi au 16/10** :
+> - point d'accès UE Mistral OCR vérifié (`verif-ocr-ue` OK, mistral-ocr-latest) ;
+> - `AI_OCR` reste éteint jusqu'à la rétention zéro Mistral (Didier) ;
+> - bêta visée : 10 à 20 testeurs.
 > 🚦 **MAIN = v15.751 (16/10, pilotage Desktop, GO Didier)** — **Lecture des photos des pièces** (`feat/lecture-photos`, d4a1496a ; 8 200 tests app + 438 relais verts ; 2 passes Opus, 0 🔴, 🟠 corrigés).
 > - Bogue `_zxingLecteur` corrigé (DataMatrix seul, texte « DC… »).
 > - `js/core/lecture-photo.js` : repérage, redressement, relecture de la grille, dans un Worker ; 2D-Doc lu sur photo de 5 % → 71 % (884 photos synthétiques), 0 faux « valide ».

@@ -1794,17 +1794,6 @@ button .uic:only-child, .btn .uic:only-child{margin-right:0}
   .bpx-pc .bpx-acts .btn.bb,.bpx-add .btn.bs,.bpx-add .btn.bb{min-height:44px}
   .bpx-add select.inp,.bpx-add input.inp{flex:1 1 100%;font-size:16px;min-height:44px}
 }
-/* RETOURS 15/10 (lot 2, point 5) — « Appliquer aussi aux mouvements déjà enregistrés ? » (_bankRuleProposerApplication) */
-.brg-appl-lead{margin:0 0 4px;font-size:var(--fs-md);color:var(--t1);line-height:1.45}
-.brg-appl-grp{margin-top:14px}
-.brg-appl-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px;font:800 var(--fs-xs)/1.2 var(--font);text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
-.brg-appl-h .brg-lnk{text-transform:none;letter-spacing:0;font-size:var(--fs-sm)}
-.brg-appl-n{display:inline-block;margin-left:6px;font:800 var(--fs-sm)/1 var(--font);color:var(--t1);background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rp);padding:3px 8px;letter-spacing:0}
-.brg-pvs.brg-appl-pvs{max-height:none;overflow:visible}
-.brg-appl-chg{display:block;font:400 var(--fs-sm)/1.35 var(--font);color:var(--t2);margin-top:2px}
-.brg-appl-chg s{color:var(--t3)}
-.brg-appl-chg b{color:var(--t1);font-weight:600}
-.brg-appl-why{display:inline-block;margin-left:6px;font:600 var(--fs-xs)/1.2 var(--font);padding:3px 7px;border-radius:var(--rp);border:1px solid var(--bor);color:var(--t2);background:var(--sur2)}
 /* RETOURS 15/10 (lot 2, point 4) — Mouvements : intertitre « Comptes et règles » (téléphone, « Filtrer » ouvert seulement) */
 #p-mouvements .mvf-sep{display:none;font:800 var(--fs-xs)/1.2 var(--font);text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
 /* RETOURS 15/10 (lot 2, point 3) — « + Assurance » : de qui est l'assurance ? (_assChoisir) */

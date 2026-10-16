@@ -11727,8 +11727,8 @@ async function saveMv() {
       // et gagne de toute façon (la préservation ne touche pas une clé déjà là).
       _preserverSaufChampsPilotes(m, DB.mouvements[i], _mvDocCleared ? ['pj', 'pjId'] : []);
       // RETOURS 15/10 (lot 2, point 5) — la fiche change la catégorie ou l'affectation : le mouvement est « classé à la
-      // main ». Une règle appliquée plus tard aux mouvements enregistrés ne le proposera jamais coché
-      // (js/core/regle-application.js). Sans changement de classement, le marqueur existant est conservé tel quel.
+      // main ». Modifier une règle depuis sa fiche demandera alors avant de le reclasser (js/core/regle-application.js).
+      // Sans changement de classement, le marqueur existant est conservé tel quel.
       if (window.RegleApplication && window.RegleApplication.classeMainApresEdition(DB.mouvements[i], m)) m._classeMain = true;
       _auditLog('update', 'mouvement', m.id, m.lib||m.fac||String(m.id), DB.mouvements[i], m);
       DB.mouvements[i]=m;

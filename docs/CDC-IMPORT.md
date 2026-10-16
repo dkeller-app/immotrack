@@ -274,6 +274,16 @@ y compris dans l'import en cours (⑦.3).
 > retouchée) et n'est jamais proposé coché. Modifier une règle **depuis la fiche d'un mouvement** met aussi ce
 > mouvement à jour. Un mouvement **sans compte** peut servir de départ à une règle : le compte est demandé et le
 > mouvement y est rattaché. Code : `js/core/regle-application.js`, `_bankRuleProposerApplication` (app-part2).
+>
+> **→ Remplacée par la décision de Didier du 16/10/2026** (verbatim : « pour les mouvements une règle n'affecte pas le
+> passé que le futur. Comme ça on considère que l'utilisateur a bien fait jusqu'à présent et on évite les erreurs. ») :
+> la proposition « Appliquer aussi aux mouvements déjà enregistrés ? » est **retirée** (v15.754). Une règle créée ou
+> modifiée s'applique aux **prochains imports** (et aux lignes de l'import en cours) ; elle ne modifie **aucun** mouvement
+> déjà enregistré, **sauf le mouvement de départ** quand la règle est créée ou modifiée depuis sa fiche (geste explicite).
+> Si ce mouvement avait été classé à la main (`_classeMain`), la modification de la règle demande d'abord confirmation.
+> Un mouvement sans compte reste utilisable comme départ (le compte est demandé, il y est rattaché). « Mes règles » et
+> l'enregistrement d'une règle le disent : « Une règle s'applique aux prochains imports ; elle ne touche pas aux
+> mouvements déjà enregistrés. »
 
 ### ⑦.7 · Où se gèrent les règles — deux accès, une seule liste
 
