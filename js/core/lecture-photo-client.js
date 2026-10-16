@@ -1,0 +1,63 @@
+// js/core/lecture-photo-client.js — LECTURE-PHOTOS (v15.751 provisoire) : client du lecteur de photos.
+// La lecture (lecture-photo.js, plusieurs secondes sur un téléphone) tourne dans un Worker de module
+// (lecture-photo-worker.js) pour ne pas figer l'écran ; repli sur le fil principal si le navigateur ne sait pas créer
+// ce Worker ; délai au bout duquel la page reprend la main (null). Utilisé par l'app (vérification des pièces) et par la
+// page publique de dépôt (contrôle immédiat, copie dans relay/public/vendor). Testé par lecture-photo-client.test.js.
+import { versGris } from './lecture-photo.js';
+
+/**
+ * @param {{creerWorker?:()=>Worker, repli?:(g:{w,h,d}, opts:object)=>Promise<{texte,etape,essais,nettete?}>, delaiMs?:number}} deps
+ * @returns {{lire:(g:{w,h,d:Uint8Array}, opts?:object)=>Promise<{texte:string|null, etape?:string|null, essais?:number, nettete?:number|null, delai?:boolean}>, fermer:()=>void}}
+ */
+export function clientLecturePhoto({ creerWorker, repli, delaiMs = 60000 } = {}) {
+  let w = null, hs = false, seq = 0;
+  const attente = new Map();
+  const viaRepli = async (g, opts) => { if (!repli) return { texte: null, etape: null, essais: 0 }; try { return await repli(g, opts); } catch { return { texte: null, etape: null, essais: 0 }; } };
+  const casser = () => {
+    hs = true; try { if (w) w.terminate(); } catch { /* rien */ } w = null;
+    const enCours = [...attente.values()]; attente.clear(); for (const a of enCours) a.basculer();
+  };
+  const worker = () => {
+    if (hs || !creerWorker) return null;
+    if (w) return w;
+    try {
+      w = creerWorker();
+      w.onmessage = (e) => { const d = (e && e.data) || {}; const a = attente.get(d.id); if (!a) return; attente.delete(d.id);
+        a.rendre(d.erreur ? { texte: null, etape: null, essais: d.essais || 0 } : { texte: d.texte || null, etape: d.etape || null, essais: d.essais || 0, nettete: d.nettete == null ? null : d.nettete }); };
+      w.onerror = () => casser();
+      w.onmessageerror = () => casser();
+    } catch { hs = true; w = null; }
+    return w;
+  };
+  return {
+    lire(g, opts = {}) {
+      const ww = worker();
+      if (!ww) return viaRepli(g, opts);
+      return new Promise((resoudre) => {
+        const id = ++seq;
+        const t = setTimeout(() => { attente.delete(id); resoudre({ texte: null, etape: null, essais: 0, delai: true }); }, delaiMs);
+        attente.set(id, {
+          rendre: (v) => { clearTimeout(t); resoudre(v); },
+          basculer: () => { clearTimeout(t); viaRepli(g, opts).then(resoudre); }
+        });
+        const copie = g.d.slice();                       // l'image de l'appelant reste intacte ; la copie est transférée
+        try { ww.postMessage({ id, w: g.w, h: g.h, gris: copie.buffer, opts }, [copie.buffer]); }
+        catch { attente.delete(id); clearTimeout(t); casser(); viaRepli(g, opts).then(resoudre); }
+      });
+    },
+    fermer() { const enCours = [...attente.values()]; attente.clear(); for (const a of enCours) a.rendre({ texte: null, etape: null, essais: 0 }); try { if (w) w.terminate(); } catch { /* rien */ } w = null; }
+  };
+}
+
+/**
+ * Image décodée (ImageBitmap, <img>, <video>, canvas) → niveaux de gris, réduite à `max` px de côté, sur fond blanc.
+ * @param {CanvasImageSource} source
+ * @param {(w:number,h:number)=>HTMLCanvasElement|OffscreenCanvas} creerCanvas
+ */
+export function sourceVersGris(source, largeur, hauteur, creerCanvas, max = 3000) {
+  const k = Math.min(1, max / Math.max(largeur, hauteur));
+  const w = Math.max(1, Math.round(largeur * k)), h = Math.max(1, Math.round(hauteur * k));
+  const c = creerCanvas(w, h), ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(source, 0, 0, w, h);
+  return versGris(ctx.getImageData(0, 0, w, h).data, w, h);
+}

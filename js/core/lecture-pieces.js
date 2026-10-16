@@ -74,7 +74,9 @@ export function imageVersCanvas(obj, creerCanvas) {
 
 /**
  * @param {{octets:Uint8Array, mime:string}} fichier
- * @param {{pdfjs?:object, lire:(canvas)=>string|null, creerCanvas:(w,h)=>object, chargerImage?:(octets,mime)=>Promise<{source,largeur,hauteur}>}} deps
+ * @param {{pdfjs?:object, lire:(canvas)=>string|null, creerCanvas:(w,h)=>object, chargerImage?:(octets,mime)=>Promise<{source,largeur,hauteur}>,
+ *          lirePhoto?:(canvas)=>Promise<string|null>}} deps  lirePhoto (LECTURE-PHOTOS) : lecteur de photos, utilisé pour une
+ *          image, et pour une page de PDF quand la recherche directe n'a rien donné (page scannée ou photographiée)
  * @returns {Promise<{illisible:boolean, estPdf:boolean, pages?:number, codes:string[], texte:string, metadonnees?:object, enregistrements?:number, superpositions?:Array}>}
  */
 export async function analyserFichier(fichier, deps) {
@@ -95,10 +97,12 @@ export async function analyserFichier(fichier, deps) {
       const n = Math.min(doc.numPages || 0, MAX_PAGES);
       for (let p = 1; p <= n; p++) {
         const page = await doc.getPage(p);
+        let caracteresPage = 0;
         try {
           const tc = await page.getTextContent();
           for (const it of tc.items || []) {
             if (!it || typeof it.str !== 'string') continue;
+            caracteresPage += it.str.trim().length;
             items.push({ page: p, str: it.str, x: it.transform ? it.transform[4] : 0, y: it.transform ? it.transform[5] : 0 });
             if (texte.length < MAX_TEXTE) texte += it.str + (it.hasEOL ? '\n' : ' | ');
           }
@@ -126,6 +130,9 @@ export async function analyserFichier(fichier, deps) {
           await page.render({ canvasContext: c.getContext('2d'), viewport: vp, intent: 'print' }).promise;
           trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
           await pause();
+          // LECTURE-PHOTOS : page SCANNÉE ou photographiée (sans couche texte ; le code n'y est ni une image propre ni droit)
+          // → lecteur de photos. Une page avec du texte (PDF d'impots.gouv, bulletin numérique) n'y passe pas (temps borné).
+          if (!trouve && deps.lirePhoto && caracteresPage < 20) { try { trouve = await deps.lirePhoto(c); } catch { trouve = null; } }
         }
         ajouter(trouve);
       }
@@ -145,7 +152,11 @@ export async function analyserFichier(fichier, deps) {
     const c = deps.creerCanvas(Math.round(img.largeur * k), Math.round(img.hauteur * k));
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img.source, 0, 0, c.width, c.height);
     try { if (img.source && typeof img.source.close === 'function') img.source.close(); } catch { /* rien */ }   // mémoire (téléphones)
-    ajouter(chercherCode(c, deps.lire, deps.creerCanvas, budget));
+    // LECTURE-PHOTOS : une photo passe par le lecteur de photos (localisation, redressement, grille) s'il est fourni
+    let t = null;
+    if (deps.lirePhoto) { try { t = await deps.lirePhoto(c); } catch { t = null; } }
+    else t = chercherCode(c, deps.lire, deps.creerCanvas, budget);
+    ajouter(t);
     return { illisible: false, estPdf: false, codes, texte: '' };
   }
   return { illisible: true, estPdf: false, codes: [], texte: '' };

@@ -47,11 +47,14 @@ export function pieceConcernee(doc) {
   if (doc.category === 'identite' || !typeLu(doc.pieceType, doc.category)) return false;
   return /^(application\/pdf|image\/jpeg|image\/png)$/i.test(String(doc.mime || ''));
 }
+/** LECTURE-PHOTOS (v15.751) : version du lecteur de photos. Une pièce lue AVANT, sans code trouvé, est relue une fois. */
+export const LECTEUR_PHOTO = 1;
 /** Faut-il (re)lancer l'analyse locale ? */
 export function aAnalyser(doc, maintenant = Date.now()) {
   if (!pieceConcernee(doc)) return false;
   const v = doc.verif;
   if (!v || v.v !== VERSION_VERIF) return true;
+  if (!v.illisible && !v.deuxDDoc && (v.lecteurPhoto || 0) < LECTEUR_PHOTO) return true;
   return !!v.reessayer && maintenant - Date.parse(v.le || 0) > REESSAI_MS;
 }
 /** Identité attendue sur la pièce : celle du garant pour les pièces du garant, sinon celle du candidat. */
@@ -95,7 +98,7 @@ function nomsSignes(type, champs) {
 export function construireVerif({ doc, candidat, analyse, resultats, maintenant }) {
   const now = maintenant ? new Date(maintenant) : new Date();
   const a = analyse || {};
-  const verif = { v: VERSION_VERIF, le: now.toISOString(), illisible: !!a.illisible, deuxDDoc: null, indices: null, constats: [], reessayer: false };
+  const verif = { v: VERSION_VERIF, le: now.toISOString(), illisible: !!a.illisible, deuxDDoc: null, indices: null, constats: [], reessayer: false, lecteurPhoto: LECTEUR_PHOTO };
   if (a.illisible) return verif;
   if (a.estPdf) verif.indices = { metadonnees: a.metadonnees || {}, enregistrements: a.enregistrements || 0, superpositions: a.superpositions || [] };
 

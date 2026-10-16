@@ -1,7 +1,7 @@
 // __tests__/helpers/verif-pieces.test.js — VERIF-DOCUMENTS : assemblage des vérifications d'une pièce
 // (2D-Doc + indices techniques), constats des « Points à vérifier », état affiché sous la pièce.
 import { describe, it, expect } from 'vitest';
-import { pieceConcernee, aAnalyser, identiteAttendue, anneesAvisAttendues, construireVerif, etatAffiche, constatsDePiece, detail, VERSION_VERIF } from '../../js/core/verif-pieces.js';
+import { pieceConcernee, aAnalyser, identiteAttendue, anneesAvisAttendues, construireVerif, etatAffiche, constatsDePiece, detail, VERSION_VERIF, LECTEUR_PHOTO } from '../../js/core/verif-pieces.js';
 
 const INTERDITS = /fraude|frauduleu|\bfaux\b|fausse|falsifi|suspect|douteu|(?<!véri)fiable|truqu|mensong|\bscore\b|\bnote\b/i;
 const CAND = { id: 'c1', nom: 'Marchal-Oberlin', prenom: 'Inès', garant: { nom: 'Oberlin', prenom: 'Paul' } };
@@ -29,10 +29,18 @@ describe('pièces concernées et relance', () => {
   });
   it('analyse à faire : jamais faite, autre version, reportée depuis plus d\'une heure', () => {
     expect(aAnalyser(AVIS)).toBe(true);
-    expect(aAnalyser({ ...AVIS, verif: { v: VERSION_VERIF, le: NOW.toISOString() } }, NOW.getTime())).toBe(false);
+    expect(aAnalyser({ ...AVIS, verif: { v: VERSION_VERIF, le: NOW.toISOString(), lecteurPhoto: LECTEUR_PHOTO } }, NOW.getTime())).toBe(false);
     expect(aAnalyser({ ...AVIS, verif: { v: 0, le: NOW.toISOString() } }, NOW.getTime())).toBe(true);
-    expect(aAnalyser({ ...AVIS, verif: { v: VERSION_VERIF, le: NOW.toISOString(), reessayer: true } }, NOW.getTime() + 30 * 60000)).toBe(false);
-    expect(aAnalyser({ ...AVIS, verif: { v: VERSION_VERIF, le: NOW.toISOString(), reessayer: true } }, NOW.getTime() + 61 * 60000)).toBe(true);
+    expect(aAnalyser({ ...AVIS, verif: { v: VERSION_VERIF, le: NOW.toISOString(), reessayer: true, lecteurPhoto: LECTEUR_PHOTO } }, NOW.getTime() + 30 * 60000)).toBe(false);
+    expect(aAnalyser({ ...AVIS, verif: { v: VERSION_VERIF, le: NOW.toISOString(), reessayer: true, lecteurPhoto: LECTEUR_PHOTO } }, NOW.getTime() + 61 * 60000)).toBe(true);
+  });
+  it('LECTURE-PHOTOS : une pièce lue avant le lecteur de photos, sans code trouvé, est relue une fois', () => {
+    const avant = { v: VERSION_VERIF, le: NOW.toISOString(), illisible: false, deuxDDoc: null };
+    expect(aAnalyser({ ...AVIS, mime: 'image/jpeg', verif: avant }, NOW.getTime())).toBe(true);
+    expect(aAnalyser({ ...AVIS, mime: 'image/jpeg', verif: { ...avant, lecteurPhoto: LECTEUR_PHOTO } }, NOW.getTime())).toBe(false);
+    expect(aAnalyser({ ...AVIS, verif: { ...avant, deuxDDoc: { etat: 'valide' } } }, NOW.getTime())).toBe(false);   // code déjà lu : rien à refaire
+    expect(aAnalyser({ ...AVIS, verif: { ...avant, illisible: true } }, NOW.getTime())).toBe(false);
+    expect(construireVerif({ doc: AVIS, candidat: {}, analyse: { estPdf: false, codes: [] }, resultats: [] }).lecteurPhoto).toBe(LECTEUR_PHOTO);
   });
   it('identité attendue : garant pour les pièces du garant', () => {
     expect(identiteAttendue(AVIS, CAND)).toEqual({ nom: 'Marchal-Oberlin', prenom: 'Inès', qui: 'candidat' });

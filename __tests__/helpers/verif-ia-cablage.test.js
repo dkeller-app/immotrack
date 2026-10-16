@@ -172,7 +172,8 @@ describe('page publique de dépôt : information du candidat', () => {
     expect(D).toContain('Mistral AI, sous-traitant, lecture dans l\'Union européenne, conservation 30 jours au plus');
     expect(D).toContain('aucune pièce supplémentaire n\'est demandée');
     expect(D).toContain('opposition');
-    expect(readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8')).toMatch(/ASSET_VERSION = '3'/);
+    const v = readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8').match(/ASSET_VERSION = '(\d+)'/);
+    expect(+v[1]).toBeGreaterThanOrEqual(3);                       // monté à chaque changement de la page (LECTURE-PHOTOS : 4)
   });
 });
 

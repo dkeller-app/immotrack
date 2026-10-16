@@ -331,6 +331,9 @@ import * as Employeur from './core/employeur.js';
 // l'appareil contre les autorités ancrées), indices techniques des PDF, lecture locale. Constats sans score.
 import * as DeuxDDoc from './core/deux-d-doc.js';
 import * as LecturePieces from './core/lecture-pieces.js';
+// LECTURE-PHOTOS — lire le code 2D-Doc d'une PHOTO sur l'appareil (localisation, redressement, grille), dans un Worker.
+import * as LecturePhoto from './core/lecture-photo.js';
+import * as LecturePhotoClient from './core/lecture-photo-client.js';
 import * as VerifPieces from './core/verif-pieces.js';
 import * as ReglesBulletin from './core/regles-bulletin.js';
 
@@ -837,6 +840,8 @@ window.PiecesCand = PiecesCand;
 window.Employeur = Employeur;
 window.DeuxDDoc = DeuxDDoc;
 window.LecturePieces = LecturePieces;
+window.LecturePhoto = LecturePhoto;
+window.LecturePhotoClient = LecturePhotoClient;
 window.VerifPieces = VerifPieces;
 window.ReglesBulletin = ReglesBulletin;
 window._candidatVersLocataire = _candidatVersLocataire;
