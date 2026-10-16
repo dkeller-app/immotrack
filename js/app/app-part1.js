@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.750';
+const IMMOTRACK_VERSION = '15.749';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -13740,7 +13740,7 @@ function _candPointsAVerifier(c){
         actionsHtml: `<button class="btn bs bb" onclick="_candPieceHorsListeSupprimer('${_lyQ(d.id)}')">${_uiIcon('trash',14)} Supprimer cette pièce</button><button class="btn bs bb" onclick="_candPieceHorsListeConserver('${_lyQ(d.id)}')">Conserver</button>` });
     });
   }
-  // VERIF-LISIBLE (v15.750) : les constats des pièces ne sont plus listés ici ; chaque pièce porte son état
+  // VERIF-LISIBLE (v15.749) : les constats des pièces ne sont plus listés ici ; chaque pièce porte son état
   // (OK / À vérifier / Non vérifiable) et son détail s'ouvre au clic (_candVerifDetail).
   return pts;
 }
@@ -13905,7 +13905,7 @@ async function _candVerifierPieces(candId, opts){
     if(opts.toast) showToast('Vérification enregistrée', 'ok');
   }
 }
-// VERIF-LISIBLE (v15.750) — un état par pièce, d'un coup d'œil : OK (vert seulement pour une signature officielle
+// VERIF-LISIBLE (v15.749) — un état par pièce, d'un coup d'œil : OK (vert seulement pour une signature officielle
 // vérifiée) / À vérifier / Non vérifiable (ou Non lue, En attente) ; le détail s'ouvre au clic (_candVerifDetail).
 // L'état vient de VerifPieces.etatPiece (module pur, testé) : vérification locale + règles de la lecture, quelles qu'elles soient.
 function _candVerifActuelle(d){
