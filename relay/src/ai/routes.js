@@ -17,7 +17,7 @@ import { tache, JSON_MAX_IMAGES } from './tasks/index.js';
 import { videoActif, annonceVideo, VIDEO_DEFAUTS } from './video.js';
 import { ocrActif, annonceOcr } from './ocr.js';
 // Plafonds MENSUELS par compte selon l'offre (migration 0062) : en plus du garde-fou journalier ci-dessus (KV).
-import { reserver, consigner, consignerPlusTard, pourcentage, fonctionTache, estimationAudioSec } from './conso.js';
+import { reserver, consigner, consignerPlusTard, pourcentage, fonctionTache, estimationAudioSec, ANALYSE_DICTEE } from './conso.js';
 
 export const AUDIO_TYPES = new Set(['audio/mp3', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav']);
 export const AUDIO_MAX_DEFAUT = 10 * 1024 * 1024;   // 10 Mo ≈ 20 min d'Opus, ≈ 5 min de WAV 16 kHz
@@ -165,11 +165,11 @@ export function registerAiRoutes(app, { requireSupabaseUser, providerFactory = m
     if (!d.ok) { mesure('structure', 429, { motif: d.motif }); return c.json({ error: 'quota', motif: d.motif, limites: lim }, 429); }
 
     // Plafond MENSUEL de la famille de la tâche (migration 0062). Unités : pages lues (pièces), images (vidéo),
-    // 1 par lecture de facture ou demande ; la structuration d'une dictée ne consomme pas de minutes mais s'arrête
-    // quand la dictée du compte est en pause.
+    // 1 par lecture de facture ou demande ; l'analyse d'une dictée consomme 15 s de dictée, avec une tolérance de 1 800 s
+    // au-delà du plafond (la dernière dictée transcrite et payée est analysée ; un texte libre ne contourne pas la pause).
     const fonction = fonctionTache(t.nom);
-    const unitesPrevues = (f) => (f === 'video' ? nImages : f === 'dictee' ? 0 : 1);
-    const res = await reserver(c.env, { uid: gate.userId, fonction, estimation: unitesPrevues(fonction) });
+    const unitesPrevues = (f) => (f === 'video' ? nImages : f === 'dictee' ? ANALYSE_DICTEE.estimation : 1);
+    const res = await reserver(c.env, { uid: gate.userId, fonction, estimation: unitesPrevues(fonction), marge: fonction === 'dictee' ? ANALYSE_DICTEE.marge : 0 });
     if (res.mode === 'base' && !res.ok) return refusMois(c, 'structure', res);
     await compter(kv, gate.userId, nImages ? { appels: 1, images: nImages } : { appels: 1 });   // réservation avant l'appel payant
     let r;

@@ -59,8 +59,8 @@ describe('fonctions mesurées', () => {
   });
   it('estimation de durée audio : haute, bornée', () => {
     expect(estimationAudioSec(0)).toBe(1);
-    expect(estimationAudioSec(3000 * 60)).toBe(60);
-    expect(estimationAudioSec(1e9)).toBe(1800);
+    expect(estimationAudioSec(2000 * 60)).toBe(60);
+    expect(estimationAudioSec(1e9)).toBe(3600);
   });
   it('pourcentage après l\'appel (unités réelles), null sans plafond', () => {
     expect(pourcentage({ mode: 'base', plafond: 600, unites: 560, estimation: 60 }, 40)).toBe(90);
@@ -96,13 +96,13 @@ describe('plafond mensuel : routes du propriétaire', () => {
     expect(appels.map((a) => a.fn)).toEqual(['ia_reserver']);
     expect(spy.mock.calls.flat().join(' ')).toMatch(/transcribe 429 motif=mois fn=dictee/);
   });
-  it('structuration d\'une dictée : 0 minute réservée ; refusée quand la dictée du compte est en pause', async () => {
+  it('analyse d\'une dictée : 15 s réservées avec une marge de 1 800 s ; refusée au-delà (la base décide)', async () => {
     monterIdentite();
     rpcRepond('ia_reserver', reserve(true, 10, 600));
     rpcRepond('ia_consigner', null, 204);
     const ok = await structure(E, crypto.randomUUID(), { task: 'edl-piece', input: CUISINE_INPUT });
     expect(ok.status).toBe(200);
-    expect(appels[0].corps).toMatchObject({ p_famille: 'dictee', p_estimation: 0 });
+    expect(appels[0].corps).toEqual({ p_user: appels[0].corps.p_user, p_famille: 'dictee', p_estimation: 15, p_marge: 1800 });
     const con = appels.find((a) => a.fn === 'ia_consigner');
     expect(con.corps.p_correction).toBe(0);
     expect(con.corps.p_jetons_e).toBeGreaterThan(0);

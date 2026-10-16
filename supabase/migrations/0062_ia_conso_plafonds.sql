@@ -221,7 +221,10 @@ revoke all on function public._ia_compteurs_mois(uuid, date) from public, anon, 
 -- ── 9. Relais : réserver AVANT l'appel payant (atomique), consigner APRÈS. ──
 -- Réserve `p_estimation` unités si le compteur du mois est SOUS le plafond (la ligne est verrouillée : deux appels
 -- simultanés du même compte sont sérialisés et le second voit la réservation du premier). Plafond NULL = toujours ok.
-create or replace function public.ia_reserver(p_user uuid, p_famille text, p_estimation bigint)
+-- `p_marge` (0 à 3 600) : tolérance au-delà du plafond, pour l'ANALYSE d'une dictée déjà transcrite et payée (le relais
+-- passe 1 800 s et une estimation de 15 s) — la dernière dictée qui franchit le plafond n'est pas perdue, et l'analyse
+-- d'un texte libre reste bornée (au plus 120 analyses de plus par mois), car chaque analyse consomme ses 15 s.
+create or replace function public.ia_reserver(p_user uuid, p_famille text, p_estimation bigint, p_marge bigint default 0)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
 declare
   v_mois date := public._ia_mois();
@@ -230,16 +233,15 @@ declare
 begin
   if not public._el_relais_ok() then raise exception 'ia:interdit' using errcode = '42501'; end if;
   if p_user is null or p_famille is null or p_famille not in ('dictee', 'pieces', 'liens', 'factures', 'video')
-     or p_estimation is null or p_estimation < 0 or p_estimation > 100000 then
+     or p_estimation is null or p_estimation < 0 or p_estimation > 100000
+     or p_marge is null or p_marge < 0 or p_marge > 3600 then
     raise exception 'ia:invalide' using errcode = '22023';
   end if;
   insert into public.ia_compteurs (user_id, mois, famille) values (p_user, v_mois, p_famille) on conflict do nothing;
   select c.unites into v_u from public.ia_compteurs c
    where c.user_id = p_user and c.mois = v_mois and c.famille = p_famille for update;
   v_pl := (public._ia_plafonds(p_user) ->> p_famille)::bigint;
-  -- Estimation 0 (analyse d'une dictée déjà transcrite et payée) : jamais refusée — sinon la dernière dictée qui
-  -- franchit le plafond serait payée puis perdue. Elle sert seulement à lire l'état du compteur.
-  if v_pl is not null and v_u >= v_pl and p_estimation > 0 then
+  if v_pl is not null and v_u >= v_pl + p_marge then
     return jsonb_build_object('ok', false, 'unites', v_u, 'plafond', v_pl, 'mois', v_mois,
       'renouvellement', (v_mois + interval '1 month')::date);
   end if;
@@ -277,9 +279,10 @@ begin
      or coalesce(p_cout_micro_eur, 0) not between 0 and 10000000 then
     raise exception 'ia:invalide' using errcode = '22023';
   end if;
+  -- Ligne du mois créée si besoin (appel passé sans réservation quand la base était lente : unités réelles comptées).
   if coalesce(p_correction, 0) <> 0 then
-    update public.ia_compteurs c set unites = greatest(0, c.unites + p_correction)
-     where c.user_id = p_user and c.mois = p_mois and c.famille = p_famille;
+    insert into public.ia_compteurs as c (user_id, mois, famille, unites) values (p_user, p_mois, p_famille, greatest(0, p_correction))
+    on conflict (user_id, mois, famille) do update set unites = greatest(0, c.unites + p_correction);
   end if;
   insert into public.ia_conso_jour as j (user_id, jour, fonction, appels, audio_sec, pages, images, jetons_e, jetons_s, cout_micro_eur)
   values (p_user, public._ia_auj(), p_fonction, coalesce(p_appels, 0), coalesce(p_audio_sec, 0), coalesce(p_pages, 0), coalesce(p_images, 0),
@@ -408,7 +411,7 @@ begin
 end;
 $$;
 
-revoke all on function public.ia_reserver(uuid, text, bigint) from public, anon;
+revoke all on function public.ia_reserver(uuid, text, bigint, bigint) from public, anon;
 revoke all on function public.ia_consigner(uuid, date, text, text, bigint, int, bigint, int, int, bigint, bigint, bigint) from public, anon;
 revoke all on function public.ia_mon_usage() from public, anon;
 revoke all on function public.ia_admin_conso(date) from public, anon;
@@ -416,7 +419,7 @@ revoke all on function public.ia_admin_plafonds() from public, anon;
 revoke all on function public.ia_admin_plafonds_maj(text, int, int, int, int, int) from public, anon;
 revoke all on function public.ia_admin_surcharge_maj(uuid, boolean, int, int, int, int, int, text, date) from public, anon;
 revoke all on function public.ia_admin_surcharge_retirer(uuid) from public, anon;
-grant execute on function public.ia_reserver(uuid, text, bigint) to authenticated;
+grant execute on function public.ia_reserver(uuid, text, bigint, bigint) to authenticated;
 grant execute on function public.ia_consigner(uuid, date, text, text, bigint, int, bigint, int, int, bigint, bigint, bigint) to authenticated;
 grant execute on function public.ia_mon_usage() to authenticated;
 grant execute on function public.ia_admin_conso(date) to authenticated;

@@ -29,7 +29,10 @@ export const fonctionTache = (nom) => (Object.prototype.hasOwnProperty.call(FONC
 
 // Estimation de la durée d'un audio AVANT transcription, volontairement HAUTE (≈ 24 kb/s) puis corrigée par la durée
 // facturée : une rafale d'appels réserve trop, jamais trop peu. Bornée (une dictée ≤ 30 min).
-export const estimationAudioSec = (octets) => Math.min(1800, Math.max(1, Math.ceil((Number(octets) || 0) / 3000)));
+// (≈ 16 kb/s, bornée à 3 600 s = le garde-fou journalier de dictée.)
+export const estimationAudioSec = (octets) => Math.min(3600, Math.max(1, Math.ceil((Number(octets) || 0) / 2000)));
+// Analyse d'une dictée (edl-piece) : 15 s de dictée consommées, tolérée jusqu'à 1 800 s au-delà du plafond (migration 0062).
+export const ANALYSE_DICTEE = Object.freeze({ estimation: 15, marge: 1800 });
 
 const DELAI_MS = 4000;
 const ABSENT_MS = 5 * 60 * 1000;
@@ -47,12 +50,13 @@ function avecDelai(p, ms) {
  * Réserve avant l'appel payant.
  * @returns {Promise<{mode:'kv'}|{mode:'base', ok:boolean, famille:string, fonction:string, estimation:number, unites:number, plafond:number|null, mois:string, renouvellement:string}>}
  */
-export async function reserver(env, { uid, fonction, estimation = 0 }, fetchImpl) {
+export async function reserver(env, { uid, fonction, estimation = 0, marge = 0 }, fetchImpl) {
   const famille = FAMILLE_DE[fonction];
   if (!uid || !famille || !elConfigure(env) || Date.now() < _absentJusqua) return { mode: 'kv' };
   const est = Math.max(0, Math.min(100000, Math.round(Number(estimation) || 0)));
   try {
-    const r = await avecDelai(rpc(env, 'ia_reserver', { p_user: uid, p_famille: famille, p_estimation: est }, fetchImpl), DELAI_MS);
+    const m = Math.max(0, Math.min(3600, Math.round(Number(marge) || 0)));
+    const r = await avecDelai(rpc(env, 'ia_reserver', { p_user: uid, p_famille: famille, p_estimation: est, ...(m ? { p_marge: m } : {}) }, fetchImpl), DELAI_MS);
     if (!r || typeof r.ok !== 'boolean' || typeof r.mois !== 'string') { journal('reponse_illisible'); return { mode: 'kv' }; }
     const plafond = r.plafond == null ? null : Number(r.plafond);
     return { mode: 'base', ok: r.ok, famille, fonction, estimation: est, unites: Number(r.unites) || 0, plafond, mois: r.mois, renouvellement: String(r.renouvellement || '') };

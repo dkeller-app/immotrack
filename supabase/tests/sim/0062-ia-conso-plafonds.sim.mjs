@@ -130,11 +130,20 @@ try {
   const c1 = await CONS(consArgs(U.bob, mois, 'dictee', 'dictee', -400, { audio: 100, cout: 4333 }))
   const r4 = val(await RES(U.bob, 'dictee', 0))
   check('correction après l\'appel (−400) : compteur 300, la dictée repart', c1.ok && r4 && r4.ok && r4.unites === 300, JSON.stringify({ c1, r4 }))
-  await RES(U.bob, 'dictee', 400)                                     // 300 → 700 : de nouveau au plafond
-  const r30 = val(await RES(U.bob, 'dictee', 0))
+  await RES(U.bob, 'dictee', 400)                                     // 300 → 700 : de nouveau au plafond (600)
+  const R4 = (user, famille, est, marge) => asUserKeep(U.relais, call('ia_reserver', [0, 0, 0, 0]), [user, famille, est, marge])
+  const r30 = val(await R4(U.bob, 'dictee', 15, 1800))
   const r31 = val(await RES(U.bob, 'dictee', 1))
-  check('au plafond, une estimation 0 (analyse d\'une dictée déjà transcrite) passe toujours ; 1 seconde de plus, non', r30 && r30.ok === true && r30.unites === 700 && r31 && r31.ok === false, JSON.stringify({ r30, r31 }))
-  await CONS(consArgs(U.bob, mois, 'dictee', 'dictee', -400, { appels: 0 }))   // retour à 300
+  const r32 = val(await R4(U.bob, 'dictee', 15, 0))
+  const r33 = await R4(U.bob, 'dictee', 15, 9999)
+  check('au plafond : l\'analyse d\'une dictée passe dans la marge (700 → 715) ; sans marge, ou une seconde de dictée, non ; marge bornée',
+    r30 && r30.ok === true && r30.unites === 715 && r31 && r31.ok === false && r32 && r32.ok === false && !r33.ok && r33.code === '22023', JSON.stringify({ r30, r31, r32, r33 }))
+  await RES(U.bob, 'dictee', 0)
+  await CONS(consArgs(U.bob, mois, 'dictee', 'dictee', -415, { appels: 0 }))   // retour à 300
+  // Ligne du mois absente (appel passé quand la base était lente) : la consigne la crée avec les unités réelles.
+  const rl = await CONS(consArgs(U.alice, mois, 'factures', 'factures', 3))
+  const lf = (await q("select unites from public.ia_compteurs where user_id = $1 and famille = 'factures'", [U.alice])).rows[0]
+  check('consigne sans réservation préalable : ligne du mois créée, unités réelles comptées', rl.ok && lf && Number(lf.unites) === 3, JSON.stringify({ rl, lf }))
   const rc = val(await RES(U.carol, 'dictee', 0))
   check('Carol, invitée sans espace propre sur un espace beta : plafonds beta (18 000 s)', rc && rc.plafond === 18000, JSON.stringify(rc))
   const ren = r3.renouvellement
