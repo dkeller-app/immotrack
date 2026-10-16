@@ -28,7 +28,7 @@ await client.connect()
 const q = (s, p) => client.query(s, p)
 
 const RUN = Date.now().toString(36)
-const U = { alice: randomUUID(), bob: randomUUID(), admin: randomUUID(), relais: randomUUID() }
+const U = { alice: randomUUID(), bob: randomUUID(), carol: randomUUID(), admin: randomUUID(), relais: randomUUID() }
 const MAIL = k => 'sim0062-' + k + '-' + RUN + '@example.test'
 const espace = randomUUID()
 
@@ -76,7 +76,7 @@ try {
     await q("insert into auth.users (id, email, aud, role, instance_id, created_at, updated_at) values ($1,$2,'authenticated','authenticated','00000000-0000-0000-0000-000000000000',now(),now())", [id, MAIL(k)])
   }
   await q('insert into public.espaces (id, nom, created_by) values ($1,$2,$3)', [espace, 'Espace SIM 0062', U.alice])
-  await q("insert into public.espace_members (espace_id, user_id, role, invite_status, full_espace) values ($1,$2,'owner','active',true)", [espace, U.alice])
+  await q("insert into public.espace_members (espace_id, user_id, role, invite_status, full_espace) values ($1,$2,'owner','active',true), ($1,$3,'lecture_seule','active',false)", [espace, U.alice, U.carol])
   if ((await q('select count(*)::int as n from public.el_relais')).rows[0].n) await q('update public.el_relais set user_id = $1', [U.relais])
   else await q('insert into public.el_relais (user_id) values ($1)', [U.relais])
   const avant = (await q("select count(*)::int as n from public.espaces where plan_id = 'free'")).rows[0].n
@@ -102,6 +102,10 @@ try {
   const g2 = await asUser(U.alice, "update public.espaces set trial_ends_at = now() + interval '1 year' where id = $1", [espace])
   const g3 = await asUser(U.alice, "update public.espaces set nom = 'Renommé' where id = $1 returning nom", [espace])
   check('Alice ne change ni l\'offre ni l\'essai de son espace (42501), mais renomme toujours', !g1.ok && g1.code === '42501' && !g2.ok && g2.code === '42501' && g3.ok && g3.rows.length === 1, JSON.stringify({ g1, g2, g3 }))
+  const g6 = await asUser(U.alice, 'update public.espaces set created_by = $2 where id = $1', [espace, U.bob])
+  check('created_by (lien compte → offre) non modifiable (42501)', !g6.ok && g6.code === '42501', JSON.stringify(g6))
+  const nb = (await q("select nom from public.plans where id = 'beta'")).rows[0].nom
+  check('offre beta renommée « Bêta » (plafonnée)', nb === 'Bêta', nb)
   const esp2 = randomUUID()
   const g4 = await asUser(U.bob, "insert into public.espaces (id, nom, created_by, plan_id, subscription_source) values ($1, 'X', $2, 'patrimoine_plus', 'comp')", [esp2, U.bob])
   const g5 = await asUser(U.bob, "select (t.e).plan_id as plan_id, (t.e).subscription_source as src from (select public.create_espace('Espace de Bob') as e) t", [])
@@ -126,6 +130,13 @@ try {
   const c1 = await CONS(consArgs(U.bob, mois, 'dictee', 'dictee', -400, { audio: 100, cout: 4333 }))
   const r4 = val(await RES(U.bob, 'dictee', 0))
   check('correction après l\'appel (−400) : compteur 300, la dictée repart', c1.ok && r4 && r4.ok && r4.unites === 300, JSON.stringify({ c1, r4 }))
+  await RES(U.bob, 'dictee', 400)                                     // 300 → 700 : de nouveau au plafond
+  const r30 = val(await RES(U.bob, 'dictee', 0))
+  const r31 = val(await RES(U.bob, 'dictee', 1))
+  check('au plafond, une estimation 0 (analyse d\'une dictée déjà transcrite) passe toujours ; 1 seconde de plus, non', r30 && r30.ok === true && r30.unites === 700 && r31 && r31.ok === false, JSON.stringify({ r30, r31 }))
+  await CONS(consArgs(U.bob, mois, 'dictee', 'dictee', -400, { appels: 0 }))   // retour à 300
+  const rc = val(await RES(U.carol, 'dictee', 0))
+  check('Carol, invitée sans espace propre sur un espace beta : plafonds beta (18 000 s)', rc && rc.plafond === 18000, JSON.stringify(rc))
   const ren = r3.renouvellement
   check('renouvellement = 1er du mois suivant', typeof ren === 'string' && /-01$/.test(ren) && ren > mois, JSON.stringify(r3))
   let okP = 0
@@ -165,7 +176,7 @@ try {
 
   // ── Surcharges ──
   const s1 = await asUserKeep(U.admin, call('ia_admin_surcharge_maj', new Array(9).fill(0)), [U.bob, false, 20, null, null, null, null, 'Testeur EDL', null])
-  const r5 = val(await RES(U.bob, 'pieces', 0))
+  const r5 = val(await RES(U.bob, 'pieces', 1))
   const r6 = val(await RES(U.bob, 'dictee', 0))
   check('surcharge propre : dictée 20 min (1 200 s), pièces = valeur de l\'offre (8, toujours refusée)', s1.ok && r6 && r6.plafond === 1200 && r6.ok && r5 && r5.ok === false && r5.plafond === 8, JSON.stringify({ s1, r5, r6 }))
   await asUserKeep(U.admin, call('ia_admin_surcharge_maj', new Array(9).fill(0)), [U.bob, true, null, null, null, null, null, 'Sans plafond', null])
@@ -190,6 +201,9 @@ try {
   check('ia_mon_usage : offre, plafonds et compteurs de Bob, sans euros', mu && mu.plafonds.offre === 'free' && mu.unites.pieces === 9 && !JSON.stringify(mu).includes('cout'), JSON.stringify(mu))
   const mu2 = await asUser(null, call('ia_mon_usage', []), [], 'anon')
   check('ia_mon_usage refusé à anon', !mu2.ok, JSON.stringify(mu2))
+  await asUserKeep(U.admin, call('ia_admin_surcharge_maj', new Array(9).fill(0)), [U.alice, false, 400, null, null, null, null, 'note interne confidentielle', null])
+  const ma = val(await asUser(U.alice, call('ia_mon_usage', []), []))
+  check('ia_mon_usage ne renvoie pas la note interne (motif) de l\'administrateur', ma && !JSON.stringify(ma).includes('confidentielle') && ma.plafonds.dictee === 24000, JSON.stringify(ma))
   const sel = await asUser(U.bob, 'select count(*)::int as n from public.ia_plafonds_offre', [])
   check('catalogue des plafonds lisible par un connecté (comme public.plans)', sel.ok && sel.rows[0].n >= 6, JSON.stringify(sel))
 } catch (e) {

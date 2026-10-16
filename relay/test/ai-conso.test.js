@@ -7,7 +7,7 @@ import app from '../src/index.js';
 import { appAuth } from './_auth.js';
 import { _resetSessionPourTests } from '../src/el-supabase.js';
 import { GRILLE_PRIX, coutMicroEur } from '../src/ai/prix.js';
-import { FAMILLE_DE, FONCTION_TACHE, fonctionTache, estimationAudioSec, pourcentage, _resetConsoPourTests } from '../src/ai/conso.js';
+import { FAMILLE_DE, FONCTION_TACHE, fonctionTache, estimationAudioSec, pourcentage, moisParis, _resetConsoPourTests } from '../src/ai/conso.js';
 import { TACHES } from '../src/ai/tasks/index.js';
 import { CUISINE_INPUT } from './fixtures/edl-cuisine.js';
 
@@ -144,7 +144,20 @@ describe('jamais bloquant : sans base, retour aux plafonds du jour (wrangler.tom
     expect((await transcribe(E, crypto.randomUUID())).status).toBe(200);   // aucun intercept : sinon MockNotMatched
     expect(appels.filter((a) => a.fn === 'ia_reserver')).toHaveLength(1);
   });
-  it('base en erreur (500) ou identité du relais absente : l\'appel passe', async () => {
+  it('base en erreur (500) : l\'appel passe ET sa consommation réelle est consignée ensuite (rien n\'échappe au plafond)', async () => {
+    monterIdentite();
+    rpcRepond('ia_reserver', { message: 'boom' }, 500);
+    rpcRepond('ia_consigner', null, 204);
+    const sub = crypto.randomUUID();
+    expect((await transcribe(E, sub)).status).toBe(200);
+    const con = appels.find((a) => a.fn === 'ia_consigner');
+    expect(con.corps).toMatchObject({ p_user: sub, p_famille: 'dictee', p_correction: 2, p_audio_sec: 2, p_mois: moisParis() });
+  });
+  it('mois à l\'heure de Paris (comme la base)', () => {
+    expect(moisParis(new Date('2026-10-31T23:30:00Z'))).toBe('2026-11-01');   // déjà novembre à Paris
+    expect(moisParis(new Date('2026-12-15T10:00:00Z'))).toBe('2026-12-01');
+  });
+  it('identité du relais absente : l\'appel passe', async () => {
     monterIdentite();
     rpcRepond('ia_reserver', { message: 'boom' }, 500);
     expect((await transcribe(E, crypto.randomUUID())).status).toBe(200);

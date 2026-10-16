@@ -58,10 +58,22 @@ export async function reserver(env, { uid, fonction, estimation = 0 }, fetchImpl
     return { mode: 'base', ok: r.ok, famille, fonction, estimation: est, unites: Number(r.unites) || 0, plafond, mois: r.mois, renouvellement: String(r.renouvellement || '') };
   } catch (e) {
     const pg = String((e && e.pg) || '');
-    if (pg === 'PGRST202' || pg === '42883' || pg === '42P01') { _absentJusqua = Date.now() + ABSENT_MS; journal('base_absente'); }
-    else journal('base_indisponible', { code: (e && e.code) || 'erreur' });
-    return { mode: 'kv' };
+    if (pg === 'PGRST202' || pg === '42883' || pg === '42P01') { _absentJusqua = Date.now() + ABSENT_MS; journal('base_absente'); return { mode: 'kv' }; }
+    journal('base_indisponible', { code: (e && e.code) || 'erreur' });
+    // Base lente ou en erreur : l'appel passe (jamais bloquant) mais sa consommation RÉELLE est quand même consignée
+    // ensuite (estimation 0 → la correction ajoute les unités réelles au compteur) : rien n'échappe au plafond suivant
+    // ni à l'écran de l'administrateur. (Si la réservation a abouti malgré le délai, le compte est compté deux fois :
+    // erreur prudente, jamais en faveur d'un dépassement.)
+    return { mode: 'mesure', ok: true, famille, fonction, estimation: 0, unites: 0, plafond: null, mois: moisParis(), renouvellement: '' };
   }
+}
+/** Premier jour du mois en cours à l'heure de Paris (« AAAA-MM-01 »), comme la base (_ia_mois). */
+export function moisParis(d = new Date()) {
+  try {
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit' }).formatToParts(d);
+    const y = p.find((x) => x.type === 'year').value, m = p.find((x) => x.type === 'month').value;
+    return `${y}-${m}-01`;
+  } catch { return d.toISOString().slice(0, 7) + '-01'; }
 }
 
 /** Part du plafond utilisée APRÈS l'appel (unités réelles), en % entier ; null sans plafond. */
@@ -77,7 +89,7 @@ export function pourcentage(res, reelles) {
  * `mesures` = { appels, audioSec, pages, images, jetonsE, jetonsS }.
  */
 export async function consigner(env, res, { uid, reelles = 0, mesures = {} }, fetchImpl) {
-  if (!res || res.mode !== 'base' || !uid) return;
+  if (!res || (res.mode !== 'base' && res.mode !== 'mesure') || !uid) return;
   const m = mesures || {};
   const n = (v, max) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
   const audioSec = n(m.audioSec, 100000), pages = n(m.pages, 100), jetonsE = n(m.jetonsE, 10000000), jetonsS = n(m.jetonsS, 10000000);

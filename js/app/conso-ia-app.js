@@ -252,12 +252,14 @@ function ouvrirCompte(userId) {
   const sd = c.surchargeDetail || null
   const actif = sd && (!sd.jusqu_au || String(sd.jusqu_au) >= new Date().toISOString().slice(0, 10))
   const mode = !sd ? 'offre' : sd.sans_plafond ? 'sans' : 'perso'
-  const val = (k, col) => { if (sd && sd[col] != null) return sd[col]; const p = c.plafonds || {}; if (p.sans_plafond || p[k] == null) return ''; return k === 'dictee' ? Math.round(p[k] / 60) : p[k] }
+  // Champ vide = valeur de l'offre (rien n'est figé) ; seule une valeur saisie devient un plafond propre au compte.
+  const val = (k, col) => (sd && !sd.sans_plafond && sd[col] != null ? sd[col] : '')
+  const actuel = (k) => { const p = c.plafonds || {}; if (sd || p.sans_plafond || p[k] == null) return 'valeur de l’offre'; return 'offre : ' + (k === 'dictee' ? Math.round(p[k] / 60) : p[k]) }
   const radio = (v, t, d) => '<label class="cia-radio' + (mode === v ? ' on' : '') + '"><input type="radio" name="cia-mode" value="' + v + '"' + (mode === v ? ' checked' : '') + ' onchange="ConsoIa.modeCompte(this)"><span>' + esc(t) + '</span>' + (d ? '<span class="cia-mu">' + esc(d) + '</span>' : '') + '</label>'
   const corps = lignesHtml(c.lignes)
     + '<div class="cia-h4">Plafonds de ce compte</div><div class="cia-radios">'
     + radio('offre', 'Plafonds de l’offre ' + c.offre, '') + radio('perso', 'Plafonds personnalisés', '') + radio('sans', 'Sans plafond', '') + '</div>'
-    + '<div class="cia-champs" id="cia-champs"' + (mode === 'perso' ? '' : ' hidden') + '>' + CHAMPS.map(([k, t, col]) => '<label for="cia-f-' + k + '">' + esc(t) + '</label><input class="inp cia-n" id="cia-f-' + k + '" inputmode="numeric" value="' + esc(val(k, col)) + '" placeholder="valeur de l’offre">').join('') + '</div>'
+    + '<div class="cia-champs" id="cia-champs"' + (mode === 'perso' ? '' : ' hidden') + '>' + CHAMPS.map(([k, t, col]) => '<label for="cia-f-' + k + '">' + esc(t) + '</label><input class="inp cia-n" id="cia-f-' + k + '" inputmode="numeric" value="' + esc(val(k, col)) + '" placeholder="' + esc(actuel(k)) + '">').join('') + '</div>'
     + '<div class="cia-champs" id="cia-champs2"' + (mode === 'offre' ? ' hidden' : '') + '><label for="cia-f-motif">Motif</label><input class="inp" id="cia-f-motif" maxlength="200" value="' + esc((sd && sd.motif) || '') + '" placeholder="ex : testeur d’EDL">'
     + '<label for="cia-f-fin">Jusqu’au (inclus)</label><input class="inp" id="cia-f-fin" type="date" value="' + esc((sd && sd.jusqu_au) || '') + '"></div>'
     + (sd && !actif ? '<p class="cia-note">La surcharge précédente a pris fin le ' + esc(String(sd.jusqu_au)) + ' : le compte suit les plafonds de son offre.</p>' : '')

@@ -163,6 +163,16 @@ begin
    order by (coalesce(po.dictee_min, 1000000)::bigint + coalesce(po.pieces_pages, 1000000) + coalesce(po.liens_demandes, 1000000)
              + coalesce(po.factures, 1000000) + coalesce(po.video_images, 1000000)) desc, e.created_at
    limit 1;
+  -- Bêta privée : un testeur INVITÉ sans espace propre suit l'offre « beta » de l'espace qui l'a invité (D4). Seule
+  -- l'offre « beta » se partage ainsi : une offre payante reste attachée à la personne qui la paie (BIZPLAN).
+  if o.plan_id is null then
+    select po.* into o
+      from public.espace_members m
+      join public.espaces e on e.id = m.espace_id
+      join public.ia_plafonds_offre po on po.plan_id = e.plan_id
+     where m.user_id = p_user and m.invite_status = 'active' and e.plan_id = 'beta'
+     limit 1;
+  end if;
   if o.plan_id is null then
     select po.* into o from public.ia_plafonds_offre po where po.plan_id = 'free';
   end if;
@@ -227,7 +237,9 @@ begin
   select c.unites into v_u from public.ia_compteurs c
    where c.user_id = p_user and c.mois = v_mois and c.famille = p_famille for update;
   v_pl := (public._ia_plafonds(p_user) ->> p_famille)::bigint;
-  if v_pl is not null and v_u >= v_pl then
+  -- Estimation 0 (analyse d'une dictée déjà transcrite et payée) : jamais refusée — sinon la dernière dictée qui
+  -- franchit le plafond serait payée puis perdue. Elle sert seulement à lire l'état du compteur.
+  if v_pl is not null and v_u >= v_pl and p_estimation > 0 then
     return jsonb_build_object('ok', false, 'unites', v_u, 'plafond', v_pl, 'mois', v_mois,
       'renouvellement', (v_mois + interval '1 month')::date);
   end if;
@@ -288,7 +300,7 @@ declare
 begin
   if v_uid is null then raise exception 'ia:interdit' using errcode = '42501'; end if;
   return jsonb_build_object('mois', v_mois, 'renouvellement', (v_mois + interval '1 month')::date,
-    'plafonds', public._ia_plafonds(v_uid), 'unites', public._ia_compteurs_mois(v_uid, v_mois));
+    'plafonds', public._ia_plafonds(v_uid) - 'motif', 'unites', public._ia_compteurs_mois(v_uid, v_mois));   -- motif : note interne de l'admin
 end;
 $$;
 
@@ -433,7 +445,8 @@ begin
      or new.stripe_customer_id is distinct from old.stripe_customer_id
      or new.comp_reason is distinct from old.comp_reason
      or new.comp_granted_by is distinct from old.comp_granted_by
-     or new.comp_granted_at is distinct from old.comp_granted_at then
+     or new.comp_granted_at is distinct from old.comp_granted_at
+     or new.created_by is distinct from old.created_by then   -- created_by = lien compte → offre (_ia_plafonds)
     raise exception 'espaces:abonnement' using errcode = '42501';
   end if;
   return new;
@@ -447,6 +460,7 @@ revoke all on function public.espaces_abonnement_garde() from public, anon, auth
 -- ── 13. Bascule (D4) : espaces existants → 'beta' ; défaut 'beta' pendant la bêta privée (inscription sur liste
 -- d'accès, 0038-0039) ; le chantier PLANS-QUOTAS-ESSAI remettra 'free' à l'ouverture publique. Administrateur : sans plafond. ──
 update public.espaces set plan_id = 'beta' where plan_id = 'free';
+update public.plans set nom = 'Bêta' where id = 'beta' and nom = 'Bêta illimité';   -- l'offre bêta est désormais plafonnée
 alter table public.espaces alter column plan_id set default 'beta';
 insert into public.ia_surcharges (user_id, sans_plafond, motif)
 select a.user_id, true, 'Administrateur : tests sans plafond (16/10/2026)' from public.app_admins a
