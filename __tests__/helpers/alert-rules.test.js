@@ -3,7 +3,7 @@
  * Couvre notamment les 3 DIVERGENCES tranchées (audit 2026-07-06).
  */
 import { describe, it, expect } from 'vitest'
-import { mrhManquante, mrhEcheances, pnoEcheances, irlClassifier, regulAEmettre, bauxEcheance } from './alert-rules.js'
+import { mrhManquante, mrhEcheances, attestationCourante, pnoEcheances, irlClassifier, regulAEmettre, bauxEcheance } from './alert-rules.js'
 
 const TODAY = new Date('2026-07-06T00:00:00')
 
@@ -180,5 +180,26 @@ describe('bauxEcheance', () => {
     expect(out.map(o => o.ref)).toEqual(['ET', 'SANS'])
     expect(out[0]).toMatchObject({ expire: true, fin: '2026-06-01' })
     expect(out[1]).toMatchObject({ expire: false, fin: '2026-08-15', jours: 40 })
+  })
+})
+
+// MATRICE-ACCUEIL (16/10) — quelle attestation compte pour le locataire en place.
+describe('attestation courante du locataire en place', () => {
+  const log = { ref: 'A', locataire: 'Mme Durand', debut: '2025-09-01' }
+  it('une attestation SANS échéance, saisie après l’attestation expirée, éteint « expirée » sans afficher « manquante »', () => {
+    const mrh = [{ id: 1751300000000, logement: 'A', echeance: '2026-07-01' }, { id: 1751700000000, logement: 'A', echeance: '' }]
+    expect(mrhEcheances(mrh, [log], '', TODAY)).toEqual([])
+    expect(mrhManquante([log], mrh)).toEqual([])
+    expect(attestationCourante(mrh, log).echeance).toBe('')
+  })
+  it('une attestation sans échéance PLUS ANCIENNE que l’attestation datée ne la remplace pas', () => {
+    const mrh = [{ id: 1751700000000, logement: 'A', echeance: '2026-07-01' }, { id: 1751300000000, logement: 'A' }]
+    expect(mrhEcheances(mrh, [log], '', TODAY)).toMatchObject([{ ref: 'A', expiree: true }])
+  })
+  it('l’attestation du locataire précédent ne compte pas (échue avant l’entrée, ou autre nom) : « manquante »', () => {
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2025-06-30' }])).toMatchObject([{ ref: 'A' }])
+    expect(mrhEcheances([{ logement: 'A', echeance: '2025-06-30' }], [log], '', TODAY)).toEqual([])
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'M. Martin' }])).toMatchObject([{ ref: 'A' }])
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'DURAND' }])).toEqual([])   // même personne, autre graphie
   })
 })

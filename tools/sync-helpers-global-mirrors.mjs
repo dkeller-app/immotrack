@@ -306,7 +306,7 @@ const PAIRS = [
     src: '__tests__/helpers/alert-rules.js',
     dst: 'js/helpers/alert-rules.global.js',
     globalName: 'AlertRules',
-    exports: ['mrhManquante', 'mrhEcheances', 'pnoEcheances', 'irlClassifier', 'regulAEmettre', 'bauxEcheance'],
+    exports: ['mrhManquante', 'mrhEcheances', 'attestationCourante', 'attestationPourLocataire', 'pnoEcheances', 'irlClassifier', 'regulAEmettre', 'bauxEcheance'],
   },
   {
     // v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (scope + matchMv

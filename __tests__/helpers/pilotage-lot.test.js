@@ -21,9 +21,8 @@ describe('phaseDuLot', () => {
   it('congé reçu (date de sortie enregistrée, même à venir) : relocation dès le congé (D2)', () => {
     expect(P.phaseDuLot({ today: AUJ, loue: true, bail: bail({ dateSortie: '2026-12-31' }), edlEntree: true })).toBe('relocation')
   })
-  it('entrée future, sans date d\'entrée, ou signature commencée dans Propryo : préparation', () => {
+  it('entrée future, ou signature commencée dans Propryo : préparation', () => {
     expect(P.phaseDuLot({ today: AUJ, loue: true, bail: bail({ debut: '2026-11-01', sig: 'non' }) })).toBe('preparation')
-    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: bail({ debut: '' }) })).toBe('preparation')
     expect(P.phaseDuLot({ today: AUJ, loue: true, bail: bail({ debut: '2024-01-01', sig: 'partiel' }), edlEntree: true })).toBe('preparation')
   })
   it('moins de 60 jours après l\'entrée : préparation tant que signature ou EDL manque', () => {
@@ -35,6 +34,29 @@ describe('phaseDuLot', () => {
     expect(P.phaseDuLot({ today: AUJ, loue: true, bail: bail({ debut: '2021-12-07', sig: 'non' }), edlEntree: false })).toBe('en-cours')
     expect(P.phaseDuLot({ today: AUJ, loue: true, bail: bail({ debut: '2026-08-17', sig: 'non' }), edlEntree: false })).toBe('preparation')
     expect(P.phaseDuLot({ today: AUJ, loue: true, bail: bail({ debut: '2026-08-16', sig: 'non' }), edlEntree: false })).toBe('en-cours')
+  })
+})
+
+describe('phaseDuLot — bail loué SANS date d’entrée', () => {
+  // Choix (16/10) : la date d'entrée n'est pas obligatoire à l'enregistrement (« jamais bloquer ») ; un bail sans date touché
+  // depuis moins de 60 jours est une saisie en cours (préparation), au-delà c'est une fiche ancienne incomplète (en cours).
+  it('modifié il y a moins de 60 jours : préparation ; plus ancien ou jamais daté : en cours (jamais « en préparation » à vie)', () => {
+    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'non', majLe: '2026-10-01T09:00:00Z' } })).toBe('preparation')
+    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'non', majLe: '2026-05-01T09:00:00Z' } })).toBe('en-cours')
+    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'non' } })).toBe('en-cours')
+  })
+})
+
+describe('casesDuLot — corrections de la relecture (16/10)', () => {
+  it('signature du bailleur seul sur un bail entré depuis plus de 60 jours : la signature seulement, ni EDL ni caution', () => {
+    const c = P.casesDuLot({ today: AUJ, phase: 'preparation', bail: { debut: '2019-05-01', sig: 'partiel' }, edlEntree: false, cautions: ['X'], attestations: [], diagnostics: [], fmt })
+    expect(libelles(c.loc)).toEqual(['Bail : signature du locataire en attente.'])
+  })
+  it('bail repris récent : pièces du vendeur à classer, aucune signature demandée', () => {
+    const c = P.casesDuLot({ today: AUJ, phase: 'preparation', bail: { debut: '2026-09-15', sig: 'non', repris: true }, edlEntree: false, cautions: [], attestations: ['2027-09-01'], fmt })
+    expect(libelles(c.loc)).toEqual(['Bail du vendeur à classer.', 'État des lieux du vendeur à classer.'])
+    expect(libelles(c.loc).join(' ')).not.toMatch(/signer/i)
+    expect(gestes(c.loc)).toEqual(['bail-papier', 'bail', 'edl-papier'])
   })
 })
 

@@ -28234,7 +28234,7 @@ function saveAgendaEvt() {
 //   2. Suivi documents (locataires × Bail/EDL/MRH/Chauffage/Caution/DDT)
 //   3. Automatisations (locataires × 8 toggles avec override par bail)
 //   4. Prélèvements (stub V1 SEPA pain.008 V2 SaaS)
-// Helpers purs (testables) : _pilStatutDoc, _pilBulkMajLoyers
+// Helpers purs (testables) : _pilBulkMajLoyers (_pilStatutDoc supprimé le 16/10 : remplacé par js/core/pilotage-lot.js)
 // Tests Vitest : __tests__/helpers/pilotage.test.js
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -28443,73 +28443,6 @@ function _edlExtFormHtml(ref, bail) {
         <button class="btn bp" type="button" onclick="_edlExtEnregistrer('${refSafe}')">Enregistrer l'EDL</button>
       </div>
     </div>`;
-}
-function _pilStatutDoc(bail, log, type, dateRef) {
-  const today = dateRef instanceof Date ? dateRef : new Date();
-  const _ok      = { statut:'ok',      color:'#16a34a', bg:'#dcfce7', label:'OK',      txtColor:'#14532d' };
-  const _expire  = { statut:'expire',  color:'#dc2626', bg:'#fee2e2', label:'Expiré',  txtColor:'#7f1d1d' };
-  const _absent  = { statut:'absent',  color:'#d97706', bg:'#fef3c7', label:'Absent',  txtColor:'#78350f' };
-  const _na      = { statut:'na',      color:'#9ca3af', bg:'#f3f4f6', label:'N/A',     txtColor:'#374151' };
-  const _ko      = { statut:'ko',      color:'#dc2626', bg:'#fee2e2', label:'À vérif', txtColor:'#7f1d1d' };
-
-  if (!bail || !log) return _absent;
-
-  if (type === 'bail') {
-    // Constat 0.3 : « signé » = contrat CONCLU (étape bailleur seul = signature en cours, pas un bail signé). Un bail signé hors
-    // Propryo est conclu : OK, bail repris compris.
-    const _sg = (typeof window !== 'undefined' && window.BailSignatureEtat) ? window.BailSignatureEtat.etatSignatureBail(bail)
-      : { etat: bail.signatures && bail.signatures.signedAt ? (bail.signatures.mode === 'bailleur-seul' ? 'partiel' : 'electronique') : 'non' };
-    if (_sg.etat === 'externe' || _sg.etat === 'electronique') return _ok;
-    if (_sg.etat === 'partiel') return { statut:'partial', color:'#d97706', bg:'#fef3c7', label:'Signature en cours', txtColor:'#78350f' };
-    if (bail.debut) return { statut:'partial', color:'#d97706', bg:'#fef3c7', label:'Non signé', txtColor:'#78350f' };
-    return _absent;
-  }
-  if (type === 'edl') {
-    // La collection est DB.edl (pas DB.edls). Un EDL d'ENTRÉE de CE bail (sens normalisé : saveEDL écrit « Entrée »). Plus de repli
-    // par nom de fichier : l'EDL fait hors Propryo (saisi comme tel) le remplace.
-    return _edlEntreeDuBail(bail, log) ? _ok : _absent;
-  }
-  if (type === 'mrh') {
-    // MATRICE-ACCUEIL (FA2) : l'attestation la PLUS RÉCENTE du lot (saveMrh ajoute la nouvelle à côté de l'ancienne).
-    const _mrhs = (DB.mrh||[]).filter(m => m && !m._deleted && m.logement === log.ref);
-    const mrh = _mrhs.slice().sort((a, b) => String(b.echeance || '').localeCompare(String(a.echeance || '')))[0];
-    if (!mrh) return _absent;
-    if (mrh.echeance) {
-      const ech = new Date(mrh.echeance + 'T23:59:59');
-      if (ech < today) return _expire;
-      const days = (ech - today) / 86400000;
-      if (days < 60) return { statut:'soon', color:'#d97706', bg:'#fef3c7', label:`<60j`, txtColor:'#78350f' };
-    }
-    return _ok;
-  }
-  if (type === 'chauffage') {
-    // KPI Lot 0 — statut d'entretien sur les 12 obligations EQUIP_RULES (module pur testé).
-    // Corrige le crash `eq.find` (equipData est un OBJET, pas un tableau), le filtre
-    // `/chaud|chauff/` qui ratait 8 règles, et la lecture de `dernierControle` (le champ écrit
-    // est `lastDate`). Repli défensif si le module n'est pas chargé.
-    if (typeof computeEntretienStatut !== 'function' || typeof EQUIP_RULES === 'undefined') return _na;
-    const equipData = (DB.equipements && DB.equipements[log.ref]) || {};
-    const r = computeEntretienStatut({ equipData, rules: EQUIP_RULES, bail, log, today });
-    if (r.statut === 'na') return _na;
-    if (r.statut === 'ok') return _ok;
-    if (r.statut === 'ko') return _absent;   // au moins une obligation jamais contrôlée
-    return _expire;                          // 'wn' : au moins un contrôle dépassé
-  }
-  if (type === 'caution') {
-    // MATRICE-ACCUEIL (FA1) : `bail.signatures.garant` n'est écrit par aucun code (caution allumée à vie). La caution est
-    // DÉTENUE quand chaque garant inscrit au bail a son acte (fichier ou « je l'ai en papier ») : prédicat du lot 2.
-    const hasGarant = !!(bail.garant || bail.garant2);
-    if (!hasGarant) return _na; // pas de garant = pas de cautionnement requis
-    if (typeof _bailCautionDetenue === 'function' && _bailCautionDetenue(log.ref, bail)) return _ok;
-    return _absent;
-  }
-  if (type === 'ddt') {
-    if (typeof _ddtComplet !== 'function') return _na;
-    const _dBail = _ddtDateBailEnPlace(log);   // A6 : jugé à la conclusion du bail en place
-    const ddt = _ddtComplet(log, _dBail ? new Date(_dBail + 'T00:00:00') : today);
-    return ddt.complet ? _ok : { ...(_ko), label:`${ddt.manquants.length + ddt.expires.length} diag` };
-  }
-  return _na;
 }
 
 /**

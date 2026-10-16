@@ -7610,18 +7610,25 @@ function _pilCollectFamilles(ctx) {
     src.entretien = _dedupLot(src.entretien, true);
   } catch (e) {}
 
+  // ── PILOTAGE DU PARC (16/10) : les bulles Documents, Révision et Entretiens comptent EXACTEMENT les lots dont le tableau
+  //    montre l'icône (mêmes règles : ce qui est dû, pas ce qui est à venir) — leur clic filtre le tableau sur ces lots.
+  //    L'item d'origine (urgence, pire cas) est gardé quand il existe.
+  try {
+    const _r = _pilColRefs(ctx);
+    const _ligs = scopeLogs.map(l => _pilLotLigne(l, null, new Date(), _r.impaye, _r));
+    const _garde = (arr, pred, defaut) => {
+      const by = {}; (arr || []).forEach(x => { if (x && !by[x.ref]) by[x.ref] = x; });
+      return _ligs.filter(pred).map(g => by[g.ref] || Object.assign({ ref: g.ref, nom: _logLabel(g.ref) }, defaut));
+    };
+    src.document = _garde(src.document, _pilEstDocument, { urgenceJours: 0 });
+    src.irl = _garde(src.irl, g => !!g.cases.irl, { montant: 0, urgenceJours: 15 });
+    src.entretien = _garde(src.entretien, g => !!g.cases.entr, { urgenceJours: 0 });
+  } catch (e) {}
+
   // ── EDL-VIDEO-IA (décision 7) : vidéos d'état des lieux supprimées dans 30 jours ou moins (restitution du
   //    dépôt + 3 ans) — l'occasion de les garder en cas de litige. Lues sur l'EDL, aucun calcul ici. ──
   try {
-    if (typeof _edlVideoConservation === 'function') {
-      const refs = new Set(scopeLogs.map(l => l.ref));
-      (DB.edl || []).forEach(rec => {
-        if (!rec || rec._deleted || !refs.has(rec.logement)) return;
-        const c = _edlVideoConservation(rec);
-        if (!c || !c.alerte || src.document.some(x => x.ref === rec.logement)) return;
-        src.document.push({ ref: rec.logement, nom: _logLabel(rec.logement), detail: 'Vidéos d’état des lieux : suppression le ' + (typeof fd === 'function' ? fd(c.alerte.dateFin) : c.alerte.dateFin), urgenceJours: c.alerte.jours });
-      });
-    }
+    _pilLotsVideoAlerte(scopeLogs).forEach((it, ref) => { if (!src.document.some(x => x.ref === ref)) src.document.push(it); });
   } catch (e) {}
 
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
@@ -7728,8 +7735,9 @@ function _accmShowAregarder(){
     // PILOTAGE DU PARC (Didier 16/10) : il s'ouvre au clic sur « À regarder ». En tête, les lots à piloter avec les MÊMES
     // icônes que le tableau du PC (une puce nommée par case à faire, un tap = la page du détail) ; dessous, inchangée, la
     // liste des familles (« Par sujet »). Mêmes faits que le PC : _pilColRefs + _pilLotLigne.
-    var pil = '';
+    var pil = '', _nPil = 0;
     try {
+      if (!_pilCols().length) throw new Error('window.PilotageLot absent (js/helpers/pilotage-lot.global.js non chargé)');
       var _refs = _pilColRefs(ctx), _ks = ['loyer'].concat(_pilCols().map(function(c){ return c.k; }));
       var _ligs = (ctx.scopeLogs||[]).map(function(l){ return _pilLotLigne(l, null, new Date(), _refs.impaye, _refs); }).filter(function(x){ return x.aFaire; });
       var _n0 = (ctx.scopeLogs||[]).length - _ligs.length;
@@ -7737,14 +7745,16 @@ function _accmShowAregarder(){
         + _ligs.map(function(x){
             return '<div class="apl"><b>' + escHtml(_logLabel(x.ref)) + '</b><div class="apl-i">'
               + _ks.filter(function(k){ return x.cases[k]; }).map(function(k){
-                  return '<button type="button" class="apl-c" onclick="_pilOpenCase(\'' + _lyQ(x.ref) + '\',\'' + k + '\')"><span class="pil-mk">' + _PIL_MARK_SVG + '</span>' + escHtml(_pilTitre(k)) + '</button>';
+                  return '<button type="button" class="apl-c" onclick="_pilOpenCase(\'' + _lyQ(x.ref) + '\',\'' + k + '\',this)"><span class="pil-mk">' + _PIL_MARK_SVG + '</span>' + escHtml(_pilTitre(k)) + '</button>';
                 }).join('') + '</div></div>';
           }).join('')
-        + (_ligs.length ? '' : '<div class="empty">Rien à faire sur les lots ✓</div>')
-        + (_n0 && _ligs.length ? '<div class="apl-z">' + _n0 + ' lot' + (_n0>1?'s':'') + ' sans rien à faire</div>' : '')
-        + '<div class="atl-st">Par sujet</div>';
-    } catch(e) { pil = ''; }
-    if(!rows) rows='<div class="empty">Tout est à jour ✓</div>';
+        + (_n0 && _ligs.length ? '<div class="apl-z">' + _n0 + ' lot' + (_n0>1?'s':'') + ' sans rien à faire</div>' : '');
+      _nPil = _ligs.length;
+      if (!_nPil) pil = '';
+    } catch(e) { pil = ''; console.error('[Pilotage du parc]', e); }
+    // « Tout est à jour ✓ » seulement quand NI le pilotage NI les sujets n'ont rien ; « Par sujet » seulement s'il y a des sujets.
+    if (rows && _nPil) rows = '<div class="atl-st">Par sujet</div>' + rows;
+    if(!rows) rows = _nPil ? '' : '<div class="empty">Tout est à jour ✓</div>';
     wrap.innerHTML='<style>'
       +'#accm-phone{display:none}#p-accueil.accm-on>*:not(#accm-phone){display:none!important}#p-accueil.accm-on #accm-phone{display:block}'
       +'.atl{padding:8px 16px 24px}'
@@ -8097,7 +8107,8 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
   const sig = (bail && BSE) ? BSE.etatSignatureBail(bail) : { etat: 'non', conclu: false, date: null };
   const edlEntree = bail ? !!_edlEntreeDuBail(bail, l) : false;
   const dateSortie = (bail && bail.depart && bail.depart.dateSortie) ? String(bail.depart.dateSortie).slice(0, 10) : '';
-  const phase = PL ? PL.phaseDuLot({ today: auj, loue, bail: bail ? { debut: bail.debut, sig: sig.etat, dateSortie } : null, edlEntree }) : 'en-cours';
+  const phase = PL ? PL.phaseDuLot({ today: auj, loue, bail: bail ? { debut: bail.debut, sig: sig.etat, dateSortie, majLe: bail._modifiedAt } : null, edlEntree }) : 'en-cours';
+  const debut = (bail && bail.debut) ? String(bail.debut).slice(0, 10) : '';
   const t = (refs && refs.parRef && refs.parRef[l.ref]) || { mrh: [], equip: [], irl: [] };
   const mrhIt = t.mrh.find(x => x.mrhEtat === 'manquante') || t.mrh.find(x => x.mrhEtat === 'expiree') || null;
   const irlIt = t.irl.find(x => x.irlEtat === 'applicable') || null;
@@ -8105,11 +8116,13 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
   const faits = {
     today: auj, phase, fmt: (typeof fmt === 'function') ? fmt : undefined,
     impaye: impIt ? { reste: impIt.reste, depuisYm: impIt.depuisYm } : null,
-    enPlace: !!(loue && bail && bail.debut && String(bail.debut).slice(0, 10) <= auj),
+    // Locataire entré dans les lieux : début du bail atteint ; un bail SANS date d'entrée traité « en cours » (fiche ancienne
+    // incomplète, cf. PilotageLot.phaseDuLot) est considéré occupé, comme le dit bailLoueAu.
+    enPlace: !!(loue && bail && (debut ? debut <= auj : phase === 'en-cours')),
     assurance: mrhIt ? { etat: mrhIt.mrhEtat, echeance: mrhIt.echeance } : null,
     entretiens: t.equip.filter(x => x.severity === 'red').map(x => ({ libelle: x.ruleLabel || x.title, retardJours: x.retardJours })),
     revision: irlIt ? { dateAnniv: irlIt.dateAnniv, hc: irlIt.hc, nouveauHC: irlIt.nouveauHC } : null,
-    vacant: !loue, dateSortie, bail: bail ? { debut: bail.debut, sig: sig.etat } : null, edlEntree,
+    vacant: !loue, dateSortie, bail: bail ? { debut: bail.debut, sig: sig.etat, repris: bail.typeContrat === 'repris' } : null, edlEntree,
     candidats: { retenus: 0, aEtudier: 0 }, cautions: [], attestations: [], diagnostics: []
   };
   if (phase !== 'en-cours') {
@@ -8119,7 +8132,11 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
     if (phase === 'preparation' && bail) {
       // Caution : prédicat du lot 2 (acte de chaque garant déposé ou « je l'ai en papier ») — plus `signatures.garant` (jamais écrit).
       try { const ce = (typeof _bailCautionEtat === 'function') ? _bailCautionEtat(l.ref, bail) : null; faits.cautions = ((ce && ce.garants) || []).filter(g => !g.source).map(g => g.nom); } catch (e) {}
-      faits.attestations = (DB.mrh || []).filter(m => m && !m._deleted && m.logement === l.ref).map(m => m.echeance);
+      // Attestations du NOUVEAU locataire seulement (celles du précédent ne couvrent pas l'entrée) : même règle que les alertes.
+      const _AR = (typeof window !== 'undefined') ? window.AlertRules : null;
+      const _locs = [bail.nom].concat((bail.locataires || []).map(x => x && x.nom)).filter(Boolean).join(' ');
+      const _pseudo = { ref: l.ref, debut: bail.debut, locataire: _locs };
+      faits.attestations = (DB.mrh || []).filter(m => m && !m._deleted && m.logement === l.ref && (!_AR || !_AR.attestationPourLocataire || _AR.attestationPourLocataire(m, _pseudo))).map(m => m.echeance);
     }
     // DDT (art. 3-3) : jugé à la conclusion du PROCHAIN bail — signature faite ou prévue, sinon aujourd'hui. Un garage n'a pas
     // de DDT (ERP seul, jugé par le bail garage) ; un diagnostic « je l'ai déjà » valable n'est pas redemandé.
@@ -8127,7 +8144,10 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
     if (!garage && typeof _ddtComplet === 'function') {
       let dj = auj;
       if (phase === 'preparation' && bail) {
+        // Conclusion du bail : signature faite ; sinon début du bail s'il est atteint (bail entré, signature à finir) ;
+        // sinon signature prévue, sinon aujourd'hui.
         if (sig.conclu && sig.date) dj = String(sig.date).slice(0, 10);
+        else if (debut && debut <= auj) dj = debut;
         else if (bail.dateSignaturePrevue && String(bail.dateSignaturePrevue).slice(0, 10) > auj) dj = String(bail.dateSignaturePrevue).slice(0, 10);
       }
       try {
@@ -8247,6 +8267,7 @@ function _renderPilMatrice(ctx) {
   const tel = (typeof window !== 'undefined' && window.innerWidth && window.innerWidth <= 560);
   const today = new Date();
   const COLS = _pilCols();
+  if (!COLS.length) { console.error('[Pilotage du parc] window.PilotageLot absent (js/helpers/pilotage-lot.global.js non chargé) : tableau masqué'); host.innerHTML = ''; return 0; }
   // byLot du moteur (R-0) pour le point de paiement.
   let byLot = {};
   try {
@@ -8266,11 +8287,12 @@ function _renderPilMatrice(ctx) {
     (parImm[lig.imm] = parImm[lig.imm] || []).push(lig);
   });
   // Une famille active (clic sur une bulle) restreint le tableau à ses lots concernés.
+  const _video = (_pilMtxFamActive === 'document') ? _pilLotsVideoAlerte(scopeLogs) : new Map();
   const famMatch = (lig) => {
     if (!_pilMtxFamActive) return true;
     switch (_pilMtxFamActive) {
       case 'entretien': return !!lig.cases.entr;
-      case 'document':  return !!lig.cases.ass || !!lig.cases.loc;
+      case 'document':  return _pilEstDocument(lig) || _video.has(lig.ref);   // = la bulle (_pilCollectFamilles)
       case 'irl':       return !!lig.cases.irl;
       case 'vacant':    return lig.vacant;
       case 'impaye':    return refs.impaye.has(lig.ref);   // l'ensemble EXACT de la bulle (audit KPI §1)
@@ -8340,7 +8362,13 @@ const _PIL_HORS = {
   incident:{ onglet: 'Biens', go: () => go('biens') },
   regul:   { onglet: 'Charges', go: () => _rgOuvrirAnnee() }   // alerte = régul N-1
 };
-function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
+function _pilCloseLayer() {
+  const L = el('pil-layer'); if (L) L.innerHTML = '';
+  // Le focus revient sur l'icône qui a ouvert le détail (clavier, lecteur d'écran).
+  const f = _pilDeclencheur; _pilDeclencheur = null;
+  try { if (f && document.body.contains(f)) f.focus({ preventScroll: true }); } catch (e) {}
+}
+let _pilDeclencheur = null;
 
 // Bulle cliquée : famille AVEC colonne → filtre la matrice ; SANS colonne → liste.
 function _pilBulleClick(famId) {
@@ -8378,6 +8406,27 @@ function _pilOpenListe(famId) {
     + '<div class="shf"><button type="button" class="go" data-pilonglet="' + famId + '">Voir tout dans ' + esc(H.onglet) + ' ›</button></div></div></div>';
 }
 
+// Lot « document » (bulle « Documents à renouveler » = son filtre) : attestation d'assurance, ou pièce de la mise en location
+// (diagnostics, acte de cautionnement, attestation avant l'entrée).
+function _pilEstDocument(lig) {
+  if (!lig || !lig.cases) return false;
+  if (lig.cases.ass) return true;
+  return !!(lig.cases.loc && lig.cases.loc.some(li => li.gestes.some(g => g.geste === 'diag' || g.geste === 'caut' || g.geste === 'ass')));
+}
+// Lots dont les vidéos d'état des lieux seront supprimées sous 30 jours (EDL-VIDEO-IA, décision 7) : seul « bientôt » gardé
+// dans la bulle « Documents » (occasion de les garder en cas de litige) ; ref → item de bulle.
+function _pilLotsVideoAlerte(scopeLogs) {
+  const out = new Map();
+  if (typeof _edlVideoConservation !== 'function') return out;
+  const refs = new Set((scopeLogs || []).map(l => l.ref));
+  (DB.edl || []).forEach(rec => {
+    if (!rec || rec._deleted || !refs.has(rec.logement) || out.has(rec.logement)) return;
+    const c = _edlVideoConservation(rec);
+    if (!c || !c.alerte) return;
+    out.set(rec.logement, { ref: rec.logement, nom: _logLabel(rec.logement), detail: 'Vidéos d’état des lieux : suppression le ' + (typeof fd === 'function' ? fd(c.alerte.dateFin) : c.alerte.dateFin), urgenceJours: c.alerte.jours });
+  });
+  return out;
+}
 // La ligne d'un lot recalculée hors du rendu du tableau (bulle d'une case, fiche du lot, page téléphone) : MÊMES faits que
 // le tableau (_pilColRefs + _pilLotLigne), donc jamais de contradiction entre l'icône et son détail.
 function _pilLigneDe(ref) {
@@ -8416,8 +8465,10 @@ function _pilPagePhone(lig, keys, titre, sousTitre) {
 }
 function _pilGesteDepuisPage(ref, geste) { closeM('ov-pil-detail'); _pilActionGeste(ref, geste); }
 // Clic sur l'ICÔNE d'une case : ce qui manque ou ce qui est dû, et le geste.
-function _pilOpenCase(ref, k) {
-  const lig = _pilLigneDe(ref); if (!lig || !lig.cases[k]) return;
+function _pilOpenCase(ref, k, declencheur) {
+  const lig = _pilLigneDe(ref);
+  if (!lig || !lig.cases[k]) { if (typeof showToast === 'function') showToast('Rien à faire ici : la situation a changé.', 'info'); return; }
+  _pilDeclencheur = declencheur || null;
   if (typeof _isPhone === 'function' && _isPhone()) { _pilPagePhone(lig, [k], _pilTitre(k), _logLabel(ref)); return; }
   const L = el('pil-layer'); if (!L) return;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
@@ -8477,7 +8528,7 @@ function _pilWireClicks() {
     const fl = ev.target.closest('[data-pilfl]'); if (fl) { _pilMtxFilter = fl.dataset.pilfl; _renderPilMatrice(_pilCtxCourant()); return; }
     const fam = ev.target.closest('[data-pilfam]'); if (fam) { _pilBulleClick(fam.dataset.pilfam); return; }
     // Icône d'une case : son détail (avant la ligne, qui ouvre la fiche du lot).
-    const cas = ev.target.closest('[data-pilcase]'); if (cas) { _pilOpenCase(cas.dataset.pilref, cas.dataset.pilcase); return; }
+    const cas = ev.target.closest('[data-pilcase]'); if (cas) { _pilOpenCase(cas.dataset.pilref, cas.dataset.pilcase, cas); return; }
     const lot = ev.target.closest('[data-pillot]'); if (lot) { _pilOpenFiche(lot.dataset.pillot); return; }
   });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && el('pil-layer') && el('pil-layer').innerHTML) _pilCloseLayer(); });

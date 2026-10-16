@@ -60,9 +60,11 @@
 
   /**
    * Phase du lot.
-   * @param {{today:string, loue:boolean, bail:null|{debut?:string, sig?:string, dateSortie?:string}, edlEntree?:boolean}} f
+   * @param {{today:string, loue:boolean, bail:null|{debut?:string, sig?:string, dateSortie?:string, majLe?:string}, edlEntree?:boolean}} f
    *   sig = état de signature (BailSignatureEtat : 'non' | 'partiel' | 'electronique' | 'externe') ;
-   *   dateSortie = date de sortie du congé enregistré (bail.depart.dateSortie).
+   *   dateSortie = date de sortie du congé enregistré (bail.depart.dateSortie) ;
+   *   majLe = dernière modification du bail (_modifiedAt) : un bail SANS date d'entrée n'est « en préparation » que s'il a été
+   *   touché depuis moins de 60 jours (une saisie en cours), sinon c'est une fiche ancienne incomplète, traitée « en cours ».
    * @returns {'relocation'|'preparation'|'en-cours'}
    */
   function phaseDuLot(f) {
@@ -71,7 +73,11 @@
     if (!o.loue || !b) return 'relocation'
     if (jour(b.dateSortie)) return 'relocation'                       // congé reçu (D2, 16/10)
     const debut = jour(b.debut)
-    if (!debut || debut > jour(o.today) || b.sig === 'partiel') return 'preparation'
+    if (!debut) {
+      const m = ecartJours(b.majLe, o.today)
+      return (b.sig === 'partiel' || (m != null && m <= FENETRE_ENTREE_JOURS)) ? 'preparation' : 'en-cours'
+    }
+    if (debut > jour(o.today) || b.sig === 'partiel') return 'preparation'
     const e = ecartJours(debut, o.today)
     if (e != null && e <= FENETRE_ENTREE_JOURS && (b.sig === 'non' || !b.sig || !o.edlEntree)) return 'preparation'
     return 'en-cours'
@@ -97,7 +103,7 @@
    *   vacant        : le lot n'est pas loué
    *   dateSortie    : date de sortie du congé reçu ('' sinon)
    *   candidats     : { retenus:number, aEtudier:number }
-   *   bail          : null | { debut, sig }
+   *   bail          : null | { debut, sig, repris }   (repris = bail repris à l'achat, art. 1743)
    *   edlEntree     : l'EDL d'entrée du bail est classé
    *   cautions      : noms des garants dont l'acte de cautionnement n'est pas détenu
    *   attestations  : échéances des attestations du lot
@@ -136,13 +142,24 @@
         else if (o.vacant) L.push(ligne('Aucun candidat.', [g('vacant', 'Relouer')]))
       } else {
         const b = o.bail || {}
+        // Bail entré depuis plus de 60 jours (signature commencée et jamais finie) : seule la signature reste à suivre ; l'EDL
+        // d'entrée et la caution ne se réclament plus.
+        const e = ecartJours(b.debut, today)
+        const ancien = e != null && e > FENETRE_ENTREE_JOURS
         if (b.sig === 'partiel') L.push(ligne('Bail : signature du locataire en attente.', [g('bail', 'Ouvrir le bail')]))
         else if (b.sig !== 'electronique' && b.sig !== 'externe') {
-          L.push(ligne('Bail à signer' + (jour(b.debut) ? ' (entrée le ' + dateFr(b.debut) + ')' : '') + '.', [g('bail', 'Ouvrir le bail'), g('bail-papier', 'Signé sur papier')]))
+          // Bail repris à l'achat (art. 1743) : rien à signer, ce sont les pièces du vendeur à classer.
+          if (b.repris) L.push(ligne('Bail du vendeur à classer.', [g('bail-papier', 'Classer le bail du vendeur'), g('bail', 'Ouvrir le bail')]))
+          else L.push(ligne('Bail à signer' + (jour(b.debut) ? ' (entrée le ' + dateFr(b.debut) + ')' : '') + '.', [g('bail', 'Ouvrir le bail'), g('bail-papier', 'Signé sur papier')]))
         }
-        if (!o.edlEntree) L.push(ligne('État des lieux d’entrée à faire.', [g('edl', 'Faire l’EDL'), g('edl-papier', 'Fait sur papier')]))
-        ;(Array.isArray(o.cautions) ? o.cautions : []).filter(Boolean).forEach(nom => L.push(ligne('Acte de cautionnement de ' + nom + ' à classer.', [g('caut', 'Classer l’acte')])))
-        if (jour(b.debut) > today && derniereEcheance(o.attestations) < jour(b.debut)) L.push(ligne('Attestation d’assurance à recevoir avant l’entrée.', [g('ass', 'Ajouter l’attestation')]))
+        if (!ancien) {
+          if (!o.edlEntree) {
+            if (b.repris) L.push(ligne('État des lieux du vendeur à classer.', [g('edl-papier', 'Classer l’EDL du vendeur')]))
+            else L.push(ligne('État des lieux d’entrée à faire.', [g('edl', 'Faire l’EDL'), g('edl-papier', 'Fait sur papier')]))
+          }
+          ;(Array.isArray(o.cautions) ? o.cautions : []).filter(Boolean).forEach(nom => L.push(ligne('Acte de cautionnement de ' + nom + ' à classer.', [g('caut', 'Classer l’acte')])))
+          if (jour(b.debut) > today && derniereEcheance(o.attestations) < jour(b.debut)) L.push(ligne('Attestation d’assurance à recevoir avant l’entrée.', [g('ass', 'Ajouter l’attestation')]))
+        }
       }
       const d = (Array.isArray(o.diagnostics) ? o.diagnostics : []).filter(Boolean)
       if (d.length) L.push(ligne('Diagnostic' + (d.length > 1 ? 's' : '') + ' à fournir : ' + d.map(k => DIAG[k] || k).join(', ') + '.', [g('diag', 'Compléter les diagnostics')]))
