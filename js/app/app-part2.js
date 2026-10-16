@@ -31764,7 +31764,21 @@ function _bankRuleSave() {
   // (a) Le mouvement enregistré d'où la règle est créée (ou modifiée) : mis à jour directement, LUI SEUL. En modification
   // d'un mouvement classé à la main, on demande d'abord (jamais de reclassement d'un choix manuel sans le dire).
   const srcMv = d.srcMvId != null ? (DB.mouvements || []).find(x => x && !x._deleted && String(x.id) === String(d.srcMvId)) : null;
-  const srcMainGarde = !!(srcMv && srcMv._classeMain && idx >= 0)
+  // La question n'est posée que si la règle modifiée changerait vraiment ce mouvement (relecture du 16/10).
+  const srcAcc = srcMv ? ((DB.params.bankAccounts || []).find(a => a && !a._deleted && String(a.id) === String(srcMv._bankAccountId)) || null) : null;
+  const srcPatch = (srcMv && srcMv._classeMain && idx >= 0) ? window._bankRulePatchMouvement(rule, srcMv, { account: srcAcc, loyerCC: _bankLoyerCC }) : null;
+  // Classement qu'aurait le mouvement (mêmes règles d'écriture que _bankRuleAppliquerAuMv : compteur ⇒ pas de logement,
+  // immeuble déduit du logement) : la question n'a lieu que si la catégorie ou l'affectation changerait.
+  const srcChangerait = !!(srcPatch && srcPatch.ok) && (() => {
+    const apres = Object.assign({}, srcMv, srcPatch.patch);
+    if (apres.compteurCcId && apres.qui) apres.qui = '';
+    if (('qui' in srcPatch.patch) && apres.qui && !String(apres.qui).startsWith('SCI:')) {
+      const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === apres.qui);
+      if (log) apres.imm = log.imm || '';
+    }
+    return ['cat', 'qui', 'imm', 'compteurCcId'].some(k => String(srcMv[k] == null ? '' : srcMv[k]) !== String(apres[k] == null ? '' : apres[k]));
+  })();
+  const srcMainGarde = srcChangerait
     && !confirm2('Ce mouvement a été classé à la main.\n\nLe reclasser selon la règle modifiée ? (Sinon, il reste tel quel ; la règle s\'appliquera aux prochains imports.)');
   const mvRes = (d.srcMvId != null && !srcMainGarde) ? _bankRuleApplyToSourceMv(rule, d.srcMvId) : null;
   saveDB();
@@ -31776,7 +31790,7 @@ function _bankRuleSave() {
   const msg = [(idx >= 0 ? '✓ Règle « ' + motif + ' » enregistrée' : '✓ Règle « ' + motif + ' » créée')];
   if (mvRes && mvRes.msg) msg.push(mvRes.msg);
   if (srcMainGarde) msg.push('ce mouvement, classé à la main, n\'a pas été modifié');
-  msg.push('la règle s\'applique aux prochains imports ; les mouvements déjà enregistrés ne changent pas');
+  msg.push('la règle s\'applique aux prochains imports ; les ' + (d.srcMvId != null ? 'autres ' : '') + 'mouvements déjà enregistrés ne changent pas');
   if (res.reclasse) msg.push('les lignes de l\'import ont été reclassées');
   if (nExNouvelles) msg.push(nExNouvelles + (nExNouvelles > 1 ? ' lignes laissées hors règle (exceptions)' : ' ligne laissée hors règle (exception)'));
   if (res.sourceSuit === false) msg.push('la ligne de départ ne remplit pas ces critères : elle n\'a pas été modifiée');
@@ -31787,7 +31801,7 @@ function _bankRuleSave() {
     : ((mvRes && mvRes.ok && mvRes.mv) ? window._bankRuleAutresResultats(DB.importRules, rule, mvRes.mv, { account: mvRes.acc, loyerCC: _bankLoyerCC, dejaClassee: true }) : []);
   autres.forEach(a => msg.push(_bankAutreRegleTxt(a, d.srcMvId != null ? 'pour ce mouvement' : 'pour la ligne de départ')));
   const warnMsg = res.protegees || res.sourceSuit === false || (mvRes && !mvRes.ok) || autres.length;
-  showToast(msg.join(' · '), warnMsg ? 'warn' : 'ok', (warnMsg || mvRes) ? 7000 : 3500);
+  showToast(msg.join(' · '), warnMsg ? 'warn' : 'ok', (warnMsg || mvRes) ? 7000 : 5000);
   // Retour sur la fiche du mouvement, à jour (la fiche avait été fermée pour ouvrir la règle).
   const retourId = (mvRes && mvRes.mv) ? mvRes.mv.id : (srcMainGarde ? srcMv.id : null);
   if (retourId != null) {

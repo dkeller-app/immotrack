@@ -88,7 +88,8 @@ describe('a) une règle n\'affecte que le futur : aucun mouvement existant modif
     expect(JSON.stringify(DB.mouvements.slice(1))).toBe(autresAvant)
     expect(A.journal.filter(j => j[1] === 'mouvement').map(j => j[2])).toEqual(['1'])
     expect(A.ouverts).toEqual([1])                       // retour à la fiche du mouvement de départ
-    expect(A.toasts.at(-1).msg).toContain('la règle s\'applique aux prochains imports ; les mouvements déjà enregistrés ne changent pas')
+    expect(A.toasts.at(-1).msg).toContain('la règle s\'applique aux prochains imports ; les autres mouvements déjà enregistrés ne changent pas')
+    expect(A.confirms).toEqual([])                       // mouvement non classé à la main : aucune question
   })
   it('création « à froid » (sans mouvement de départ) : aucun mouvement modifié', () => {
     const { A, DB } = scenario()
@@ -98,6 +99,7 @@ describe('a) une règle n\'affecte que le futur : aucun mouvement existant modif
     expect(DB.importRules).toHaveLength(2)
     expect(JSON.stringify(DB.mouvements)).toBe(avant)
     expect(A.journal.filter(j => j[1] === 'mouvement')).toEqual([])
+    expect(A.toasts.at(-1).msg).toContain('les mouvements déjà enregistrés ne changent pas')
   })
   it('plus aucune proposition « Appliquer aussi » (code retiré)', () => {
     expect(SRC).not.toMatch(/_bankRuleProposerApplication|_bankRuleApplValider|Appliquer aussi aux mouvements/)
@@ -113,6 +115,20 @@ describe('b) mouvement de départ classé à la main + règle modifiée : on dem
     expect(A.confirms[0]).toContain('classé à la main')
     expect(DB.mouvements[0]).toMatchObject({ qui: 'D-101' })
     expect(DB.mouvements[0]._classeMain).toBeUndefined()
+  })
+  it('la règle modifiée ne changerait rien à ce mouvement : aucune question', () => {
+    const { A, DB } = scenario({ confirme: false })
+    Object.assign(DB.mouvements[0], { _classeMain: true, qui: 'D-101', imm: 'Les Tanneurs', _rules: ['rg_1'] })
+    A.call('_bankRuleSave')
+    expect(A.confirms).toEqual([])
+  })
+  it('création (et non modification) depuis un mouvement classé à la main : appliquée sans question (geste explicite)', () => {
+    const { A, DB } = scenario({ confirme: false })
+    DB.mouvements[0]._classeMain = true
+    A.api.set('_bankRuleDraft', Object.assign({}, A.api.get('_bankRuleDraft'), { id: '', mots: ['MARTIN', 'LOYER'] }))
+    A.call('_bankRuleSave')
+    expect(A.confirms).toEqual([])
+    expect(DB.mouvements[0]).toMatchObject({ qui: 'D-101' })
   })
   it('refusé → laissé tel quel ; la fiche se rouvre quand même', () => {
     const { A, DB } = scenario({ confirme: false })
