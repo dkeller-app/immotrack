@@ -9558,7 +9558,7 @@ span.cand-vbdg{cursor:default}
 #cmp-table .cmp-so button{display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;white-space:nowrap}
 #cmp-table .cmp-so.on{color:var(--t1)}
 #cmp-table .cmp-etroit{display:none}
-.cmp-te{display:inline-flex;align-items:center;gap:8px;font:inherit;color:var(--t1);background:none;border:1px solid transparent;border-radius:var(--r);padding:3px 6px;margin:-3px -6px;cursor:pointer;min-height:30px}
+.cmp-te{display:inline-flex;flex-direction:column;align-items:flex-end;gap:0;font:inherit;color:var(--t1);background:none;border:1px solid transparent;border-radius:var(--r);padding:3px 6px;margin:-3px -6px;cursor:pointer;min-height:30px}
 .cmp-te:hover{border-color:var(--bor);background:var(--sur2)}
 .cmp-te b{font-family:var(--display);font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
 .cmp-rp{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);white-space:nowrap}
@@ -9590,7 +9590,6 @@ span.cand-vbdg{cursor:default}
 @media (max-width:1023px){
   #cmp-table .cmp-large{display:none}
   #cmp-table .cmp-etroit{display:block}
-  .cmp-te{flex-direction:column;align-items:flex-end;gap:0}
 }
 @media (max-width:767px){
   #ov-cand-comparer,#ov-cand-cmp-detail{padding:0;align-items:stretch}
