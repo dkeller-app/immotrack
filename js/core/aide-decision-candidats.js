@@ -13,8 +13,9 @@
  *    ressources comptent : Défenseur des droits, guide « Louer sans discriminer » 2025). Aucun seuil légal :
  *    le repère est celui du propriétaire, aucun par défaut, le même pour tous les dossiers ; Propryo n'en suggère aucun ;
  *  - Garantie : Visale (contrôle du visa existant) / Garant / Aucune.
- * Ordre par défaut : date de réception (ordre d'enregistrement, cité par le Défenseur des droits). Tri au choix
- * SEULEMENT sur les dates et le taux d'effort.
+ * Ordre par défaut : date de réception, la plus récente d'abord, comme la liste des candidats (décision de Didier du
+ * 16/10 ; l'ordre d'arrivée est un critère objectif cité par le Défenseur des droits). Tri au choix SEULEMENT sur les
+ * dates et le taux d'effort.
  * Tests : __tests__/helpers/aide-decision-candidats.test.js
  */
 import { categoriesManquantes, libelleGarantie } from './candidature.js';
@@ -53,13 +54,13 @@ export function peutComparer(candidats, logRef) {
   return candidatsAComparer(candidats, logRef).length >= 2;
 }
 
-/** Repère du propriétaire : pourcentage > 0 et ≤ 100 (une décimale au plus), sinon null (= aucun repère). */
+/** Repère du propriétaire : pourcentage de 1 à 100 (une décimale au plus), sinon null (= aucun repère). */
 export function normaliserRepere(v) {
   if (v == null) return null;
   const s = String(v).trim().replace(',', '.').replace(/\s*%$/, '');
   if (!/^\d+(\.\d+)?$/.test(s)) return null;
   const n = Math.round(Number(s) * 10) / 10;
-  return n > 0 && n <= 100 ? n : null;
+  return n >= 1 && n <= 100 ? n : null;
 }
 
 /** Taux d'effort en % entier (arrondi), ou null si le loyer ou les ressources manquent. */
@@ -74,7 +75,7 @@ export function situationRepere(pct, repere) {
   if (rp == null || pct == null || !Number.isFinite(pct)) return null;
   return pct <= rp ? 'dans' : 'audessus';
 }
-export const MOTS_REPERE = Object.freeze({ dans: 'dans le repère', audessus: 'au-dessus' });
+export const MOTS_REPERE = Object.freeze({ dans: 'dans le repère', audessus: 'au-dessus du repère' });
 
 /**
  * UN état de pièces pour le dossier (décision 2) : d'après les états de chaque pièce (VerifPieces.etatPiece) et

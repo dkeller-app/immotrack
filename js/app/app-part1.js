@@ -13338,7 +13338,8 @@ function _candCmpParams(){
   if(!DB.params.aideDecision || typeof DB.params.aideDecision !== 'object') DB.params.aideDecision = {};
   return DB.params.aideDecision;
 }
-function _candCmpRepere(){ const AD = window.AideDecision; return AD ? AD.normaliserRepere(_candCmpParams().repereTauxEffort) : null; }
+function _candCmpRepere(){ const AD = window.AideDecision; const p = (DB.params && DB.params.aideDecision) || {}; return AD ? AD.normaliserRepere(p.repereTauxEffort) : null; }
+function _candCmpLectureSeule(){ return typeof _appReadOnly !== 'undefined' && !!_appReadOnly; }
 function _candCmpBouton(logRef){
   const b = el('cand-cmp-btn'); if(!b) return;
   const AD = window.AideDecision;
@@ -13355,10 +13356,15 @@ function ouvrirComparaisonCandidats(){
   openM('ov-cand-comparer');
   // Vérification des pièces sur l'appareil (faite d'ordinaire à l'ouverture de la fiche) : un dossier après l'autre.
   const ids = AD.candidatsAComparer(DB.candidats, logRef).map(c => c.id);
-  (async () => { for(const id of ids){ try{ await _candVerifierPieces(id); }catch(e){} } })();
+  (async () => { for(const id of ids){ if(!_candCmpOuvert()) break; try{ await _candVerifierPieces(id); }catch(e){} } })();
 }
 function _candCmpOuvert(){ const ov = el('ov-cand-comparer'); return !!(ov && !ov.classList.contains('hidden')); }
-function _candCmpRafraichir(){ if(_candCmpOuvert()) _candCmpRender(); }
+function _candCmpRafraichir(){
+  if(!_candCmpOuvert()) return;
+  _candCmpRender();
+  const d = el('ov-cand-cmp-detail');
+  if(d && !d.classList.contains('hidden') && _candCmp.detail && _candCmp.detail.type === 'pieces') _candCmpPieces(_candCmp.detail.id);
+}
 // Pièces de la liste légale (celles qui portent une pastille de vérification dans la fiche).
 function _candCmpPiecesAvecEtat(candId){
   const PC = window.PiecesCand;
@@ -13398,7 +13404,7 @@ function _candCmpTauxHtml(l){
   const t = l.taux;
   if(t.pct == null) return '<span class="mu" title="Loyer ou ressources non renseignés">—</span>';
   const AD = window.AideDecision;
-  const pos = t.situation ? '<span class="cmp-rp">' + _uiIcon(t.situation === 'dans' ? 'check' : 'arrow-up', 13) + escHtml(AD.MOTS_REPERE[t.situation]) + '</span>' : '';
+  const pos = t.situation ? '<span class="cmp-rp">' + (t.situation === 'audessus' ? _uiIcon('arrow-up', 13) : '') + escHtml(AD.MOTS_REPERE[t.situation]) + '</span>' : '';
   return '<button type="button" class="cmp-te" onclick="event.stopPropagation();_candCmpTaux(\'' + _lyQ(l.id) + '\')" title="Voir le calcul"><b>' + escHtml(String(t.pct)) + ' %</b>' + pos + '</button>';
 }
 function _candCmpDossierHtml(l){
@@ -13430,29 +13436,31 @@ function _candCmpRender(){
     const sub = _candContratLabel(c);
     return '<tr onclick="_candCmpOuvrirDossier(\'' + _lyQ(l.id) + '\')" style="cursor:pointer">'
       + '<td data-label="Candidat"><div class="cand-b-name"><div class="avatar">' + escHtml(_candInitials(c)) + '</div><div><div class="nm">' + escHtml(l.nom || '—') + '</div>'
-      + (sub ? '<div class="sub">' + escHtml(sub) + '</div>' : '') + '<div class="sub cmp-etroit">Reçu le ' + escHtml(recu) + ' · ' + escHtml(stL) + '</div></div></div></td>'
+      + (sub ? '<div class="sub">' + escHtml(sub) + '</div>' : '') + '<div class="sub cmp-etroit">Reçu le ' + escHtml(recu) + (l.debut ? ' · début ' + escHtml(deb) : '') + ' · ' + escHtml(stL) + '</div></div></div></td>'
       + '<td class="cmp-large" data-label="Reçu le">' + escHtml(recu) + '</td>'
       + '<td class="cmp-large" data-label="Début souhaité">' + escHtml(deb) + '</td>'
       + '<td data-label="Dossier">' + _candCmpDossierHtml(l) + '</td>'
-      + '<td data-label="Pièces">' + _candCmpPiecesHtml(l) + '</td>'
+      + '<td data-label="État des pièces">' + _candCmpPiecesHtml(l) + '</td>'
       + '<td data-label="Taux d\'effort">' + _candCmpTauxHtml(l) + '</td>'
       + '<td data-label="Garantie">' + _candCmpGarantieHtml(l) + '</td>'
       + '<td class="cmp-large" data-label="Statut"><span class="badge ' + stB + '">' + escHtml(stL) + '</span></td>'
       + '</tr>';
   }).join('');
   body.innerHTML = '<div class="cmp-tete"><div class="cmp-bien"><b>' + escHtml(log ? _logLabel(log) : _candCmp.logRef) + '</b> · ' + escHtml(loyerTxt) + '</div>'
-    + '<div class="cmp-acts"><button type="button" class="btn bs" onclick="_candCmpRepereOuvrir()">' + _uiIcon('edit', 14) + ' Repère du taux d\'effort : ' + escHtml(repere == null ? 'aucun' : (String(repere).replace('.', ',') + ' %')) + '</button>'
+    + '<div class="cmp-acts">' + (_candCmpLectureSeule() ? '<span class="cmp-rp-lu">Repère du taux d\'effort : ' + escHtml(repere == null ? 'aucun' : (String(repere).replace('.', ',') + ' %')) + '</span>'
+      : '<button type="button" class="btn bs" onclick="_candCmpRepereOuvrir()">' + _uiIcon('edit', 14) + ' Repère du taux d\'effort : ' + escHtml(repere == null ? 'aucun' : (String(repere).replace('.', ',') + ' %')) + '</button>')
     + '<select class="inp cmp-ordre" aria-label="Ordre des dossiers" onchange="_candCmpTrier(this.value)">'
-    + opt('recu|desc', 'Ordre : réception, récent d\'abord') + opt('recu|asc', 'Ordre : réception, ancien d\'abord') + opt('debut|asc', 'Ordre : début souhaité')
+    + opt('recu|desc', 'Ordre : réception, récent d\'abord') + opt('recu|asc', 'Ordre : réception, ancien d\'abord') + opt('debut|asc', 'Ordre : début souhaité, le plus tôt d\'abord') + opt('debut|desc', 'Ordre : début souhaité, le plus tard d\'abord')
     + opt('tauxEffort|asc', 'Ordre : taux d\'effort croissant') + opt('tauxEffort|desc', 'Ordre : taux d\'effort décroissant') + '</select></div></div>'
     + '<div class="tbl-wrap" id="cmp-table"><table class="tbl"><thead><tr><th>Candidat</th>'
     + th('recu', 'Reçu le').replace('<th class="', '<th class="cmp-large ') + th('debut', 'Début souhaité').replace('<th class="', '<th class="cmp-large ')
-    + '<th>Dossier</th><th>Pièces</th>' + th('tauxEffort', 'Taux d\'effort') + '<th>Garantie</th><th class="cmp-large">Statut</th></tr></thead><tbody>'
+    + '<th>Dossier</th><th>État des pièces</th>' + th('tauxEffort', 'Taux d\'effort') + '<th>Garantie</th><th class="cmp-large">Statut</th></tr></thead><tbody>'
     + (rows || '<tr><td colspan="8" class="mu" style="text-align:center;padding:24px">Aucun dossier en cours pour ce logement.</td></tr>') + '</tbody></table></div>'
     + '<div class="cmp-regle">' + _uiIcon('scale', 14) + '<span>Critères objectifs, sans note ni classement : le choix revient au propriétaire, dans chaque dossier.</span></div>';
 }
 function _candCmpLigne(id){ return _candCmpLignes().find(l => String(l.id) === String(id)) || null; }
-function _candCmpDetail(titre, corps, pied){
+function _candCmpDetail(titre, corps, pied, quoi){
+  _candCmp.detail = quoi || null;
   el('cmpd-title').textContent = titre; el('cmpd-body').innerHTML = corps; el('cmpd-foot').innerHTML = pied;
   openM('ov-cand-cmp-detail');
 }
@@ -13462,7 +13470,7 @@ function _candCmpTaux(id){
   const l = _candCmpLigne(id); const AD = window.AideDecision; if(!l || !AD) return;
   const t = l.taux; const L = _loyerCCBienDetail(_candCmp.logRef); const repere = _candCmpRepere();
   const S = AD.SOURCES;
-  const pos = t.pct == null ? '' : (t.situation ? (_uiIcon(t.situation === 'dans' ? 'check' : 'arrow-up', 14) + escHtml(t.situation === 'dans' ? 'dans le repère (' : 'au-dessus du repère (') + escHtml(String(repere).replace('.', ',')) + ' %)') : 'aucun repère fixé');
+  const pos = t.pct == null ? '' : (t.situation ? ((t.situation === 'audessus' ? _uiIcon('arrow-up', 14) : '') + escHtml(AD.MOTS_REPERE[t.situation] + ' (') + escHtml(String(repere).replace('.', ',')) + ' %)') : 'aucun repère fixé');
   const h = '<div class="cmp-big"><b>' + (t.pct == null ? '—' : escHtml(String(t.pct)) + ' %') + '</b><span>' + pos + '</span></div>'
     + '<div class="cmp-kv">'
     + '<div class="k">Loyer charges comprises</div><div class="v">' + (L.cc > 0 ? escHtml(fmt(L.cc)) + ' <span class="mu">(' + escHtml(fmt(L.hc)) + ' + ' + escHtml(fmt(L.ch)) + ')</span>' : '<span class="mu">à renseigner dans le logement</span>') + '</div>'
@@ -13474,7 +13482,7 @@ function _candCmpTaux(id){
     + '<div class="vp-src">Aucun texte de loi ne fixe de seuil. Toutes les ressources comptent, allocations comprises (<a href="' + escHtml(S.defenseur.url) + '" target="_blank" rel="noopener">' + escHtml(S.defenseur.libelle) + '</a>).'
     + (l.garantie.type === 'visale' ? ' Visale : loyer garanti dans la limite de 50 % des revenus (<a href="' + escHtml(S.visale.url) + '" target="_blank" rel="noopener">' + escHtml(S.visale.libelle) + '</a>).' : '') + '</div>';
   _candCmpDetail('Taux d\'effort · ' + (l.nom || 'candidat'), h,
-    '<button class="btn bs" onclick="_candCmpRepereOuvrir()">' + _uiIcon('edit', 14) + ' Modifier le repère</button>' + _CAND_CMP_BTN_DOSSIER(id));
+    (_candCmpLectureSeule() ? '' : '<button class="btn bs" onclick="_candCmpRepereOuvrir()">' + _uiIcon('edit', 14) + ' Modifier le repère</button>') + _CAND_CMP_BTN_DOSSIER(id));
 }
 // Détail au clic : l'état existant de chaque pièce (VERIF-LISIBLE) ; une pastille ouvre le détail de la pièce.
 function _candCmpPieces(id){
@@ -13494,7 +13502,7 @@ function _candCmpPieces(id){
   }
   _candCmpDetail('Pièces · ' + (l.nom || 'candidat'),
     (rows.length ? '<div class="cmp-plist">' + rows.join('') + '</div>' : '<div class="mu">Aucune pièce contrôlée pour ce dossier.</div>')
-    + '<div class="vp-src">Le détail de chaque pièce s\'ouvre au clic sur son état.</div>', _CAND_CMP_BTN_DOSSIER(id));
+    + '<div class="vp-src">Le détail de chaque pièce s\'ouvre au clic sur son état.</div>', _CAND_CMP_BTN_DOSSIER(id), { type: 'pieces', id: String(id) });
 }
 // Repère du taux d'effort : celui du propriétaire, aucun par défaut, le même pour tous les dossiers (décision 1).
 function _candCmpRepereOuvrir(){
@@ -13514,6 +13522,7 @@ function _candCmpReperePick(saisie){
 }
 function _candCmpRepereEnregistrer(){
   const AD = window.AideDecision; if(!AD) return;
+  if(_candCmpLectureSeule()){ showToast('Accès en lecture seule : le repère n\'est pas modifiable', 'warn'); return; }
   const choix = document.querySelector('#cmpd-body input[name="cmp-rp"]:checked');
   let val = null;
   if(choix && choix.value === 'repere'){
@@ -14293,6 +14302,7 @@ async function _candVerifierPieces(candId, opts){
     saveDB();
     try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && typeof _ficheCandidatOuverte !== 'undefined' && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
     try{ if(opts.docId && el('ov-verif-piece') && !el('ov-verif-piece').classList.contains('hidden')) _candVerifDetail(opts.docId); }catch(e){}
+    try{ _candCmpRafraichir(); }catch(e){}   // AIDE-DECISION : colonne « État des pièces » et détail ouvert à jour
     if(opts.toast) showToast('Vérification enregistrée', 'ok');
   }
 }
@@ -15110,12 +15120,12 @@ function openFicheCandidat(id){
   // comparaison des dossiers (js/core/aide-decision-candidats.js). Sans couleur ; la position face au repère n'apparaît
   // que si le propriétaire en a fixé un (aucun par défaut).
   const _AD = window.AideDecision;
-  const _lcc = _loyerCCBienDetail(c.logRef, c);
+  const _lcc = _loyerCCBienDetail(c.logRef);   // le loyer du LOGEMENT, le même pour tous ses candidats (comme la comparaison)
   const _te = _AD ? _AD.tauxEffort(_lcc.cc, revenus) : null;
   const _teSit = _AD ? _AD.situationRepere(_te, _candCmpRepere()) : null;
   const ratioTxt = _te != null
     ? `${escHtml(fmt(_lcc.cc))} charges comprises ÷ ${escHtml(fmt(revenus))} = <b>${_te} %</b>${_teSit ? ` <span class="mu" style="font-size:11px">${escHtml(_AD.MOTS_REPERE[_teSit])}</span>` : ''}`
-    : '<span class="mu">— (loyer attendu ou ressources non renseignés)</span>';
+    : `<span class="mu">— (${_lcc.cc > 0 ? 'ressources non renseignées' : 'loyer du logement à renseigner'})</span>`;
   // Loyer attendu (cascade) : valeur + source + bouton d'édition → popup qui écrit log.hc.
   const _laSrcTxt = _la.source==='logement' ? 'loyer du logement'
     : _la.source==='ancien' ? ('ancien locataire'+(_la.locataire?(' : '+escHtml(_la.locataire)):''))
@@ -15242,7 +15252,7 @@ function openFicheCandidat(id){
       <div class="card">
         <div class="ct" style="margin-top:0">Situation</div>
         <div class="kv-grid">
-          <div class="k">Ressources mensuelles<br><span class="mu" style="font-size:11px">allocations comprises</span></div><div class="v"><b>${revenus.toLocaleString('fr-FR')} €</b>${declBadge}</div>
+          <div class="k">Ressources nettes mensuelles<br><span class="mu" style="font-size:11px">allocations comprises</span></div><div class="v"><b>${revenus.toLocaleString('fr-FR')} €</b>${declBadge}</div>
           <div class="k">Employeur</div><div class="v">${escHtml(c.employeur||'—')}${_candEmployeurSousLigneHtml(c)}</div>
           <div class="k">Type de contrat</div><div class="v">${contratBadge}</div>
           <div class="k">Loyer attendu</div><div class="v">${loyerAttenduHtml}</div>
@@ -15286,6 +15296,7 @@ function openFicheCandidat(id){
 function _editCandidatFromFiche(id){
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
   closeM('ov-fiche-candidat');
+  closeM('ov-cand-comparer');   // AIDE-DECISION : la modale d'édition est placée avant la comparaison dans le DOM
   if(el('m-cand-title')) el('m-cand-title').textContent='Modifier le candidat';
   el('cand-edit-id').value = c.id;
   _fillCandLogSelect(c.logRef||'');
@@ -15659,6 +15670,7 @@ function convertCandidatToBail(id){
   if(!c){ showToast('Candidat introuvable','err'); return; }
   if(c.statut!=='valide'){ showToast('Le candidat doit être « Validé » avant conversion','warn'); return; }
   if(!c.logRef){ showToast('Aucun bien associé à ce candidat','err'); return; }
+  closeM('ov-cand-comparer');   // AIDE-DECISION : l'assistant de bail est placé avant la comparaison dans le DOM
   const log = (DB.logements||[]).find(l=>l && l.ref===c.logRef);
   // Le bien a pu être supprimé/archivé entre la validation et la conversion :
   // sans lui, le sélecteur (peuplé via _activeLogements) ne contiendrait pas l'option.

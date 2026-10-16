@@ -15,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const lire = (f) => readFileSync(resolve(root, f), 'utf8');
 const P1 = lire('js/app/app-part1.js');
 const ligne = (debut) => { const i = P1.indexOf(debut); if (i < 0) throw new Error('introuvable : ' + debut); return P1.slice(i, P1.indexOf('\n', i)); };
-const FONCTIONS = ['_candCmpParams', '_candCmpRepere', '_candCmpBouton', '_candCmpOuvert', '_candCmpRafraichir', '_candCmpPiecesAvecEtat', '_candCmpConstatsDossier',
+const FONCTIONS = ['_candCmpParams', '_candCmpRepere', '_candCmpLectureSeule', '_candCmpBouton', '_candCmpOuvert', '_candCmpRafraichir', '_candCmpPiecesAvecEtat', '_candCmpConstatsDossier',
   '_candCmpLignes', '_candCmpTrier', '_candCmpTrierColonne', '_candCmpPiecesHtml', '_candCmpTauxHtml', '_candCmpDossierHtml', '_candCmpGarantieHtml', '_candCmpRender',
   '_candCmpLigne', '_candCmpDetail', '_candCmpTaux', '_candCmpPieces', '_candCmpRepereOuvrir', '_candCmpRepereEnregistrer', '_candCmpOuvrirDossier', 'ouvrirComparaisonCandidats',
   '_candCategoriesFournies', '_candInitials', '_candContratLabel'];
@@ -24,10 +24,10 @@ const SRC = [ligne('let _candCmp = '), ligne('const _CAND_CMP_ICO_PIECES'), lign
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function monter(DB, { radio = 'aucun', saisie = '' } = {}) {
+function monter(DB, { radio = 'aucun', saisie = '', lectureSeule = false } = {}) {
   const j = { toasts: [], saves: 0, ouverts: [], fermes: [], fiches: [], verifs: [] };
   const mk = () => ({ innerHTML: '', textContent: '', value: '', classList: { _s: new Set(['hidden']), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } } });
-  const dom = { 'cand-cmp-btn': mk(), 'ov-cand-comparer': mk(), 'cmp-body': mk(), 'cmp-title': mk(), 'cmpd-title': mk(), 'cmpd-body': mk(), 'cmpd-foot': mk(), 'cand-f-bien': mk(), 'cmp-rp-val': mk() };
+  const dom = { 'cand-cmp-btn': mk(), 'ov-cand-comparer': mk(), 'ov-cand-cmp-detail': mk(), 'cmp-body': mk(), 'cmp-title': mk(), 'cmpd-title': mk(), 'cmpd-body': mk(), 'cmpd-foot': mk(), 'cand-f-bien': mk(), 'cmp-rp-val': mk() };
   dom['cmp-rp-val'].value = saisie;
   const etatsTest = { ok: { etat: 'ok', mot: 'OK' }, averif: { etat: 'averif', mot: 'À vérifier', resume: { texte: 'Le net à payer ne correspond pas au calcul' } }, nonverif: { etat: 'nonverif', mot: 'Non vérifiable' } };
   const deps = {
@@ -43,7 +43,7 @@ function monter(DB, { radio = 'aucun', saisie = '' } = {}) {
     _candVerifReglages: () => ({ locaux: true, ia: false }), _candIaAnalyse: () => ({ constats: [] }),
     _candVerifierPieces: async (id) => { j.verifs.push(id); },
     _loyerCCBienDetail: () => ({ hc: 760, ch: 60, cc: 820 }), _logLabel: (l) => l.ref,
-    _CAND_ST_LABEL: { recu: 'Reçu', enCours: 'En cours', valide: 'Validé' }, _CAND_ST_BADGE: {}
+    _CAND_ST_LABEL: { recu: 'Reçu', enCours: 'En cours', valide: 'Validé' }, _CAND_ST_BADGE: {}, _appReadOnly: !!lectureSeule
   };
   const noms = Object.keys(deps);
   const exp = '\nreturn { ' + FONCTIONS.join(', ') + ', etat: () => _candCmp };';
@@ -186,6 +186,54 @@ describe('repère du taux d\'effort : celui du propriétaire', () => {
   });
 });
 
+describe('relecture adverse (16/10)', () => {
+  const ouvrir = (opts) => { const m = monter(parc(), opts); m.dom['cand-f-bien'].value = 'T3'; m.app.ouvrirComparaisonCandidats(); return m; };
+  it('« dans le repère » sans icône de validation ; « au-dessus du repère » dit de quoi', () => {
+    const DB = parc(); DB.params.aideDecision = { repereTauxEffort: 35 };
+    const { app, dom } = monter(DB); dom['cand-f-bien'].value = 'T3'; app.ouvrirComparaisonCandidats();
+    const h = dom['cmp-body'].innerHTML;
+    expect(h).toContain('au-dessus du repère');
+    expect(h).not.toContain('<svg data-i="check"></svg>dans le repère');
+    expect(h).toContain('<span class="cmp-rp">dans le repère</span>');
+  });
+  it('colonne « État des pièces » ; début souhaité dans les deux sens ; début dans la ligne étroite', () => {
+    const h = ouvrir().dom['cmp-body'].innerHTML;
+    expect(h).toContain('<th>État des pièces</th>');
+    expect(h).toContain('value="debut|desc"');
+    expect(h).toContain(' · début 01/11/2026 · ');
+  });
+  it('lecture seule : repère affiché, non modifiable', () => {
+    const DB = parc();
+    const { app, dom, j } = monter(DB, { lectureSeule: true, radio: 'repere', saisie: '35' });
+    dom['cand-f-bien'].value = 'T3'; app.ouvrirComparaisonCandidats();
+    expect(dom['cmp-body'].innerHTML).not.toContain('_candCmpRepereOuvrir()');
+    app._candCmpRepereEnregistrer();
+    expect(j.saves).toBe(0);
+    expect(DB.params.aideDecision).toBeUndefined();
+  });
+  it('lire le repère ne crée rien dans les réglages', () => {
+    const DB = parc(); const { app } = monter(DB);
+    expect(app._candCmpRepere()).toBeNull();
+    expect(DB.params.aideDecision).toBeUndefined();
+  });
+  it('le détail des pièces ouvert se met à jour au rafraîchissement', () => {
+    const { app, dom } = ouvrir();
+    app._candCmpPieces('cm');
+    expect(app.etat().detail).toEqual({ type: 'pieces', id: 'cm' });
+    dom['ov-cand-cmp-detail'].classList.remove('hidden');
+    dom['cmpd-body'].innerHTML = 'périmé';
+    app._candCmpRafraichir();
+    expect(dom['cmpd-body'].innerHTML).toContain('cmp-prow');
+  });
+  it('modales ouvertes depuis la fiche (édition, bail) : la comparaison se ferme d’abord', () => {
+    for (const n of ['_editCandidatFromFiche', 'convertCandidatToBail']) expect(extraireFonction(P1, n)).toContain("closeM('ov-cand-comparer')");
+  });
+  it('vérification des pièces : la comparaison ouverte est rafraîchie, la boucle s’arrête si elle est fermée', () => {
+    expect(extraireFonction(P1, '_candVerifierPieces')).toContain('_candCmpRafraichir()');
+    expect(extraireFonction(P1, 'ouvrirComparaisonCandidats')).toContain('if(!_candCmpOuvert()) break;');
+  });
+});
+
 describe('échappement', () => {
   it('nom et identifiant hostiles neutralisés', () => {
     const DB = parc();
@@ -203,7 +251,8 @@ describe('cohérence des libellés (app, fiche, page de dépôt du relais)', () 
   it('fiche : taux d\'effort charges comprises, plus de ratio revenus / loyer', () => {
     const f = extraireFonction(P1, 'openFicheCandidat');
     expect(f).toContain('Taux d\'effort');
-    expect(f).toContain('_loyerCCBienDetail(c.logRef, c)');
+    expect(f).toContain('_loyerCCBienDetail(c.logRef);');
+    expect(f).toContain('Ressources nettes mensuelles');
     expect(f).toContain('allocations comprises');
     expect(f).not.toMatch(/Ratio revenus|information, sans seuil/);
   });

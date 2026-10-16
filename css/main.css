@@ -9552,6 +9552,7 @@ span.cand-vbdg{cursor:default}
 .cmp-bien b{color:var(--t1)}
 .cmp-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .cmp-acts .btn svg{flex:0 0 auto}
+.cmp-rp-lu{font-size:13px;font-weight:600;color:var(--t2)}
 .cmp-ordre{width:auto;min-width:200px}
 #cmp-table .tbl th,#cmp-table .tbl td{vertical-align:middle}
 #cmp-table .cmp-so button{display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;white-space:nowrap}

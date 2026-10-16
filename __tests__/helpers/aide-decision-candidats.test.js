@@ -27,8 +27,8 @@ describe('candidatsAComparer / peutComparer', () => {
 });
 
 describe('normaliserRepere : choisi par le propriétaire, aucun par défaut', () => {
-  it.each([[35, 35], ['35', 35], ['33,5', 33.5], ['40 %', 40], [100, 100], ['12.34', 12.3]])('%s → %s', (v, r) => expect(AD.normaliserRepere(v)).toBe(r));
-  it.each([[null], [undefined], [''], ['abc'], [0], [-5], [101], ['1e2'], [NaN]])('%s → aucun repère', (v) => expect(AD.normaliserRepere(v)).toBeNull());
+  it.each([[35, 35], ['35', 35], ['33,5', 33.5], ['40 %', 40], [100, 100], [1, 1], ['12.34', 12.3]])('%s → %s', (v, r) => expect(AD.normaliserRepere(v)).toBe(r));
+  it.each([[null], [undefined], [''], ['abc'], [0], [0.5], ['0,9'], [-5], [101], ['1e2'], [NaN]])('%s → aucun repère', (v) => expect(AD.normaliserRepere(v)).toBeNull());
 });
 
 describe('tauxEffort et situationRepere', () => {
@@ -53,7 +53,7 @@ describe('tauxEffort et situationRepere', () => {
     expect(AD.situationRepere(null, 35)).toBeNull();
   });
   it('les mots ne jugent pas la personne', () => {
-    expect(AD.MOTS_REPERE).toEqual({ dans: 'dans le repère', audessus: 'au-dessus' });
+    expect(AD.MOTS_REPERE).toEqual({ dans: 'dans le repère', audessus: 'au-dessus du repère' });
   });
 });
 

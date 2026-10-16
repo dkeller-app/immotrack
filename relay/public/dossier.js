@@ -332,7 +332,16 @@ function collect(){
     visale: dossier.visale ? { ...dossier.visale } : null
   };
 }
-function parseRevenus(v){ const n = parseInt(String(v).replace(/[^\d]/g,''),10); return isNaN(n)?0:n; }
+// Montant mensuel saisi librement : « 1 450 », « 1450,50 », « 1.450 » ou « 1 450,50 € » → euros entiers (arrondi).
+// La virgule est décimale ; un point suivi de 3 chiffres sépare les milliers (« 1.450 »), sinon il est décimal.
+function parseRevenus(v){
+  let s = String(v == null ? '' : v).replace(/[\s\u00a0\u202f€]/g, '');
+  if(s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  s = s.replace(/[^\d.]/g, '');
+  const n = parseFloat(s);
+  return isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 700); }
 async function saveNow(){
   clearTimeout(saveTimer);
