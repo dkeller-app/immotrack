@@ -63,7 +63,7 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(dom['vp-body'].innerHTML).not.toContain('avis.pdf'); expect(dom['vp-body'].innerHTML).not.toContain('cni.pdf');
     expect(dom['vp-body'].innerHTML).toContain('30 jours au plus');
   });
-  it('lecture : une page par pièce, valeurs posées sur la pièce, audit sans contenu, règle B1 en écart sur la pièce', async () => {
+  it('lecture : une page par pièce, valeurs posées sur la pièce, audit sans contenu ; net à payer incohérent → « Non vérifiable », jamais « À vérifier »', async () => {
     const DB = parc();
     const { app, j } = monter(DB);
     await app._candIaLancer('c1');
@@ -72,10 +72,11 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(j.audits[0][3]).toBe('lecture par l\'IA (page 1, bulletin)');
     expect(JSON.stringify(j.audits)).not.toMatch(/2140|DUPONT/);
     const e = app._candVerifEtat(DB.documents[0]);
-    expect(e).toMatchObject({ etat: 'averif', vert: false });
-    expect(e.lignes.filter((l) => l.type === 'ecart').map((l) => l.texte)).toEqual(['Le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source']);
+    expect(e).toMatchObject({ etat: 'nonverif', vert: false });
+    expect(e.lignes.filter((l) => l.type === 'ecart')).toEqual([]);
+    expect(e.lignes.some((l) => l.texte === 'Non lu : net à payer et impôt prélevé')).toBe(true);
     expect(e.note).toBe(IaTransparence.MENTION_PROPOSITION + '.');
-    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<span>À vérifier</span>');
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<span>Non vérifiable</span>');
     await app._candIaLancer('c1');                                   // déjà lue : rien de plus
     expect(j.appels.length).toBe(1);
   });

@@ -18,8 +18,11 @@
 //     produirait le même écart qu'un net retouché.
 //  6. Relecture adverse Opus (16/10) : une valeur JUSTE prise dans une case voisine (net social pour net avant impôt,
 //     taux pour montant, brut pour une assiette, colonne patronale, champ rendu à 0) est aussi une lecture plausible.
-//     Seules B1, TL et CS (et, entre bulletins, B4/CB, B5, B6, B7) produisent des constats ; B2, S1, L1 et C2 servent
-//     d'ancres ou de règles listées quand elles tiennent, jamais de constat. TL et CS exigent somme des lignes = total.
+//     2e relecture (16/10) : acompte ou saisie après l'impôt, 2e ligne de prélèvement, bulletin complémentaire, cumul lu
+//     dans une colonne voisine, période mal lue. Conclusion : toute égalité arithmétique peut être cassée par une pratique
+//     légitime ou une lecture plausible. Seules TL (taux CSG/CRDS, régime général) et CS produisent un constat interne ;
+//     entre bulletins, B5 (périodes, cumuls à l'appui), B6 et B7. Toute autre règle qui ne tient pas → ok = null et le
+//     bulletin n'est pas « OK » (règles respectées non publiées) : « non vérifiable », jamais « à vérifier ».
 // Règles écartées après étude (mockups/REGLES-PAIE, phase 1) : net social ≤ brut (B3 retirée : le montant net social
 // intègre les contributions patronales santé et prévoyance, BOSS), assiette plafonnée ≤ PMSS (régularisation progressive),
 // taux Agirc-Arrco, assiette CSG ≥ 98,25 % du brut, net imposable recalculé, SMIC, taux global des cotisations.
@@ -53,7 +56,7 @@ export const NUMERIQUES = Object.freeze(['heures', 'tauxHoraire', 'salaireBase',
 // Taux salariaux légaux 2026 (Urssaf, page du 01/01/2026, consultée le 15/10/2026). Alsace-Moselle : 1,30 % au régime
 // général ; 1,19 % au régime agricole à compter du 01/07/2026 (MSA). CSG/CRDS non déductible : 2,40 % + 0,50 % = 2,90 %.
 // Heures supplémentaires : CSG/CRDS entièrement non déductible (6,80 % reporté, ou 9,70 % en une ligne) ; réduction 11,31 %.
-const TAUX_LEGAUX = Object.freeze({ vp: [6.90], vd: [0.40], csgd: [6.80], csgnd: [2.90, 2.40], crds: [0.50], csghs: [6.80, 9.70], als: [1.30, 1.19], redhs: [11.31] });
+const TAUX_LEGAUX = Object.freeze({ vp: [6.90], vd: [0.40], csgd: [6.80], csgnd: [2.90, 2.40], crds: [0.50], csghs: [6.80, 9.70, 9.20], als: [1.30, 1.19], redhs: [11.31] });
 const LIB_LIGNE = { vp: 'vieillesse plafonnée', vd: 'vieillesse déplafonnée', csgd: 'CSG déductible', csgnd: 'CSG/CRDS non déductible', crds: 'CRDS', csghs: 'CSG/CRDS sur heures supplémentaires', als: 'maladie Alsace-Moselle', redhs: 'réduction heures supplémentaires' };
 const ANNEES_TAUX = ['2026'];
 
@@ -74,8 +77,9 @@ const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-
 export function categorieLigne(libelle) {
   const l = norm(libelle);
   if (!l || /remplacement|activite partielle|chomage partiel|indemnit|\bij\b|ijss|maintien|retraite supp|pension/.test(l)) return null;
-  if (/csg|crds/.test(l) && /(heures? sup|h\.? ?sup)/.test(l)) return 'csghs';
-  if (/reduc.*(heures? sup|h\.? ?sup)|(heures? sup|h\.? ?sup).*reduc/.test(l)) return 'redhs';
+  const HS = /(heures? sup|h\.? ?sup|\bhs\b|hsup|tepa|heures? compl)/;
+  if (/csg|crds/.test(l) && HS.test(l)) return 'csghs';
+  if (/reduc|exon|deduc/.test(l) && HS.test(l)) return 'redhs';
   if (/deplafon/.test(l)) return 'vd';
   if (/(securite sociale|vieil|retraite de base|assurance vieillesse|\bss\b).*plafon/.test(l)) return 'vp';
   if (/^csg (deductible|non imposable)/.test(l) && !/non deductible/.test(l)) return 'csgd';
@@ -261,9 +265,10 @@ function analyseInterne(v, gardeFou = true) {
   // Quorum : au moins 2 ancres tenues ; sinon aucune règle n'est appliquée sur ce bulletin.
   if (gardeFou && ancresOk < 2) { res.lectureIncertaine = true; return res; }
   const L = v.lignes || [];
-  // Seules B1, TL et CS peuvent produire un constat. B2 (régularisation du prélèvement possible), S1 (horaire du contrat
-  // lu à la place des heures payées), L1 (assiette ou colonne voisine) et C2 (colonne voisine) : jamais un constat.
-  const CONSTAT = new Set(['B1', 'TL', 'CS']);
+  // Seules TL (CSG/CRDS) et CS peuvent produire un constat. B1 (acompte, saisie ou 2e ligne d'impôt après le net avant
+  // impôt), B2 (régularisation du prélèvement), S1 (horaire du contrat lu pour les heures payées), L1 (assiette ou colonne
+  // voisine) et C2 (colonne voisine) : jamais un constat — un échec rend le bulletin « non vérifiable » (ok = null).
+  const CONSTAT = new Set(['TL', 'CS']);
   const sortir = (e, ok, r) => {
     if (ok || !gardeFou || (CONSTAT.has(r.code) && !explicable(e, vals, E, tient))) res.regles.push(Object.assign({ ok }, r));
     else res.incertaines.push({ code: r.code, titre: r.titre });
@@ -309,13 +314,14 @@ function analyseInterne(v, gardeFou = true) {
   if (v.periode && ANNEES_TAUX.includes(String(v.periode).slice(0, 4)) && lignesSures) {
     // Taux qu'une lecture décalée peut donner : taux légal d'une autre ligne, taux patronaux 2026 (Urssaf, Agirc-Arrco),
     // taux de CSG/CRDS des revenus de remplacement (6,2 / 3,8 / 4,3 / 0,5).
-    const tous = [...new Set([...Object.values(TAUX_LEGAUX).flat(), 8.55, 2.11, 2.02, 4.72, 1.29, 12.95, 1.62, 0.21, 0.036, 13, 7, 5.25, 3.45, 4, 4.05, 0.25, 0.3, 0.1, 0.5, 0.016, 6.2, 3.8, 4.3, 6.6])];
+    const tous = [...new Set([...Object.values(TAUX_LEGAUX).flat(), 8.55, 2.11, 2.02, 4.72, 1.29, 12.95, 1.62, 0.21, 0.036, 13, 7, 5.25, 3.45, 4, 4.05, 0.25, 0.3, 0.1, 0.5, 0.016, 6.2, 3.8, 4.3, 6.6, 9.2])];
     const ecarts = [];
     L.forEach((l, i) => {
       const cat = categorieLigne(l.libelle); if (!cat || cat === 'redhs' || l.taux == null) return;
       const eL1 = L1.find((e) => e.ligne === i); if (!eL1 || !tient.get(eL1)) return;
       const t = Math.abs(l.taux), legal = TAUX_LEGAUX[cat];
-      if (legal.some((x) => Math.abs(x - t) <= 0.005)) return;
+      // Taux légal, ou taux effectif imprimé sur une base égale au brut (taux × 98,25 %, ex. 6,681 % pour 6,80 %).
+      if (legal.some((x) => Math.abs(x - t) <= 0.005 || Math.abs(x * 0.9825 - t) <= 0.0015)) return;
       ecarts.push({ l, cat, t, legal, decale: tous.includes(Math.round(t * 100) / 100) });
     });
     // Plusieurs taux hors norme sur un même bulletin, ou un taux légal d'une AUTRE ligne : lignes décalées à la lecture.
@@ -428,27 +434,12 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
   // Une variante de lecture d'un champ de la série doit garder les autres égalités qui tiennent : celles du bulletin B
   // pour son montant du mois, les continuités voisines pour les cumuls.
   const okSerie = new Map(serie.map((s) => [s, s.tient(s.vals)]));
-  const explSerie = (s) => {
-    const garde = {
-      n: (y) => { const a = s.B.a; return !a.E || a.vals[s.kv] == null || a.E.filter((e) => a.tient.get(e) && e.champs.includes(s.kv)).every((e) => essai(e, a.vals, s.kv, y)); },
-      a: (y) => serie.filter((t) => t !== s && t.kc === s.kc && t.B === s.A && okSerie.get(t)).every((t) => t.tient(Object.assign({}, t.vals, { b: y }))),
-      b: (y) => serie.filter((t) => t !== s && t.kc === s.kc && t.A === s.B && okSerie.get(t)).every((t) => t.tient(Object.assign({}, t.vals, { a: y }))),
-    };
-    const cle = { a: [s.A.a.vals, s.kc], b: [s.B.a.vals, s.kc], n: [s.B.a.vals, s.kv] };
-    // Zéro ou case voisine : lecture plausible seulement si rien d'autre ne confirme la valeur (égalité du bulletin B pour
-    // son montant du mois, continuité voisine pour un cumul).
-    const confirme = {
-      n: () => { const a = s.B.a; return !!(a.E && a.E.some((e) => a.tient.get(e) && e.champs.includes(s.kv))); },
-      a: () => serie.some((t) => t !== s && t.kc === s.kc && t.B === s.A && okSerie.get(t)),
-      b: () => serie.some((t) => t !== s && t.kc === s.kc && t.A === s.B && okSerie.get(t)),
-    };
-    if (['a', 'b', 'n'].some((f) => (s.vals[f] === 0 || doublon(cle[f][1], cle[f][0])) && !confirme[f]())) return true;
-    return ['a', 'b', 'n'].some((f) => variantesLecture(s.vals[f]).some((y) => s.tient(Object.assign({}, s.vals, { [f]: y })) && garde[f](y)));
-  };
+  // Cumuls : jamais un constat (2e relecture Opus : cumul lu dans une colonne voisine du tableau des cumuls, bulletin
+  // complémentaire non fourni, période mal lue) ; un échec rend le bulletin « non vérifiable » (ok = null).
   for (const s of serie) {
     const ok = okSerie.get(s);
     const attendu = arrondi(s.ca + s.nb), ecart = arrondi(s.cb - attendu);
-    if (G && !ok && explSerie(s)) { s.B.e.incertaines.push({ code: s.code, titre: 'cumul' }); continue; }
+    if (G && !ok) { s.B.e.incertaines.push({ code: s.code, titre: 'cumul' }); continue; }
     const titreOk = s.code === 'B4' ? `Cumul net imposable dans la continuité ${dePeriode(s.A.v.periode)}.` : `Cumul brut dans la continuité ${dePeriode(s.A.v.periode)}.`;
     const titreKo = `Le cumul ${s.lib} ne prolonge pas celui ${dePeriode(s.A.v.periode)}.`;
     s.B.e.regles.push({ code: s.code, ok, titre: ok ? titreOk : titreKo, detail: `${euros(s.ca)} + ${euros(s.nb)} = ${euros(attendu)} ; cumul imprimé : ${euros(s.cb)}${ok ? '' : ` ; écart : ${euros(Math.abs(ecart))}`}.`, source: SOURCES.arrete });
@@ -464,12 +455,21 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
   if (triesP.length >= 2) {
     const manquants = [];
     for (let i = 1; i < triesP.length; i++) for (let m = moisIndex(triesP[i - 1].v.periode) + 1; m < moisIndex(triesP[i].v.periode); m++) manquants.push(`${MOIS[m % 12]} ${Math.floor(m / 12)}`);
-    // Les cumuls tranchent quand ils sont lus : cumul(B) − cumul(A) = montant de B → mois en réalité consécutifs (période
-    // mal lue) ; nettement plus → trou réel. Sans cumul : une période qu'UNE erreur de lecture rend consécutive → pas de constat.
-    const trouAtteste = (A, B) => sur.has(A) && sur.has(B) && [['cumulBrut', 'brut'], ['cumulNetImposable', 'netImposable']].some(([kc, kv]) => A.v[kc] != null && B.v[kc] != null && B.v[kv] != null
-      && A.v.periode.slice(0, 4) === B.v.periode.slice(0, 4) && (!siretDe(A.v.siret) || !siretDe(B.v.siret) || siretDe(A.v.siret) === siretDe(B.v.siret)) && B.v[kc] - A.v[kc] - B.v[kv] > TOLERANCES.cumul);
-    const tousAttestes = triesP.every((t, i) => i === 0 || moisIndex(t.v.periode) - moisIndex(triesP[i - 1].v.periode) <= 1 || trouAtteste(triesP[i - 1], t));
-    const lecture = G && manquants.length && !tousAttestes && periodes.some((p, i) => variantesPeriode(p).some((q) => consecutives(periodes.map((x, j) => (j === i ? q : x)))));
+    // Une période qu'UNE erreur de lecture rend consécutive est une lecture plausible, sauf si les cumuls de bulletins sûrs
+    // contredisent la position corrigée (cumul(B) − cumul(A) ≠ montant de B) : alors le trou est réel.
+    const cumulsCollent = (i, q) => {
+      const liste = triesP.map((t, j) => ({ t, p: j === i ? q : t.v.periode })).sort((a, b) => moisIndex(a.p) - moisIndex(b.p));
+      for (let j = 1; j < liste.length; j++) {
+        const A = liste[j - 1], B = liste[j];
+        if (!sur.has(A.t) || !sur.has(B.t) || moisIndex(B.p) - moisIndex(A.p) !== 1 || A.p.slice(0, 4) !== B.p.slice(0, 4)) continue;
+        for (const [kc, kv] of [['cumulBrut', 'brut'], ['cumulNetImposable', 'netImposable']]) {
+          const ca = A.t.v[kc], cb = B.t.v[kc], vb = B.t.v[kv];
+          if (ca != null && cb != null && vb != null && Math.abs(cb - ca - vb) > TOLERANCES.cumul) return false;
+        }
+      }
+      return true;
+    };
+    const lecture = G && manquants.length && periodes.some((p, i) => variantesPeriode(p).some((q) => !periodes.some((x, j) => j !== i && x === q) && consecutives(periodes.map((x, j) => (j === i ? q : x))) && cumulsCollent(i, q)));
     const liste = manquants.length > 6 ? manquants.slice(0, 6).join(', ') + ` et ${manquants.length - 6} autre${manquants.length - 6 > 1 ? 's' : ''}` : manquants.join(', ');
     if (manquants.length && !lecture) constats.push({ code: 'B5', icone: 'clock', titre: `Bulletins${quiTxt} : période${manquants.length > 1 ? 's' : ''} absente${manquants.length > 1 ? 's' : ''} entre les bulletins reçus (${liste}).`, detail: `Bulletins reçus : ${triesP.map((t) => libellePeriode(t.v.periode)).join(', ')}. Le décret prévoit les trois derniers bulletins de salaire.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
   }
@@ -510,6 +510,7 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
         e.regles.push({ code: x.code, ok: null, titre, detail: 'Lecture à confirmer : valeur à vérifier sur la pièce.', source: { libelle: 'garde-fou de lecture' } });
       }
     }
+    if (G && e.regles.some((r) => r.ok === null && r.code !== 'B6')) e.regles = e.regles.filter((r) => r.ok !== true);
     e.etat = e.constats.length ? 'ecart' : (e.regles.some((r) => r.ok === true || r.ok === false) ? 'sans_ecart' : 'lu');
   }
   return { parPiece, constats };

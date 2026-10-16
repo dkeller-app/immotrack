@@ -38,10 +38,11 @@ describe('règles internes (R3243-1, arrêté du 25/02/2016, Urssaf 2026, BOSS)'
     expect(r.find((x) => x.code === 'TL').titre).toContain('4 lignes');
     expect(r.some((x) => x.code === 'B3')).toBe(false);
   });
-  it('net à payer incohérent (plusieurs chiffres) : écart chiffré ; tolérance de 2 centimes', () => {
-    const r = reglesInternes({ ...AOUT, netAPayer: 2140 });
-    expect(r.find((x) => x.code === 'B1')).toMatchObject({ code: 'B1', ok: false });
-    expect(sp(r.find((x) => x.code === 'B1').detail)).toContain('écart : 53,04 €');
+  it('net à payer incohérent : jamais un constat (acompte, saisie, 2e ligne d\'impôt possibles) ; bulletin non « OK » ; tolérance de 2 centimes', () => {
+    const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 })], identite: ID });
+    expect(a.constats).toEqual([]);
+    expect(a.parPiece.a.regles.find((x) => x.code === 'B1')).toMatchObject({ ok: null, titre: 'Net à payer et impôt prélevé' });
+    expect(a.parPiece.a.regles.some((x) => x.ok === true)).toBe(false);   // aucune règle « respectée » publiée : pas « OK »
     expect(reglesInternes({ ...AOUT, netAPayer: 2193.06 }).find((x) => x.code === 'B1').ok).toBe(true);
     expect(TOLERANCES.net).toBe(0.02);
   });
@@ -134,12 +135,13 @@ describe('garde-fou de lecture : une erreur de lecture ne produit jamais de cons
     const deux = avecLigne(avecLigne(AOUT, 1, { taux: 5.9, montant: 174.05 }), 2, { taux: 0.3, montant: 8.85 });
     expect(reglesInternes(deux).some((x) => x.code === 'TL' && !x.ok)).toBe(false);
   });
-  it('cumul : un chiffre de travers → pas de constat ; plusieurs chiffres → constat CB', () => {
+  it('cumul : jamais un constat (colonne voisine, bulletin complémentaire, période mal lue) ; le bulletin n\'est pas « OK »', () => {
     const un = analyserBulletins({ pieces: [piece('a', AOUT), piece('s', { ...SEPT, cumulBrut: 27550 })], identite: ID });
     expect(un.constats).toEqual([]);
     const plusieurs = analyserBulletins({ pieces: [piece('a', AOUT), piece('s', { ...SEPT, cumulBrut: 28150.75 })], identite: ID });
-    expect(plusieurs.constats.map((c) => [c.code, c.pieceId])).toEqual([['CB', 's']]);
-    expect(plusieurs.constats[0].titre).toBe('Bulletin septembre 2026 : le cumul brut ne prolonge pas celui du bulletin d\'août 2026.');
+    expect(plusieurs.constats).toEqual([]);
+    expect(plusieurs.parPiece.s.regles.find((r) => r.code === 'CB')).toMatchObject({ ok: null, titre: 'Cumul brut avec le mois précédent' });
+    expect(plusieurs.parPiece.s.regles.some((r) => r.ok === true)).toBe(false);
   });
   it('cumul égal au montant du mois hors janvier (colonne du mois lue) : ignoré', () => {
     const a = analyserBulletins({ pieces: [piece('a', AOUT), piece('s', { ...SEPT, cumulBrut: 2950 })], identite: ID });
@@ -171,12 +173,12 @@ describe('analyse du dossier', () => {
     expect(a.parPiece.s.regles.find((r) => r.code === 'B4')).toMatchObject({ ok: true });
     expect(a.parPiece.s.regles.find((r) => r.code === 'CB')).toMatchObject({ ok: true });
   });
-  it('scénario D : net à payer et cumul incohérents → constats sourcés, état « Écart relevé » sur les pièces concernées', () => {
+  it('scénario D : net à payer et cumul incohérents → aucun constat, pièces « non vérifiables » (ok null), règles cohérentes non publiées', () => {
     const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 }), piece('s', { ...SEPT, cumulNetImposable: 17905.2 })], identite: ID, recuLe: '2026-10-11' });
-    expect(a.constats.map((c) => [c.code, c.pieceId])).toEqual([['B1', 'a'], ['B4', 's']]);
-    expect(a.constats[1].titre).toBe('Bulletin septembre 2026 : le cumul net imposable ne prolonge pas celui du bulletin d\'août 2026.');
-    expect(sp(a.constats[1].detail)).toBe('Cumul d\'août 2026 15 610,40 € + net imposable 2 318,40 € = 17 928,80 € ; cumul imprimé 17 905,20 €. Écart : 23,60 €.');
-    expect(a.parPiece.a.etat).toBe('ecart'); expect(a.parPiece.s.etat).toBe('ecart');
+    expect(a.constats).toEqual([]);
+    expect(a.parPiece.a.regles.map((r) => [r.code, r.ok])).toContainEqual(['B1', null]);
+    expect(a.parPiece.s.regles.map((r) => [r.code, r.ok])).toContainEqual(['B4', null]);
+    expect(a.parPiece.a.etat).toBe('lu'); expect(a.parPiece.s.etat).toBe('lu');
   });
   it('identité et SIRET : nom différent, SIRET différent (SIREN déclaré comparé au SIREN lu)', () => {
     const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, salarie: 'DURAND Paul', siret: '99999999900017' })], identite: ID, siretDeclare: '000000002' });
@@ -274,9 +276,10 @@ describe('relecture adverse Opus du 16/10 : une valeur juste prise dans une case
   it('heures du contrat (169 h), cumul lu 0, colonne du cumul voisine en janvier, champ rendu à 0', () => {
     for (const v of [{ ...AOUT, heures: 169 }, { ...AOUT, cumulBrut: 0 }, { ...AOUT, periode: '2026-01', cumulBrut: 2341.8, cumulNetImposable: 2341.8 }, { ...AOUT, impotMontant: 0 }]) expect(sans(v)).toEqual([]);
   });
-  it('impôt à 0 € confirmé par un taux de 0 % : B1 reste vérifiée (pas une lecture manquée)', () => {
-    const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, impotTaux: 0, impotMontant: 0, netAPayer: 2140 })], identite: ID });
-    expect(a.constats.map((c) => c.code)).toEqual(['B1']);
+  it('impôt à 0 € confirmé par un taux de 0 % : B1 respectée publiée (bulletin « OK »)', () => {
+    const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, impotTaux: 0, impotMontant: 0, netAPayer: 2291.4, impotBase: 2341.8 })], identite: ID });
+    expect(a.constats).toEqual([]);
+    expect(a.parPiece.a.regles.find((r) => r.code === 'B1').ok).toBe(true);
   });
   it('B5 : un bulletin sans quorum a bien été reçu (aucun mois réputé absent)', () => {
     const aoutPartiel = { lisible: true, periode: '2026-08', netAvantImpot: 2291.4, impotMontant: 98.36, netAPayer: 2193.04 };
@@ -304,14 +307,40 @@ describe('relecture adverse Opus du 16/10 : une valeur juste prise dans une case
 });
 
 describe('affichage (etatPiece de verif-pieces, main v15.749) : règles non concluantes = « Non lu », jamais « À vérifier »', () => {
-  it('une erreur de lecture : la pièce n\'est pas « À vérifier » ; un vrai écart : « À vérifier »', async () => {
+  it('erreur de lecture ou net incohérent : « Non vérifiable » ; taux de CSG faux : « À vérifier » ; bulletin cohérent : « OK »', async () => {
     const VP = await import('../../js/core/verif-pieces.js');
     const doc = { id: 'a', parentType: 'candidat', category: 'revenus', pieceType: 'I.D.2', mime: 'application/pdf', verifIa: { lu: {} } };
     const lecture = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2291.4 })], identite: ID }).parPiece.a;
     const e1 = VP.etatPiece({ doc, verif: null, ia: lecture, iaLue: true });
     expect(e1.etat).not.toBe('averif');
     expect(e1.lignes.some((l) => /^Non lu : net à payer et impôt prélevé/i.test(l.texte))).toBe(true);
-    const ecart = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 })], identite: ID }).parPiece.a;
+    const ecart = analyserBulletins({ pieces: [piece('a', avecLigne(AOUT, 5, { taux: 5.8, montant: 175.14 }))], identite: ID }).parPiece.a;
     expect(VP.etatPiece({ doc, verif: null, ia: ecart, iaLue: true }).etat).toBe('averif');
+    const net = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 })], identite: ID }).parPiece.a;
+    expect(VP.etatPiece({ doc, verif: null, ia: net, iaLue: true }).etat).toBe('nonverif');
+    expect(VP.etatPiece({ doc, verif: null, ia: analyserBulletins({ pieces: [piece('a', AOUT)], identite: ID }).parPiece.a, iaLue: true }).etat).toBe('ok');
+  });
+});
+
+describe('seconde relecture adverse Opus du 16/10 : pratiques légitimes et lectures plausibles', () => {
+  const constats = (pieces, extra = {}) => analyserBulletins({ pieces, identite: ID, recuLe: '2026-10-10', ...extra }).constats;
+  it('août lu « 2026-06 » (un chiffre) entre juillet et septembre : aucun mois réputé absent, aucun constat de cumul', () => {
+    expect(constats([piece('j', JUIL), piece('a', { ...AOUT, periode: '2026-06' }), piece('s', SEPT)])).toEqual([]);
+  });
+  it('cumul lu dans une colonne voisine du tableau des cumuls (plafond SS) : aucun constat', () => {
+    expect(constats([piece('j', JUIL), piece('a', { ...AOUT, cumulBrut: 32040 }), piece('s', SEPT)])).toEqual([]);
+  });
+  it('acompte ou saisie après le prélèvement, régularisation du prélèvement sur une 2e ligne : aucun constat', () => {
+    expect(constats([piece('a', { ...AOUT, netAPayer: 1693.04 })])).toEqual([]);
+    expect(constats([piece('a', { ...AOUT, netAPayer: 2156.04 })])).toEqual([]);
+  });
+  it('CSG/CRDS sur heures sup. abrégées « HS » (9,20 %) ; taux effectif imprimé 6,681 % sur base = brut : aucun constat de taux', () => {
+    const hs = { ...AOUT, lignes: [...LIGNES, { libelle: 'CSG non déductible sur HS', base: 98.25, taux: 9.2, montant: 9.04 }], totalCotisations: 667.64, netAvantImpot: 2282.36, netAPayer: 2184 };
+    expect(constats([piece('a', hs)])).toEqual([]);
+    const eff = avecLigne(AOUT, 5, { base: 2950, taux: 6.681, montant: 197.09 });
+    expect(constats([piece('a', eff)])).toEqual([]);
+  });
+  it('trou réel attesté par les cumuls (juillet et septembre seulement) : B5 maintenu', () => {
+    expect(constats([piece('j', JUIL), piece('s', SEPT)]).map((c) => c.code)).toEqual(['B5']);
   });
 });
