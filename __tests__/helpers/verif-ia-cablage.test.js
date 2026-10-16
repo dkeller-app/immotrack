@@ -190,7 +190,8 @@ describe('page publique de dépôt : information du candidat', () => {
     expect(D).toContain('aucune pièce supplémentaire n\'est demandée');
     expect(D).toContain('opposition');
     expect(D).toContain('si le propriétaire l\'active');
-    expect(readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8')).toMatch(/ASSET_VERSION = '4'/);
+    const v = readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8').match(/ASSET_VERSION = '(\d+)'/);
+    expect(+v[1]).toBeGreaterThanOrEqual(4);                       // monté à chaque changement de la page (LECTURE-PHOTOS : 5)
   });
 });
 

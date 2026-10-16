@@ -13965,12 +13965,38 @@ function _ensureZxing(){
   });
   return _zxingPromesse;
 }
+// LECTURE-PHOTOS (D1) : un seul réglage du lecteur, dans js/core/lecture-photo.js (réglages passés à decode() — avant,
+// setHints() puis decode(bitmap) les remettait à zéro : tous les formats, codes-barres 1D compris — et « DC… » seulement).
+function _canvasVersGris(canvas){
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  return window.LecturePhoto.versGris(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+}
 function _zxingLecteur(ZX){
-  const hints = new Map([[ZX.DecodeHintType.TRY_HARDER, true], [ZX.DecodeHintType.POSSIBLE_FORMATS, [ZX.BarcodeFormat.DATA_MATRIX]]]);
-  return (canvas) => {
-    const r = new ZX.MultiFormatReader(); r.setHints(hints);
-    try{ return r.decode(new ZX.BinaryBitmap(new ZX.HybridBinarizer(new ZX.HTMLCanvasElementLuminanceSource(canvas)))).getText(); }catch(e){ return null; }
-  };
+  const lire = window.LecturePhoto.lecteurZxing(ZX);
+  return (canvas) => { try{ return lire(_canvasVersGris(canvas)); }catch(e){ return null; } };
+}
+// Lecteur de photos (localisation, redressement, grille) : dans un Worker de module (l'écran ne gèle pas), repli sur le
+// fil principal si le navigateur ne sait pas le créer. Rien n'est envoyé : la photo reste sur l'appareil.
+let _lecturePhotoCli = null;
+function _lecturePhotoClient(){
+  if(_lecturePhotoCli) return _lecturePhotoCli;
+  const LPh = window.LecturePhoto;
+  _lecturePhotoCli = window.LecturePhotoClient.clientLecturePhoto({
+    creerWorker: () => new Worker('js/core/lecture-photo-worker.js', { type: 'module' }),
+    repli: async (g, o) => { const ZX = await _ensureZxing(); return LPh.lirePhoto(g, LPh.lecteurZxing(ZX), o); },
+    delaiMs: 50000
+  });
+  return _lecturePhotoCli;
+}
+// Temps borné par l'ÉCHÉANCE de la pièce (commune à toute sa lecture) ; une lecture qui ne peut pas finir n'est JAMAIS
+// « aucun code » : elle lève une exception → analyse « inacheve » → vérification reportée (relue au plus une fois par heure).
+async function _lirePhotoCanvas(canvas, echeance){
+  const reste = (echeance || (Date.now() + 45000)) - Date.now() - 2000;
+  if(reste < 3000) throw new Error('délai');
+  const d = Math.min(40000, reste);
+  const r = await _lecturePhotoClient().lire(_canvasVersGris(canvas), { essais: window.LecturePhoto.ESSAIS_PHOTO, delaiMs: d, attenteMs: d + 3000 });
+  if(!r || r.delai || r.interrompu || r.indisponible) throw new Error('lecture de la photo inachevée');
+  return r.texte || null;
 }
 const _candVerifPiecesEnCours = new Set();
 // Délai : une lecture qui ne se termine pas (PDF piégé, objet jamais résolu) est abandonnée, la vérification reportée.
@@ -13987,7 +14013,7 @@ function _candVerifEnFile(candId){
 async function _candVerifierPieces(candId, opts){
   opts = opts || {};
   const VP = window.VerifPieces, LP = window.LecturePieces, D = window.DeuxDDoc;
-  if(!VP || !LP || !D || !_candVerifReglages().locaux) return;
+  if(!VP || !LP || !D || !window.LecturePhoto || !window.LecturePhotoClient || !_candVerifReglages().locaux) return;
   const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === candId);
   if(!c || c.statut === 'refuse') return;           // dossier non retenu : aucune lecture de plus (minimisation)
   if(_candVerifPiecesEnCours.has(candId)) return;
@@ -14008,8 +14034,13 @@ async function _candVerifierPieces(candId, opts){
       if(!dataUrl) continue;                                      // fichier pas encore sur l'appareil : réessai au prochain passage
       if(/pdf/i.test(d.mime) && !pdfjs){ await _ensurePdfjsLoaded(); pdfjs = window.pdfjsLib; }
       let analyse;
-      try{ analyse = await _candAvecDelai(LP.analyserFichier({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, lire, creerCanvas, chargerImage }), 60000); }
-      catch(e){ console.warn('[vérification] lecture de la pièce reportée', e && e.message); continue; }
+      // LECTURE-PHOTOS : lecture pas finie (délai, appareil lent) → rien n'est conclu ; la pièce est marquée « reportée »
+      // (relue au plus une fois par heure, VerifPieces.aAnalyser) au lieu d'être relue en boucle à chaque ouverture.
+      const reporter = () => { const x = (DB.documents||[]).find(y => y && !y._deleted && y.id === d.id); if(x){ x.verifReportee = new Date().toISOString(); x.verifReports = (x.verifReports || 0) + 1; _stamp(x); change = true; } };
+      const echeance = Date.now() + 55000;
+      try{ analyse = await _candAvecDelai(LP.analyserFichier({ octets: _dataUrlToUint8(dataUrl), mime: d.mime }, { pdfjs, lire, creerCanvas, chargerImage, lirePhoto: (cv) => _lirePhotoCanvas(cv, echeance) }), 60000); }
+      catch(e){ console.warn('[vérification] lecture de la pièce reportée', e && e.message); reporter(); continue; }
+      if(analyse.inacheve && !(analyse.codes && analyse.codes.length)){ reporter(); continue; }
       const resultats = [];
       if(analyse.codes && analyse.codes.length){
         if(!magasin) magasin = await _tddocConfiance(!!opts.force);
@@ -14018,6 +14049,7 @@ async function _candVerifierPieces(candId, opts){
       const dd = (DB.documents||[]).find(x => x && !x._deleted && x.id === d.id);
       if(!dd) continue;                                           // pièce supprimée pendant la lecture
       dd.verif = VP.construireVerif({ doc: dd, candidat: c, analyse, resultats });
+      delete dd.verifReportee; delete dd.verifReports;
       _stamp(dd); change = true;
       await new Promise(r => setTimeout(r, 0));
     }

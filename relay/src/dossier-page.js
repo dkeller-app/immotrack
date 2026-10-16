@@ -1,8 +1,10 @@
 // CANDIDATURES-CONFORMITE lot 2 : liste FERMÉE des pièces (décret n° 2015-1437) — source unique partagée avec l'app.
 import { typesPourCategorie } from '../../js/core/pieces-candidature.js';
+import { TYPES_AVIS } from '../../js/core/verif-pieces.js';
 
-// Bumpé à chaque changement de dossier.js / dossier.css (cache navigateur du formulaire public).
-const ASSET_VERSION = '4';   // VERIF-LISIBLE : lecture des bulletins « si le propriétaire l'active »
+// Bumpé à chaque changement de dossier.js / dossier.css / viseur.js / vendor/lecture-photo* (cache navigateur du formulaire public).
+// 4 : VERIF-LISIBLE (lecture des bulletins « si le propriétaire l'active ») ; 5 : LECTURE-PHOTOS (prise de vue, contrôle immédiat).
+export const ASSET_VERSION = '5';
 const CATS_PIECES = ['identite', 'domicile', 'situation', 'ressources', 'garant'];
 
 function jsonForScript(v) {
@@ -26,7 +28,10 @@ export function renderDossierPage({ candidature, candidatToken }) {
     dossier: candidature.dossier || null,
     pieces: (candidature.pieces || []).map((p) => ({ pieceId: p.pieceId, categorie: p.categorie, filename: p.filename, type: p.type || '' })),
     // Types proposés au candidat sous chaque fichier (id + libellé court), par zone de dépôt.
-    types: Object.fromEntries(CATS_PIECES.map((k) => [k, typesPourCategorie(k).map((t) => ({ id: t.id, libelle: t.libelle }))]))
+    types: Object.fromEntries(CATS_PIECES.map((k) => [k, typesPourCategorie(k).map((t) => ({ id: t.id, libelle: t.libelle }))])),
+    // LECTURE-PHOTOS (D8) : « Code illisible » n'est dit que pour un avis d'impôt ; version des fichiers du lecteur.
+    typesAvis: [...TYPES_AVIS],
+    v: ASSET_VERSION
   };
   return `<!doctype html>
 <html lang="fr">

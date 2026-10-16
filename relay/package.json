@@ -8,7 +8,8 @@
     "deploy": "wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:vendor": "node scripts/vendor-libs.mjs"
+    "build:vendor": "node scripts/vendor-libs.mjs",
+    "build:lecture-photo": "node scripts/vendor-lecture-photo.mjs"
   },
   "dependencies": {
     "hono": "^4.6.0",

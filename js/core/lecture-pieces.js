@@ -14,6 +14,7 @@ const MAX_TEXTE = 200000;
 const MAX_FENETRES = 48;
 export const ESSAIS_MAX = 60;          // décodages DataMatrix au plus par document (temps de calcul borné, téléphones)
 const IMAGES_PAR_PAGE = 6;
+const IMAGES_EXAMINEES = 20;           // images peintes regardées par page (détection d'une page scannée)
 const DELAI_OBJET_MS = 2000;
 const ceder = () => new Promise((r) => setTimeout(r, 0));   // rend la main au navigateur entre deux lectures lourdes
 /** Objet image de pdf.js : les images partagées entre pages (« g_… ») sont dans commonObjs, les autres dans objs ;
@@ -74,8 +75,12 @@ export function imageVersCanvas(obj, creerCanvas) {
 
 /**
  * @param {{octets:Uint8Array, mime:string}} fichier
- * @param {{pdfjs?:object, lire:(canvas)=>string|null, creerCanvas:(w,h)=>object, chargerImage?:(octets,mime)=>Promise<{source,largeur,hauteur}>}} deps
- * @returns {Promise<{illisible:boolean, estPdf:boolean, pages?:number, codes:string[], texte:string, metadonnees?:object, enregistrements?:number, superpositions?:Array}>}
+ * @param {{pdfjs?:object, lire:(canvas)=>string|null, creerCanvas:(w,h)=>object, chargerImage?:(octets,mime)=>Promise<{source,largeur,hauteur}>,
+ *          lirePhoto?:(canvas)=>Promise<string|null>}} deps  lirePhoto (LECTURE-PHOTOS) : lecteur de photos, utilisé pour une
+ *          image, et pour une page de PDF quand la recherche directe n'a rien donné (page scannée ou photographiée)
+ * @returns {Promise<{illisible:boolean, estPdf:boolean, pages?:number, codes:string[], texte:string, metadonnees?:object, enregistrements?:number, superpositions?:Array,
+ *   inacheve?:true, codeParPhoto?:true}>}  inacheve : la lecture d'une photo n'a pas pu finir (à relire) ; codeParPhoto : le code
+ *   vient d'une photo ou d'une page scannée (le texte du PDF n'est alors pas comparable aux données signées)
  */
 export async function analyserFichier(fichier, deps) {
   const octets = fichier && fichier.octets; const mime = String((fichier && fichier.mime) || '').toLowerCase();
@@ -91,40 +96,56 @@ export async function analyserFichier(fichier, deps) {
     catch { return { illisible: true, estPdf: true, codes: [], texte: '' }; }
     try {
       let meta = {}; try { meta = ((await doc.getMetadata()) || {}).info || {}; } catch { meta = {}; }
-      const items = []; let texte = '';
+      const items = []; let texte = '', inacheve = false, parPhoto = false;
       const n = Math.min(doc.numPages || 0, MAX_PAGES);
       for (let p = 1; p <= n; p++) {
         const page = await doc.getPage(p);
+        let caracteresPage = 0;
         try {
           const tc = await page.getTextContent();
           for (const it of tc.items || []) {
             if (!it || typeof it.str !== 'string') continue;
+            caracteresPage += it.str.trim().length;
             items.push({ page: p, str: it.str, x: it.transform ? it.transform[4] : 0, y: it.transform ? it.transform[5] : 0 });
             if (texte.length < MAX_TEXTE) texte += it.str + (it.hasEOL ? '\n' : ' | ');
           }
         } catch { /* couche texte absente : pas de comparaison */ }
-        let trouve = null, vues = 0;
+        // deux compteurs : toutes les images peintes (détection d'une page scannée, 20 au plus) ; les images CANDIDATES au code
+        // après filtres (6 au plus, comme avant) — des logos placés avant le code ne l'empêchent pas d'être examiné
+        let trouve = null, examinees = 0, vues = 0, grandeImage = false;
         try {
           const ops = await page.getOperatorList();
           const OPS = deps.pdfjs.OPS || {};
-          for (let i = 0; i < ops.fnArray.length && !trouve && vues < IMAGES_PAR_PAGE && budget.essais > 0; i++) {
+          for (let i = 0; i < ops.fnArray.length && !trouve && examinees < IMAGES_EXAMINEES; i++) {
             if (ops.fnArray[i] !== OPS.paintImageXObject && ops.fnArray[i] !== OPS.paintInlineImageXObject) continue;
+            examinees++;
             const arg = ops.argsArray[i] && ops.argsArray[i][0];
             const obj = typeof arg === 'string' ? await attendreObjet(page, arg, deps.delaiObjetMs) : arg;
-            if (!obj || !obj.width || !obj.height || obj.width * obj.height > 16e6) continue;
+            if (!obj || !obj.width || !obj.height) continue;
+            if (obj.width * obj.height >= 1e6) grandeImage = true;        // image d'au moins 1 Mpx : page scannée ou photographiée
+            if (obj.width * obj.height > 16e6) continue;
             // Un 2D-Doc est presque carré et lisible : on ignore vignettes, filets et bandeaux.
             const ratio = Math.max(obj.width, obj.height) / Math.min(obj.width, obj.height);
             if (Math.min(obj.width, obj.height) < 16 || ratio > 3) continue;
+            if (budget.essais <= 0 || vues >= IMAGES_PAR_PAGE) continue;
             vues++;
             const c = imageVersCanvas(obj, deps.creerCanvas); if (c) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
             await pause();
           }
         } catch { /* liste d'opérations indisponible : on passe au rendu */ }
-        if (!trouve && budget.essais > 0) {
+        // LECTURE-PHOTOS : page SCANNÉE ou photographiée — sans couche texte, ou portée par une grande image (les applications
+        // de numérisation ajoutent souvent un texte reconnu) → lecteur de photos, indépendamment du budget de la recherche
+        // directe. Une page numérique (PDF d'impots.gouv, bulletin de logiciel de paie) n'y passe pas (temps borné).
+        const photoProbable = !!deps.lirePhoto && (caracteresPage < 20 || grandeImage);
+        if (!trouve && (budget.essais > 0 || photoProbable)) {
           const vp1 = page.getViewport({ scale: 1 }); const k = Math.min(3, 2400 / Math.max(vp1.width, vp1.height));
           const vp = page.getViewport({ scale: k }); const c = deps.creerCanvas(Math.ceil(vp.width), Math.ceil(vp.height));
           await page.render({ canvasContext: c.getContext('2d'), viewport: vp, intent: 'print' }).promise;
-          trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
+          if (photoProbable) {
+            // page scannée : le lecteur de photos SEUL (il essaie d'abord l'image entière) — pas les fenêtres sur le fil principal.
+            // Une exception = lecture pas finie (délai) : « inacheve », la pièce sera relue — jamais « aucun code ».
+            try { trouve = await deps.lirePhoto(c); if (trouve) parPhoto = true; } catch { inacheve = true; }
+          } else if (budget.essais > 0) trouve = chercherCode(c, deps.lire, deps.creerCanvas, budget);
           await pause();
         }
         ajouter(trouve);
@@ -133,7 +154,8 @@ export async function analyserFichier(fichier, deps) {
       return {
         illisible: false, estPdf: true, pages: doc.numPages || 0, codes, texte,
         metadonnees: { producteur: String(meta.Producer || '').slice(0, 120), createur: String(meta.Creator || '').slice(0, 120), creeLe: String(meta.CreationDate || ''), modifieLe: String(meta.ModDate || '') },
-        enregistrements: enr.enregistrements, superpositions: trouverSuperpositions(items)
+        enregistrements: enr.enregistrements, superpositions: trouverSuperpositions(items),
+        ...(inacheve ? { inacheve: true } : {}), ...(parPhoto ? { codeParPhoto: true } : {})
       };
     } finally { try { doc.destroy && doc.destroy(); } catch { /* rien */ } }
   }
@@ -145,8 +167,13 @@ export async function analyserFichier(fichier, deps) {
     const c = deps.creerCanvas(Math.round(img.largeur * k), Math.round(img.hauteur * k));
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img.source, 0, 0, c.width, c.height);
     try { if (img.source && typeof img.source.close === 'function') img.source.close(); } catch { /* rien */ }   // mémoire (téléphones)
-    ajouter(chercherCode(c, deps.lire, deps.creerCanvas, budget));
-    return { illisible: false, estPdf: false, codes, texte: '' };
+    // LECTURE-PHOTOS : une photo passe par le lecteur de photos (localisation, redressement, grille) s'il est fourni
+    // (une exception = lecture pas finie, faute de temps : « inacheve », la pièce sera relue — jamais « aucun code »)
+    let t = null, inacheve = false;
+    if (deps.lirePhoto) { try { t = await deps.lirePhoto(c); } catch { inacheve = true; } }
+    else t = chercherCode(c, deps.lire, deps.creerCanvas, budget);
+    ajouter(t);
+    return { illisible: false, estPdf: false, codes, texte: '', ...(inacheve ? { inacheve: true } : {}), ...(t && deps.lirePhoto ? { codeParPhoto: true } : {}) };
   }
   return { illisible: true, estPdf: false, codes: [], texte: '' };
 }

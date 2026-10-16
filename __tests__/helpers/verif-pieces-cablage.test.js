@@ -10,13 +10,16 @@ import * as DeuxDDoc from '../../js/core/deux-d-doc.js';
 import * as VerifPieces from '../../js/core/verif-pieces.js';
 import * as PiecesCand from '../../js/core/pieces-candidature.js';
 import * as ReglesBulletin from '../../js/core/regles-bulletin.js';
+import * as LecturePhoto from '../../js/core/lecture-photo.js';
+import * as LecturePhotoClient from '../../js/core/lecture-photo-client.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
-const SRC = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_ensureZxing', '_zxingLecteur', '_candVerifEtat', '_candVerifBadgeHtml', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifResumeHtml', '_candVerifLignesHtml', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
+const SRC = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_ensureZxing', '_canvasVersGris', '_zxingLecteur', '_lecturePhotoClient', '_candVerifEtat', '_candVerifBadgeHtml', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifResumeHtml', '_candVerifLignesHtml', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
   .map((n) => extraireFonction(P1, n)).join('\n') + '\n'
   + 'async ' + extraireFonction(P1, '_tddocConfiance') + '\n'
+  + 'async ' + extraireFonction(P1, '_lirePhotoCanvas') + '\n'
   + 'async ' + extraireFonction(P1, '_candVerifierPieces') + '\n'
   + extraireFonction(P2, '_candSetPieceType');
 
@@ -39,7 +42,8 @@ function monter(DB, { analyse, binaire = 'data:application/pdf;base64,JVBERg==',
   const dom = { 'vp-title': { textContent: '' }, 'vp-body': { innerHTML: '' }, 'vp-foot': { innerHTML: '' }, 'ov-fiche-candidat': { classList: { contains: () => false } }, 'ov-verif-piece': { classList: { contains: () => false } } };
   const window = {
     DeuxDDoc, VerifPieces, PiecesCand, ReglesBulletin, ZXing: { DecodeHintType: { TRY_HARDER: 3, POSSIBLE_FORMATS: 2 }, BarcodeFormat: { DATA_MATRIX: 5 }, MultiFormatReader: function () { this.setHints = () => {}; } }, __immoHorsLigne: horsLigne,
-    LecturePieces: { analyserFichier: async () => { j.lus++; if (analyse instanceof Error) throw analyse; return analyse; } },
+    LecturePhoto, LecturePhotoClient,
+    LecturePieces: { analyserFichier: async (fichier, d) => { j.lus++; j.deps = d; if (analyse instanceof Error) throw analyse; return analyse; } },
     pdfjsLib: {}
   };
   const deps = {
@@ -51,10 +55,10 @@ function monter(DB, { analyse, binaire = 'data:application/pdf;base64,JVBERg==',
     openFicheCandidat: () => { j.fiche++; }, openM: (id) => { j.modale = id; }, el: (id) => dom[id] || null, escHtml,
     _uiIcon: (n) => '<svg data-i="' + n + '"></svg>', _lyQ: lyQ, fd: (s) => s.split('-').reverse().join('/'),
     _auditLog: () => {}, _ficheCandidatOuverte: 'c1', _candVerifEnCours: new Set(), _candVerifPiecesEnCours: new Set(),
-    _tddocMagasin: null, _tddocMagasinLe: 0, _tddocMagasinPromesse: null, _zxingPromesse: null
+    _tddocMagasin: null, _tddocMagasinLe: 0, _tddocMagasinPromesse: null, _zxingPromesse: null, Worker: function () { throw new Error('pas de Worker ici'); }
   };
   const noms = Object.keys(deps).filter((n) => !['_tddocMagasin', '_tddocMagasinLe', '_tddocMagasinPromesse', '_zxingPromesse'].includes(n));
-  const prelude = 'let _tddocMagasin = null, _tddocMagasinLe = 0, _tddocMagasinPromesse = null; let _zxingPromesse = null; let _candIaOcr = { actif: null, le: 0 };\n';
+  const prelude = 'let _tddocMagasin = null, _tddocMagasinLe = 0, _tddocMagasinPromesse = null; let _zxingPromesse = null; let _lecturePhotoCli = null; let _candIaOcr = { actif: null, le: 0 };\n';
   const exp = '\nreturn { _candVerifierPieces, _candVerifLigneHtml, _candVerifResumeHtml, _candVerifDetail, _candPointsAVerifier, _candSetPieceType, _candVerifReglages };';
   const app = new Function(...noms, prelude + SRC + exp)(...noms.map((n) => deps[n]));
   return { app, j, dom };
@@ -62,6 +66,20 @@ function monter(DB, { analyse, binaire = 'data:application/pdf;base64,JVBERg==',
 const AVIS = (o = {}) => Object.assign({ id: 'd1', parentType: 'candidat', parentId: 'c1', category: 'ressources', pieceType: 'I.D.1', mime: 'application/pdf', originalName: 'avis.pdf', uploadedAt: '2026-10-12T10:00:00Z' }, o);
 const parc = (docs = [AVIS()], statut = 'enCours') => ({ params: {}, candidats: [{ id: 'c1', nom: 'Marchal', prenom: 'Inès', statut }], documents: docs });
 const SANS_CODE = { illisible: false, estPdf: true, codes: [], texte: '', metadonnees: { createur: 'Paie', creeLe: 'D:20260701', modifieLe: 'D:20261001' }, enregistrements: 1, superpositions: [] };
+
+describe('LECTURE-PHOTOS : lecteur réglé une fois, lecteur de photos branché', () => {
+  it('la lecture d\'une pièce reçoit le lecteur de photos (Worker, repli sur le fil principal)', async () => {
+    const DB = parc([AVIS({ mime: 'image/jpeg', originalName: 'avis.jpg' })]);
+    const { app, j } = monter(DB, { analyse: { illisible: false, estPdf: false, codes: [], texte: '' } });
+    await app._candVerifierPieces('c1');
+    expect(typeof j.deps.lirePhoto).toBe('function'); expect(typeof j.deps.lire).toBe('function');
+    expect(DB.documents[0].verif.lecteurPhoto).toBe(VerifPieces.LECTEUR_PHOTO);
+  });
+  it('bogue v15.744 corrigé : plus de setHints() suivi de decode(bitmap) sans réglages ; un seul lecteur (lecture-photo.js)', () => {
+    expect(P1).not.toMatch(/setHints\(hints\)/);
+    expect(extraireFonction(P1, '_zxingLecteur')).toContain('LecturePhoto.lecteurZxing(ZX)');
+  });
+});
 
 describe('déclenchement et enregistrement', () => {
   it('avis sans code lisible : vérification posée sur la pièce, constats V4 + T1, une sauvegarde, fiche rafraîchie', async () => {
@@ -101,10 +119,17 @@ describe('déclenchement et enregistrement', () => {
     expect(DB.documents[1].verif).toBeUndefined();
   });
   it('jamais bloquant : binaire absent, lecture en échec, réglage coupé → rien d\'enregistré', async () => {
-    for (const o of [{ binaire: null, analyse: SANS_CODE }, { analyse: new Error('pdf') }]) {
-      const DB = parc(); const { app, j } = monter(DB, o);
+    { const DB = parc(); const { app, j } = monter(DB, { binaire: null, analyse: SANS_CODE });
       await app._candVerifierPieces('c1');
-      expect(DB.documents[0].verif).toBeUndefined(); expect(j.saves).toBe(0);
+      expect(DB.documents[0].verif).toBeUndefined(); expect(j.saves).toBe(0); }
+    // LECTURE-PHOTOS : lecture en échec ou pas finie → aucune vérification écrite, pièce « reportée » (pas de relecture en
+    // boucle à chaque ouverture : au plus une fois par heure)
+    for (const analyse of [new Error('pdf'), { illisible: false, estPdf: false, codes: [], texte: '', inacheve: true }]) {
+      const DB = parc([AVIS({ mime: 'image/jpeg' })]); const { app, j } = monter(DB, { analyse });
+      await app._candVerifierPieces('c1');
+      expect(DB.documents[0].verif).toBeUndefined(); expect(DB.documents[0].verifReportee).toBeTruthy(); expect(DB.documents[0].verifReports).toBe(1); expect(j.saves).toBe(1);
+      await app._candVerifierPieces('c1');
+      expect(j.lus).toBe(1);                                              // pas relue aussitôt
     }
     const DB = parc(); DB.params.verifPieces = { locaux: false };
     const { app, j } = monter(DB, { analyse: SANS_CODE });

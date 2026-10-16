@@ -23,6 +23,84 @@ const CATS = [
   { key:'garant',     req:false, title:'Pièces du garant',           big:'Identité, domicile, activité et ressources du garant', small:"Ou l'attestation de visa Visale" }
 ];
 const TYPES = CAND.types || {};
+
+// ── LECTURE-PHOTOS : prise de vue et contrôle immédiat des photos (D6-D8) ──────────────────────────────
+// Lecture du code de l'État SUR LE TÉLÉPHONE (Worker, rien n'est envoyé) ; trois issues courtes ; jamais bloquant.
+const V = encodeURIComponent(CAND.v || '');
+const ICO = {
+  photo: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  fichier: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>',
+  ok: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.5"/></svg>',
+  alerte: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg>',
+  reprendre: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/></svg>',
+  garder: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>',
+  soleil: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg>'
+};
+const AVEC_AVIS = ['ressources', 'garant'];             // zones où un avis d'imposition peut être déposé
+let _lecteurPromesse = null, _issue = null;
+// Lecteur chargé à la demande, dans un Worker de module SEULEMENT : sans Worker, aucune lecture (silence) — jamais de
+// calcul sur le fil de la page (envois, boutons) ; import borné à 15 s.
+function lecteurPhotos(){
+  if(_lecteurPromesse) return _lecteurPromesse;
+  const borne = new Promise((_, rej) => setTimeout(() => rej(new Error('lecteur : délai')), 15000));
+  _lecteurPromesse = Promise.race([borne, (async () => {
+    const [C, L] = await Promise.all([import('/vendor/lecture-photo-client.js?v=' + V), import('/vendor/lecture-photo.js?v=' + V)]);
+    _issue = L.issueControle;
+    const client = C.clientLecturePhoto({ creerWorker: () => new Worker('/vendor/lecture-photo-worker.js?v=' + V, { type: 'module' }), delaiMs: 30000 });
+    return { client, sourceVersGris: C.sourceVersGris };
+  })()]);
+  _lecteurPromesse.catch(() => { _lecteurPromesse = null; });
+  return _lecteurPromesse;
+}
+const creerCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+const typeDeTuile = (tile) => { const s = tile.querySelector('.tsel select'); return s ? s.value : ''; };
+// Contrôles l'un après l'autre (mémoire des téléphones : une photo de 12 Mpx décodée pèse ~48 Mo) ; au-delà de 3 en
+// attente, les suivants ne sont pas contrôlés (rien n'est dit, le dépôt continue).
+let _fileControles = Promise.resolve(), _enAttente = 0;
+function controlerPhoto(tile, file){
+  if (_enAttente >= 3) return;
+  _enAttente++;
+  tile._controle = { etat: 'en' }; afficherControle(tile);
+  _fileControles = _fileControles.then(() => controlerMaintenant(tile, file)).catch(() => {}).then(() => { _enAttente--; });
+}
+async function controlerMaintenant(tile, file){
+  try {
+    if (tile._retiree) return;
+    const L = await lecteurPhotos();
+    const bmp = await createImageBitmap(file);
+    let g;
+    try { g = L.sourceVersGris(bmp, bmp.width, bmp.height, creerCanvas, 3000); } finally { try { if (bmp.close) bmp.close(); } catch(_) {} }
+    const r = await L.client.lire(g, { essais: 40, delaiMs: 25000, nettete: true });
+    // pas de réponse, lecture pas finie ou impossible : rien n'est dit (« pas de code » ne vaut que pour une lecture finie)
+    tile._controle = r && !r.delai && !r.interrompu && !r.indisponible ? { etat: 'fait', code: r.texte || null, nettete: r.nettete } : null;
+  } catch(_) { tile._controle = null; }
+  afficherControle(tile);
+}
+function afficherControle(tile){
+  let z = tile.querySelector('.ctl');
+  const c = tile._controle;
+  const issue = c && c.etat === 'fait' && _issue ? _issue({ code: c.code, avis: (CAND.typesAvis || []).includes(typeDeTuile(tile)), nettete: c.nettete }) : null;
+  if (!c || tile._garde || (c.etat === 'fait' && !issue)) { if (z) z.remove(); return; }
+  if (!z) { z = document.createElement('div'); z.className = 'ctl'; z.setAttribute('role', 'status'); tile.appendChild(z); }
+  if (c.etat === 'en') { z.innerHTML = '<div class="etat en"><span class="spin" aria-hidden="true"></span>Vérification de la photo…</div>'; return; }
+  z.innerHTML = '<div class="etat ' + (issue.reprendre ? 'ko' : 'ok') + '">' + (issue.reprendre ? ICO.alerte : ICO.ok) + esc(issue.libelle) + '</div>'
+    + (issue.reprendre ? '<div class="actions"><button type="button" class="btn bp ctl-reprendre">' + ICO.reprendre + 'Reprendre</button><button type="button" class="btn bs ctl-garder">' + ICO.garder + 'Garder</button></div>' : '');
+  const r = z.querySelector('.ctl-reprendre'), k = z.querySelector('.ctl-garder');
+  if (r) r.addEventListener('click', () => { const cat = tile.dataset.cat; removeTile(tile); prendrePhoto(cat); });
+  if (k) k.addEventListener('click', () => { tile._garde = true; afficherControle(tile); });
+}
+// « Prendre en photo » : viseur (caméra du navigateur) ; caméra refusée ou absente → appareil photo du téléphone.
+let _priseEnCours = false;
+async function prendrePhoto(cat){
+  const repli = () => { const i = $(`input[data-camera="${cat}"]`); if (i) i.click(); };
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function' || typeof Worker === 'undefined') { repli(); return; }
+  if (_priseEnCours) return;                            // double appui : un seul viseur
+  _priseEnCours = true;
+  try {
+    const [L, Vs] = await Promise.all([lecteurPhotos(), import('/viseur.js?v=' + V)]);
+    await Vs.ouvrirViseur({ lecteur: L.client, sourceVersGris: L.sourceVersGris, surPhoto: (f) => uploadFile(cat, f), surRepli: repli, surFermeture: () => { _priseEnCours = false; } });
+  } catch(_) { _priseEnCours = false; repli(); }
+}
 const STEP_LABELS = ['Identité', 'Situation', 'Garantie', 'Pièces'];
 
 // ── État ─────────────────────────────────────────────────────────────────
@@ -45,6 +123,7 @@ function addTypeSelect(tile, cat, cur){
       if(!r.ok) throw new Error('HTTP ' + r.status);
       const p = (pieces[cat]||[]).find(x => x.pieceId === pieceId); if(p) p.type = sel.value;
       tile.classList.remove('err');
+      afficherControle(tile);                           // « Code illisible » ne vaut que pour un avis d'impôt (D8)
     } catch(_) { tile.classList.add('err'); const s = tile.querySelector('.s'); if(s) s.textContent = 'type non enregistré — réessayer'; }
   });
   tile.appendChild(wrap);
@@ -76,8 +155,11 @@ function build() {
   const piecesHtml = CATS.map(cat => {
     const inner = `
     <div class="uph"><span>${cat.title}</span>${cat.req?'<span class="req">*</span>':''}</div>
-    <div class="drop" data-cat="${cat.key}"><span class="plus">+</span><div class="big">${cat.big}</div><div class="small">${cat.small}</div></div>
+    <div class="drop" data-cat="${cat.key}"><div class="big">${cat.big}</div><div class="small">${cat.small}</div>
+      <div class="btns2"><button type="button" class="btn bp" data-photo="${cat.key}">${ICO.photo}Prendre en photo</button><button type="button" class="btn bs" data-fichier="${cat.key}">${ICO.fichier}Choisir un fichier</button></div>
+      ${AVEC_AVIS.includes(cat.key) ? `<div class="conseil">${ICO.fichier}<span>Avis d'impôt : le PDF d'impots.gouv est le plus sûr.</span></div>` : ''}</div>
     <input type="file" multiple accept="image/jpeg,image/png,application/pdf" data-input="${cat.key}" hidden>
+    <input type="file" accept="image/jpeg,image/png" capture="environment" data-camera="${cat.key}" hidden>
     <div class="tiles" id="tiles-${cat.key}"></div>`;
     // La pièce du garant n'a de sens que si un garant est déclaré (Q2) → conteneur masquable,
     // synchronisé avec le switch « J'ai un garant ». Sans garant, aucun dépôt garant proposé.
@@ -176,9 +258,9 @@ function build() {
       <section class="sec" data-step="4" hidden>
         <div class="sec-h"><span class="si">📎</span> Pièces justificatives</div>
         <div class="info" style="margin-bottom:12px"><span class="i">⚖️</span><span>Seules les pièces de la liste fixée par le décret n° 2015-1437 peuvent être demandées. Aucune autre pièce n'est à fournir (relevé bancaire, photo, carte Vitale…), et aucune somme ne peut être réclamée avant la signature du bail. <b>JPG, PNG ou PDF · 20 Mo max par fichier.</b> Plusieurs fichiers possibles ; reprise plus tard avec le même lien.</span></div>
-        <div class="info" style="margin-bottom:12px"><span class="i">🔎</span><span><b>Contrôles des pièces.</b> Le propriétaire peut vérifier l'authenticité des pièces déposées : signature électronique du code 2D-Doc des avis d'imposition (vérifiée sur son appareil, d'après la liste de confiance publiée par l'État), cohérence des calculs des bulletins de salaire (si le propriétaire l'active : montants lus par une intelligence artificielle, Mistral AI, dans l'Union européenne), informations techniques des fichiers PDF. Ces contrôles relèvent des faits : ils ne donnent ni note ni avis, et la décision appartient au propriétaire. Pour un avis d'imposition, déposer le PDF téléchargé sur impots.gouv permet le contrôle de sa signature.</span></div>
+        <div class="info" style="margin-bottom:12px"><span class="i">🔎</span><span><b>Contrôles des pièces.</b> Le propriétaire peut vérifier l'authenticité des pièces déposées : signature électronique du code 2D-Doc des avis d'imposition (vérifiée sur son appareil, d'après la liste de confiance publiée par l'État), cohérence des calculs des bulletins de salaire (si le propriétaire l'active : montants lus par une intelligence artificielle, Mistral AI, dans l'Union européenne), informations techniques des fichiers PDF. Ces contrôles relèvent des faits : ils ne donnent ni note ni avis, et la décision appartient au propriétaire. Pour un avis d'imposition, déposer le PDF téléchargé sur impots.gouv permet le contrôle de sa signature. Une photo est d'abord lue sur cet appareil (photo floue, code illisible) : rien n'est envoyé pour cette lecture.</span></div>
         ${piecesHtml}
-        <div class="info warn" style="margin-top:12px"><span class="i">💡</span><span>Astuce mobile : photographiez vos documents un par un, la lumière du jour suffit. Vous pouvez revenir compléter avec le même lien.</span></div>
+        <div class="conseil photo-conseil" style="margin-top:12px">${ICO.soleil}<span>Photo : à plat, bien éclairé, page entière, sans reflet.</span></div>
         <div class="rgpd" style="margin-top:14px"><a id="rgpd-toggle">Mentions d'information RGPD ▾</a></div>
         <div class="rgpd-panel" id="rgpd-panel" hidden><b>Responsable :</b> le propriétaire du bien ci-dessus. <b>Finalité :</b> étudier la candidature à la location et vérifier l'authenticité des pièces. <b>Destinataires :</b> le propriétaire, et les associés de la société qui gère le bien le cas échéant. <b>Contrôles :</b> le propriétaire peut vérifier dans l'Annuaire des entreprises de l'État que l'employeur indiqué est une entreprise active ; la signature du code 2D-Doc des pièces qui en portent un (avis d'imposition notamment), sur son appareil ; les informations techniques des fichiers PDF ; et, si le propriétaire l'active, la cohérence des calculs des bulletins de salaire, dont la première page est lue par une intelligence artificielle (Mistral AI, sous-traitant, lecture dans l'Union européenne, conservation 30 jours au plus pour la détection des abus, aucun entraînement). Ces contrôles relèvent des faits : aucun score n'est calculé, aucune décision n'est automatique, et aucune pièce supplémentaire n'est demandée. <b>Conservation :</b> dossier non retenu supprimé 30 jours après la décision (pièces, fichiers et résultats des contrôles compris) ; dossier jamais envoyé effacé au plus tard 7 jours après l'expiration du lien ; dossier retenu conservé avec le bail. <b>Hébergement :</b> Cloudflare (dépôt en ligne, réseau mondial) et Supabase (espace du propriétaire, serveurs en Irlande), données chiffrées en transit ; aucune donnée revendue. <b>Droits :</b> accès, rectification, effacement, opposition, auprès du propriétaire ; réclamation possible auprès de la CNIL (cnil.fr).</div>
       </section>
@@ -286,6 +368,7 @@ function tileDone(tile, pieceId, sizeTxt){
 function tileError(tile, msg){ tile.classList.add('err'); tile.querySelector('.s').textContent = msg; const pbar=tile.querySelector('.pbar'); if(pbar)pbar.remove(); }
 async function removeTile(tile){
   const pieceId = tile.dataset.pieceId, cat = tile.dataset.cat;
+  tile._retiree = true;
   if(pieceId){
     try { await fetch(`${API}/piece/${pieceId}`, { method:'DELETE', headers:{ 'X-Cand-Token':TOKEN } }); } catch(_){}
     pieces[cat] = (pieces[cat]||[]).filter(p => p.pieceId !== pieceId);
@@ -297,7 +380,9 @@ function uploadFile(cat, file){
   if(!ALLOWED.includes(file.type)){ makeTile(cat, { name:file.name, type:file.type, mode:'err', sub:'format non accepté (JPG, PNG, PDF)' }); return; }
   if(file.size > MAX_BYTES){ makeTile(cat, { name:file.name, type:file.type, mode:'err', sub:sizeTxt+' · trop lourd (20 Mo max)' }); return; }
   const tile = makeTile(cat, { name:file.name, type:file.type, mode:'up', sub:'0 %' });
+  if(file.type === 'image/jpeg' || file.type === 'image/png') controlerPhoto(tile, file);   // contrôle immédiat, sur le téléphone
   const xhr = new XMLHttpRequest();
+  tile._xhr = xhr;
   xhr.open('POST', `${API}/piece`);
   xhr.setRequestHeader('X-Cand-Token', TOKEN);
   xhr.setRequestHeader('content-type', file.type);
@@ -305,6 +390,11 @@ function uploadFile(cat, file){
   xhr.setRequestHeader('X-Piece-Filename', encodeURIComponent(file.name));
   xhr.upload.onprogress = e => { if(e.lengthComputable) setTileProgress(tile, Math.round(e.loaded/e.total*100)); };
   xhr.onload = () => {
+    tile._xhr = null;
+    if(tile._retiree){                                    // retirée pendant l'envoi (« Reprendre ») : la pièce reçue est supprimée
+      if(xhr.status === 201){ try { const { pieceId } = JSON.parse(xhr.responseText); fetch(`${API}/piece/${pieceId}`, { method:'DELETE', headers:{ 'X-Cand-Token':TOKEN } }).catch(()=>{}); } catch(_){} }
+      return;
+    }
     if(xhr.status === 201){ const { pieceId } = JSON.parse(xhr.responseText); tileDone(tile, pieceId, sizeTxt); pieces[cat].push({ pieceId, filename:file.name, status:'done' }); }
     else if(xhr.status === 409){ tileError(tile, 'dossier déjà envoyé'); }
     else { tileError(tile, 'échec de l\'envoi — réessayez'); }
@@ -316,8 +406,12 @@ function bindUploads(){
   CATS.forEach(cat => {
     const drop = $(`.drop[data-cat="${cat.key}"]`);
     const input = $(`input[data-input="${cat.key}"]`);
-    drop.addEventListener('click', () => input.click());
+    const camera = $(`input[data-camera="${cat.key}"]`);
+    drop.addEventListener('click', e => { if(e.target.closest('button')) return; input.click(); });
+    $(`[data-fichier="${cat.key}"]`).addEventListener('click', () => input.click());
+    $(`[data-photo="${cat.key}"]`).addEventListener('click', () => prendrePhoto(cat.key));
     input.addEventListener('change', () => { [...input.files].forEach(f => uploadFile(cat.key, f)); input.value=''; });
+    camera.addEventListener('change', () => { [...camera.files].forEach(f => uploadFile(cat.key, f)); camera.value=''; });
     ['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('dragover'); }));
     ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('dragover'); }));
     drop.addEventListener('drop', e => { [...(e.dataTransfer?.files||[])].forEach(f => uploadFile(cat.key, f)); });
