@@ -24,7 +24,7 @@ async function api(route, corps, opts = {}) {
   if (r.status === 410) { S.inactif = true; S.couche = null; render(); throw Object.assign(new Error('inactif'), { inactif: true }); }
   if (!r.ok) {
     let j = {}; try { j = await r.json(); } catch (e) { j = {}; }
-    throw Object.assign(new Error(j.message || (j.erreur === 'quota' ? 'Limite d\'aide automatique atteinte pour aujourd\'hui : écrire directement.' : MSG_ERREUR[r.status]) || 'Une erreur est survenue. Réessayer.'), { statut: r.status, code: j.erreur });
+    throw Object.assign(new Error(j.message || (j.erreur === 'quota' ? (j.motif === 'mois' ? 'L\'aide automatique n\'est pas disponible pour le moment : écrire directement.' : 'Limite d\'aide automatique atteinte pour aujourd\'hui : écrire directement.') : MSG_ERREUR[r.status]) || 'Une erreur est survenue. Réessayer.'), { statut: r.status, code: j.erreur });
   }
   return opts.blob ? r.blob() : r.json();
 }
@@ -215,7 +215,7 @@ async function transcrire(blob) {
   try { const r = await fetch('/api/ar/ia/transcrire', { method: 'POST', headers: { 'X-Ar-Jeton': S.jeton, 'Content-Type': blob.type || 'audio/webm' }, body: blob, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
     if (r.status === 410) { S.inactif = true; return render(); }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.erreur === 'quota' ? 'Limite de dictée atteinte pour aujourd\'hui : écrire directement.' : 'Dictée non comprise : écrire plutôt.');
+    if (!r.ok) throw new Error(j.erreur === 'quota' ? (j.motif === 'mois' ? 'La dictée n\'est pas disponible pour le moment : écrire directement.' : 'Limite de dictée atteinte pour aujourd\'hui : écrire directement.') : 'Dictée non comprise : écrire plutôt.');
     x.texte = (x.texte ? x.texte + ' ' : '') + (j.text || '');
   } catch (e) { toast(e.message); } finally { x.charge = false; render(); }
 }
