@@ -125,7 +125,7 @@ Tout est reproductible (`mockups/VERIF-DOCUMENTS/prototype/`), sans aucun docume
 | V6 | Nom signé / lu ≠ identité déclarée (comparaison sans accents ni tirets) | C11 |
 | B1 | Net à payer ≠ net avant impôt − impôt prélevé (tolérance 0,02 €) | R3243-1 9°-10°, arrêté 2016 |
 | B2 | Impôt prélevé ≠ base × taux (tolérance d'arrondi 0,10 €) | R3243-1 9° |
-| B3 | Net social > brut | arrêté 2016 II |
+| B3 | ~~Net social > brut~~ **retirée le 16/10/2026** (§9) | BOSS, montant net social |
 | B4 | Cumul net imposable(m) ≠ cumul(m−1) + net imposable(m) (même employeur, même année) | arrêté 2016, cumul annuel |
 | B5 | Périodes non consécutives / bulletin le plus récent antérieur de plus de 3 mois à la réception | décret 2015-1437 annexe I D 2° |
 | B6 | SIRET du bulletin ≠ SIRET déclaré, ou entreprise fermée / créée après la date d'entrée | C7, C8 (Annuaire) |
@@ -177,6 +177,7 @@ Soit **moins de 0,10 € par dossier** dans le pire cas. Quota proposé : 300 pa
 **Ce qui relève de la recherche (verrous scientifiques et techniques, résultat incertain)** :
 1. **Lecture robuste du DataMatrix sur photo de téléphone** (flou, perspective, faible contraste, moirage d'écran) : le prototype montre l'échec des lecteurs libres au-delà d'une certaine dégradation. Piste : localisation du code (détection du motif en L), redressement de perspective, binarisation adaptative, super-résolution, avant décodage — en local, sans envoi.
 2. **Extraction fiable de champs sur des bulletins hétérogènes** (centaines de logiciels de paie, mises en page libres) avec **mesure d'incertitude** : propagation de la confiance OCR jusqu'aux règles pour ne jamais produire un « écart » dû à une erreur de lecture (abstention calibrée).
+2 bis. **Banc de mesure des bulletins** (REGLES-PAIE, §9) : générateur de bulletins synthétiques 2026 (11 profils), lecteur local pdf.js, simulation d'erreurs de lecture et de retouches — `mockups/REGLES-PAIE/` (hors git).
 3. **Détection d'altérations sans code officiel** : indices structurels PDF (révisions, objets orphelins, texte recouvert, polices incohérentes, glyphes isolés), et sur images (incohérences locales de compression) — avec un taux de faux positifs maîtrisé sur des fichiers légitimement ré-enregistrés.
 4. **Présentation non scorante** : démontrer qu'un ensemble de constats n'agit pas comme un score de fait (protocole utilisateur, cf. SCHUFA).
 
@@ -222,3 +223,42 @@ Recommandations (toutes retenues) en **gras**.
 15. **Registre RGPD** : ce chantier met à jour le §6 (périmé : score, Drive) et la ligne Mistral ; **AIPD et analyse AI Act (art. 6(3)/6(4), exception fraude de l'annexe III 5(b)) transmises à l'avocat** avant l'ouverture publique ; base légale proposée : intérêt légitime. **Oui.**
 16. **Section R&D** (§7) : à reporter par le Pilotage dans `docs/CDC-PROPRYO.md` (§7 IA) et dans le dossier SEMIA. **Oui.**
 17. **Contraste du bouton corail** (blanc sur `#ff5a3c` = 3,10:1 < 4,5 exigé par M-17), présent dans toute l'app : **sujet séparé pour le Pilotage**, hors de ce chantier.
+
+---
+
+## 9. REGLES-PAIE (16/10/2026) : vérifier les chiffres des bulletins (règles françaises 2026)
+
+> Branche `feat/regles-paie` (worktree `Immo-wt-regles-paie`), version provisoire **v15.752**. Décision de Didier (16/10) : **l'IA lit tous les bulletins, PDF ou photo** (tâche relais `bulletin-paie`, Mistral OCR, point d'accès UE, **brique toujours éteinte** : `AI_OCR` absente). Banc de mesure hors git : `mockups/REGLES-PAIE/`.
+
+### 9.1 Valeurs 2026 vérifiées (consultées le 15/10/2026)
+SMIC horaire 12,02 € (décret 2025-1228) puis **12,31 € au 01/06/2026** (arrêté du 22/05/2026) ; PMSS 4 005 € / PASS 48 060 € (arrêté du 22/12/2025) ; taux salariés Urssaf (page du 01/01/2026) : vieillesse 6,90 % plafonnée + 0,40 %, CSG 6,80 % déductible + 2,40 % non déductible, CRDS 0,50 %, sur 98,25 % du brut dans la limite de 4 PASS ; Alsace-Moselle 1,30 % (régime général ; 1,19 % au régime agricole dès le 01/07/2026, MSA) ; Agirc-Arrco 2026 (circulaire 2025-16, répartition « sauf dispositions particulières ») ; apprentis exonérés jusqu'à 50 % du SMIC (BOSS) ; heures sup. : réduction 11,31 % (Urssaf) ; montant net social : contributions patronales santé et prévoyance **intégrées** (BOSS) ; plafond : régularisation progressive mois par mois (BOSS, assiette générale ch. 6).
+
+### 9.2 Règles (js/core/regles-bulletin.js)
+| Code | Règle | Statut |
+|---|---|---|
+| B1, B2 | net payé = net avant impôt − impôt ; impôt = base × taux | conservées |
+| B3 | net social ≤ brut | **retirée** : le net social intègre les parts patronales santé/prévoyance (BOSS) → faux écart sur les apprentis |
+| B4, CB | cumul net imposable / **cumul brut** = cumul précédent + mois (même SIRET, même année) | conservée / ajoutée |
+| B5, B6, B7 | périodes, identité/SIRET, contrat | conservées (garde-fou de lecture ajouté) |
+| N1 | brut − cotisations salariales ± lignes entre le total et le net = net avant impôt | **ancre seulement** (une ligne non lue produirait le même écart qu'un net retouché) |
+| L1, L2 | base × taux = montant par ligne ; somme des lignes = total (L2 : ancre seulement) | ajoutées |
+| S1 | heures × taux horaire = salaire de base (arrondi 151,67 h toléré) | ajoutée |
+| C2 | cumul ≥ montant du mois ; = en janvier | ajoutée |
+| TL | taux salariaux légaux 2026 sur les lignes reconnues (hors revenus de remplacement 6,2 %) | ajoutée (2026 seulement) |
+| CS | assiette CSG non déductible ≥ assiette déductible | ajoutée |
+| — | assiette plafonnée ≤ PMSS ; taux Agirc-Arrco ; assiette CSG ≥ 98,25 % brut ; net imposable recalculé ; SMIC ; taux global des « charges » | **écartées** (exceptions légitimes non visibles sur le bulletin, ou faux écarts mesurés) |
+
+### 9.3 Garde-fou de lecture : une erreur de lecture ne produit jamais « À vérifier »
+1. Quorum : constats seulement si **au moins 2 égalités d'ancrage** tiennent (B1, N1, L2, S1) ; sinon « valeurs lues », aucun constat.
+2. Un écart qu'**une** erreur de lecture plausible d'**une** valeur explique (chiffre remplacé, deux chiffres inversés, chiffre en trop/en moins, virgule déplacée, signe perdu), **sans casser une autre égalité qui tient**, n'est pas un constat (rangé dans `incertaines`, non affiché).
+3. Lignes décalées (taux légal d'une autre ligne, plusieurs taux hors norme) : pas de constat de taux. Cumul égal au mois hors janvier : colonne du mois lue, ignoré. Période : les cumuls tranchent entre trou réel et mois mal lu. Nom à une lettre près, SIRET / date à un chiffre près : pas de constat.
+4. Relais : SIRET à clé de Luhn (La Poste à part), **chaque nombre de l'annotation doit figurer dans le texte reconnu** de la page (sinon écarté, compté) ; lignes bornées à 40 ; texte reconnu jamais renvoyé ni journalisé.
+
+### 9.4 Mesures (corpus 100 % synthétique, `node mockups/REGLES-PAIE/mesure-ia.mjs --essais 10`)
+- Dossiers légitimes lus parfaitement : **0 / 88** constat.
+- **5 680 erreurs de lecture simulées** (chiffre substitué, transposition, décimale déplacée, ligne sautée, libellés décalés, signe, ligne entre total et net sautée), une par dossier : **0 faux « À vérifier » avec garde-fou** (0,0 %) contre **3 689 (64,9 %) sans**.
+- Prix (détection des retouches, lecture parfaite) : 100 % pour les retouches de plusieurs chiffres (net ×1,3, cumuls ×1,2, taux CSG/vieillesse faux) ; **31,8 %** pour « net payé +300 » ou « brut +500 » (un seul chiffre changé) ; **0 %** pour les nets retouchés ensemble (N1 ancre seulement) et le total des cotisations retouché seul.
+- Phase 1 (lecteur local pdf.js, non retenu en V1) : 99,7 % de valeurs exactes sur 6 mises en page connues, mais lecture fausse sur mises en page inconnues → reste un **banc de mesure R&D** (`mockups/REGLES-PAIE/lecteur.mjs`), cf. §7 verrou 2.
+
+### 9.5 Coût et taille
+Prix inchangé : l'OCR annoté est facturé **à la page** (§6) ; le schéma étendu ne change que la taille de la réponse (≤ 8 Ko au pire : 40 lignes bornées, libellés ≤ 80 caractères). Délai de la tâche inchangé (45 s).

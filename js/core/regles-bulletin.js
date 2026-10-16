@@ -1,8 +1,24 @@
-// js/core/regles-bulletin.js — VERIF-DOCUMENTS lot 3 (v15.740 provisoire).
+// js/core/regles-bulletin.js — VERIF-DOCUMENTS lot 3 (v15.740) ; REGLES-PAIE (v15.752 provisoire).
 // RÈGLES DE COHÉRENCE des bulletins de salaire d'un dossier, appliquées aux valeurs LUES par l'IA (tâche relais
-// « bulletin-paie ») et éventuellement CORRIGÉES par le bailleur. L'IA lit, la règle décide : chaque constat cite son
-// texte (Code du travail, art. R3243-1 ; arrêté du 25/02/2016 ; décret n° 2015-1437) et ses valeurs. Une valeur
-// absente = règle non applicable (jamais un écart). Aucun score, aucun total, aucun mot de jugement.
+// « bulletin-paie », PDF ou photo) et éventuellement CORRIGÉES par le bailleur. L'IA lit, la règle décide : chaque constat
+// cite son texte (Code du travail, art. R3243-1 ; arrêté du 25/02/2016 ; décret n° 2015-1437 ; Urssaf ; BOSS) et ses
+// valeurs. Une valeur absente = règle non applicable (jamais un écart). Aucun score, aucun total, aucun mot de jugement.
+//
+// GARDE-FOU DE LECTURE (REGLES-PAIE, décision du 16/10/2026) : une erreur de lecture ne doit jamais produire un constat.
+//  1. Quorum : les constats d'un bulletin ne sont produits que si au moins 2 égalités « d'ancrage » indépendantes tiennent
+//     (net à payer = net avant impôt − impôt ; brut − cotisations ± lignes = net avant impôt ; somme des lignes = total ;
+//     heures × taux = salaire de base). Sinon : valeurs lues, aucun constat (`lectureIncertaine`).
+//  2. Écart explicable par UNE erreur de lecture plausible (un chiffre remplacé, deux chiffres inversés, un chiffre en trop
+//     ou en moins, virgule déplacée ou perdue, signe perdu) d'UNE valeur, sans casser une autre égalité qui tient :
+//     règle non appliquée (rangée dans `incertaines`, jamais un constat). Prix assumé : une retouche d'UN seul chiffre d'un
+//     montant que rien d'autre ne recoupe n'est pas relevée.
+//  3. Lignes décalées (taux légal d'une autre ligne, ou plusieurs taux hors norme) : aucun constat de taux.
+//  4. Un cumul lu égal au montant du mois, hors janvier et hors mois d'entrée, est une lecture de la mauvaise colonne : ignoré.
+//  5. N1 (brut − cotisations ± lignes = net avant impôt) reste une ancre : une ligne non lue entre le total et le net
+//     produirait le même écart qu'un net retouché.
+// Règles écartées après étude (mockups/REGLES-PAIE, phase 1) : net social ≤ brut (B3 retirée : le montant net social
+// intègre les contributions patronales santé et prévoyance, BOSS), assiette plafonnée ≤ PMSS (régularisation progressive),
+// taux Agirc-Arrco, assiette CSG ≥ 98,25 % du brut, net imposable recalculé, SMIC, taux global des cotisations.
 // Module pur. Testé par __tests__/helpers/regles-bulletin.test.js.
 
 import { identiteConcorde } from './deux-d-doc.js';
@@ -10,39 +26,76 @@ import { identiteConcorde } from './deux-d-doc.js';
 export const SOURCES = {
   r3243: { libelle: 'Code du travail, art. R3243-1 (9° et 10°)', url: 'https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000048841718' },
   arrete: { libelle: 'arrêté du 25/02/2016 relatif au bulletin de paie', url: 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000032106923/' },
-  decret: { libelle: 'décret n° 2015-1437, annexe I, D, 2°', url: 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000031444493' }
+  decret: { libelle: 'décret n° 2015-1437, annexe I, D, 2°', url: 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000031444493' },
+  calcul: { libelle: 'calcul du bulletin (montants imprimés entre eux)', url: 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000032106923/' },
+  urssaf: { libelle: 'Urssaf, taux de cotisations du secteur privé au 01/01/2026', url: 'https://www.urssaf.fr/accueil/outils-documentation/taux-baremes/taux-cotisations-secteur-prive.html' },
+  boss: { libelle: 'BOSS, assiette de la CSG et de la CRDS', url: 'https://boss.gouv.fr/portail/accueil/regles-dassujettissement/assiette-generale.html' },
 };
-export const TOLERANCES = Object.freeze({ net: 0.02, impot: 0.10, cumul: 0.05 });
+export const TOLERANCES = Object.freeze({ net: 0.02, impot: 0.10, cumul: 0.05, total: 0.015 });
+export const LIGNES_MAX = 40;
+export const AUTRES_MAX = 8;
 export const TYPES_BULLETIN = Object.freeze(['I.D.2', 'II.E.3']);
 export const TYPES_CONTRAT = Object.freeze(['I.C.1', 'II.D.1']);
 export const CHAMPS_BULLETIN = Object.freeze([
   ['periode', 'Période'], ['salarie', 'Salarié'], ['employeur', 'Employeur'], ['siret', 'SIRET'], ['dateEntree', 'Date d\'entrée'],
-  ['brut', 'Salaire brut'], ['netSocial', 'Montant net social'], ['netAvantImpot', 'Net à payer avant impôt'], ['impotBase', 'Base de l\'impôt prélevé'],
-  ['impotTaux', 'Taux de l\'impôt prélevé (%)'], ['impotMontant', 'Impôt prélevé à la source'], ['netAPayer', 'Net à payer'], ['netImposable', 'Net imposable'], ['cumulNetImposable', 'Cumul net imposable']
+  ['heures', 'Heures payées'], ['tauxHoraire', 'Taux horaire'], ['salaireBase', 'Salaire de base'],
+  ['brut', 'Salaire brut'], ['totalCotisations', 'Total des cotisations salariales'], ['netSocial', 'Montant net social'], ['netAvantImpot', 'Net à payer avant impôt'], ['impotBase', 'Base de l\'impôt prélevé'],
+  ['impotTaux', 'Taux de l\'impôt prélevé (%)'], ['impotMontant', 'Impôt prélevé à la source'], ['netAPayer', 'Net à payer'], ['netImposable', 'Net imposable'],
+  ['cumulBrut', 'Cumul brut'], ['cumulNetImposable', 'Cumul net imposable']
 ]);
 export const CHAMPS_CONTRAT = Object.freeze([['salarie', 'Salarié'], ['employeur', 'Employeur'], ['siret', 'SIRET'], ['dateDebut', 'Date de début'], ['typeContrat', 'Type de contrat']]);
-export const NUMERIQUES = Object.freeze(['brut', 'netSocial', 'netAvantImpot', 'impotBase', 'impotTaux', 'impotMontant', 'netAPayer', 'netImposable', 'cumulNetImposable']);
+export const NUMERIQUES = Object.freeze(['heures', 'tauxHoraire', 'salaireBase', 'brut', 'totalCotisations', 'netSocial', 'netAvantImpot', 'impotBase', 'impotTaux', 'impotMontant', 'netAPayer', 'netImposable', 'cumulBrut', 'cumulNetImposable']);
+
+// Taux salariaux légaux 2026 (Urssaf, page du 01/01/2026, consultée le 15/10/2026). Alsace-Moselle : 1,30 % au régime
+// général ; 1,19 % au régime agricole à compter du 01/07/2026 (MSA). CSG/CRDS non déductible : 2,40 % + 0,50 % = 2,90 %.
+// Heures supplémentaires : CSG/CRDS entièrement non déductible (6,80 % reporté, ou 9,70 % en une ligne) ; réduction 11,31 %.
+const TAUX_LEGAUX = Object.freeze({ vp: [6.90], vd: [0.40], csgd: [6.80], csgnd: [2.90, 2.40], crds: [0.50], csghs: [6.80, 9.70], als: [1.30, 1.19], redhs: [11.31] });
+const LIB_LIGNE = { vp: 'vieillesse plafonnée', vd: 'vieillesse déplafonnée', csgd: 'CSG déductible', csgnd: 'CSG/CRDS non déductible', crds: 'CRDS', csghs: 'CSG/CRDS sur heures supplémentaires', als: 'maladie Alsace-Moselle', redhs: 'réduction heures supplémentaires' };
+const ANNEES_TAUX = ['2026'];
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 /** « de août 2026 » → « d'août 2026 » (élision devant une voyelle). */
 export const dePeriode = (p) => { const l = libellePeriode(p); return /^[aeiouéè]/i.test(l) ? 'd\'' + l : 'de ' + l; };
 export const libellePeriode = (p) => { const m = /^(\d{4})-(\d{2})$/.exec(String(p || '')); return m ? `${MOIS[+m[2] - 1]} ${m[1]}` : ''; };
 export const euros = (n) => (typeof n === 'number' && isFinite(n) ? n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/ /g, ' ') + ' €' : '—');
+const pct = (t) => String(t).replace('.', ',') + ' %';
 const fdate = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; };
 const moisIndex = (p) => { const m = /^(\d{4})-(\d{2})$/.exec(String(p || '')); return m ? (+m[1]) * 12 + (+m[2] - 1) : null; };
 const nombre = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
 const arrondi = (n) => Math.round(n * 100) / 100;
 const siretDe = (s) => String(s || '').replace(/\D/g, '');
+const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Catégorie légale d'une ligne de cotisation d'après son libellé (null si non reconnue ou revenu de remplacement). */
+export function categorieLigne(libelle) {
+  const l = norm(libelle);
+  if (!l || /remplacement|activite partielle|chomage partiel|indemnit|\bij\b|ijss|maintien|retraite supp|pension/.test(l)) return null;
+  if (/csg|crds/.test(l) && /(heures? sup|h\.? ?sup)/.test(l)) return 'csghs';
+  if (/reduc.*(heures? sup|h\.? ?sup)|(heures? sup|h\.? ?sup).*reduc/.test(l)) return 'redhs';
+  if (/deplafon/.test(l)) return 'vd';
+  if (/(securite sociale|vieil|retraite de base|assurance vieillesse|\bss\b).*plafon/.test(l)) return 'vp';
+  if (/^csg (deductible|non imposable)/.test(l) && !/non deductible/.test(l)) return 'csgd';
+  if (/^csg ?\/ ?crds|^csg (non deductible|imposable)|^csg\/rds/.test(l)) return 'csgnd';
+  if (/^crds|^rds\b/.test(l)) return 'crds';
+  if (/alsace|moselle|regime local/.test(l)) return 'als';
+  return null;
+}
 
 /**
  * Valeurs retenues d'une pièce : lecture de l'IA, puis corrections du bailleur (qui priment).
- * Une correction vide efface la valeur lue.
+ * Une correction vide efface la valeur lue. Les lignes de cotisations sont bornées (LIGNES_MAX) et typées.
  */
 export function valeursRetenues(ia) {
   if (!ia || !ia.lu) return null;
   const v = Object.assign({}, ia.lu);
   for (const [k, c] of Object.entries(ia.corrections || {})) v[k] = c ? c.apres : null;
   for (const k of NUMERIQUES) v[k] = nombre(v[k]);
+  const L = Array.isArray(v.lignes) ? v.lignes : [];
+  v.lignesTronquees = !!v.lignesTronquees || L.length > LIGNES_MAX;
+  v.lignes = L.slice(0, LIGNES_MAX).filter((l) => l && typeof l === 'object')
+    .map((l) => ({ libelle: typeof l.libelle === 'string' ? l.libelle.slice(0, 120) : '', base: nombre(l.base), taux: nombre(l.taux), montant: nombre(l.montant) }));
+  v.autresLignes = (Array.isArray(v.autresLignes) ? v.autresLignes : []).slice(0, AUTRES_MAX)
+    .map((x) => nombre(x && typeof x === 'object' ? x.montant : x)).filter((x) => x != null);
   return v;
 }
 
@@ -55,7 +108,8 @@ export function lireSaisie(champ, saisie) {
   if (!s) return { ok: true, valeur: null };
   if (NUMERIQUES.includes(champ)) {
     const n = Number(s.replace(/[\s  €%]/g, '').replace(',', '.'));
-    return isFinite(n) && Math.abs(n) <= 1e6 ? { ok: true, valeur: arrondi(n) } : { ok: false, valeur: null };
+    const dec = champ === 'tauxHoraire' || champ === 'impotTaux' ? 10000 : 100;
+    return isFinite(n) && Math.abs(n) <= 1e7 ? { ok: true, valeur: Math.round(n * dec) / dec } : { ok: false, valeur: null };
   }
   if (champ === 'periode') {
     let m = /^(\d{4})-(\d{1,2})$/.exec(s) || null; if (m) { const mm = +m[2]; return mm >= 1 && mm <= 12 ? { ok: true, valeur: `${m[1]}-${String(mm).padStart(2, '0')}` } : { ok: false }; }
@@ -71,113 +125,315 @@ export function lireSaisie(champ, saisie) {
   return { ok: true, valeur: s.slice(0, 120) };
 }
 
-/** Règles internes d'UN bulletin. @returns Array<{code, applicable, ok, titre, detail, source}> */
-export function reglesInternes(v) {
-  const out = [];
-  if (!v) return out;
-  const nAvant = nombre(v.netAvantImpot), imp = nombre(v.impotMontant), net = nombre(v.netAPayer);
-  if (nAvant != null && imp != null && net != null) {
-    const attendu = arrondi(nAvant - imp), ecart = arrondi(net - attendu);
-    const ok = Math.abs(ecart) <= TOLERANCES.net;
-    out.push({ code: 'B1', ok, titre: ok ? 'Net à payer = net avant impôt − impôt prélevé.' : 'Le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source.',
-      detail: `${euros(nAvant)} − ${euros(imp)} = ${euros(attendu)} ; net à payer imprimé : ${euros(net)}${ok ? '' : ` ; écart : ${euros(Math.abs(ecart))}`}.`, source: SOURCES.r3243 });
-  }
-  const base = nombre(v.impotBase), taux = nombre(v.impotTaux);
-  if (base != null && taux != null && imp != null) {
-    const attendu = arrondi(base * taux / 100), ecart = arrondi(imp - attendu);
-    const ok = Math.abs(ecart) <= TOLERANCES.impot;
-    out.push({ code: 'B2', ok, titre: ok ? 'Impôt prélevé = base × taux.' : 'L\'impôt prélevé ne correspond pas à la base multipliée par le taux.',
-      detail: `${euros(base)} × ${String(taux).replace('.', ',')} % = ${euros(attendu)} ; imprimé : ${euros(imp)}${ok ? '' : ` ; écart : ${euros(Math.abs(ecart))}`}.`, source: SOURCES.r3243 });
-  }
-  const brut = nombre(v.brut), social = nombre(v.netSocial);
-  if (brut != null && social != null) {
-    const ok = social <= brut + TOLERANCES.net;
-    out.push({ code: 'B3', ok, titre: ok ? 'Montant net social inférieur au salaire brut.' : 'Le montant net social est supérieur au salaire brut.',
-      detail: `Brut : ${euros(brut)} ; net social : ${euros(social)}.`, source: SOURCES.arrete });
-  }
+// ── Erreurs de lecture plausibles ──────────────────────────────────────────────────────────────────────────────────
+const decimales = (x) => { const s = String(Math.abs(x)); const i = s.indexOf('.'); return i < 0 ? 0 : Math.min(6, s.length - i - 1); };
+/** Variantes d'une chaîne de chiffres par UNE erreur : chiffre remplacé, deux voisins inversés, chiffre en trop ou en moins. */
+export function variantesChiffres(s) {
+  const out = new Set(); s = String(s);
+  for (let i = 0; i < s.length; i++) for (let c = 0; c <= 9; c++) if (String(c) !== s[i]) out.add(s.slice(0, i) + c + s.slice(i + 1));
+  for (let i = 0; i + 1 < s.length; i++) out.add(s.slice(0, i) + s[i + 1] + s[i] + s.slice(i + 2));
+  for (let i = 0; i < s.length; i++) out.add(s.slice(0, i) + s.slice(i + 1));
+  for (let i = 0; i <= s.length; i++) for (let c = 0; c <= 9; c++) out.add(s.slice(0, i) + c + s.slice(i));
+  out.delete(s);
   return out;
+}
+/** Valeurs qu'une lecture aurait pu rendre À LA PLACE de `x` par une erreur plausible (et réciproquement : la relation est
+ *  symétrique pour les substitutions et inversions, et on ajoute la virgule déplacée / perdue et le signe perdu). */
+const _memoVar = new Map();
+export function variantesLecture(x) {
+  const m = _memoVar.get(x); if (m) return m;
+  if (_memoVar.size > 5000) _memoVar.clear();
+  const r = _variantes(x); _memoVar.set(x, r); return r;
+}
+function _variantes(x) {
+  const d = Math.max(2, decimales(x)), k = Math.pow(10, d);
+  const s = String(Math.round(Math.abs(x) * k));
+  const out = new Set();
+  for (const v of variantesChiffres(s)) if (/^\d+$/.test(v)) out.add(Number(v) / k);
+  for (const f of [10, 100, 1000]) { out.add(Math.abs(x) * f); out.add(Math.abs(x) / f); }
+  const r = [];
+  for (const v of out) { r.push(x < 0 ? -v : v); r.push(x < 0 ? v : -v); }
+  r.push(-x);
+  return r;
 }
 
 /**
- * Analyse de tous les bulletins (et de la page 1 du contrat) d'une personne du dossier.
- * @param {{pieces: Array<{id, nom, type:'bulletin'|'contrat', ia}>, identite:{nom, prenom}, siretDeclare?:string, recuLe?:string, qui?:'candidat'|'garant'}} p
- * @returns {{ parPiece: Object<string,{etat, regles:Array, constats:Array}>, constats: Array }}
+ * Moteur d'égalités. Chaque égalité : { code, champs:[clés], tient(vals) → bool, ancre?, regle? } ; `vals` = clé → nombre.
+ * Une égalité qui ne tient pas est « explicable » s'il existe UNE erreur de lecture plausible d'UN de ses champs (variante)
+ * qui la fait tenir SANS casser une autre égalité qui tient avec la valeur lue : alors ce n'est pas un constat.
  */
-export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui }) {
+/** Évalue l'égalité avec `vals[k] = y`, sans copier le dictionnaire. */
+function essai(eg, vals, k, y) { const old = vals[k]; vals[k] = y; try { return eg.tient(vals); } finally { vals[k] = old; } }
+function explicable(eg, vals, E, tient) {
+  for (const k of eg.champs) {
+    if (vals[k] == null) continue;
+    const autres = E.filter((e) => e !== eg && tient.get(e) && e.champs.includes(k));
+    for (const y of variantesLecture(vals[k])) {
+      if (essai(eg, vals, k, y) && autres.every((e) => essai(e, vals, k, y))) return true;
+    }
+  }
+  return false;
+}
+
+/** Ensemble des égalités internes d'un bulletin (valeurs retenues `v`). */
+/** Toutes les sommes ± d'un sous-ensemble de montants (3^n, n ≤ 6). */
+function sommesSignees(a) {
+  let S = [0]; for (const x of a) { const T = []; for (const s of S) { T.push(s, s + x, s - x); } S = T; }
+  return [...new Set(S.map(arrondi))];
+}
+function egalitesInternes(v) {
+  const vals = {}; const E = []; let cacheN1 = { cle: null, sommes: [] };
+  for (const k of NUMERIQUES) if (nombre(v[k]) != null) vals[k] = v[k];
+  const has = (...ks) => ks.every((k) => vals[k] != null);
+  if (has('netAvantImpot', 'impotMontant', 'netAPayer')) E.push({ code: 'B1', ancre: true, regle: true, champs: ['netAPayer', 'netAvantImpot', 'impotMontant'], tient: (x) => Math.abs(x.netAPayer - arrondi(x.netAvantImpot - x.impotMontant)) <= TOLERANCES.net });
+  if (has('impotBase', 'impotTaux', 'impotMontant')) E.push({ code: 'B2', regle: true, champs: ['impotMontant', 'impotBase', 'impotTaux'], tient: (x) => Math.abs(x.impotMontant - arrondi(x.impotBase * x.impotTaux / 100)) <= TOLERANCES.impot });
+  const autres = (v.autresLignes || []).map((x) => nombre(x && typeof x === 'object' ? x.montant : x)).filter((x) => x != null).slice(0, 6);
+  autres.forEach((a, i) => { vals['A' + i] = a; });
+  if (has('brut', 'totalCotisations', 'netAvantImpot')) {
+    const ka = autres.map((_, i) => 'A' + i);
+    E.push({ code: 'N1', ancre: true, regle: true, ancreSeule: true, champs: ['brut', 'totalCotisations', 'netAvantImpot', ...ka], tient: (x) => {
+      const d = arrondi(x.brut - x.totalCotisations - x.netAvantImpot); if (Math.abs(d) <= TOLERANCES.net) return true;
+      const cle = ka.map((k) => x[k]).join('|');
+      if (cle !== cacheN1.cle) cacheN1 = { cle, sommes: sommesSignees(ka.map((k) => Math.abs(x[k]))) };
+      return cacheN1.sommes.some((s) => Math.abs(s - d) <= TOLERANCES.net); } });
+  }
+  if (has('heures', 'tauxHoraire', 'salaireBase')) E.push({ code: 'S1', ancre: true, regle: true, champs: ['salaireBase', 'heures', 'tauxHoraire'], tient: (x) => Math.abs(x.salaireBase - arrondi(x.heures * x.tauxHoraire)) <= 0.011 + Math.abs(x.tauxHoraire) * 0.005 + Math.abs(x.heures) * 0.00005 });
+  // Lignes de cotisations.
+  const L = v.lignes || [];
+  L.forEach((l, i) => {
+    for (const f of ['base', 'taux', 'montant']) if (l[f] != null) vals[`L${i}.${f}`] = l[f];
+    if (l.base != null && l.taux != null && l.montant != null && l.taux !== 0) {
+      const kb = `L${i}.base`, kt = `L${i}.taux`, km = `L${i}.montant`;
+      E.push({ code: 'L1', regle: true, ligne: i, champs: [km, kb, kt], tient: (x) => { const dec = Math.max(2, decimales(x[kt])); return Math.abs(Math.abs(x[km]) - arrondi(Math.abs(x[kb] * x[kt]) / 100)) <= 0.011 + Math.abs(x[kb]) * 0.5 * Math.pow(10, -dec) / 100; } });
+    }
+  });
+  const avecM = L.map((l, i) => i).filter((i) => L[i].montant != null);
+  if (has('totalCotisations') && avecM.length >= 3 && !v.lignesTronquees) {
+    const km = avecM.map((i) => `L${i}.montant`);
+    E.push({ code: 'L2', ancre: true, regle: false, champs: ['totalCotisations', ...km], tient: (x) => Math.abs(arrondi(km.reduce((s, k) => s + x[k], 0)) - x.totalCotisations) <= TOLERANCES.total });
+  }
+  // Liens de confirmation (jamais de constat) : base de l'impôt = net imposable ; assiette déplafonnée = brut.
+  if (has('impotBase', 'netImposable')) E.push({ code: 'lien', champs: ['impotBase', 'netImposable'], tient: (x) => Math.abs(x.impotBase - x.netImposable) <= 0.011 });
+  L.forEach((l, i) => { if (categorieLigne(l.libelle) === 'vd' && l.base != null && has('brut')) E.push({ code: 'lien', champs: [`L${i}.base`, 'brut'], tient: (x) => Math.abs(x[`L${i}.base`] - x.brut) <= 0.011 }); });
+  return { vals, E };
+}
+
+/** Règles internes d'UN bulletin. @returns Array<{code, ok, titre, detail, source}> (+ métadonnées non affichées). */
+export function reglesInternes(v) { return analyseInterne(v).regles; }
+
+function analyseInterne(v, gardeFou = true) {
+  const res = { regles: [], incertaines: [], lectureIncertaine: false };
+  if (!v) return res;
+  const { vals, E } = egalitesInternes(v);
+  const tient = new Map(E.map((e) => [e, e.tient(vals)]));
+  Object.assign(res, { vals, E, tient });
+  const ancres = E.filter((e) => e.ancre), ancresOk = ancres.filter((e) => tient.get(e)).length;
+  res.ancres = { total: ancres.length, tenues: ancresOk };
+  // Quorum : au moins 2 ancres tenues ; sinon aucune règle n'est appliquée sur ce bulletin.
+  if (gardeFou && ancresOk < 2) { res.lectureIncertaine = true; return res; }
+  const L = v.lignes || [];
+  const sortir = (e, ok, r) => { if (ok || !gardeFou || !explicable(e, vals, E, tient)) res.regles.push(Object.assign({ ok }, r)); else res.incertaines.push({ code: r.code, titre: r.titre }); };
+  for (const e of E) {
+    if (!e.regle) continue;
+    const ok = tient.get(e);
+    if (e.code === 'B1') { const att = arrondi(v.netAvantImpot - v.impotMontant), ec = arrondi(v.netAPayer - att);
+      sortir(e, ok, { code: 'B1', titre: ok ? 'Net à payer = net avant impôt − impôt prélevé.' : 'Le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source.',
+        detail: `${euros(v.netAvantImpot)} − ${euros(v.impotMontant)} = ${euros(att)} ; net à payer imprimé : ${euros(v.netAPayer)}${ok ? '' : ` ; écart : ${euros(Math.abs(ec))}`}.`, source: SOURCES.r3243 }); }
+    else if (e.code === 'B2') { const att = arrondi(v.impotBase * v.impotTaux / 100), ec = arrondi(v.impotMontant - att);
+      sortir(e, ok, { code: 'B2', titre: ok ? 'Impôt prélevé = base × taux.' : 'L\'impôt prélevé ne correspond pas à la base multipliée par le taux.',
+        detail: `${euros(v.impotBase)} × ${pct(v.impotTaux)} = ${euros(att)} ; imprimé : ${euros(v.impotMontant)}${ok ? '' : ` ; écart : ${euros(Math.abs(ec))}`}.`, source: SOURCES.r3243 }); }
+    else if (e.code === 'N1') { const att = arrondi(v.brut - v.totalCotisations), a = (v.autresLignes || []).slice(0, 6);
+      // Ancre seulement : une ligne non lue entre le total et le net (titres-restaurant, transport, acompte…) produirait le
+      // même écart qu'un net retouché. Cohérente : listée ; sinon rangée dans `incertaines` (garde-fou), jamais un constat.
+      if (!ok && gardeFou) { res.incertaines.push({ code: 'N1', titre: 'net avant impôt' }); continue; }
+      sortir(e, ok, { code: 'N1', titre: ok ? 'Brut − cotisations salariales = net à payer avant impôt.' : 'Le net à payer avant impôt ne correspond pas au brut moins les cotisations salariales.',
+        detail: `${euros(v.brut)} − ${euros(v.totalCotisations)} = ${euros(att)}${a.length ? ` ; lignes entre le total et le net : ${a.map(euros).join(', ')}` : ''} ; net à payer avant impôt imprimé : ${euros(v.netAvantImpot)}${ok ? '' : ` ; écart : ${euros(Math.abs(arrondi(att - v.netAvantImpot)))}`}.`, source: SOURCES.arrete }); }
+    else if (e.code === 'S1') { const att = arrondi(v.heures * v.tauxHoraire);
+      sortir(e, ok, { code: 'S1', titre: ok ? 'Salaire de base = heures × taux horaire.' : 'Le salaire de base ne correspond pas aux heures multipliées par le taux horaire.',
+        detail: `${String(v.heures).replace('.', ',')} h × ${euros(v.tauxHoraire).replace(' €', '')} € = ${euros(att)} ; imprimé : ${euros(v.salaireBase)}${ok ? '' : ` ; écart : ${euros(Math.abs(arrondi(att - v.salaireBase)))}`}.`, source: SOURCES.calcul }); }
+    else if (e.code === 'L1') { const l = L[e.ligne], att = arrondi(Math.abs(l.base * l.taux) / 100);
+      // Une ligne cohérente n'est pas listée (trop de lignes) ; seul un écart l'est.
+      if (!ok) sortir(e, ok, { code: 'L1', titre: `La cotisation « ${l.libelle || 'sans libellé'} » ne correspond pas à sa base multipliée par son taux.`,
+        detail: `${euros(l.base)} × ${pct(l.taux)} = ${euros(att)} ; imprimé : ${euros(Math.abs(l.montant))} ; écart : ${euros(Math.abs(arrondi(att - Math.abs(l.montant))))}.`, source: SOURCES.calcul }); }
+  }
+  // Lignes de cotisations cohérentes : une règle de synthèse (affichée), seulement si au moins une ligne est vérifiable.
+  const L1 = E.filter((e) => e.code === 'L1');
+  if (L1.length && L1.every((e) => tient.get(e))) res.regles.push({ code: 'L1', ok: true, titre: `Cotisations : base × taux = montant (${L1.length} ligne${L1.length > 1 ? 's' : ''}).`, detail: '', source: SOURCES.calcul });
+  // C2 : un cumul contient le mois.
+  for (const [kc, kv, lib] of [['cumulBrut', 'brut', 'brut'], ['cumulNetImposable', 'netImposable', 'net imposable']]) {
+    const cu = nombre(v[kc]), va = nombre(v[kv]); if (cu == null || va == null || !v.periode) continue;
+    const janvier = v.periode.slice(5) === '01';
+    const e = { code: 'C2', champs: [kc, kv], tient: (x) => (janvier ? Math.abs(x[kc] - x[kv]) <= TOLERANCES.net : x[kc] >= x[kv] - TOLERANCES.net) };
+    const ok = e.tient(vals);
+    if (ok) continue;   // cohérent : non listé (le cumul est vérifié avec le bulletin précédent)
+    sortir(e, ok, { code: 'C2', titre: janvier ? `Le cumul ${lib} de janvier diffère du ${lib} du mois.` : `Le cumul ${lib} de l'année est inférieur au ${lib} du mois.`, detail: `Cumul imprimé : ${euros(cu)} ; ${lib} du mois : ${euros(va)}.`, source: SOURCES.calcul });
+  }
+  // TL : taux salariaux légaux 2026, sur les lignes reconnues dont base × taux = montant tient (taux confirmé).
+  if (v.periode && ANNEES_TAUX.includes(v.periode.slice(0, 4))) {
+    const tous = [...new Set(Object.values(TAUX_LEGAUX).flat())];
+    const ecarts = [];
+    L.forEach((l, i) => {
+      const cat = categorieLigne(l.libelle); if (!cat || l.taux == null) return;
+      const eL1 = L1.find((e) => e.ligne === i); if (!eL1 || !tient.get(eL1)) return;
+      const t = Math.abs(l.taux), legal = TAUX_LEGAUX[cat];
+      if (legal.some((x) => Math.abs(x - t) <= 0.005)) return;
+      ecarts.push({ l, cat, t, legal, decale: tous.includes(Math.round(t * 100) / 100) });
+    });
+    // Plusieurs taux hors norme sur un même bulletin, ou un taux légal d'une AUTRE ligne : lignes décalées à la lecture.
+    if (gardeFou && ecarts.length >= 2) for (const x of ecarts) res.incertaines.push({ code: 'TL', titre: x.l.libelle });
+    else for (const x of ecarts) {
+      if (gardeFou && x.decale) { res.incertaines.push({ code: 'TL', titre: x.l.libelle }); continue; }
+      res.regles.push({ code: 'TL', ok: false, titre: `Le taux salarial de « ${x.l.libelle} » diffère du taux légal 2026 (${LIB_LIGNE[x.cat]}).`, detail: `Taux imprimé : ${pct(x.t)} ; taux légal : ${x.legal.map(pct).join(' ou ')}.`, source: SOURCES.urssaf });
+    }
+    const nTL = L.filter((l, i) => categorieLigne(l.libelle) && L1.find((e) => e.ligne === i && tient.get(e))).length;
+    if (nTL && !ecarts.length) res.regles.push({ code: 'TL', ok: true, titre: `Taux salariaux légaux 2026 respectés (${nTL} ligne${nTL > 1 ? 's' : ''} reconnue${nTL > 1 ? 's' : ''}).`, detail: '', source: SOURCES.urssaf });
+  }
+  // CS : assiette CSG/CRDS non déductible ≥ assiette CSG déductible (BOSS : la part des heures sup. passe en non déductible).
+  const tauxDuLibelle = (l) => { const c = categorieLigne(l.libelle); return c && l.taux != null && TAUX_LEGAUX[c].some((x) => Math.abs(x - Math.abs(l.taux)) <= 0.005); };
+  const iD = L.findIndex((l) => categorieLigne(l.libelle) === 'csgd' && l.base != null && (!gardeFou || tauxDuLibelle(l))), iN = L.findIndex((l) => ['csgnd', 'crds'].includes(categorieLigne(l.libelle)) && l.base != null && (!gardeFou || tauxDuLibelle(l)));
+  if (iD >= 0 && iN >= 0) {
+    const e = { code: 'CS', champs: [`L${iN}.base`, `L${iD}.base`], tient: (x) => Math.abs(x[`L${iN}.base`]) >= Math.abs(x[`L${iD}.base`]) - 0.011 };
+    const ok = e.tient(vals);
+    sortir(e, ok, { code: 'CS', titre: ok ? 'Assiette de la CSG non déductible ≥ assiette de la CSG déductible.' : 'L\'assiette de la CSG non déductible est inférieure à celle de la CSG déductible.', detail: `${euros(L[iN].base)} et ${euros(L[iD].base)}.`, source: SOURCES.boss });
+  }
+  return res;
+}
+
+/** Deux noms qui ne diffèrent que d'une lettre (lecture) : distance d'édition ≤ 1 sur la chaîne normalisée. */
+function uneLettre(a, b) {
+  a = norm(a).replace(/[^a-z ]/g, ''); b = norm(b).replace(/[^a-z ]/g, '');
+  if (a === b) return true; if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i);
+}
+const memeAUneErreurPres = (a, b) => a === b || variantesChiffres(a).has(b);
+
+/**
+ * Analyse de tous les bulletins (et de la page 1 du contrat) d'une personne du dossier.
+ * @param {{pieces: Array<{id, nom, type:'bulletin'|'contrat', ia}>, identite:{nom, prenom}, siretDeclare?:string, recuLe?:string, qui?:'candidat'|'garant', gardeFou?:boolean}} p
+ * `gardeFou: false` : réservé à la mesure (mockups/REGLES-PAIE) ; l'app ne le passe jamais.
+ * @returns {{ parPiece: Object<string,{etat, regles, constats, incertaines, lectureIncertaine}>, constats: Array }}
+ */
+export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui, gardeFou = true }) {
+  const G = gardeFou !== false;
   const parPiece = {}; const constats = [];
   const quiTxt = qui === 'garant' ? ' du garant' : '';
   const bull = [], contrats = [];
   for (const p of pieces || []) {
     const v = valeursRetenues(p.ia);
-    const e = { etat: 'ia_non_lancee', regles: [], constats: [] };
+    const e = { etat: 'ia_non_lancee', regles: [], constats: [], incertaines: [], lectureIncertaine: false };
     parPiece[p.id] = e;
     if (!p.ia) continue;
     if (p.ia.erreur) { e.etat = 'ia_erreur'; e.erreur = p.ia.erreur; continue; }
     if (!v || v.lisible === false) { e.etat = 'illisible'; continue; }
     if (p.type === 'contrat') { contrats.push({ p, v, e }); e.etat = 'lu'; continue; }
-    bull.push({ p, v, e });
+    // Cumul égal au montant du mois hors janvier et hors mois d'entrée : colonne du mois lue à la place du cumul → ignoré.
+    for (const [kc, kv] of [['cumulBrut', 'brut'], ['cumulNetImposable', 'netImposable']]) {
+      if (G && v[kc] != null && v[kv] != null && Math.abs(v[kc] - v[kv]) <= TOLERANCES.net && v.periode && v.periode.slice(5) !== '01' && !(v.dateEntree && v.dateEntree.slice(0, 7) === v.periode)) v[kc] = null;
+    }
+    const a = analyseInterne(v, G);
+    e.incertaines = a.incertaines; e.lectureIncertaine = a.lectureIncertaine;
+    bull.push({ p, v, e, a });
   }
   const nom = (p) => `« ${p.nom} »`;
   const ajouter = (e, c) => { e.constats.push(c); constats.push(c); };
+  const fiables = bull.filter((b) => !b.a.lectureIncertaine);
 
-  for (const { p, v, e } of bull) {
-    e.regles = reglesInternes(v);
+  for (const { p, v, e, a } of fiables) {
+    e.regles = a.regles;
     for (const r of e.regles) if (!r.ok) ajouter(e, { code: r.code, icone: 'calc', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : ${r.titre.charAt(0).toLowerCase()}${r.titre.slice(1)}`, detail: r.detail, source: r.source.libelle, url: r.source.url, ia: true, pieceId: p.id });
-    // Identité (comparaison sans accents, tirets ni ordre).
+    // Identité (comparaison sans accents, tirets ni ordre ; une lettre d'écart = lecture incertaine, pas de constat).
     if (v.salarie && identite && identite.nom) {
       const ok = identiteConcorde(v.salarie, identite.nom, identite.prenom);
-      e.regles.push({ code: 'B6', ok: ok !== false, titre: ok === false ? 'Le nom du salarié diffère de l\'identité déclarée.' : 'Nom du salarié identique à l\'identité déclarée.', detail: `Salarié : ${v.salarie} ; identité déclarée${quiTxt} : ${[identite.prenom, identite.nom].filter(Boolean).join(' ')}.`, source: { libelle: 'comparaison sans accents ni tirets' } });
-      if (ok === false) ajouter(e, { code: 'B6', icone: 'doc', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : le nom du salarié diffère de l'identité déclarée${quiTxt}.`, detail: `Salarié : ${v.salarie} ; identité déclarée : ${[identite.prenom, identite.nom].filter(Boolean).join(' ')}. Un nom d'usage peut l'expliquer.`, source: 'lecture du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
+      const declare = [identite.prenom, identite.nom].filter(Boolean).join(' ');
+      if (G && ok === false && (uneLettre(v.salarie, declare) || uneLettre(v.salarie, [identite.nom, identite.prenom].filter(Boolean).join(' ')))) e.incertaines.push({ code: 'B6', titre: 'nom' });
+      else {
+        e.regles.push({ code: 'B6', ok: ok !== false, titre: ok === false ? 'Le nom du salarié diffère de l\'identité déclarée.' : 'Nom du salarié identique à l\'identité déclarée.', detail: `Salarié : ${v.salarie} ; identité déclarée${quiTxt} : ${declare}.`, source: { libelle: 'comparaison sans accents ni tirets' } });
+        if (ok === false) ajouter(e, { code: 'B6', icone: 'doc', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : le nom du salarié diffère de l'identité déclarée${quiTxt}.`, detail: `Salarié : ${v.salarie} ; identité déclarée : ${declare}. Un nom d'usage peut l'expliquer.`, source: 'lecture du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
+      }
     }
-    // SIRET lu ≠ SIRET déclaré (comparaison au niveau SIREN si un SIREN a été déclaré).
+    // SIRET lu ≠ SIRET déclaré (comparaison au niveau SIREN si un SIREN a été déclaré) ; un chiffre d'écart = lecture incertaine.
     const sd = siretDe(siretDeclare), sl = siretDe(v.siret);
     if (sd && sl) {
-      const ok = sd.length === 9 ? sl.slice(0, 9) === sd : sl === sd;
-      e.regles.push({ code: 'B6', ok, titre: ok ? 'SIRET identique à celui déclaré.' : 'Le SIRET du bulletin diffère de celui déclaré.', detail: `SIRET du bulletin : ${sl} ; déclaré : ${sd}.`, source: { libelle: 'déclaration du candidat' } });
-      if (!ok) ajouter(e, { code: 'B6', icone: 'building', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : le SIRET de l'employeur diffère de celui déclaré.`, detail: `SIRET lu sur le bulletin : ${sl} ; déclaré : ${sd}.`, source: 'lecture du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
-    }
-  }
-
-  // Entre bulletins : périodes consécutives, cumul du net imposable (même employeur, même année).
-  const tries = bull.filter((b) => moisIndex(b.v.periode) != null).sort((a, b) => moisIndex(a.v.periode) - moisIndex(b.v.periode));
-  for (let i = 1; i < tries.length; i++) {
-    const A = tries[i - 1], B = tries[i];
-    const ia = moisIndex(A.v.periode), ib = moisIndex(B.v.periode);
-    const memeEmployeur = (siretDe(A.v.siret) && siretDe(B.v.siret)) ? siretDe(A.v.siret) === siretDe(B.v.siret) : true;
-    if (ib - ia === 1 && memeEmployeur && A.v.periode.slice(0, 4) === B.v.periode.slice(0, 4)) {
-      const ca = nombre(A.v.cumulNetImposable), cb = nombre(B.v.cumulNetImposable), nb = nombre(B.v.netImposable);
-      if (ca != null && cb != null && nb != null) {
-        const attendu = arrondi(ca + nb), ecart = arrondi(cb - attendu), ok = Math.abs(ecart) <= TOLERANCES.cumul;
-        B.e.regles.push({ code: 'B4', ok, titre: ok ? `Cumul net imposable dans la continuité ${dePeriode(A.v.periode)}.` : `Le cumul net imposable ne prolonge pas celui ${dePeriode(A.v.periode)}.`, detail: `${euros(ca)} + ${euros(nb)} = ${euros(attendu)} ; cumul imprimé : ${euros(cb)}${ok ? '' : ` ; écart : ${euros(Math.abs(ecart))}`}.`, source: SOURCES.arrete });
-        if (!ok) ajouter(B.e, { code: 'B4', icone: 'calc', titre: `Bulletin ${libellePeriode(B.v.periode)} : le cumul net imposable ne prolonge pas celui du bulletin ${dePeriode(A.v.periode)}.`, detail: `Cumul ${dePeriode(A.v.periode)} ${euros(ca)} + net imposable ${euros(nb)} = ${euros(attendu)} ; cumul imprimé ${euros(cb)}. Écart : ${euros(Math.abs(ecart))}.`, source: SOURCES.arrete.libelle + ', cumul annuel', url: SOURCES.arrete.url, ia: true, pieceId: B.p.id });
+      const cmpL = sd.length === 9 ? sl.slice(0, 9) : sl;
+      const ok = cmpL === sd;
+      if (G && !ok && memeAUneErreurPres(cmpL, sd)) e.incertaines.push({ code: 'B6', titre: 'SIRET' });
+      else {
+        e.regles.push({ code: 'B6', ok, titre: ok ? 'SIRET identique à celui déclaré.' : 'Le SIRET du bulletin diffère de celui déclaré.', detail: `SIRET du bulletin : ${sl} ; déclaré : ${sd}.`, source: { libelle: 'déclaration du candidat' } });
+        if (!ok) ajouter(e, { code: 'B6', icone: 'building', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : le SIRET de l'employeur diffère de celui déclaré.`, detail: `SIRET lu sur le bulletin : ${sl} ; déclaré : ${sd}.`, source: 'lecture du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
       }
     }
   }
+
+  // Entre bulletins : cumuls (B4 net imposable, CB brut), même employeur, même année, mois consécutifs.
+  const tries = fiables.filter((b) => moisIndex(b.v.periode) != null).sort((a, b) => moisIndex(a.v.periode) - moisIndex(b.v.periode));
+  const serie = [];
+  for (let i = 1; i < tries.length; i++) {
+    const A = tries[i - 1], B = tries[i];
+    const memeEmployeur = (siretDe(A.v.siret) && siretDe(B.v.siret)) ? siretDe(A.v.siret) === siretDe(B.v.siret) : true;
+    if (moisIndex(B.v.periode) - moisIndex(A.v.periode) !== 1 || !memeEmployeur || A.v.periode.slice(0, 4) !== B.v.periode.slice(0, 4)) continue;
+    for (const [code, kc, kv, lib] of [['B4', 'cumulNetImposable', 'netImposable', 'net imposable'], ['CB', 'cumulBrut', 'brut', 'brut']]) {
+      const ca = nombre(A.v[kc]), cb = nombre(B.v[kc]), nb = nombre(B.v[kv]);
+      if (ca == null || cb == null || nb == null) continue;
+      serie.push({ code, A, B, kc, kv, lib, ca, cb, nb, champs: ['a', 'b', 'n'], vals: { a: ca, b: cb, n: nb }, tient: (x) => Math.abs(x.b - arrondi(x.a + x.n)) <= TOLERANCES.cumul });
+    }
+  }
+  // Une variante de lecture d'un champ de la série doit garder les autres égalités qui tiennent : celles du bulletin B
+  // pour son montant du mois, les continuités voisines pour les cumuls.
+  const okSerie = new Map(serie.map((s) => [s, s.tient(s.vals)]));
+  const explSerie = (s) => {
+    const garde = {
+      n: (y) => { const a = s.B.a; return !a.E || a.vals[s.kv] == null || a.E.filter((e) => a.tient.get(e) && e.champs.includes(s.kv)).every((e) => essai(e, a.vals, s.kv, y)); },
+      a: (y) => serie.filter((t) => t !== s && t.kc === s.kc && t.B === s.A && okSerie.get(t)).every((t) => t.tient(Object.assign({}, t.vals, { b: y }))),
+      b: (y) => serie.filter((t) => t !== s && t.kc === s.kc && t.A === s.B && okSerie.get(t)).every((t) => t.tient(Object.assign({}, t.vals, { a: y }))),
+    };
+    return ['a', 'b', 'n'].some((f) => variantesLecture(s.vals[f]).some((y) => s.tient(Object.assign({}, s.vals, { [f]: y })) && garde[f](y)));
+  };
+  for (const s of serie) {
+    const ok = okSerie.get(s);
+    const attendu = arrondi(s.ca + s.nb), ecart = arrondi(s.cb - attendu);
+    if (G && !ok && explSerie(s)) { s.B.e.incertaines.push({ code: s.code, titre: 'cumul' }); continue; }
+    const titreOk = s.code === 'B4' ? `Cumul net imposable dans la continuité ${dePeriode(s.A.v.periode)}.` : `Cumul brut dans la continuité ${dePeriode(s.A.v.periode)}.`;
+    const titreKo = `Le cumul ${s.lib} ne prolonge pas celui ${dePeriode(s.A.v.periode)}.`;
+    s.B.e.regles.push({ code: s.code, ok, titre: ok ? titreOk : titreKo, detail: `${euros(s.ca)} + ${euros(s.nb)} = ${euros(attendu)} ; cumul imprimé : ${euros(s.cb)}${ok ? '' : ` ; écart : ${euros(Math.abs(ecart))}`}.`, source: SOURCES.arrete });
+    if (!ok) ajouter(s.B.e, { code: s.code, icone: 'calc', titre: `Bulletin ${libellePeriode(s.B.v.periode)} : le cumul ${s.lib} ne prolonge pas celui du bulletin ${dePeriode(s.A.v.periode)}.`, detail: `Cumul ${dePeriode(s.A.v.periode)} ${euros(s.ca)} + ${s.lib} ${euros(s.nb)} = ${euros(attendu)} ; cumul imprimé ${euros(s.cb)}. Écart : ${euros(Math.abs(ecart))}.`, source: SOURCES.arrete.libelle + ', cumul annuel', url: SOURCES.arrete.url, ia: true, pieceId: s.B.p.id });
+  }
+  // Périodes : une période qu'UNE erreur de lecture (chiffre du mois ou de l'année) rendrait consécutive → pas de constat.
+  const periodes = tries.map((t) => t.v.periode);
+  const consecutives = (ps) => { const ix = ps.map(moisIndex).filter((x) => x != null).sort((a, b) => a - b); for (let i = 1; i < ix.length; i++) if (ix[i] - ix[i - 1] > 1) return false; return true; };
+  const variantesPeriode = (p) => [...variantesChiffres(p.replace('-', ''))].filter((s) => /^\d{6}$/.test(s) && +s.slice(4) >= 1 && +s.slice(4) <= 12).map((s) => `${s.slice(0, 4)}-${s.slice(4)}`);
   if (tries.length >= 2) {
     const manquants = [];
     for (let i = 1; i < tries.length; i++) for (let m = moisIndex(tries[i - 1].v.periode) + 1; m < moisIndex(tries[i].v.periode); m++) manquants.push(`${MOIS[m % 12]} ${Math.floor(m / 12)}`);
+    // Les cumuls tranchent quand ils sont lus : cumul(B) − cumul(A) = montant de B → mois en réalité consécutifs (période
+    // mal lue) ; nettement plus → trou réel. Sans cumul : une période qu'UNE erreur de lecture rend consécutive → pas de constat.
+    const trouAtteste = (A, B) => [['cumulBrut', 'brut'], ['cumulNetImposable', 'netImposable']].some(([kc, kv]) => A.v[kc] != null && B.v[kc] != null && B.v[kv] != null
+      && A.v.periode.slice(0, 4) === B.v.periode.slice(0, 4) && (!siretDe(A.v.siret) || !siretDe(B.v.siret) || siretDe(A.v.siret) === siretDe(B.v.siret)) && B.v[kc] - A.v[kc] - B.v[kv] > TOLERANCES.cumul);
+    const tousAttestes = tries.every((t, i) => i === 0 || moisIndex(t.v.periode) - moisIndex(tries[i - 1].v.periode) <= 1 || trouAtteste(tries[i - 1], t));
+    const lecture = G && manquants.length && !tousAttestes && periodes.some((p, i) => variantesPeriode(p).some((q) => consecutives(periodes.map((x, j) => (j === i ? q : x)))));
     const liste = manquants.length > 6 ? manquants.slice(0, 6).join(', ') + ` et ${manquants.length - 6} autre${manquants.length - 6 > 1 ? 's' : ''}` : manquants.join(', ');
-    if (manquants.length) constats.push({ code: 'B5', icone: 'clock', titre: `Bulletins${quiTxt} : période${manquants.length > 1 ? 's' : ''} absente${manquants.length > 1 ? 's' : ''} entre les bulletins reçus (${liste}).`, detail: `Bulletins reçus : ${tries.map((t) => libellePeriode(t.v.periode)).join(', ')}. Le décret prévoit les trois derniers bulletins de salaire.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
+    if (manquants.length && !lecture) constats.push({ code: 'B5', icone: 'clock', titre: `Bulletins${quiTxt} : période${manquants.length > 1 ? 's' : ''} absente${manquants.length > 1 ? 's' : ''} entre les bulletins reçus (${liste}).`, detail: `Bulletins reçus : ${tries.map((t) => libellePeriode(t.v.periode)).join(', ')}. Le décret prévoit les trois derniers bulletins de salaire.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
   }
   if (tries.length && recuLe) {
     const r = new Date(recuLe); const ir = r.getUTCFullYear() * 12 + r.getUTCMonth();
     const dernier = tries[tries.length - 1];
-    if (ir - moisIndex(dernier.v.periode) > 2) {
+    const recent = (p) => ir - moisIndex(p) <= 2;
+    if (!recent(dernier.v.periode) && !(G && variantesPeriode(dernier.v.periode).some((q) => recent(q) && ir - moisIndex(q) >= 0))) {
       constats.push({ code: 'B5', icone: 'clock', titre: `Bulletins${quiTxt} : le plus récent porte sur ${libellePeriode(dernier.v.periode)}.`, detail: `Pour un dossier reçu le ${fdate(r.toISOString())}, les trois derniers bulletins couvrent en principe les mois précédant la réception.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
     }
   }
-  // Contrat de travail (page 1) ↔ bulletins : employeur et date d'entrée.
+  // Contrat de travail (page 1) ↔ bulletins : employeur et date d'entrée (un chiffre d'écart = lecture incertaine).
   for (const { p, v } of contrats) {
-    for (const { p: pb, v: vb } of bull) {
-      if (v.dateDebut && vb.dateEntree && v.dateDebut !== vb.dateEntree) {
+    for (const { p: pb, v: vb } of fiables) {
+      if (v.dateDebut && vb.dateEntree && v.dateDebut !== vb.dateEntree && !(G && memeAUneErreurPres(v.dateDebut.replace(/-/g, ''), vb.dateEntree.replace(/-/g, '')))) {
         constats.push({ code: 'B7', icone: 'doc', titre: `Contrat ${nom(p)} et bulletin ${libellePeriode(vb.periode) || nom(pb)} : dates d'entrée différentes.`, detail: `Contrat : ${fdate(v.dateDebut)} ; bulletin : ${fdate(vb.dateEntree)}. Un avenant ou une reprise d'ancienneté peut l'expliquer.`, source: 'lecture du contrat et du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
         break;
       }
     }
     const sc = siretDe(v.siret);
-    const autre = bull.find((b) => siretDe(b.v.siret) && sc && siretDe(b.v.siret).slice(0, 9) !== sc.slice(0, 9));
+    const autre = fiables.find((b) => siretDe(b.v.siret) && sc && siretDe(b.v.siret).slice(0, 9) !== sc.slice(0, 9) && !(G && memeAUneErreurPres(siretDe(b.v.siret).slice(0, 9), sc.slice(0, 9))));
     if (autre) constats.push({ code: 'B7', icone: 'building', titre: `Contrat ${nom(p)} et bulletin ${libellePeriode(autre.v.periode)} : employeurs différents (SIREN).`, detail: `Contrat : ${sc} ; bulletin : ${siretDe(autre.v.siret)}.`, source: 'lecture du contrat et du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
   }
-  for (const { e } of bull) e.etat = e.constats.length ? 'ecart' : (e.regles.length ? 'sans_ecart' : 'lu');
+  for (const { e } of bull) { e.etat = e.constats.length ? 'ecart' : (e.regles.length ? 'sans_ecart' : 'lu'); }
   return { parPiece, constats };
 }
