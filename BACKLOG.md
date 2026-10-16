@@ -1,4 +1,15 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.755 (16/10, pilotage Desktop, GO Didier)** — **Candidats : comparer les dossiers** (`feat/aide-decision-candidats`, 591c619a ; tests : 8 316 app + 468 relais verts ; relecture Opus : 1 🔴 + 2 🟠 + 11 🟡, tous corrigés).
+> - Bouton « Comparer les N dossiers » dès que 2 dossiers au moins visent le même bien.
+> - Critères affichés : dossier (décret 2015-1437), pièces (un mot, sans compte ni tri), taux d'effort (loyer charges comprises ÷ ressources allocations comprises), garantie, dates.
+> - Ni total, ni note, ni classement. Repère de taux fixé par le propriétaire, aucun par défaut.
+> - Tri possible seulement sur les dates et le taux. La décision reste dans chaque fiche.
+> - La fiche candidat affiche le même taux d'effort.
+> - Libellé « ressources … allocations comprises » sur la page de dépôt (`ASSET_VERSION` 6), avec correction de « 1 450,50 » lu 145 050 €.
+> - Phrase d'information du candidat ; registre RGPD n° 6 mis à jour.
+> - ⚠️ **Relais à redéployer** (`deployer-relais.cmd`) pour que la page de dépôt soit à jour.
+> - Question avocat / AIPD : faut-il garder une trace datée de la comparaison comme preuve (art. 1er loi 89-462), et pour quelle durée ?
+> - En cours : `feat/finances-suivi-v2` → v15.756 (maquette du dépôt détenu demandée) ; `feat/conso-ia` → v15.757 (migration 0062 réservée).
 > 🚦 **MAIN = v15.754 (16/10, pilotage Desktop, GO Didier)** — **Fiches de paie : lecture IA + règles 2026 + cause visible** (`feat/regles-paie`, f1ee82cc ; tests : 8 244 app + 451 relais verts).
 >
 > **Relectures :**

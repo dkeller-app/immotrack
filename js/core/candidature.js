@@ -238,7 +238,7 @@ export function repullDecision(link, submittedAt, candStatut) {
 }
 
 /**
- * Loyer attendu d'un logement pour le ratio revenus / loyer d'un candidat (information), en cascade.
+ * Loyer attendu d'un logement pour le taux d'effort d'un candidat (information), en cascade.
  * Pur — l'appelant rassemble les données depuis DB. Ordre validé : logement → ancien
  * locataire (dernier bail courant/historique avec un loyer) → loyer saisi à l'invitation.
  *
