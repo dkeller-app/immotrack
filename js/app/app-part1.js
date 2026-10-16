@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.754';
+const IMMOTRACK_VERSION = '15.755';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -65,6 +65,7 @@ function _uiIcon(name, size) {
     'check-circle':'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
     close:'<path d="M6 6l12 12M18 6L6 18"/>',
     scale:'<path d="M12 3v18M5 21h14M6 7h12M6 7l-3 6a3 3 0 006 0zM18 7l-3 6a3 3 0 006 0z"/>',
+    'arrow-up':'<path d="M12 19V5M6 11l6-6 6 6"/>',
     external:'<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>',
     filter:'<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
     sort:'<path d="M8 4v16M8 20l-3-3M8 4l3 3M16 20V4M16 4l-3 3M16 20l3-3"/>',
@@ -13282,6 +13283,8 @@ function rCandidats(){
   const search = (v('cand-search')||'').toLowerCase().trim();
   const fBien = v('cand-f-bien');
   const fStatut = v('cand-f-statut');
+  _candCmpBouton(wantArchived ? '' : fBien);   // AIDE-DECISION : « Comparer les N dossiers » (2 dossiers en lice ou plus)
+  _candCmpRafraichir();                         // comparaison ouverte : reflète un statut ou une pièce qui vient de changer
   const list = all.filter(c=>{
     if(!!c._archived !== wantArchived) return false;
     if(fBien && c.logRef !== fBien) return false;
@@ -13316,12 +13319,224 @@ function rCandidats(){
       <td data-label="Bien">${escHtml(bien)}${c.dateDebutSouhaitee?`<div class="cand-supp">Début souhaité ${escHtml(dateDeb)}</div>`:''}</td>
       <td data-label="Reçu le">${escHtml(recu)}</td>
       <td data-label="Statut"><span class="badge ${stB}">${escHtml(stL)}</span>${_supp?`<div class="cand-supp">Suppression le ${escHtml(fd(_supp))}</div>`:''}</td>
-      <td class="num" data-label="Revenus déclarés">${(Number(c.revenus)||0).toLocaleString('fr-FR')} €</td>
+      <td class="num" data-label="Ressources déclarées">${(Number(c.revenus)||0).toLocaleString('fr-FR')} €</td>
       <td data-label="Garantie"><span class="badge gry">${escHtml(_candGarantieLabel(c))}</span></td>
       <td data-label="Pièces">${_candPiecesCellHtml(c)}</td>
     </tr>`;
   }).join('');
 }
+
+// ═══ AIDE-DECISION (v15.755) — comparer les dossiers d'un même logement ═══════════════════════════════════════════
+// Critères objectifs côte à côte, un état par critère : AUCUNE note, aucun total, aucun classement imposé (RGPD art. 22,
+// CJUE C-634/21 SCHUFA). Règles pures : js/core/aide-decision-candidats.js. Décisions de Didier (16/10/2026) : repère du
+// taux d'effort fixé par le propriétaire (aucun par défaut, le même pour tous, Propryo n'en suggère aucun) ; un seul mot
+// pour les pièces (sans compte, sans tri, sans couleur de verdict) ; ordre par défaut = date de réception, tri au choix
+// sur les dates et le taux d'effort seulement. Valider ou refuser se fait dans chaque dossier, jamais depuis la comparaison.
+let _candCmp = { logRef: '', tri: null };
+function _candCmpParams(){
+  if(!DB.params) DB.params = {};
+  if(!DB.params.aideDecision || typeof DB.params.aideDecision !== 'object') DB.params.aideDecision = {};
+  return DB.params.aideDecision;
+}
+function _candCmpRepere(){ const AD = window.AideDecision; const p = (DB.params && DB.params.aideDecision) || {}; return AD ? AD.normaliserRepere(p.repereTauxEffort) : null; }
+function _candCmpLectureSeule(){ return typeof _appReadOnly !== 'undefined' && !!_appReadOnly; }
+function _candCmpBouton(logRef){
+  const b = el('cand-cmp-btn'); if(!b) return;
+  const AD = window.AideDecision;
+  const n = (AD && logRef) ? AD.candidatsAComparer(DB.candidats, logRef).length : 0;
+  if(n < 2){ b.classList.add('hidden'); return; }
+  b.innerHTML = _uiIcon('scale', 15) + ' Comparer les ' + n + ' dossiers';
+  b.classList.remove('hidden');
+}
+function ouvrirComparaisonCandidats(){
+  const AD = window.AideDecision; const logRef = v('cand-f-bien');
+  if(!AD || !logRef) return;
+  _candCmp = { logRef: String(logRef), tri: null };
+  _candCmpRender();
+  openM('ov-cand-comparer');
+  // Vérification des pièces sur l'appareil (faite d'ordinaire à l'ouverture de la fiche) : un dossier après l'autre.
+  const ids = AD.candidatsAComparer(DB.candidats, logRef).map(c => c.id);
+  (async () => { for(const id of ids){ if(!_candCmpOuvert()) break; try{ await _candVerifierPieces(id); }catch(e){} } })();
+}
+function _candCmpOuvert(){ const ov = el('ov-cand-comparer'); return !!(ov && !ov.classList.contains('hidden')); }
+function _candCmpRafraichir(){
+  if(!_candCmpOuvert()) return;
+  _candCmpRender();
+  const d = el('ov-cand-cmp-detail');
+  if(d && !d.classList.contains('hidden') && _candCmp.detail && _candCmp.detail.type === 'pieces') _candCmpPieces(_candCmp.detail.id);
+}
+// Pièces de la liste légale (celles qui portent une pastille de vérification dans la fiche).
+function _candCmpPiecesAvecEtat(candId){
+  const PC = window.PiecesCand;
+  return (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(candId)
+    && !!(PC && PC.typesPourCategorie(String(d.category || '')).length));
+}
+function _candCmpConstatsDossier(c){ return _candVerifReglages().ia ? _candIaAnalyse(c).constats.filter(k => !k.pieceId) : []; }
+function _candCmpLignes(){
+  const AD = window.AideDecision; if(!AD) return [];
+  const L = _loyerCCBienDetail(_candCmp.logRef); const repere = _candCmpRepere(); const auj = td();
+  const lignes = AD.candidatsAComparer(DB.candidats, _candCmp.logRef).map(c => Object.assign(AD.ligneComparaison(c, {
+    loyerCC: L.cc, repere, aujourdhui: auj, categoriesFournies: _candCategoriesFournies(c.id),
+    etatsPieces: _candCmpPiecesAvecEtat(c.id).map(_candVerifEtat).filter(Boolean), constatsDossier: _candCmpConstatsDossier(c)
+  }), { cand: c }));
+  const t = AD.normaliserTri((_candCmp.tri || {}).cle, (_candCmp.tri || {}).sens);
+  return AD.trierLignes(lignes, t.cle, t.sens);
+}
+function _candCmpTrier(valeur){
+  const [cle, sens] = String(valeur || '').split('|');
+  _candCmp.tri = window.AideDecision ? window.AideDecision.normaliserTri(cle, sens) : null;
+  _candCmpRender();
+}
+// Clic sur un en-tête triable : même colonne → sens inverse ; autre colonne → sens naturel (récent d'abord, taux croissant).
+function _candCmpTrierColonne(cle){
+  const AD = window.AideDecision; if(!AD) return;
+  const t = AD.normaliserTri((_candCmp.tri || {}).cle, (_candCmp.tri || {}).sens);
+  const sens = t.cle === cle ? (t.sens === 'asc' ? 'desc' : 'asc') : (cle === 'recu' ? 'desc' : 'asc');
+  _candCmpTrier(cle + '|' + sens);
+}
+const _CAND_CMP_ICO_PIECES = { ok: 'check', averif: 'warn', nonverif: 'help', attente: 'clock' };
+function _candCmpPiecesHtml(l){
+  if(!l.pieces) return '<span class="mu">—</span>';
+  return '<button type="button" class="cand-vbdg ' + escHtml(l.pieces.etat) + '" onclick="event.stopPropagation();_candCmpPieces(\'' + _lyQ(l.id) + '\')" title="Voir l\'état de chaque pièce">'
+    + _uiIcon(_CAND_CMP_ICO_PIECES[l.pieces.etat] || 'minus', 14) + '<span>' + escHtml(l.pieces.mot) + '</span></button>';
+}
+function _candCmpTauxHtml(l){
+  const t = l.taux;
+  if(t.pct == null) return '<span class="mu" title="Loyer ou ressources non renseignés">—</span>';
+  const AD = window.AideDecision;
+  const pos = t.situation ? '<span class="cmp-rp">' + (t.situation === 'audessus' ? _uiIcon('arrow-up', 13) : '') + escHtml(AD.MOTS_REPERE[t.situation]) + '</span>' : '';
+  return '<button type="button" class="cmp-te" onclick="event.stopPropagation();_candCmpTaux(\'' + _lyQ(l.id) + '\')" title="Voir le calcul"><b>' + escHtml(String(t.pct)) + ' %</b>' + pos + '</button>';
+}
+function _candCmpDossierHtml(l){
+  const d = l.dossier;
+  if(d.etat === 'complet') return '<span class="cand-pz ok">' + _uiIcon('check-circle', 14) + ' Complet</span>';
+  if(d.etat === 'declare') return '<span class="cand-pz">Déclaré complet</span>';
+  return '<span class="cand-pz">' + _uiIcon('minus', 14) + ' Manque : ' + escHtml(d.manque.map(k => _CAND_CAT_COURT[k] || k).join(' · ')) + '</span>';
+}
+function _candCmpGarantieHtml(l){
+  const g = l.garantie;
+  return '<div class="cmp-gar"><span class="badge gry">' + (g.type === 'visale' ? _uiIcon('shield', 12) + ' ' : '') + escHtml(g.mot) + '</span>'
+    + (g.precision ? '<span class="s">' + escHtml(g.precision) + '</span>' : '') + '</div>';
+}
+function _candCmpRender(){
+  const body = el('cmp-body'); const AD = window.AideDecision;
+  if(!body || !AD) return;
+  const log = (DB.logements||[]).find(l => l && !l._deleted && l.ref === _candCmp.logRef);
+  const L = _loyerCCBienDetail(_candCmp.logRef);
+  const lignes = _candCmpLignes(); const repere = _candCmpRepere();
+  const t = AD.normaliserTri((_candCmp.tri || {}).cle, (_candCmp.tri || {}).sens);
+  const loyerTxt = L.cc > 0 ? ('loyer ' + fmt(L.hc) + ' + ' + fmt(L.ch) + ' de charges = ' + fmt(L.cc) + ' charges comprises') : 'loyer à renseigner dans le logement';
+  const th = (cle, lib) => '<th class="cmp-so' + (t.cle === cle ? ' on' : '') + '" aria-sort="' + (t.cle === cle ? (t.sens === 'asc' ? 'ascending' : 'descending') : 'none') + '"><button type="button" onclick="_candCmpTrierColonne(\'' + cle + '\')">'
+    + escHtml(lib) + _uiIcon('sort', 12) + '</button></th>';
+  const opt = (val, lib) => '<option value="' + val + '"' + ((t.cle + '|' + t.sens) === val ? ' selected' : '') + '>' + escHtml(lib) + '</option>';
+  const rows = lignes.map(l => {
+    const c = l.cand;
+    const stL = _CAND_ST_LABEL[c.statut] || c.statut || '—'; const stB = _CAND_ST_BADGE[c.statut] || 'gry';
+    const recu = l.recu ? fd(l.recu.slice(0, 10)) : '—'; const deb = l.debut ? fd(l.debut) : '—';
+    const sub = _candContratLabel(c);
+    return '<tr onclick="_candCmpOuvrirDossier(\'' + _lyQ(l.id) + '\')" style="cursor:pointer">'
+      + '<td data-label="Candidat"><div class="cand-b-name"><div class="avatar">' + escHtml(_candInitials(c)) + '</div><div><div class="nm">' + escHtml(l.nom || '—') + '</div>'
+      + (sub ? '<div class="sub">' + escHtml(sub) + '</div>' : '') + '<div class="sub cmp-etroit">Reçu le ' + escHtml(recu) + (l.debut ? ' · début ' + escHtml(deb) : '') + ' · ' + escHtml(stL) + '</div></div></div></td>'
+      + '<td class="cmp-large" data-label="Reçu le">' + escHtml(recu) + '</td>'
+      + '<td class="cmp-large" data-label="Début souhaité">' + escHtml(deb) + '</td>'
+      + '<td data-label="Dossier">' + _candCmpDossierHtml(l) + '</td>'
+      + '<td data-label="État des pièces">' + _candCmpPiecesHtml(l) + '</td>'
+      + '<td data-label="Taux d\'effort">' + _candCmpTauxHtml(l) + '</td>'
+      + '<td data-label="Garantie">' + _candCmpGarantieHtml(l) + '</td>'
+      + '<td class="cmp-large" data-label="Statut"><span class="badge ' + stB + '">' + escHtml(stL) + '</span></td>'
+      + '</tr>';
+  }).join('');
+  body.innerHTML = '<div class="cmp-tete"><div class="cmp-bien"><b>' + escHtml(log ? _logLabel(log) : _candCmp.logRef) + '</b> · ' + escHtml(loyerTxt) + '</div>'
+    + '<div class="cmp-acts">' + (_candCmpLectureSeule() ? '<span class="cmp-rp-lu">Repère du taux d\'effort : ' + escHtml(repere == null ? 'aucun' : (String(repere).replace('.', ',') + ' %')) + '</span>'
+      : '<button type="button" class="btn bs" onclick="_candCmpRepereOuvrir()">' + _uiIcon('edit', 14) + ' Repère du taux d\'effort : ' + escHtml(repere == null ? 'aucun' : (String(repere).replace('.', ',') + ' %')) + '</button>')
+    + '<select class="inp cmp-ordre" aria-label="Ordre des dossiers" onchange="_candCmpTrier(this.value)">'
+    + opt('recu|desc', 'Ordre : réception, récent d\'abord') + opt('recu|asc', 'Ordre : réception, ancien d\'abord') + opt('debut|asc', 'Ordre : début souhaité, le plus tôt d\'abord') + opt('debut|desc', 'Ordre : début souhaité, le plus tard d\'abord')
+    + opt('tauxEffort|asc', 'Ordre : taux d\'effort croissant') + opt('tauxEffort|desc', 'Ordre : taux d\'effort décroissant') + '</select></div></div>'
+    + '<div class="tbl-wrap" id="cmp-table"><table class="tbl"><thead><tr><th>Candidat</th>'
+    + th('recu', 'Reçu le').replace('<th class="', '<th class="cmp-large ') + th('debut', 'Début souhaité').replace('<th class="', '<th class="cmp-large ')
+    + '<th>Dossier</th><th>État des pièces</th>' + th('tauxEffort', 'Taux d\'effort') + '<th>Garantie</th><th class="cmp-large">Statut</th></tr></thead><tbody>'
+    + (rows || '<tr><td colspan="8" class="mu" style="text-align:center;padding:24px">Aucun dossier en cours pour ce logement.</td></tr>') + '</tbody></table></div>'
+    + '<div class="cmp-regle">' + _uiIcon('scale', 14) + '<span>Critères objectifs, sans note ni classement : le choix revient au propriétaire, dans chaque dossier.</span></div>';
+}
+function _candCmpLigne(id){ return _candCmpLignes().find(l => String(l.id) === String(id)) || null; }
+function _candCmpDetail(titre, corps, pied, quoi){
+  _candCmp.detail = quoi || null;
+  el('cmpd-title').textContent = titre; el('cmpd-body').innerHTML = corps; el('cmpd-foot').innerHTML = pied;
+  openM('ov-cand-cmp-detail');
+}
+const _CAND_CMP_BTN_DOSSIER = (id) => '<button class="btn bp" onclick="_candCmpOuvrirDossier(\'' + _lyQ(id) + '\')">Ouvrir le dossier</button>';
+// Détail au clic : le calcul du taux d'effort, la nature des ressources (déclarées / examinées), le repère du propriétaire.
+function _candCmpTaux(id){
+  const l = _candCmpLigne(id); const AD = window.AideDecision; if(!l || !AD) return;
+  const t = l.taux; const L = _loyerCCBienDetail(_candCmp.logRef); const repere = _candCmpRepere();
+  const S = AD.SOURCES;
+  const pos = t.pct == null ? '' : (t.situation ? ((t.situation === 'audessus' ? _uiIcon('arrow-up', 14) : '') + escHtml(AD.MOTS_REPERE[t.situation] + ' (') + escHtml(String(repere).replace('.', ',')) + ' %)') : 'aucun repère fixé');
+  const h = '<div class="cmp-big"><b>' + (t.pct == null ? '—' : escHtml(String(t.pct)) + ' %') + '</b><span>' + pos + '</span></div>'
+    + '<div class="cmp-kv">'
+    + '<div class="k">Loyer charges comprises</div><div class="v">' + (L.cc > 0 ? escHtml(fmt(L.cc)) + ' <span class="mu">(' + escHtml(fmt(L.hc)) + ' + ' + escHtml(fmt(L.ch)) + ')</span>' : '<span class="mu">à renseigner dans le logement</span>') + '</div>'
+    + '<div class="k">Ressources nettes mensuelles<br><span class="mu sm">allocations comprises</span></div><div class="v">' + (t.ressources > 0 ? escHtml(fmt(t.ressources)) : '<span class="mu">non renseignées</span>')
+    + ' <span class="conf-decl">' + (t.examinees ? 'examinées' : 'déclarées') + '</span></div>'
+    + (t.pct != null ? '<div class="k">Calcul</div><div class="v">' + escHtml(fmt(L.cc)) + ' ÷ ' + escHtml(fmt(t.ressources)) + ' = ' + escHtml(String(t.pct)) + ' %</div>' : '')
+    + '<div class="k">Garantie</div><div class="v">' + escHtml(l.garantie.mot) + (l.garantie.precision ? ' <span class="mu">· ' + escHtml(l.garantie.precision) + '</span>' : '') + '</div>'
+    + '</div>'
+    + '<div class="vp-src">Aucun texte de loi ne fixe de seuil. Toutes les ressources comptent, allocations comprises (<a href="' + escHtml(S.defenseur.url) + '" target="_blank" rel="noopener">' + escHtml(S.defenseur.libelle) + '</a>).'
+    + (l.garantie.type === 'visale' ? ' Visale : loyer garanti dans la limite de 50 % des revenus (<a href="' + escHtml(S.visale.url) + '" target="_blank" rel="noopener">' + escHtml(S.visale.libelle) + '</a>).' : '') + '</div>';
+  _candCmpDetail('Taux d\'effort · ' + (l.nom || 'candidat'), h,
+    (_candCmpLectureSeule() ? '' : '<button class="btn bs" onclick="_candCmpRepereOuvrir()">' + _uiIcon('edit', 14) + ' Modifier le repère</button>') + _CAND_CMP_BTN_DOSSIER(id));
+}
+// Détail au clic : l'état existant de chaque pièce (VERIF-LISIBLE) ; une pastille ouvre le détail de la pièce.
+function _candCmpPieces(id){
+  const l = _candCmpLigne(id); if(!l) return;
+  const docs = _candCmpPiecesAvecEtat(id);
+  const rows = docs.map(d => {
+    const e = _candVerifEtat(d); if(!e) return '';
+    const raison = (e.resume && e.resume.texte) ? '<span class="d">' + escHtml(e.resume.texte) + '</span>' : '';
+    return '<div class="cmp-prow"><span class="pn">' + escHtml(d.originalName || d.name || 'pièce') + raison + '</span>'
+      + '<button type="button" class="cand-vbdg ' + escHtml(e.etat) + (e.vert ? ' vert' : '') + '" onclick="_candVerifDetail(\'' + _lyQ(d.id) + '\')" title="Voir le détail de la vérification">' + _candVerifBadgeHtml(e) + '</button></div>';
+  }).filter(Boolean);
+  const dossier = _candCmpConstatsDossier(l.cand);
+  if(dossier.length && window.VerifPieces && window.VerifPieces.resumeConstats){
+    const r = window.VerifPieces.resumeConstats(dossier);
+    rows.push('<div class="cmp-prow"><span class="pn">Bulletins de salaire' + (r && r.texte ? '<span class="d">' + escHtml(r.texte) + '</span>' : '') + '</span>'
+      + '<button type="button" class="cand-vbdg averif" onclick="_candVerifDossierDetail(\'' + _lyQ(id) + '\')">' + _uiIcon('warn', 14) + '<span>À vérifier</span></button></div>');
+  }
+  _candCmpDetail('Pièces · ' + (l.nom || 'candidat'),
+    (rows.length ? '<div class="cmp-plist">' + rows.join('') + '</div>' : '<div class="mu">Aucune pièce contrôlée pour ce dossier.</div>')
+    + '<div class="vp-src">Le détail de chaque pièce s\'ouvre au clic sur son état.</div>', _CAND_CMP_BTN_DOSSIER(id), { type: 'pieces', id: String(id) });
+}
+// Repère du taux d'effort : celui du propriétaire, aucun par défaut, le même pour tous les dossiers (décision 1).
+function _candCmpRepereOuvrir(){
+  const r = _candCmpRepere();
+  const h = '<div class="mu" style="font-size:13px">Le repère du propriétaire, par exemple la condition d\'une assurance loyers impayés. Le même pour tous les dossiers ; il sert seulement à signaler les dossiers au-dessus.</div>'
+    + '<div class="cmp-pick">'
+    + '<label class="' + (r == null ? 'on' : '') + '"><input type="radio" name="cmp-rp" value="aucun"' + (r == null ? ' checked' : '') + ' onchange="_candCmpReperePick()"> Aucun : le chiffre seul</label>'
+    + '<label class="' + (r == null ? '' : 'on') + '"><input type="radio" name="cmp-rp" value="repere"' + (r == null ? '' : ' checked') + ' onchange="_candCmpReperePick()"> Repère '
+    + '<span class="cmp-pct"><input class="inp" id="cmp-rp-val" inputmode="decimal" aria-label="Repère en pourcentage" value="' + (r == null ? '' : escHtml(String(r).replace('.', ','))) + '" oninput="_candCmpReperePick(true)"> %</span></label>'
+    + '</div><div class="vp-src">Aucun texte de loi ne fixe de seuil.</div>';
+  _candCmpDetail('Repère du taux d\'effort', h, '<button class="btn bs" onclick="closeM(\'ov-cand-cmp-detail\')">Annuler</button><button class="btn bp" onclick="_candCmpRepereEnregistrer()">Enregistrer</button>');
+}
+function _candCmpReperePick(saisie){
+  const radios = document.querySelectorAll('#cmpd-body input[name="cmp-rp"]');
+  if(saisie) radios.forEach(x => { x.checked = x.value === 'repere'; });
+  radios.forEach(x => { const lab = x.closest('label'); if(lab) lab.classList.toggle('on', x.checked); });
+}
+function _candCmpRepereEnregistrer(){
+  const AD = window.AideDecision; if(!AD) return;
+  if(_candCmpLectureSeule()){ showToast('Accès en lecture seule : le repère n\'est pas modifiable', 'warn'); return; }
+  const choix = document.querySelector('#cmpd-body input[name="cmp-rp"]:checked');
+  let val = null;
+  if(choix && choix.value === 'repere'){
+    val = AD.normaliserRepere(v('cmp-rp-val'));
+    if(val == null){ showToast('Repère : un pourcentage entre 1 et 100', 'warn'); return; }
+  }
+  const P = _candCmpParams();
+  if(val == null) delete P.repereTauxEffort; else P.repereTauxEffort = val;
+  saveDB();
+  closeM('ov-cand-cmp-detail');
+  showToast(val == null ? 'Aucun repère : le taux d\'effort s\'affiche seul' : ('Repère enregistré : ' + String(val).replace('.', ',') + ' %'), 'ok');
+  _candCmpRender();
+}
+function _candCmpOuvrirDossier(id){ closeM('ov-cand-cmp-detail'); openFicheCandidat(id); }
 
 // Un logement est vacant s'il n'a pas de bail actif (non clôturé).
 function _logementsVacants(){
@@ -14087,6 +14302,7 @@ async function _candVerifierPieces(candId, opts){
     saveDB();
     try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && typeof _ficheCandidatOuverte !== 'undefined' && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
     try{ if(opts.docId && el('ov-verif-piece') && !el('ov-verif-piece').classList.contains('hidden')) _candVerifDetail(opts.docId); }catch(e){}
+    try{ _candCmpRafraichir(); }catch(e){}   // AIDE-DECISION : colonne « État des pièces » et détail ouvert à jour
     if(opts.toast) showToast('Vérification enregistrée', 'ok');
   }
 }
@@ -14804,7 +15020,7 @@ function openLoyerBienModal(candId, logRef){
       else warn.innerHTML = '🔒 <b>Bien occupé</b> — le loyer suit le bail en cours. Pour le modifier, passer par le <b>bail</b> ou une <b>révision IRL</b> (elles propagent loyer + théorique + bail). Édition directe désactivée ici pour ne pas désynchroniser le bail signé.';
     } else {
       warn.style.background='rgba(234,88,12,.1)'; warn.style.border='1px solid rgba(234,88,12,.3)'; warn.style.color='#9a4a10';
-      warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au ratio revenus / loyer affiché sur la fiche des candidats et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
+      warn.innerHTML = '⚠ Ce loyer est celui du <b>logement</b> (bien vacant) : il sert au taux d’effort affiché pour les candidats et au futur bail. Il alimente aussi le tableau de bord et le P&amp;L.';
     }
   }
   if(el('lb-ctx')) el('lb-ctx').innerHTML = 'Logement <b>'+escHtml(_logLabel(log))+(log.imm?(' — '+escHtml(log.imm)):'')+'</b>'+(occupied?' · <span style="color:var(--ora);font-weight:600">occupé</span>':' · vacant');
@@ -14900,10 +15116,16 @@ function openFicheCandidat(id){
 
   // ── Situation / ratio ───────────────────────────────────────────────────
   const revenus = Number(c.revenus)||0;
-  // Information, sans seuil ni couleur (le choix sur critères financiers objectifs appartient au bailleur).
-  const ratioTxt = (loyerHC>0 && revenus>0)
-    ? `${revenus.toLocaleString('fr-FR')} € / ${loyerHC.toLocaleString('fr-FR')} € = <b>${(revenus/loyerHC).toLocaleString('fr-FR',{maximumFractionDigits:1})}×</b> <span class="mu" style="font-size:11px">information, sans seuil</span>`
-    : '<span class="mu">— (loyer attendu non renseigné)</span>';
+  // AIDE-DECISION : taux d'effort = loyer CHARGES COMPRISES ÷ ressources (allocations comprises), même calcul que la
+  // comparaison des dossiers (js/core/aide-decision-candidats.js). Sans couleur ; la position face au repère n'apparaît
+  // que si le propriétaire en a fixé un (aucun par défaut).
+  const _AD = window.AideDecision;
+  const _lcc = _loyerCCBienDetail(c.logRef);   // le loyer du LOGEMENT, le même pour tous ses candidats (comme la comparaison)
+  const _te = _AD ? _AD.tauxEffort(_lcc.cc, revenus) : null;
+  const _teSit = _AD ? _AD.situationRepere(_te, _candCmpRepere()) : null;
+  const ratioTxt = _te != null
+    ? `${escHtml(fmt(_lcc.cc))} charges comprises ÷ ${escHtml(fmt(revenus))} = <b>${_te} %</b>${_teSit ? ` <span class="mu" style="font-size:11px">${escHtml(_AD.MOTS_REPERE[_teSit])}</span>` : ''}`
+    : `<span class="mu">— (${_lcc.cc > 0 ? 'ressources non renseignées' : 'loyer du logement à renseigner'})</span>`;
   // Loyer attendu (cascade) : valeur + source + bouton d'édition → popup qui écrit log.hc.
   const _laSrcTxt = _la.source==='logement' ? 'loyer du logement'
     : _la.source==='ancien' ? ('ancien locataire'+(_la.locataire?(' : '+escHtml(_la.locataire)):''))
@@ -15030,11 +15252,11 @@ function openFicheCandidat(id){
       <div class="card">
         <div class="ct" style="margin-top:0">Situation</div>
         <div class="kv-grid">
-          <div class="k">Revenus mensuels</div><div class="v"><b>${revenus.toLocaleString('fr-FR')} €</b>${declBadge}</div>
+          <div class="k">Ressources nettes mensuelles<br><span class="mu" style="font-size:11px">allocations comprises</span></div><div class="v"><b>${revenus.toLocaleString('fr-FR')} €</b>${declBadge}</div>
           <div class="k">Employeur</div><div class="v">${escHtml(c.employeur||'—')}${_candEmployeurSousLigneHtml(c)}</div>
           <div class="k">Type de contrat</div><div class="v">${contratBadge}</div>
           <div class="k">Loyer attendu</div><div class="v">${loyerAttenduHtml}</div>
-          <div class="k">Ratio revenus / loyer</div><div class="v">${ratioTxt}</div>
+          <div class="k">Taux d'effort</div><div class="v">${ratioTxt}</div>
         </div>
       </div>
       <div class="card">
@@ -15074,6 +15296,7 @@ function openFicheCandidat(id){
 function _editCandidatFromFiche(id){
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
   closeM('ov-fiche-candidat');
+  closeM('ov-cand-comparer');   // AIDE-DECISION : la modale d'édition est placée avant la comparaison dans le DOM
   if(el('m-cand-title')) el('m-cand-title').textContent='Modifier le candidat';
   el('cand-edit-id').value = c.id;
   _fillCandLogSelect(c.logRef||'');
@@ -15447,6 +15670,7 @@ function convertCandidatToBail(id){
   if(!c){ showToast('Candidat introuvable','err'); return; }
   if(c.statut!=='valide'){ showToast('Le candidat doit être « Validé » avant conversion','warn'); return; }
   if(!c.logRef){ showToast('Aucun bien associé à ce candidat','err'); return; }
+  closeM('ov-cand-comparer');   // AIDE-DECISION : l'assistant de bail est placé avant la comparaison dans le DOM
   const log = (DB.logements||[]).find(l=>l && l.ref===c.logRef);
   // Le bien a pu être supprimé/archivé entre la validation et la conversion :
   // sans lui, le sélecteur (peuplé via _activeLogements) ne contiendrait pas l'option.
@@ -17370,13 +17594,17 @@ function _visaleLoyerCC(p) {
 }
 // Loyer charges comprises attendu d'un bien : même cascade que la conversion candidat → bail
 // (convertCandidatToBail) — loyer attendu + charges du bien.
-function _visaleLoyerCCBien(logRef) {
-  if (!logRef) return 0;
+function _visaleLoyerCCBien(logRef) { return _loyerCCBienDetail(logRef).cc; }
+// Loyer d'un logement candidaté : hors charges (cascade du loyer attendu ; `cand` : celle de ce candidat, invitation
+// comprise), charges, charges comprises (0 si loyer inconnu).
+// Source unique du contrôle Visale, du taux d'effort de la fiche candidat et de la comparaison (AIDE-DECISION).
+function _loyerCCBienDetail(logRef, cand) {
+  if (!logRef) return { hc: 0, ch: 0, cc: 0 };
   const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === logRef);
-  const la = (typeof _loyerAttenduForCand === 'function') ? _loyerAttenduForCand({ logRef }) : null;
+  const la = (typeof _loyerAttenduForCand === 'function') ? _loyerAttenduForCand(cand || { logRef }) : null;
   const hc = (la && la.loyer > 0) ? la.loyer : (log ? Number(log.hc) || 0 : 0);
   const ch = log ? (Number(log.ch) || Number(log.chargesRef) || 0) : 0;
-  return hc > 0 ? hc + ch : 0;
+  return { hc, ch, cc: hc > 0 ? hc + ch : 0 };
 }
 // Contrôles NON BLOQUANTS (loyer CC > loyer max du visa, visa expiré) + rappel des plafonds.
 function _visaleCtrl(p) {

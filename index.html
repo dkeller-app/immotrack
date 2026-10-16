@@ -10,7 +10,7 @@
      ⚠️ tout nouvel endpoint réseau DOIT être ajouté ici. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://xcbtashflclswyiyvfgn.supabase.co; connect-src 'self' https://xcbtashflclswyiyvfgn.supabase.co wss://xcbtashflclswyiyvfgn.supabase.co https://bail-sign-relay.didierkeller.workers.dev https://api.insee.fr https://recherche-entreprises.api.gouv.fr https://api-adresse.data.gouv.fr https://errial.georisques.gouv.fr https://www.georisques.gouv.fr https://data.ademe.fr https://gmail.googleapis.com https://www.googleapis.com; frame-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.754</title>
+<title>Propryo v15.755</title>
 <!-- F9.2 (audit sécu) anti-clickjacking : GitHub Pages ne pose pas X-Frame-Options et frame-ancestors
      est ignoré en <meta> → garde JS. Si l'app est chargée dans une iframe (tentative de clickjacking
      sur l'UI authentifiée), on la remet en top-level ; si window.top est cross-origin (accès refusé),
@@ -124,7 +124,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
-<link rel="stylesheet" href="css/main.css?v=15.754">
+<link rel="stylesheet" href="css/main.css?v=15.755">
 <link rel="stylesheet" id="imsb-style-link" href="css/login.css?v=7bb6198f">
 <!-- modulepreload:begin (genere par tools/stamp-app-parts.mjs - ne pas editer a la main) -->
 <link rel="modulepreload" href="js/vendor/supabase-js-2.110.2.esm.js">
@@ -239,6 +239,7 @@ window.ensurePdfLibs=(function(){var p=null;return function(){
 <link rel="modulepreload" href="js/core/lecture-photo-client.js">
 <link rel="modulepreload" href="js/core/verif-pieces.js">
 <link rel="modulepreload" href="js/core/regles-bulletin.js">
+<link rel="modulepreload" href="js/core/aide-decision-candidats.js">
 <link rel="modulepreload" href="js/core/relay-client.js">
 <link rel="modulepreload" href="js/core/backup.js">
 <link rel="modulepreload" href="js/core/espace-purge.js">
@@ -380,7 +381,7 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
     <span class="sb-logo-icon"><!-- Logo validé (charte) : carré contour + point corail, toujours corail --><svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="#ff5a3c" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="#ff5a3c"/></svg></span>
     <div class="sb-logo-text">
       <strong>Propryo</strong>
-      <em>v15.754</em>
+      <em>v15.755</em>
     </div>
     <!-- v15.26 : boutons utilitaires en haut sidebar.
          v15.38 : bouton font-size supprimé sur demande user (cf footer V4 dashboard). -->
@@ -852,12 +853,13 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
           <option value="refuse">Refusé</option>
           <option value="converti">Converti</option>
         </select>
+        <button type="button" class="btn bs hidden" id="cand-cmp-btn" onclick="ouvrirComparaisonCandidats()">Comparer les dossiers</button>
       </div>
       <div class="cand-tbl" id="cand-table">
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr>
             <th>Candidat</th><th>Bien</th><th>Reçu le</th><th>Statut</th>
-            <th class="num">Revenus déclarés</th><th>Garantie</th><th>Pièces</th>
+            <th class="num">Ressources déclarées</th><th>Garantie</th><th>Pièces</th>
           </tr></thead>
           <tbody id="cand-tbody"></tbody>
         </table></div>
@@ -2481,9 +2483,9 @@ var b=document.getElementById('imsb-submit');if(b){b.disabled=false;b.textConten
       <div class="fg"><label>Email</label><input class="inp" type="email" id="cand-email"></div>
     </div>
     <div class="fg"><label>Adresse précédente</label><input class="inp" id="cand-adrprec"></div>
-    <div class="ct">Situation professionnelle &amp; revenus</div>
+    <div class="ct">Situation professionnelle &amp; ressources</div>
     <div class="fg2">
-      <div class="fg"><label>Revenus mensuels nets (€)</label><input class="inp" type="number" id="cand-revenus" min="0" step="1"></div>
+      <div class="fg"><label>Ressources nettes mensuelles, allocations comprises (€)</label><input class="inp" type="number" id="cand-revenus" min="0" step="1"></div>
       <div class="fg"><label>Employeur</label><input class="inp" id="cand-employeur"></div>
     </div>
     <div class="fg"><label>SIREN ou SIRET de l'employeur <span class="mu sm" style="font-weight:400">— facultatif</span></label><input class="inp" id="cand-siren" inputmode="numeric" autocomplete="off" placeholder="9 ou 14 chiffres">
@@ -2659,6 +2661,20 @@ body[data-dash-v4="on"] .v4s-sb-nav .v4s-a .v4s-bd.v4s-bd-new{background:var(--r
 .cand-new-pill{background:var(--acc,#3b7ef6);color:#fff;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;margin-left:6px;vertical-align:middle;white-space:nowrap}
 tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transparent 60%)}
 </style>
+<!-- MODAL : comparer les dossiers d'un même logement (AIDE-DECISION) — critères côte à côte, sans note ni classement ;
+     page plein écran sur téléphone (M-16). Placée AVANT la fiche candidat : la fiche s'ouvre par-dessus. -->
+<div class="ov hidden" id="ov-cand-comparer" onclick="closeBg(event,'ov-cand-comparer')">
+<div class="modal cmp-modal" role="dialog" aria-modal="true" aria-labelledby="cmp-title">
+  <div class="m-head"><h3 id="cmp-title">Comparer les dossiers</h3><button class="m-close" onclick="closeM('ov-cand-comparer')" aria-label="Fermer">✕</button></div>
+  <div class="m-body" id="cmp-body"></div>
+</div></div>
+<!-- MODAL : détail au clic de la comparaison (taux d'effort, pièces, repère) — sous la fiche et le détail d'une pièce -->
+<div class="ov hidden" id="ov-cand-cmp-detail" onclick="closeBg(event,'ov-cand-cmp-detail')">
+<div class="modal cmpd-modal" role="dialog" aria-modal="true" aria-labelledby="cmpd-title">
+  <div class="m-head"><h3 id="cmpd-title">Détail</h3><button class="m-close" onclick="closeM('ov-cand-cmp-detail')" aria-label="Fermer">✕</button></div>
+  <div class="m-body" id="cmpd-body"></div>
+  <div class="m-foot" id="cmpd-foot"></div>
+</div></div>
 <div class="ov hidden" id="ov-fiche-candidat" onclick="closeBg(event,'ov-fiche-candidat')">
 <div class="modal">
   <div class="m-head"><h3>Fiche candidat</h3><button class="m-close" onclick="closeM('ov-fiche-candidat')">✕</button></div>
@@ -4720,8 +4736,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js?v=63ebc26f" defer></script>
-<script src="js/app/app-part1.js?v=567a2f4c" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
-<script src="js/app/app-part2.js?v=2f64afce" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
+<script src="js/app/app-part1.js?v=5981ac85" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part1')"></script>
+<script src="js/app/app-part2.js?v=5db07872" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part2')"></script>
 <script src="js/app/app-part3.js?v=b2a7b811" data-inline-part defer onerror="window.__immoPartFail&&window.__immoPartFail('app-part3')"></script>
 
 <!-- ── v15.12 Sprint 12 GESTION DG : modale restitution DG ── -->
