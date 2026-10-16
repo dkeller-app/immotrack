@@ -2170,9 +2170,10 @@ function agendaAutoSync() {
     // rappel 7 j). Même clé IRL:<lot>:<année> : l'événement automatique existant (non fait, non déplacé à la main) est
     // recalé ci-dessous — aucun ancien événement orphelin, aucun doublon.
     const rev = computeIRLRevision ? computeIRLRevision(l) : null;
-    if(rev && rev.dateRevision) {
+    const _dRev = rev ? (rev.dateRevision || (rev.effetPrevuIso ? new Date(rev.effetPrevuIso + 'T00:00:00') : null)) : null;
+    if(_dRev) {
       for(let y = yrNow - 1; y <= yrNow + 2; y++) {
-        const revDate = new Date(rev.dateRevision);
+        const revDate = new Date(_dRev);
         revDate.setFullYear(y);
         // IRL-REVISION (audit M5) — date LOCALE (toISOString rendait la veille)
         const ds = _isoLocal(revDate);
@@ -2395,7 +2396,7 @@ function agendaAutoSync() {
   // non modifiés à la main) perdent leurs rappels ; un événement modifié à la main (auto:false) garde les siens.
   let _rappelsRetires = false;
   (DB.agenda || []).forEach(e => {
-    if (!e || !e.auto || e.done || !e.autoKey || !(/^(MRH|EQUIP):/.test(e.autoKey))) return;
+    if (!e || e._deleted || !e.auto || e.done || !e.autoKey || !(/^(MRH|EQUIP):/.test(e.autoKey))) return;
     if (Array.isArray(e.rappels) && e.rappels.length) { e.rappels = []; if (typeof _stamp === 'function') _stamp(e); _rappelsRetires = true; }
   });
   // Purge des rappels d'assurance dont l'attestation n'est plus la courante (nouvelle attestation, locataire parti) : un
@@ -7657,7 +7658,7 @@ function _pilCollectFamilles(ctx) {
   } catch (e) {}
 
   // ── PILOTAGE DU PARC (16/10) : les bulles Documents, Révision et Entretiens comptent EXACTEMENT les lots dont le tableau
-  //    montre l'icône (mêmes règles : ce qui est dû, pas ce qui est à venir) — leur clic filtre le tableau sur ces lots.
+  //    montre l'icône (mêmes règles, anticipation comprise : révision 30 j, assurance et entretiens 15 j) — leur clic filtre le tableau sur ces lots.
   //    L'item d'origine (urgence, pire cas) est gardé quand il existe.
   if (typeof _pilCols === 'function' && _pilCols().length) try {
     const _r = _pilColRefs(ctx);
@@ -8169,7 +8170,7 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
     entretiens: t.equip.map(x => x.severity === 'red'
       ? { libelle: x.ruleLabel || x.title, retardJours: x.retardJours, echeance: x.echeance }
       : { libelle: x.ruleLabel || x.title, retardJours: 0, joursAvant: x.joursAvant, echeance: x.echeance }),
-    revision: irlIt ? { etat: irlIt.irlEtat, dateAnniv: irlIt.dateAnniv, hc: irlIt.hc, nouveauHC: irlIt.nouveauHC } : null,
+    revision: irlIt ? { etat: irlIt.irlEtat, dateAnniv: irlIt.dateAnniv, hc: irlIt.hc, nouveauHC: irlIt.nouveauHC, indiceManquant: !!irlIt.indiceManquant } : null,
     vacant: !loue, dateSortie, bail: bail ? { debut: bail.debut, sig: sig.etat, repris: bail.typeContrat === 'repris' } : null, edlEntree,
     candidats: { retenus: 0, aEtudier: 0 }, cautions: [], attestations: [], diagnostics: []
   };
@@ -9688,6 +9689,19 @@ function _computeUnifiedTodo(ctx) {
   // loyer court et que la revision est due. Le bail decide, pas le cache.
   scopeLogs.filter(l => _lotEstLoue(l) && l.debut).forEach(l => {
     const rev = typeof computeIRLRevision === 'function' ? computeIRLRevision(l) : null;
+    // Didier 16/10 — la révision s'anticipe d'un mois même quand l'indice n'est pas encore publié (ou pour la première
+    // révision) : la date d'effet est connue, l'Accueil prépare la révision 30 jours avant ; le montant viendra avec l'indice.
+    if (rev && (rev.etat === 'indice-manquant' || rev.etat === 'trop-jeune') && rev.effetPrevuIso) {
+      const _j = Math.round((new Date(rev.effetPrevuIso + 'T00:00:00') - new Date(_isoLocal(today) + 'T00:00:00')) / 86400000);
+      if (_j <= 30) out.push({
+        type:'irl', severity:'info', score:60, irlEtat: _j > 0 ? 'preavis' : 'applicable', dateAnniv: rev.effetPrevuIso, hc: l.hc,
+        indiceManquant: rev.etat === 'indice-manquant',
+        title: rev.etat === 'indice-manquant' ? 'Révision IRL — indice pas encore publié' : 'Première révision IRL',
+        subtitle: _logLabel(l.ref) + ' — ' + fd(rev.effetPrevuIso),
+        contextRef: l.ref, nom: _logLabel(l.ref), actionLabel: 'Préparer', actionFn: "go('irl',null)"
+      });
+      return;
+    }
     const c = AlertRules.irlClassifier(rev, l, today, _isoLocal);
     if(!c) return;
     if(c.etat === 'applicable') {

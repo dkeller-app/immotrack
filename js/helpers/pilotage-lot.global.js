@@ -101,7 +101,7 @@
    *   enPlace       : le locataire est entré dans les lieux (bail loué, début ≤ aujourd'hui)
    *   assurance     : null | { etat:'manquante'|'expiree'|'bientot', echeance? }   (moteur des alertes ; « bientôt » ≤ 15 j montré)
    *   entretiens    : [{ libelle, retardJours, joursAvant?, echeance? }]      (en retard, ou à venir : montré à 15 j)
-   *   revision      : null | { etat:'applicable'|'preavis', dateAnniv, hc, nouveauHC }   (préavis montré à 30 j)
+   *   revision      : null | { etat:'applicable'|'preavis', dateAnniv, hc, nouveauHC, indiceManquant? }   (préavis montré à 30 j)
    *   vacant        : le lot n'est pas loué
    *   dateSortie    : date de sortie du congé reçu ('' sinon)
    *   candidats     : { retenus:number, aEtudier:number }
@@ -131,11 +131,14 @@
         if (j != null && j >= 0 && j <= A.ass) out.ass = [ligne('Attestation à renouveler le ' + dateFr(ass.echeance) + ' : demander la nouvelle au locataire.', [g('ass', 'Ajouter l’attestation')])]
       }
       // Entretiens : en retard, ou échéance dans les 15 jours.
+      const aVenir = (x) => !(x.retardJours > 0) && (jour(x.echeance) || Number(x.joursAvant) >= 0)
+      const jAvant = (x) => (jour(x.echeance) ? ecartJours(today, x.echeance) : Number(x.joursAvant))
       const e = (Array.isArray(o.entretiens) ? o.entretiens : []).filter(x => x && x.libelle).filter(x => {
-        if (!(Number(x.joursAvant) >= 0) || x.retardJours > 0) return true                 // en retard (ou ancien appel sans échéance)
-        return Number(x.joursAvant) <= A.entr
+        if (!aVenir(x)) return true                                                          // en retard
+        const j = jAvant(x)
+        return j != null && j <= A.entr
       })
-      if (e.length) out.entr = e.map(x => (Number(x.joursAvant) >= 0 && !(x.retardJours > 0))
+      if (e.length) out.entr = e.map(x => aVenir(x) && jAvant(x) >= 0
         ? ligne(String(x.libelle) + ' : à faire' + (jour(x.echeance) ? ' avant le ' + dateFr(x.echeance) : '') + '.', [g('entr', 'Planifier l’entretien')])
         : ligne(String(x.libelle) + ' : en retard' + (Number(x.retardJours) > 0 ? ' de ' + Math.round(x.retardJours) + ' jours' : '') + '.', [g('entr', 'Planifier l’entretien')]))
       // Révision : due, ou à préparer dans les 30 jours avant la date de révision.
@@ -144,7 +147,8 @@
         const j = jour(r.dateAnniv) ? ecartJours(today, r.dateAnniv) : null
         const montrer = r.etat === 'preavis' ? (j != null && j <= A.irl) : true   // due (applicable)
         if (montrer) {
-          const montants = (r.nouveauHC != null && r.hc != null) ? ' : ' + fmt(r.hc) + ' → ' + fmt(r.nouveauHC) + ' hors charges' : ''
+          const montants = r.indiceManquant ? ' : indice IRL pas encore publié'
+            : ((r.nouveauHC != null && r.hc != null) ? ' : ' + fmt(r.hc) + ' → ' + fmt(r.nouveauHC) + ' hors charges' : '')
           const quand = (j != null && j > 0) ? 'Révision à préparer (le ' + dateFr(r.dateAnniv) + ')' : 'Révision due' + (jour(r.dateAnniv) ? ' depuis le ' + dateFr(r.dateAnniv) : '')
           out.irl = [ligne(quand + montants + '.', [g('irl', 'Réviser le loyer')])]
         }

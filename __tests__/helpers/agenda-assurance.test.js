@@ -143,3 +143,28 @@ describe('Agenda — anticipation (16/10)', () => {
     expect(DB.agenda.find(e => e.id === 'h').rappels).toEqual([30])
   })
 })
+
+describe('Agenda — rappel de révision en retard (couleur)', () => {
+  const an = new Date().getFullYear()
+  const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+  const ilYa = (j) => { const d = new Date(); d.setDate(d.getDate() - j); return iso(d) }
+  function enRetard(DB) {
+    const reel = { DB, _isoLocal: iso, computeIRLRevision: () => null, Date, String, Array, Object, Number }
+    const proxy = new Proxy(reel, { has: () => true, get: (t, k) => (k === Symbol.unscopables ? undefined : t[k]) })
+    return vm.runInContext('(function(__p){ with(__p){ ' + extraireFonction(P2, '_agendaRevisionEnRetard') + '\nreturn _agendaRevisionEnRetard; } })', vm.createContext({}))(proxy)
+  }
+  const monDB = (ev, extra = {}) => ({ logements: [{ ref: 'A', ...extra }], baux: { A: { debut: '2020-03-01' } }, agenda: ev })
+  it('révision du cycle non faite, date passée : en retard', () => {
+    const e = { cat: 'IRL', autoKey: 'IRL:A:' + an, logement: 'A', date: ilYa(10), done: false }
+    expect(enRetard(monDB([e]))(e)).toBe(true)
+  })
+  it('pas en retard : année précédente, révision appliquée, rappel fait, avant la première révision', () => {
+    const vieux = { cat: 'IRL', autoKey: 'IRL:A:' + (an - 1), logement: 'A', date: ilYa(380), done: false }
+    const courant = { cat: 'IRL', autoKey: 'IRL:A:' + an, logement: 'A', date: ilYa(10), done: false }
+    expect(enRetard(monDB([vieux, courant]))(vieux)).toBe(false)
+    expect(enRetard(monDB([courant], { irlDerniereApplication: ilYa(5) }))(courant)).toBe(false)
+    expect(enRetard(monDB([{ ...courant, done: true }]))({ ...courant, done: true })).toBe(false)
+    const DBj = monDB([courant]); DBj.baux.A.debut = ilYa(200)
+    expect(enRetard(DBj)(courant)).toBe(false)
+  })
+})

@@ -27338,8 +27338,24 @@ function rAgenda() {
 
 // Didier 16/10 : un rappel de RÉVISION IRL non fait dont la date est passée change de couleur (jeton d'alerte --neg).
 function _agendaRevisionEnRetard(e) {
-  const today = new Date().toISOString().slice(0,10);
-  return !!(e && !e.done && e.cat === 'IRL' && e.autoKey && String(e.date || '') < today);
+  if (!e || e.done || e._deleted || e.cat !== 'IRL' || !e.autoKey) return false;
+  const today = (typeof _isoLocal === 'function') ? _isoLocal(new Date()) : new Date().toISOString().slice(0,10);
+  const d = String(e.date || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d >= today) return false;
+  // Seul le DERNIER rappel de révision passé du lot peut être en retard (les années précédentes sont closes).
+  const autres = (DB.agenda || []).filter(x => x && !x._deleted && x.cat === 'IRL' && x.autoKey && x.logement === e.logement && String(x.date || '') < today);
+  if (autres.some(x => String(x.date || '') > d)) return false;
+  const l = (DB.logements || []).find(x => x && x.ref === e.logement);
+  const bail = DB.baux && DB.baux[e.logement];
+  if (!l || !bail || !bail.debut) return false;
+  // Avant la première révision possible (un an après l'entrée) : rien à réviser.
+  const debut = String(bail.debut).slice(0, 10), un = new Date(debut + 'T00:00:00'); un.setFullYear(un.getFullYear() + 1);
+  if (d < _isoLocal(un).slice(0, 10)) return false;
+  // Révision appliquée (ou programmée) pour ce cycle : à l'heure.
+  const applique = String(l.irlDerniereApplication || '').slice(0, 10);
+  if (applique) { const lim = new Date(d + 'T00:00:00'); lim.setDate(lim.getDate() - 45); if (applique >= _isoLocal(lim).slice(0, 10)) return false; }
+  try { const rev = (typeof computeIRLRevision === 'function') ? computeIRLRevision(l) : null; if (rev && (rev.dejaApplique || rev.etat === 'rien-a-reviser')) return false; } catch (err) {}
+  return true;
 }
 function _agendaEvtCard(e, compact=false) {
   if(_isPhone()) return _agendaEvtCardPhone(e);
@@ -27455,7 +27471,7 @@ function _ensureAgendaPhCss(){
     '.agph-sec-h.late .cnt{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border-color:transparent}',
     '.agph-card{background:var(--sur);border:1px solid var(--bor);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}',
     '.agph-card.todo{box-shadow:inset 3px 0 0 var(--acc)}',
-    '.agph-card.late{box-shadow:inset 3px 0 0 var(--neg);background:var(--neg-soft);border-color:var(--neg)}',
+    '.agph-card.late{box-shadow:inset 3px 0 0 var(--neg);background:var(--neg-soft);background:color-mix(in srgb, var(--neg) 10%, var(--sur));border-color:var(--neg)}',
     '.agph-card.done{opacity:.62}',
     '.agph-card.done .agph-ti{text-decoration:line-through;text-decoration-color:var(--t3)}',
     '.agph-top{display:flex;gap:11px;align-items:flex-start}',

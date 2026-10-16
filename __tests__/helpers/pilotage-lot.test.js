@@ -149,6 +149,14 @@ describe('casesDuLot — anticipation (Didier 16/10 : révision 30 j avant, assu
     ] })
     expect(libelles(c.entr)).toEqual(['Entretien chaudière gaz : à faire avant le 26/10/2026.', 'Entretien VMC : en retard de 12 jours.'])
   })
+  it('révision dont l’indice n’est pas encore publié : à préparer quand même 30 jours avant, sans montant', () => {
+    expect(libelles(P.casesDuLot({ ...base, revision: { etat: 'preavis', dateAnniv: '2026-11-01', hc: 400, indiceManquant: true } }).irl))
+      .toEqual(['Révision à préparer (le 01/11/2026) : indice IRL pas encore publié.'])
+  })
+  it('entretiens : la fenêtre de 15 jours se juge sur la date d’échéance, pas sur l’heure', () => {
+    const c = P.casesDuLot({ ...base, entretiens: [{ libelle: 'Ramonage', retardJours: 0, joursAvant: 15, echeance: '2026-11-01' }] })
+    expect(c.entr).toBeNull()   // J-16 par les dates, même si l'arrondi horaire donnait 15
+  })
   it('constante d’anticipation exposée', () => {
     expect(P.ANTICIPATION_JOURS).toEqual({ irl: 30, ass: 15, entr: 15 })
   })
