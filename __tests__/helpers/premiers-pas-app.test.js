@@ -109,3 +109,19 @@ describe('actions', () => {
     expect(window.openBiensAdd).toHaveBeenCalledTimes(1)
   })
 })
+
+// Retour Didier 16/10 : « peut-on la retrouver quelque part sur l'app ? » — entrée toujours visible.
+describe('entrée « Premiers pas » dans les menus', () => {
+  it('barre latérale (PC, tablette) et feuille « Plus » (téléphone) ouvrent la liste, libellé + icône', async () => {
+    const { readFileSync } = await import('node:fs')
+    const src = readFileSync(new URL('../../js/app/app-part1.js', import.meta.url), 'utf8')
+    const entrees = src.split('\n').filter((l) => l.includes('data-pp-entree'))
+    expect(entrees).toHaveLength(2)
+    for (const l of entrees) {
+      expect(l).toMatch(/PremiersPas\.liste\(\)/)
+      expect(l).toMatch(/_V4_NAV_ICONS\.premiersPas/)
+      expect(l).toMatch(/<span>Premiers pas<\/span>/)
+    }
+    expect(src).toMatch(/_closeMoreSheet\(\);if\(window\.PremiersPas\)window\.PremiersPas\.liste\(\)/)
+  })
+})

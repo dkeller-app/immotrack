@@ -1,4 +1,12 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.748 (16/10, pilotage Desktop, demande de Didier)**
+> Premiers pas retrouvables (`feat/premiers-pas-acces`, 8fc2eafa, renuméroté v15.749 → v15.748) : entrée « Premiers pas » dans une zone « Aide » en bas de la barre latérale sur PC et tablette, en tête de « Plus » sur téléphone. Elle ouvre la liste, avec « Revoir la visite guidée » en tête et « Masquer / Afficher sur l'accueil », même si la carte est masquée ou repliée.
+> Tests : 8 115 verts. Geste réel : 16/16. Relecture Opus : SÛR.
+> **Décisions Didier du 16/10 :**
+> - GO « Pilotage du parc » : le tableau s'ouvre au clic sur « À regarder » ; un lot passe en « Mise en location » dès le congé reçu (`feat/matrice-accueil`, en cours → v15.749).
+> - Documents : **l'IA lit tout**, photo comme PDF (`feat/regles-paie` réorienté ; lecture locale pdf.js écartée).
+> - Prérequis bêta, côté Didier : activer `AI_OCR`, rétention zéro chez Mistral, `verif-ocr-ue.mjs`.
+> - SEMIA traité dans une session séparée.
 > 🚦 **MAIN = v15.747 (15/10, pilotage Desktop, GO Didier)** — **Premiers pas** (`feat/premiers-pas`, 68d5c15e ; 338 fichiers / 8 114 tests verts ; 2 relectures Opus « SÛR après corrections » ; geste réel 30/30 sur PC, tablette et téléphone). CDC : `docs/CDC-PREMIERS-PAS.md`.
   - **Carte « Premiers pas »** en tête de l'accueil, 8 étapes cochées automatiquement : logement, bail, relevé, règle, plafond, artisan, espace locataire, associé. Elle se masque, puis disparaît 7 jours après la fin.
   - **Visite guidée** : bulle de bienvenue + 6 étapes ; Échap = passée ; relance depuis Mon profil ; lien vers `?demo=1`.
