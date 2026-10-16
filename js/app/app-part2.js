@@ -540,6 +540,9 @@ function _creerQuittance(ref, ym, opts) {
   const log = (DB.logements || []).find(l => l.ref === ref);
   const bail = _findBailByRefTolerant(ref);
   const du = _duMoisLot(ref, ym);
+  // FINANCES-SUIVI-V2 : la remise du mois (manque accepté, écart d'arrondi abandonné), lue au moteur et FIGÉE ici.
+  const _e = _loyerEtatLot(ref), _m = _e && _e.byYm && _e.byYm[ym];
+  const _rem = _m && _m.remise > 0.005 ? Math.round(_m.remise * 100) / 100 : 0;
   const q = {
     id: nid(), logement: ref,
     locataire: ((bail && bail.locataires) || []).map(l => l && l.nom).filter(Boolean).join(', ')
@@ -548,6 +551,7 @@ function _creerQuittance(ref, ym, opts) {
     entity: (bail && bail.entity) || (log && log.entity) || '',
     date: td()
   };
+  if (_rem > 0) { q.remise = _rem; if (_m.remiseMotifs && _m.remiseMotifs.length) q.remiseMotif = _m.remiseMotifs.join(' ; ').slice(0, 200); }
   _stamp(q);
   if (typeof _auditLog === 'function') _auditLog('create', 'quittance', q.id, q.logement + '/' + q.mois);
   DB.quittances.push(q);
@@ -635,6 +639,10 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
     });
   }
   const total = (q.hc||0)+(q.ch||0);
+  // FINANCES-SUIVI-V2 (décision Didier Q1, 06/10) — mois soldé par un MANQUE ACCEPTÉ (ou un écart d'arrondi abandonné) :
+  // la quittance est émise pour le montant REÇU, avec la mention de la remise (figée à l'émission : q.remise / q.remiseMotif).
+  const _remise = Math.round((Number(q.remise) || 0) * 100) / 100;
+  const totalPaye = Math.round((total - _remise) * 100) / 100;
 
   // AUDIT I-3/S-2 — ce bloc vit APRÈS `total`, donc après le repli legacy champ par champ.
   // Le lire avant obligeait à recalculer un dû à part (`_duDoc`), qui n'était pas symétrique :
@@ -654,7 +662,7 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
     : !!(prefixMois && typeof _qeMeta === 'function' && _qeMeta(q.logement, prefixMois));
   const _docPartiel = (opts.partiel != null)
     ? !!opts.partiel
-    : (!_forceeV7 && totalRecu > 0 && totalRecu < total - 0.01);
+    : (!_forceeV7 && totalRecu > 0 && totalRecu < totalPaye - 0.01);
   const _mention = (typeof window !== 'undefined' && typeof window.mentionDateRecu === 'function')
     ? window.mentionDateRecu(_infoPay, fd, { partiel: _docPartiel })
     : { avecDate: false, mention: '', dateAffichee: null };
@@ -663,7 +671,7 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   const isProrata = false;
   const joursOcc = null;
   const joursMois = null;
-  const totalLettres = numToWords(total);
+  const totalLettres = numToWords(totalPaye);
   const totalRecuLettres = numToWords(totalRecu);
   const adrBien = bail.adrBien||log.adr||'–';
 
@@ -706,7 +714,7 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   //   · SINON (soldé, AUCUN paiement, ou geste forcé) → QUITTANCE. Sans encaissement imputé, elle
   //     sort simplement SANS ligne « payé le » (la mention gère déjà l'absence de date).
   // Un mois sans paiement s'édite et se réédite LIBREMENT — jamais d'impasse, jamais de blocage.
-  const estPartiel   = totalRecu > 0 && totalRecu < total - 0.01 && !_forceeV7;   // = _docPartiel
+  const estPartiel   = totalRecu > 0 && totalRecu < totalPaye - 0.01 && !_forceeV7;   // = _docPartiel
   const status = estPartiel ? 'partiel' : 'complet';
 
   const _resteBailleur = `${typeEnt?', '+escHtml(typeEnt):''}${siegeStr?', dont le siège social est situé '+escHtml(siegeStr):''}${siren?',<br>immatriculée au registre du commerce et des sociétés sous le numéro d\'identification '+escHtml(siren):''}${gerant?',<br>représentée par '+escHtml(gerant)+' en sa qualité de Gérant, dument habilité':''}${siegeStr||siren||gerant?' ;':''}`.replace(/^,\s*/, '');
@@ -772,8 +780,9 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
     ctxDoc = `Période de location ${periodeStr}`;
     html = `
 ${enteteHtml}
-${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, ${recuLe}, la somme de <b>${fmt(total)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:`)}
-${_dt('docLignes', [prorataLineHC, prorataLineCH, { lab:'Total des sommes payées', val: fmt(total), tot:true }])}
+${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, ${recuLe}, la somme de <b>${fmt(totalPaye)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:`)}
+${_dt('docLignes', [prorataLineHC, prorataLineCH, _remise > 0.005 ? { lab: 'Remise accordée', val: '− ' + fmt(_remise) } : null, { lab:'Total des sommes payées', val: fmt(totalPaye), tot:true }].filter(Boolean))}
+${_remise > 0.005 ? _dt('docMention', 'Remise accordée : ' + fmt(_remise) + (q.remiseMotif ? ' (' + escHtml(q.remiseMotif) + ')' : '') + '. Le loyer et les charges du bail sont inchangés.') : ''}
 ${prorataMention}
 <p>Cette somme correspond au règlement du loyer et des charges pour la période de location <b>${periodeStr}</b>. J'en donne quittance sous réserve du bon encaissement de cette somme.</p>
 ${_dt('docMention', 'Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire.')}

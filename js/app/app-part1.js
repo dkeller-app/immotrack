@@ -9515,7 +9515,8 @@ function _loyerEtatLot(ref, opts) {
 function _loyerPayeDuMois(ref, ym) {
   const e = _loyerEtatLot(ref);
   const m = e && e.byYm && e.byYm[ym];
-  return m ? Math.round((m.du - m.reste) * 100) / 100 : 0;
+  // FINANCES-SUIVI-V2 : une remise (manque accepté) n'est pas un paiement — le payé du mois s'en déduit.
+  return m ? Math.round((m.du - m.reste - (m.remise || 0)) * 100) / 100 : 0;
 }
 
 // ═══ FINANCES-SUIVI-V2 (repris de FINANCES-SUIVI-UNIQUE P2) — MANQUE ACCEPTÉ (écriture / annulation) ═══

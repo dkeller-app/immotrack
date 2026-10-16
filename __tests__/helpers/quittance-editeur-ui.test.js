@@ -246,7 +246,7 @@ describe('V7 — une quittance FORCÉE est une quittance, pas un reçu partiel',
   it('D27 (retour Didier) — « Document non émissible » N\'EXISTE PLUS : un mois sans paiement bascule en QUITTANCE pleine', () => {
     expect(SRC.includes('estNonPayé')).toBe(false);                 // la branche impasse a disparu du code
     expect(SRC.includes('AUCUN PAIEMENT ENREGISTRÉ')).toBe(false);  // son texte aussi
-    expect(has('const estPartiel   = totalRecu > 0 && totalRecu < total - 0.01 && !_forceeV7;')).toBe(true);
+    expect(has('const estPartiel   = totalRecu > 0 && totalRecu < totalPaye - 0.01 && !_forceeV7;')).toBe(true);   // FINANCES-SUIVI-V2 : dû − remise accordée
     expect(has("(estPartiel?'Reçu partiel':'Quittance')")).toBe(true);   // le titre ne connaît plus l'impasse
   });
   it('elle se lit dans la trace V9, ou se déclare explicitement pour l\'aperçu', () => {
@@ -256,7 +256,7 @@ describe('V7 — une quittance FORCÉE est une quittance, pas un reçu partiel',
   it('le mois n\'étant pas soldé, elle sort SANS ligne « payé le » — ce que le bandeau promet', () => {
     // `_docPartiel` retombe à false quand c'est forcé → `mentionDateRecu` n'a plus le droit
     // au repli sur `dates` → I-DATE s'applique et la date disparaît.
-    expect(has('(!_forceeV7 && totalRecu > 0 && totalRecu < total - 0.01)')).toBe(true);
+    expect(has('(!_forceeV7 && totalRecu > 0 && totalRecu < totalPaye - 0.01)')).toBe(true);
   });
   it('D27 (retour Didier) — un mois non soldé est TOUJOURS une quittance pleine forcée, sans case à cocher', () => {
     expect(SRC.includes('_qeSetConfirme')).toBe(false);

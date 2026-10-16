@@ -321,7 +321,9 @@ async function _genPdfQuittanceFallbackText(c) {
 
   const hc = Number(q.hc) || 0;
   const ch = Number(q.ch) || 0;
-  const total = Number(q.total) || (hc + ch);
+  // FINANCES-SUIVI-V2 : une remise accordée (manque accepté) se déduit — la quittance atteste le montant REÇU.
+  const remise = Number(q.remise) || 0;
+  const total = (Number(q.total) || (hc + ch)) - remise;
 
   pdf.setFont('helvetica', 'normal').setFontSize(10.5);
   pdf.text("Je soussigné(e) Bailleur du logement sis " + (bail.adrBien || log.adr || '—'), MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
