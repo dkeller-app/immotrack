@@ -26,7 +26,8 @@ describe('empreintes de cache-busting', () => {
     // DG-DELAI (v15.725) : +1 helper (dg-delai).
     // B3 (RETOURS-2026-10-05) : +1 helper (log-label — nom d'affichage du logement).
     // BAIL-EN-COURS-SIGNE-HORS-PROPRYO : +1 helper (bail-signature-etat).
-    expect(balises.length, '32 helpers (dont dg-delai, log-label, bail-signature-etat) + config + 3 app-part + qrcode attendus').toBe(37)
+    // MATRICE-ACCUEIL (v15.749) : +1 helper (pilotage-lot — « Pilotage du parc » de l'Accueil).
+    expect(balises.length, '33 helpers (dont dg-delai, log-label, bail-signature-etat, pilotage-lot) + config + 3 app-part + qrcode attendus').toBe(38)
     for (const [, rel, v] of balises) {
       expect(v, `${rel} a changé : lancer node tools/stamp-app-parts.mjs`).toBe(await sha(rel))
     }

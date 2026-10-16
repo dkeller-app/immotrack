@@ -170,7 +170,7 @@ describe('🔴 session de signature à distance vivante : la déclaration passe 
       const win = { BailSignatureEtat: BSE }
       const reel = { DB: { baux: { 'D-101': { ref: 'D-101', signatures: { remoteSession: rs('sent') } } } }, window: win, BailSignatureEtat: BSE, el: (id) => champs[id] || null,
         showToast: () => {}, _rsPreflight: async () => pf, openBail: () => {}, _bailExterneToggle: () => {}, JSON, Object, document: { querySelectorAll: () => [] }, Array }
-      const api = charger(['_bailEtatSig', 'sessionExpireeSigneHors'], reel)
+      const api = charger(['_bailEtatSig', 'sessionExpireeSigneHors', '_bailOuvrirDeclarationExterne'], reel)
       return { api, champs, win }
     }
     const ok = mk({ ok: true, etat: 'pending-invalidee', purge: () => {} })

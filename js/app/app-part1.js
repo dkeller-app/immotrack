@@ -506,6 +506,7 @@ const _AGENDA_ICON_SVG = {
   RAMONAGE: '<path d="M4 20v-9l8-6 8 6v9"/><path d="M15.5 6.5V4H18v4"/><path d="M9.5 20v-4.5h5V20"/>',
   DAAF: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4"/><path d="M12 4.5V6M12 18v1.5M4.5 12H6M18 12h1.5"/>',
   ELEC: '<path d="M13 3 5 13h6l-1 8 8-11h-6l1-7Z"/>',
+  MRH: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3Z"/><path d="M9 12l2 2 4-4"/>',
   DPE: '<path d="M5 19C5 11 11 5 19 5c0 8-6 14-14 14Z"/><path d="M5.5 18.5c3-4 7-6.5 11-7.5"/>',
   VMC: '<circle cx="12" cy="12" r="2.2"/><path d="M12 9.8c-.3-3.3.6-5.3 2.4-5.3 1.6 0 1.8 2.6-.6 4.2M14.2 12c3.3-.3 5.3.6 5.3 2.4 0 1.6-2.6 1.8-4.2-.6M12 14.2c.3 3.3-.6 5.3-2.4 5.3-1.6 0-1.8-2.6.6-4.2M9.8 12c-3.3.3-5.3-.6-5.3-2.4 0-1.6 2.6-1.8 4.2.6"/>',
   TRAVAUX: '<path d="M14.5 4.5l5 5-2.2 2.2-5-5z"/><path d="M12 7L5 14a2.1 2.1 0 003 3l7-7"/>',
@@ -1820,6 +1821,8 @@ const AGENDA_CATS = {
   REGUL:     { label:'Régularisation charges', couleur:'#ea580c', icon:'⚖️' },
   // v15.249 B8 (D-B11) : échéances de diagnostics obligatoires (DDT) — DPE/élec/gaz/ERP…
   DIAG:      { label:'Diagnostic à renouveler', couleur:'#0d9488', icon:'📋' },
+  // MATRICE-ACCUEIL (16/10) : attestation d'assurance habitation du locataire qui arrive à échéance
+  MRH:       { label:'Assurance habitation',   couleur:'#0284c7', icon:'🛡️' },
   CHAUDIERE: { label:'Entretien chaudière',    couleur:'#dc2626', icon:'🔥' },
   RAMONAGE:  { label:'Ramonage',               couleur:'#78350f', icon:'🏠' },
   DAAF:      { label:'Test DAAF',              couleur:'#b45309', icon:'🚨' },
@@ -2142,12 +2145,16 @@ function agendaAutoSync() {
     const oldKeys = new Set(oldIRL.map(e=>e.autoKey));
     DB.agenda = DB.agenda.filter(e => !oldKeys.has(e.autoKey));
   }
-  const existing = new Set(DB.agenda.filter(e=>e.auto).map(e=>e.autoKey));
+  // Clés déjà prises : tout événement qui porte une autoKey (y compris un rappel modifié à la main, auto:false) et les rappels
+  // supprimés par l'utilisateur (DB.params.agendaAutoEcartes, config synchronisée) — jamais recréés à la synchronisation suivante.
+  const existing = new Set(DB.agenda.filter(e => e && e.autoKey).map(e => e.autoKey)
+    .concat(Array.isArray(DB.params && DB.params.agendaAutoEcartes) ? DB.params.agendaAutoEcartes : []));
   const toAdd = [];
   let _irlAgendaRecale = false;   // IRL-REVISION M5 : un rappel IRL existant a été recalé
   // Clés BAIL/BAIL_PREVIS valides ce run — sert à purger les doublons dont la date a bougé
   // (ex. correctif fuseau horaire : échéance 30/12 → 31/12, l'ancienne clé devient orpheline).
   const validBailKeys = new Set();
+  const validMrhKeys = new Set();   // MRH:<ref>:<échéance> de l'attestation courante (locataire présent)
 
   DB.logements.forEach(l => {
     // R-0 : sur le cache, un bail repris à l'achat (art. 1743, aucun nom sur la fiche) ne
@@ -2264,6 +2271,26 @@ function agendaAutoSync() {
       }
     }
 
+    // ── Assurance habitation (MATRICE-ACCUEIL 16/10) : l'échéance de l'attestation COURANTE du locataire présent
+    //    (AlertRules.attestationCourante : celle du locataire précédent ne compte pas, une attestation sans échéance plus
+    //    récente n'en crée pas). Une nouvelle attestation change la clé : l'ancien événement est purgé plus bas.
+    if (String(bail.debut).slice(0, 10) <= todayStr && typeof window !== 'undefined' && window.AlertRules && typeof window.AlertRules.attestationCourante === 'function') {
+      const _att = window.AlertRules.attestationCourante(DB.mrh, Object.assign({}, l, { debut: bail.debut }));
+      const _ech = _att && /^\d{4}-\d{2}-\d{2}/.test(String(_att.echeance || '')) ? String(_att.echeance).slice(0, 10) : '';
+      if (_ech) {
+        const key = `MRH:${l.ref}:${_ech}`;
+        validMrhKeys.add(key);
+        if (!existing.has(key)) {
+          toAdd.push({ id:agendaId(), titre:`Demander l’attestation d’assurance — ${l.ref}`,
+            date:_ech, dateFin:_ech, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
+            cat:'MRH', couleur:'', notes:`L’attestation d’assurance habitation du locataire arrive à échéance le ${fd(_ech)}.\nDemander la nouvelle attestation (obligation du locataire, art. 7 g de la loi du 6 juillet 1989).`,
+            recurrence:{type:'none',interval:1,fin:''},
+            rappels:[30], auto:true, autoKey:key, done:false, createdAt:todayStr });
+          existing.add(key);
+        }
+      }
+    }
+
     // ── Entretiens équipements (depuis bail.chauffXxx ET log.equipements v15.08) ─
     if(typeof EQUIP_RULES !== 'undefined') {
       const equipData = (DB.equipements||{})[l.ref] || {};
@@ -2361,6 +2388,15 @@ function agendaAutoSync() {
     DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'DIAG' && !validDiagKeys.has(e.autoKey)));
     _diagPurged = DB.agenda.length !== _before;
   }
+  // Purge des rappels d'assurance dont l'attestation n'est plus la courante (nouvelle attestation, locataire parti) : un
+  // seul événement par lot, à la bonne date, d'une synchronisation à l'autre.
+  let _mrhPurged = false;
+  const _mrhCalculable = typeof window !== 'undefined' && window.AlertRules && typeof window.AlertRules.attestationCourante === 'function';
+  if (_mrhCalculable && DB.agenda && DB.agenda.length) {
+    const _before = DB.agenda.length;
+    DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'MRH' && !validMrhKeys.has(e.autoKey)));
+    _mrhPurged = DB.agenda.length !== _before;
+  }
   // Purge des échéances BAIL/BAIL_PREVIS orphelines (autoKey absent de l'état courant) — supprime
   // notamment les doublons dont la date a bougé d'un jour après le correctif fuseau horaire.
   let _bailPurged = false;
@@ -2370,7 +2406,7 @@ function agendaAutoSync() {
     _bailPurged = DB.agenda.length !== _before;
   }
 
-  if(toAdd.length || _diagPurged || _bailPurged || _irlAgendaRecale) {
+  if(toAdd.length || _diagPurged || _bailPurged || _mrhPurged || _irlAgendaRecale) {
     if(toAdd.length) DB.agenda.push(...toAdd);
     DB.agendaLastSync = todayStr;
     saveDB();
@@ -5728,11 +5764,22 @@ async function sessionExpireeSigneHors(ref) {
   if (_bailEtatSig(bail).conclu) { showToast('Ce bail est déjà signé', 'err'); return; }
   const pf = await _rsPreflight(ref, { confirmMsg: 'La session de signature à distance est encore active au relais.\n\nDéclarer le bail signé hors Propryo invalidera son lien. Continuer ?' });
   if (!pf.ok) return;
-  openBail(ref);
-  window._bailExtOrigine = 'session-expiree'; window._bailExtEtatRelais = pf.etat; window._bailExtPurge = pf.purge;
   // La case est masquée dans « Modifier le bail » tant qu'une session existe : ici l'état réel vient d'être contrôlé, on l'affiche.
-  const _fg = el('b-externe-fg'); if (_fg) _fg.style.display = '';
-  const _nrs = el('b-externe-rs'); if (_nrs) _nrs.style.display = 'none';
+  _bailOuvrirDeclarationExterne(ref, 'session-expiree', { etatRelais: pf.etat, purge: pf.purge, afficherCase: true });
+}
+// « Modifier le bail » ouvert sur la déclaration « Signé hors Propryo » (case cochée, étape qui la porte). Partagé par la session
+// expirée (ci-dessus) et par l'Accueil (« Signé sur papier », MATRICE-ACCUEIL). Rien n'est enregistré avant « Enregistrer ».
+// Un bail porteur d'une session de signature à distance passe par sessionExpireeSigneHors (état réel relu au relais d'abord).
+function _bailOuvrirDeclarationExterne(ref, origine, o) {
+  const opts = o || {};
+  const bail = DB.baux && DB.baux[ref];
+  if (!opts.afficherCase && bail && bail.signatures && bail.signatures.remoteSession && typeof sessionExpireeSigneHors === 'function') { sessionExpireeSigneHors(ref); return; }
+  openBail(ref);
+  window._bailExtOrigine = origine || null; window._bailExtEtatRelais = opts.etatRelais || null; window._bailExtPurge = opts.purge || null;
+  if (opts.afficherCase) {
+    const _fg = el('b-externe-fg'); if (_fg) _fg.style.display = '';
+    const _nrs = el('b-externe-rs'); if (_nrs) _nrs.style.display = 'none';
+  }
   const chk = el('b-externe');
   if (chk) {
     chk.checked = true; _bailExterneToggle();
@@ -7599,18 +7646,25 @@ function _pilCollectFamilles(ctx) {
     src.entretien = _dedupLot(src.entretien, true);
   } catch (e) {}
 
+  // ── PILOTAGE DU PARC (16/10) : les bulles Documents, Révision et Entretiens comptent EXACTEMENT les lots dont le tableau
+  //    montre l'icône (mêmes règles : ce qui est dû, pas ce qui est à venir) — leur clic filtre le tableau sur ces lots.
+  //    L'item d'origine (urgence, pire cas) est gardé quand il existe.
+  if (typeof _pilCols === 'function' && _pilCols().length) try {
+    const _r = _pilColRefs(ctx);
+    const _ligs = scopeLogs.map(l => _pilLotLigne(l, null, new Date(), _r.impaye, _r));
+    const _garde = (arr, pred, defaut) => {
+      const by = {}; (arr || []).forEach(x => { if (x && !by[x.ref]) by[x.ref] = x; });
+      return _ligs.filter(pred).map(g => by[g.ref] || Object.assign({ ref: g.ref, nom: _logLabel(g.ref) }, defaut));
+    };
+    src.document = _garde(src.document, _pilEstDocument, { urgenceJours: 0 });
+    src.irl = _garde(src.irl, g => !!g.cases.irl, { montant: 0, urgenceJours: 15 });
+    src.entretien = _garde(src.entretien, g => !!g.cases.entr, { urgenceJours: 0 });
+  } catch (e) {}
+
   // ── EDL-VIDEO-IA (décision 7) : vidéos d'état des lieux supprimées dans 30 jours ou moins (restitution du
   //    dépôt + 3 ans) — l'occasion de les garder en cas de litige. Lues sur l'EDL, aucun calcul ici. ──
   try {
-    if (typeof _edlVideoConservation === 'function') {
-      const refs = new Set(scopeLogs.map(l => l.ref));
-      (DB.edl || []).forEach(rec => {
-        if (!rec || rec._deleted || !refs.has(rec.logement)) return;
-        const c = _edlVideoConservation(rec);
-        if (!c || !c.alerte || src.document.some(x => x.ref === rec.logement)) return;
-        src.document.push({ ref: rec.logement, nom: _logLabel(rec.logement), detail: 'Vidéos d’état des lieux : suppression le ' + (typeof fd === 'function' ? fd(c.alerte.dateFin) : c.alerte.dateFin), urgenceJours: c.alerte.jours });
-      });
-    }
+    _pilLotsVideoAlerte(scopeLogs).forEach((it, ref) => { if (!src.document.some(x => x.ref === ref)) src.document.push(it); });
   } catch (e) {}
 
   // ── Fins de bail à terme (bauxEcheance : la règle existe mais n'était lue nulle part) ──
@@ -7714,12 +7768,34 @@ function _accmShowAregarder(){
         +((f.count>0)?('<span class="cnt">'+f.count+'</span>'):'')
         +'<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>';
     }).join('');
-    if(!rows) rows='<div class="empty">Tout est à jour ✓</div>';
+    // PILOTAGE DU PARC (Didier 16/10) : il s'ouvre au clic sur « À regarder ». En tête, les lots à piloter avec les MÊMES
+    // icônes que le tableau du PC (une puce nommée par case à faire, un tap = la page du détail) ; dessous, inchangée, la
+    // liste des familles (« Par sujet »). Mêmes faits que le PC : _pilColRefs + _pilLotLigne.
+    var pil = '', _nPil = 0;
+    try {
+      if (!_pilCols().length) throw new Error('window.PilotageLot absent (js/helpers/pilotage-lot.global.js non chargé)');
+      var _refs = _pilColRefs(ctx), _ks = ['loyer'].concat(_pilCols().map(function(c){ return c.k; }));
+      var _ligs = (ctx.scopeLogs||[]).map(function(l){ return _pilLotLigne(l, null, new Date(), _refs.impaye, _refs); }).filter(function(x){ return x.aFaire; });
+      var _n0 = (ctx.scopeLogs||[]).length - _ligs.length;
+      pil = '<div class="atl-st">Pilotage du parc<span>' + _ligs.length + ' lot' + (_ligs.length>1?'s':'') + ' à traiter</span></div>'
+        + _ligs.map(function(x){
+            return '<div class="apl"><b>' + escHtml(_logLabel(x.ref)) + '</b><div class="apl-i">'
+              + _ks.filter(function(k){ return x.cases[k]; }).map(function(k){
+                  return '<button type="button" class="apl-c" onclick="_pilOpenCase(\'' + _lyQ(x.ref) + '\',\'' + k + '\',this)"><span class="pil-mk">' + _PIL_MARK_SVG + '</span>' + escHtml(_pilTitre(k)) + '</button>';
+                }).join('') + '</div></div>';
+          }).join('')
+        + (_n0 && _ligs.length ? '<div class="apl-z">' + _n0 + ' lot' + (_n0>1?'s':'') + ' sans rien à faire</div>' : '');
+      _nPil = _ligs.length;
+      if (!_nPil) pil = '';
+    } catch(e) { pil = ''; console.error('[Pilotage du parc]', e); }
+    // « Tout est à jour ✓ » seulement quand NI le pilotage NI les sujets n'ont rien ; « Par sujet » seulement s'il y a des sujets.
+    if (rows && _nPil) rows = '<div class="atl-st">Par sujet</div>' + rows;
+    if(!rows) rows = _nPil ? '' : '<div class="empty">Tout est à jour ✓</div>';
     wrap.innerHTML='<style>'
       +'#accm-phone{display:none}#p-accueil.accm-on>*:not(#accm-phone){display:none!important}#p-accueil.accm-on #accm-phone{display:block}'
       +'.atl{padding:8px 16px 24px}'
       +'.atl .th{display:flex;align-items:center;gap:11px;padding:8px 0 14px}'
-      +'.atl .th .back{width:34px;height:34px;border-radius:999px;border:1px solid var(--bor);background:var(--sur);display:grid;place-items:center;cursor:pointer;color:var(--t2)}'
+      +'.atl .th .back{width:44px;height:44px;border-radius:999px;border:1px solid var(--bor);background:var(--sur);display:grid;place-items:center;cursor:pointer;color:var(--t2)}'
       +'.atl .th .back svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2}'
       +'.atl .th h2{font-family:var(--ff-display,\'Schibsted Grotesk\',\'Inter\',sans-serif);font-weight:800;color:var(--t1);font-size:22px}'
       +'.atr{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:13px 14px;margin-bottom:9px;cursor:pointer;font:inherit;color:inherit}'
@@ -7729,8 +7805,14 @@ function _accmShowAregarder(){
       +'.atr .cnt{min-width:24px;height:24px;padding:0 8px;border-radius:999px;background:var(--acc);color:#fff;font-weight:800;font-size:12px;display:grid;place-items:center;flex:0 0 auto}'
       +'.atr .chev{width:16px;height:16px;stroke:var(--t3);fill:none;stroke-width:1.8;flex:0 0 auto}'
       +'.atl .empty{padding:34px 12px;text-align:center;color:var(--pos);font-weight:700}'
+      +'.atl-st{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);margin:6px 2px 9px}.atl-st span{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--t3)}'
+      +'.apl{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:11px 14px 12px;margin-bottom:9px}.apl b{display:block;font-size:14px;color:var(--t1);margin-bottom:7px}'
+      +'.apl-i{display:flex;flex-wrap:wrap;gap:7px}'
+      +'.apl-c{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:6px 13px;border:1px solid var(--bor);border-radius:12px;background:var(--sur2);color:var(--t1);font:inherit;font-size:14px;font-weight:600;cursor:pointer}'
+      +'.apl-c .pil-mk{display:inline-block;width:15px;height:15px;color:var(--acc);flex:0 0 auto}.apl-c .pil-mk svg{width:100%;height:100%;display:block}'
+      +'.apl-z{font-size:13px;color:var(--t3);margin:0 2px 16px}'
       +'</style>'
-      +'<div class="atl"><div class="th"><button class="back" onclick="rAccueil()"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><h2>À regarder</h2></div>'+rows+'</div>';
+      +'<div class="atl"><div class="th"><button class="back" aria-label="Retour" onclick="rAccueil()"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><h2>À regarder</h2></div>'+pil+rows+'</div>';
   }catch(e){ console.warn('[accmAregarder]', e); }
 }
 // Navigation PROFONDE depuis « À regarder » (téléphone) : chaque famille pointe vers l'écran d'action
@@ -8024,106 +8106,95 @@ function _pilBulleOkHtml(def) {
     + '</div>';
 }
 
-// ── Matrice de conformité : les 7 colonnes d'un lot (CDC §2.5) ──
-// Chaque case = un point de statut (ok/wn/ko/na). Les 6 premières viennent de _pilStatutDoc
-// (module entretien-statut branché pour « Entretiens ») ; la 7ᵉ (Révision IRL) de irlClassifier.
-const _PIL_MTX_COLS = [
-  { k: 'bail', l: 'Bail', doc: 'bail' },
-  { k: 'edl', l: 'EDL', doc: 'edl' },
-  { k: 'ass', l: 'Assurance', doc: 'mrh' },
-  { k: 'diag', l: 'Diagnostics', doc: 'ddt' },
-  { k: 'entr', l: 'Entretiens', doc: 'chauffage' },
-  { k: 'caut', l: 'Caution', doc: 'caution' },
-  { k: 'irl', l: 'Révision', doc: null }   // IRL — résolveur dédié
-];
-// Le geste à faire par colonne manquante (R-1 : infinitif).
-const _PIL_MTX_ACT = { bail: 'Signer le bail', edl: 'Faire l’EDL', ass: 'Obtenir l’assurance', diag: 'Compléter les diagnostics', entr: 'Planifier l’entretien', caut: 'Faire signer la caution', irl: 'Réviser le loyer' };
-
-// Traduit un statut _pilStatutDoc en classe de point de la matrice.
-function _pilDocToDot(statut) {
-  if (statut === 'ok') return 'ok';
-  if (statut === 'na') return 'na';
-  if (statut === 'soon' || statut === 'partial') return 'wn';
-  return 'ko';   // absent, expire, ko
-}
-// Statut IRL d'un lot → point.
-function _pilIrlDot(l) {
-  try {
-    // R-0 : le BAIL dit si le lot est loué. Sur le cache, un bail repris à l'achat n'affichait jamais
-    // sa révision IRL comme exigible — alors que le loyer court et que la révision est due.
-    if (!_lotEstLoue(l) || !l.debut || typeof computeIRLRevision !== 'function') return 'na';
-    const rev = computeIRLRevision(l);
-    if (!rev || rev.insuffisant || rev.pasEncoreApplicable) return 'na';
-    if (rev.dejaApplique || rev.etat === 'rien-a-reviser') return 'ok';   // rien à réviser = à jour
-    if (rev.isApplicable && rev.diff !== 0) return 'ko';   // exigible, non appliquée
-    return 'na';
-  } catch (e) { return 'na'; }
-}
-// Bail repris (art. 1743) : les colonnes Bail / EDL / Caution ne demandent plus « as-tu signé ? »
-// mais « la pièce du vendeur est-elle là ? ». Sans mécanisme de dépôt/déclaration (R-2, chantier
-// dédié), la pièce du vendeur n'est jamais « détenue » via signature → on affiche 'ko' « à
-// réclamer » plutôt que le faux « non signé » qui restait rouge à vie sur un bien acheté occupé.
-const _PIL_REPRIS_COLS = { bail: 1, edl: 1, caut: 1 };
-function _pilEstRepris(bail) { return !!(bail && bail.typeContrat === 'repris'); }
-// Le geste d'une colonne pour un bail repris.
-const _PIL_MTX_ACT_REPRIS = { bail: 'Réclamer le bail au vendeur', edl: 'Réclamer l’EDL au vendeur', caut: 'Réclamer la caution au vendeur' };
-
+// ── PILOTAGE DU PARC (Accueil) — décisions de Didier des 15-16/10/2026 (mockups/MATRICE-ACCUEIL/MAQUETTE-PILOTAGE.html) ──
+// Colonnes : Loyer · Assurance · Entretiens · Révision · Mise en location. Une icône SEULEMENT si une action est due ; le
+// clic sur l'icône dit ce qui manque ou ce qui est dû, et mène au geste existant. Bail / EDL / Diagnostics / Caution ne
+// sont plus des colonnes : ils vivent dans « Mise en location » (lot vide, congé reçu, bail en préparation).
+// La DÉCISION est dans le module pur js/core/pilotage-lot.js (window.PilotageLot, testé) ; ici, l'app ne fait que lui
+// passer les faits lus par ses moteurs (bail, EDL, impayés, tâches unifiées, candidatures, caution du lot 2, DDT).
+function _pilCols() { return (window.PilotageLot && window.PilotageLot.COLONNES) || []; }
+function _pilTitre(k) { return (window.PilotageLot && window.PilotageLot.TITRES && window.PilotageLot.TITRES[k]) || k; }
 // La MARQUE PROPRYO comme signe « à faire » : carré contour + point corail (currentColor = --acc).
-const _PIL_MARK_HTML = '<span class="pil-mk" title="à faire"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="currentColor" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="currentColor"/></svg></span>';
-// Case de matrice BINAIRE : la marque Propryo si le point est « à faire » (ko/wn), sinon rien.
-function _pilMk(dot) { return (dot === 'ko' || dot === 'wn') ? _PIL_MARK_HTML : '<span class="pil-mk-no"></span>'; }
-// Les 7 points d'un lot + le point de paiement (byLot, R-0) + le verdict + les actions.
-function _pilLotLigne(l, byLotEntry, today, impayeRefs, irlRefs, colRefs) {
-  const bail = (DB.baux && DB.baux[l.ref]) || null;
-  const repris = _pilEstRepris(bail);
-  const _cr = colRefs || {};   // ensembles ass/diag/entr (matrice) — sinon repli _pilStatutDoc (fiche lot)
-  const dots = _PIL_MTX_COLS.map(c => {
-    // Lot VACANT (pas de locataire) : « vide = rien ». Un logement vide n'a ni bail, ni EDL, ni
-    // assurance/diagnostics/entretien/caution À FAIRE — sa seule action est « Relouer » (bulle
-    // Vacants). Sans ça, _pilStatutDoc renvoyait _absent→ko sur 6 colonnes = 6 fausses marques
-    // corail sur chaque vacant (audit vitrine D3). Aligné sur la bulle (mrhManquante ne cible que
-    // les lots loués) et sur l'en-tête « à faire · vide = rien ».
-    if (!_lotEstLoue(l)) return 'na';
-    if (c.k === 'irl') return irlRefs ? (irlRefs.has(l.ref) ? 'ko' : 'na') : _pilIrlDot(l);
-    // Assurance / Diagnostics / Entretiens : MÊME moteur que la bulle (ensembles _computeUnifiedTodo).
-    if (c.k === 'ass' && _cr.ass) return _cr.ass.has(l.ref) ? 'ko' : 'na';
-    if (c.k === 'diag' && _cr.diag) return _cr.diag.has(l.ref) ? 'ko' : 'na';
-    if (c.k === 'entr' && _cr.entr) return _cr.entr.has(l.ref) ? 'ko' : 'na';
-    // Bail repris : sur Bail/EDL/Caution, un statut « signé/présent » manquant = pièce du vendeur
-    // à réclamer (ko), pas un défaut de signature. Un 'na' (sans objet) reste 'na'.
-    if (repris && _PIL_REPRIS_COLS[c.k]) {
-      let st; try { st = _pilStatutDoc(bail, l, c.doc, today).statut; } catch (e) { st = 'na'; }
-      if (st === 'na') return 'na';
-      return _pilDocToDot(st) === 'ok' ? 'ok' : 'ko';
-    }
-    try { return _pilDocToDot(_pilStatutDoc(bail, l, c.doc, today).statut); } catch (e) { return 'na'; }
-  });
-  // Point de paiement du mois : « en retard » (neg) vient de l'ENSEMBLE de la bulle Impayés —
-  // déjà tolérant « 1er du mois » (_computeImpayes/_loyerSoldeAjuste). PLUS du signe du solde brut,
-  // qui comptait le loyer courant non échu et mentait « en retard » le 5. L'avance reste lue du
-  // solde signé. Garantit matrice == bulle. (audit KPI §1 · module pur pilotagePay, testé)
+const _PIL_MARK_SVG = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1.76" y="1.76" width="28.48" height="28.48" rx="7.68" fill="none" stroke="currentColor" stroke-width="3.52"/><circle cx="21.34" cy="21.34" r="4.1" fill="currentColor"/></svg>';
+const _PIL_MARK_HTML = '<span class="pil-mk" title="à faire">' + _PIL_MARK_SVG + '</span>';
+// Icône d'une case À FAIRE : un BOUTON (souris et clavier) qui ouvre le détail. Case vide sinon.
+function _pilMkBtn(ref, k) {
+  return '<button type="button" class="pil-mk pil-mkb" data-pilcase="' + k + '" data-pilref="' + escHtml(ref) + '" aria-label="'
+    + escHtml(_pilTitre(k) + ' : voir ce qui est à faire') + '">' + _PIL_MARK_SVG + '</button>';
+}
+function _pilCase(lig, k) { return (lig && lig.cases && lig.cases[k]) ? _pilMkBtn(lig.ref, k) : '<span class="pil-mk-no"></span>'; }
+
+// Une ligne du tableau : point de paiement (byLot, R-0) + les cases du lot (PilotageLot.casesDuLot).
+// `refs` = _pilColRefs(ctx) : impayés (montant, ancienneté) et tâches unifiées par lot — LE MÊME moteur que les bulles.
+function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
+  const PL = (typeof window !== 'undefined') ? window.PilotageLot : null;
+  const auj = (typeof today === 'string') ? today.slice(0, 10) : _isoLocal(today instanceof Date ? today : new Date());
+  const b0 = (DB.baux && DB.baux[l.ref]) || null;
+  const bail = (b0 && !b0._deleted) ? b0 : null;
+  const loue = _lotEstLoue(l);
+  // Point de PAIEMENT : « en retard » vient de l'ENSEMBLE de la bulle Impayés (tolérant « 1er du mois »), l'avance du solde
+  // signé. Tant que le bail est ouvert : la dette d'un locataire parti reste visible. (audit KPI §1 · module pur pilotagePay)
   const _soldeSigned = byLotEntry ? (byLotEntry.solde || 0) : 0;
-  // R-0 : « ce lot est-il loue ? » se lit sur le BAIL. Sur le cache, un bail repris a l'achat
-  // sortait en 'na' : ni pastille de paiement, ni euros, et le lot comptait comme vacant dans
-  // le filtre de la matrice — alors que la bulle Impayes, elle, affiche sa dette.
-  // Pastille de PAIEMENT : tant que le bail est ouvert (dette d'un locataire parti visible) ; l'action
-  // « Relouer » suit le STATUT (départ déclaré passé = vacant).
-  const _loue = _lotBailOuvert(l);
+  const _ouvert = _lotBailOuvert(l);
   const pay = (typeof window !== 'undefined' && typeof window.pilotagePay === 'function')
-    ? window.pilotagePay(_loue, l.ref, impayeRefs, _soldeSigned)
-    : (!_loue ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
-  const vacant = !_lotEstLoue(l);
-  // actions : relocation d'un vide + toute colonne ko/wn (geste « réclamer au vendeur » si repris)
-  const actions = [];
-  if (vacant) actions.push({ g: 'vacant', label: 'Relouer', cls: 'vac' });
-  dots.forEach((d, i) => {
-    if (d !== 'ko' && d !== 'wn') return;
-    const k = _PIL_MTX_COLS[i].k;
-    const label = (repris && _PIL_MTX_ACT_REPRIS[k]) ? _PIL_MTX_ACT_REPRIS[k] : _PIL_MTX_ACT[k];
-    actions.push({ g: k, label, cls: d });
-  });
-  const verdict = vacant ? 'vac' : (dots.indexOf('ko') >= 0 ? 'ko' : (dots.indexOf('wn') >= 0 ? 'wn' : 'ok'));
-  return { ref: l.ref, imm: l.imm || '—', loyer: (Number(l.hc) || 0) + (Number(l.ch) || 0), dots, pay, actions, verdict, vacant, repris };
+    ? window.pilotagePay(_ouvert, l.ref, impayeRefs, _soldeSigned)
+    : (!_ouvert ? 'na' : ((impayeRefs && impayeRefs.has && impayeRefs.has(l.ref)) ? 'neg' : (_soldeSigned > 0.5 ? 'adv' : 'pos')));
+  const BSE = (typeof window !== 'undefined') ? window.BailSignatureEtat : null;
+  const sig = (bail && BSE) ? BSE.etatSignatureBail(bail) : { etat: 'non', conclu: false, date: null };
+  const edlEntree = bail ? !!_edlEntreeDuBail(bail, l) : false;
+  const dateSortie = (bail && bail.depart && bail.depart.dateSortie) ? String(bail.depart.dateSortie).slice(0, 10) : '';
+  const phase = PL ? PL.phaseDuLot({ today: auj, loue, bail: bail ? { debut: bail.debut, sig: sig.etat, dateSortie } : null, edlEntree }) : 'en-cours';
+  const debut = (bail && bail.debut) ? String(bail.debut).slice(0, 10) : '';
+  const t = (refs && refs.parRef && refs.parRef[l.ref]) || { mrh: [], equip: [], irl: [] };
+  const mrhIt = t.mrh.find(x => x.mrhEtat === 'manquante') || t.mrh.find(x => x.mrhEtat === 'expiree') || null;
+  const irlIt = t.irl.find(x => x.irlEtat === 'applicable') || null;
+  const impIt = (pay === 'neg' && refs && refs.impayes) ? refs.impayes[l.ref] : null;
+  const faits = {
+    today: auj, phase, fmt: (typeof fmt === 'function') ? fmt : undefined,
+    impaye: impIt ? { reste: impIt.reste, depuisYm: impIt.depuisYm } : null,
+    // Locataire entré dans les lieux : début du bail atteint ; un bail SANS date d'entrée traité « en cours » (fiche ancienne
+    // incomplète, cf. PilotageLot.phaseDuLot) est considéré occupé, comme le dit bailLoueAu.
+    enPlace: !!(loue && bail && (debut ? debut <= auj : phase === 'en-cours')),
+    assurance: mrhIt ? { etat: mrhIt.mrhEtat, echeance: mrhIt.echeance } : null,
+    entretiens: t.equip.filter(x => x.severity === 'red').map(x => ({ libelle: x.ruleLabel || x.title, retardJours: x.retardJours })),
+    revision: irlIt ? { dateAnniv: irlIt.dateAnniv, hc: irlIt.hc, nouveauHC: irlIt.nouveauHC } : null,
+    vacant: !loue, dateSortie, bail: bail ? { debut: bail.debut, sig: sig.etat, repris: bail.typeContrat === 'repris' } : null, edlEntree,
+    candidats: { retenus: 0, aEtudier: 0 }, cautions: [], attestations: [], diagnostics: []
+  };
+  if (phase !== 'en-cours') {
+    // Candidatures du lot (mêmes exclusions que la bulle « Logements à relouer »).
+    const cnd = (DB.candidats || []).filter(c => c && !c._deleted && !c._archived && c.logRef === l.ref && c.statut !== 'refuse' && c.statut !== 'converti');
+    faits.candidats = { retenus: cnd.filter(c => c.statut === 'valide').length, aEtudier: cnd.filter(c => c.statut !== 'valide').length };
+    if (phase === 'preparation' && bail) {
+      // Caution : prédicat du lot 2 (acte de chaque garant déposé ou « je l'ai en papier ») — plus `signatures.garant` (jamais écrit).
+      try { const ce = (typeof _bailCautionEtat === 'function') ? _bailCautionEtat(l.ref, bail) : null; faits.cautions = ((ce && ce.garants) || []).filter(g => !g.source).map(g => g.nom); } catch (e) {}
+      // Attestations du NOUVEAU locataire seulement (celles du précédent ne couvrent pas l'entrée) : même règle que les alertes.
+      const _AR = (typeof window !== 'undefined') ? window.AlertRules : null;
+      const _locs = [bail.nom].concat((bail.locataires || []).map(x => x && x.nom)).filter(Boolean).join(' ');
+      const _pseudo = { ref: l.ref, debut: bail.debut, locataire: _locs };
+      faits.attestations = (DB.mrh || []).filter(m => m && !m._deleted && m.logement === l.ref && (!_AR || !_AR.attestationPourLocataire || _AR.attestationPourLocataire(m, _pseudo))).map(m => m.echeance);
+    }
+    // DDT (art. 3-3) : jugé à la conclusion du PROCHAIN bail — signature faite ou prévue, sinon aujourd'hui. Un garage n'a pas
+    // de DDT (ERP seul, jugé par le bail garage) ; un diagnostic « je l'ai déjà » valable n'est pas redemandé.
+    const garage = (bail && bail.type === 'garage') || l.typeUsage === 'garage';
+    if (!garage && typeof _ddtComplet === 'function') {
+      let dj = auj;
+      if (phase === 'preparation' && bail) {
+        // Conclusion du bail : signature faite ; sinon début du bail s'il est atteint (bail entré, signature à finir) ;
+        // sinon signature prévue, sinon aujourd'hui.
+        if (sig.conclu && sig.date) dj = String(sig.date).slice(0, 10);
+        else if (debut && debut <= auj) dj = debut;
+        else if (bail.dateSignaturePrevue && String(bail.dateSignaturePrevue).slice(0, 10) > auj) dj = String(bail.dateSignaturePrevue).slice(0, 10);
+      }
+      try {
+        const d = _ddtComplet(l, new Date(dj + 'T00:00:00'));
+        faits.diagnostics = (d.manquants || []).concat(d.expires || []).filter(k => !(typeof _ddtDetenuValide === 'function' && _ddtDetenuValide(l, k)));
+      } catch (e) {}
+    }
+  }
+  const cases = PL ? PL.casesDuLot(faits) : { loyer: null, ass: null, entr: null, irl: null, loc: null };
+  return { ref: l.ref, imm: l.imm || '—', loyer: (Number(l.hc) || 0) + (Number(l.ch) || 0), pay, cases, phase, vacant: !loue,
+    aFaire: PL ? PL.aFaire(cases) : false };
 }
 
 function _renderPilotage(ctx) {
@@ -8204,29 +8275,26 @@ function _renderPilotage(ctx) {
       }).join('');
 }
 
-// Filtre courant de la matrice ('tous' | 'ko' | 'vac'), persistant le temps de la session.
+// Filtre courant du tableau ('tous' | 'ko' | 'vac'), persistant le temps de la session.
 let _pilMtxFilter = 'tous';
-// Ensembles « à faire » par colonne (impayés + miroirs de bulle mrh/diag/equip/irl), construits par
-// UN SEUL moteur (_computeImpayes + _computeUnifiedTodo). Partagé par la matrice ET la fiche du lot
-// pour que ces deux surfaces d'un même lot ne se contredisent jamais. PNO / items hors-lot exclus.
+// Faits partagés par le tableau, la bulle d'une case et la fiche du lot, construits par UN SEUL moteur (_computeImpayes +
+// _computeUnifiedTodo, celui des bulles) : ces surfaces d'un même lot ne se contredisent jamais. PNO / items hors-lot exclus.
 function _pilColRefs(ctx) {
-  const impaye = new Set(), irl = new Set(), ass = new Set(), diag = new Set(), entr = new Set();
+  const impaye = new Set(), impayes = {}, parRef = {};
   try {
     const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : null;
-    if (imp && imp.items) imp.items.forEach(it => impaye.add(it.ref));
+    if (imp && imp.items) imp.items.forEach(it => { impaye.add(it.ref); impayes[it.ref] = it; });
   } catch (e) {}
   try {
     const lotRefs = new Set(((ctx && ctx.scopeLogs) || []).map(l => l.ref));
     const todo = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
     (todo || []).forEach(it => {
-      if (!it || !lotRefs.has(it.contextRef)) return;
-      if (it.type === 'irl') irl.add(it.contextRef);
-      else if (it.type === 'mrh') ass.add(it.contextRef);
-      else if (it.type === 'diag') diag.add(it.contextRef);
-      else if (it.type === 'equip') entr.add(it.contextRef);
+      if (!it || !lotRefs.has(it.contextRef) || ['mrh', 'equip', 'irl'].indexOf(it.type) < 0) return;
+      const r = parRef[it.contextRef] = parRef[it.contextRef] || { mrh: [], equip: [], irl: [] };
+      r[it.type].push(it);
     });
   } catch (e) {}
-  return { impaye, irl, ass, diag, entr };
+  return { impaye, impayes, parRef };
 }
 function _renderPilMatrice(ctx) {
   const { scopeLogs, yr, activeEnt } = ctx;
@@ -8234,6 +8302,8 @@ function _renderPilMatrice(ctx) {
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
   const tel = (typeof window !== 'undefined' && window.innerWidth && window.innerWidth <= 560);
   const today = new Date();
+  const COLS = _pilCols();
+  if (!COLS.length) { console.error('[Pilotage du parc] window.PilotageLot absent (js/helpers/pilotage-lot.global.js non chargé) : tableau masqué'); host.innerHTML = ''; return 0; }
   // byLot du moteur (R-0) pour le point de paiement.
   let byLot = {};
   try {
@@ -8242,46 +8312,39 @@ function _renderPilMatrice(ctx) {
     const r = (typeof _finMonthly === 'function') ? _finMonthly(parseInt(yr, 10), scope, W ? W.constat : undefined) : null;
     if (r && r.byLot) byLot = r.byLot;
   } catch (e) {}
-
-  // Ensembles « à faire » par colonne (impayés + miroirs de bulle) — UN SEUL moteur partagé par la
-  // matrice ET la fiche du lot (cf _pilColRefs), pour qu'aucune des deux surfaces ne mente vs l'autre.
-  const _refs = _pilColRefs(ctx);
-  const impayeRefs = _refs.impaye, irlRefs = _refs.irl, assRefs = _refs.ass, diagRefs = _refs.diag, entrRefs = _refs.entr;
-
-  // « À faire » d'un lot = BINAIRE : une action de conformité (ko/wn), un logement vacant, OU un
-  // loyer en retard. Le compteur ET le filtre « À faire » DOIVENT suivre la marque affichée, sinon
-  // un impayé seul montre une marque corail mais reste hors du « X à traiter » (audit §1).
-  const isTodo = (lig) => (lig.actions.length > 0 || lig.pay === 'neg');
-  // Grouper les lots par immeuble, calculer chaque ligne.
+  const refs = _pilColRefs(ctx);
+  // Grouper les lots par immeuble, calculer chaque ligne. « À faire » = au moins une icône (le compteur ET le filtre suivent
+  // exactement les icônes affichées).
   const parImm = {};
   let nTot = 0, nKo = 0;
   scopeLogs.forEach(l => {
-    const lig = _pilLotLigne(l, byLot[l.ref], today, impayeRefs, irlRefs, { ass: assRefs, diag: diagRefs, entr: entrRefs });
-    nTot++; if (isTodo(lig)) nKo++;
+    const lig = _pilLotLigne(l, byLot[l.ref], today, refs.impaye, refs);
+    nTot++; if (lig.aFaire) nKo++;
     (parImm[lig.imm] = parImm[lig.imm] || []).push(lig);
   });
-  // Une famille active (clic sur une bulle) restreint la matrice à ses lots concernés.
-  const idx = (k) => _PIL_MTX_COLS.findIndex(c => c.k === k);
+  // Une famille active (clic sur une bulle) restreint le tableau à ses lots concernés.
+  const _video = (_pilMtxFamActive === 'document') ? _pilLotsVideoAlerte(scopeLogs) : new Map();
   const famMatch = (lig) => {
     if (!_pilMtxFamActive) return true;
     switch (_pilMtxFamActive) {
-      case 'entretien': return ['ko', 'wn'].includes(lig.dots[idx('entr')]);
-      case 'document':  return ['ko', 'wn'].includes(lig.dots[idx('ass')]) || ['ko', 'wn'].includes(lig.dots[idx('diag')]);
-      case 'irl':       return lig.dots[idx('irl')] === 'ko';
+      case 'entretien': return !!lig.cases.entr;
+      case 'document':  return _pilEstDocument(lig) || _video.has(lig.ref);   // = la bulle (_pilCollectFamilles)
+      case 'irl':       return !!lig.cases.irl;
       case 'vacant':    return lig.vacant;
-      case 'impaye':    return impayeRefs.has(lig.ref);   // l'ensemble EXACT de la bulle (audit KPI §1)
+      case 'impaye':    return refs.impaye.has(lig.ref);   // l'ensemble EXACT de la bulle (audit KPI §1)
       default:          return true;   // dépôt/finbail/régul : pas de colonne → liste, pas filtre
     }
   };
-  const garde = (lig) => famMatch(lig) && (_pilMtxFilter === 'tous' || (_pilMtxFilter === 'ko' && isTodo(lig)) || (_pilMtxFilter === 'vac' && lig.vacant));
-
-  const pileHtml = (lig, telMode) => {
-    let act = telMode ? lig.actions.slice() : lig.actions.filter(a => a.g === 'vacant');
-    if (telMode && lig.pay === 'neg') act = [{ g: 'impaye', label: 'Loyer en retard' }].concat(act);
-    if (!act.length) return telMode ? '<div class="pil-lc-ok">✓ à jour</div>' : '';
-    return '<div class="pil-pile">' + act.map(a => '<span class="pil-q todo">' + esc(a.label) + '</span>').join('') + '</div>';
+  // Une bulle active montre EXACTEMENT ses lots (son compteur) : le filtre Tous / À faire / Vacants ne s'y ajoute pas.
+  const garde = (lig) => _pilMtxFamActive ? famMatch(lig) : (_pilMtxFilter === 'tous' || (_pilMtxFilter === 'ko' && lig.aFaire) || (_pilMtxFilter === 'vac' && lig.vacant));
+  const loyerCell = (lig) => '<span class="pil-loyer">' + _pilCase(lig, 'loyer') + '<span class="pil-amt">' + (lig.loyer ? fmt(lig.loyer) : '—') + '</span></span>';
+  // Téléphone étroit (repli, l'Accueil téléphone a sa propre page) : une carte par lot, ses icônes NOMMÉES.
+  const puces = (lig) => {
+    const ks = ['loyer'].concat(COLS.map(c => c.k)).filter(k => lig.cases[k]);
+    if (!ks.length) return '<div class="pil-lc-ok">rien à faire</div>';
+    return '<div class="pil-pile">' + ks.map(k => '<button type="button" class="pil-puce" data-pilcase="' + k + '" data-pilref="' + esc(lig.ref) + '">'
+      + '<span class="pil-mk">' + _PIL_MARK_SVG + '</span>' + esc(_pilTitre(k)) + '</button>').join('') + '</div>';
   };
-  const loyerCell = (lig) => '<span class="pil-loyer">' + (lig.pay === 'neg' ? _PIL_MARK_HTML : '<span class="pil-mk-no"></span>') + '<span class="pil-amt">' + (lig.loyer ? fmt(lig.loyer) : '—') + '</span></span>';
 
   let corps = '';
   Object.keys(parImm).forEach(imm => {
@@ -8289,25 +8352,22 @@ function _renderPilMatrice(ctx) {
     let body = '';
     ligs.forEach(lig => {
       if (!garde(lig)) return;
-      const repBadge = lig.repris ? ' <span class="pil-rep" title="Bail repris à l’acquisition (art. 1743) — les pièces viennent du vendeur">repris</span>' : '';
       if (tel) {
-        const _todo = lig.actions.length > 0 || lig.pay === 'neg';
-        body += '<div class="pil-lc ' + (_todo ? 'todo' : 'ok') + '" data-pillot="' + esc(lig.ref) + '">'
-          + '<div class="pil-lc-h"><b>' + esc(_logLabel(lig.ref)) + repBadge + '</b><span class="pil-lc-l">' + loyerCell(lig) + '</span></div>'
-          + pileHtml(lig, true) + '</div>';
+        body += '<div class="pil-lc ' + (lig.aFaire ? 'todo' : 'ok') + '" data-pillot="' + esc(lig.ref) + '">'
+          + '<div class="pil-lc-h"><b>' + esc(_logLabel(lig.ref)) + '</b><span class="pil-lc-l"><span class="pil-amt">' + (lig.loyer ? fmt(lig.loyer) : '—') + '</span></span></div>'
+          + puces(lig) + '</div>';
       } else {
-        body += '<tr data-pillot="' + esc(lig.ref) + '"><td class="l">' + esc(_logLabel(lig.ref)) + repBadge + '</td>'
+        body += '<tr data-pillot="' + esc(lig.ref) + '"><td class="l">' + esc(_logLabel(lig.ref)) + '</td>'
           + '<td class="payc">' + loyerCell(lig) + '</td>'
-          + lig.dots.map(d => '<td>' + _pilMk(d) + '</td>').join('')
-          + '<td class="r">' + pileHtml(lig, false) + '</td></tr>';
+          + COLS.map(c => '<td>' + _pilCase(lig, c.k) + '</td>').join('') + '</tr>';
       }
     });
-    if (body) corps += tel ? ('<div class="pil-lgrp">' + esc(imm) + ' — ' + ligs.length + ' lots</div>' + body)
-      : ('<tr class="grp"><td colspan="' + (3 + _PIL_MTX_COLS.length) + '">' + esc(imm) + ' — ' + ligs.length + ' lots</td></tr>' + body);
+    if (body) corps += tel ? ('<div class="pil-lgrp">' + esc(imm) + ' — ' + ligs.length + ' lot' + (ligs.length > 1 ? 's' : '') + '</div>' + body)
+      : ('<tr class="grp"><td colspan="' + (2 + COLS.length) + '">' + esc(imm) + ' — ' + ligs.length + ' lot' + (ligs.length > 1 ? 's' : '') + '</td></tr>' + body);
   });
 
   const famF = _pilMtxFamActive ? (window._PIL_FAMILLES || []).find(f => f.id === _pilMtxFamActive) : null;
-  const tete = '<div class="pil-mtx-h"><b>Conformité du parc</b>'
+  const tete = '<div class="pil-mtx-h"><b>Pilotage du parc</b>'
     + (famF ? '<button type="button" class="fchip" data-pilclearfam="1">' + esc(famF.lbl) + ' ✕</button>' : '')
     + '<span class="cnt">' + nKo + ' lot' + (nKo > 1 ? 's' : '') + ' à traiter sur ' + nTot + '</span>'
     + '<span class="pil-hint">' + _PIL_MARK_HTML + ' à faire · vide = rien</span>'
@@ -8315,13 +8375,13 @@ function _renderPilMatrice(ctx) {
       '<button type="button" data-pilfl="' + k[0] + '" aria-pressed="' + (_pilMtxFilter === k[0]) + '">' + k[1] + '</button>').join('') + '</span></div>';
 
   if (tel) {
-    host.innerHTML = '<div class="pil-mtx">' + tete + '<div class="pil-mtx-s">' + (corps || '<div class="pil-lgrp">Aucun lot</div>') + '</div></div>';
+    host.innerHTML = '<div class="pil-mtx" id="pil-mtx">' + tete + '<div class="pil-mtx-s">' + (corps || '<div class="pil-lgrp">Aucun lot</div>') + '</div></div>';
     return nKo;
   }
-  host.innerHTML = '<div class="pil-mtx">' + tete
+  host.innerHTML = '<div class="pil-mtx" id="pil-mtx">' + tete
     + '<div class="pil-mtx-s"><table class="pil-mx"><thead><tr><th class="l">Lot</th><th class="payc">Loyer · paiement</th>'
-    + _PIL_MTX_COLS.map(c => '<th>' + esc(c.l) + '</th>').join('') + '<th class="r">À faire</th></tr></thead><tbody>'
-    + (corps || '<tr><td colspan="' + (3 + _PIL_MTX_COLS.length) + '" style="padding:16px;text-align:center;color:var(--t3)">Aucun lot</td></tr>')
+    + COLS.map(c => '<th>' + esc(c.l) + '</th>').join('') + '</tr></thead><tbody>'
+    + (corps || '<tr><td colspan="' + (2 + COLS.length) + '" style="padding:16px;text-align:center;color:var(--t3)">Aucun lot</td></tr>')
     + '</tbody></table></div></div>';
   return nKo;
 }
@@ -8339,7 +8399,15 @@ const _PIL_HORS = {
   incident:{ onglet: 'Biens', go: () => go('biens') },
   regul:   { onglet: 'Charges', go: () => _rgOuvrirAnnee() }   // alerte = régul N-1
 };
-function _pilCloseLayer() { const L = el('pil-layer'); if (L) L.innerHTML = ''; }
+function _pilCloseLayer(rendreFocus) {
+  const L = el('pil-layer'); if (L) L.innerHTML = '';
+  // Fermeture par ✕, voile ou Échap : le focus revient sur l'icône qui a ouvert le détail (clavier, lecteur d'écran).
+  // Pas quand un geste ouvre un autre écran (le focus irait derrière la nouvelle couche).
+  const f = _pilDeclencheur; _pilDeclencheur = null;
+  if (!rendreFocus) return;
+  try { if (f && document.body.contains(f)) f.focus({ preventScroll: true }); } catch (e) {}
+}
+let _pilDeclencheur = null;
 
 // Bulle cliquée : famille AVEC colonne → filtre la matrice ; SANS colonne → liste.
 function _pilBulleClick(famId) {
@@ -8377,63 +8445,120 @@ function _pilOpenListe(famId) {
     + '<div class="shf"><button type="button" class="go" data-pilonglet="' + famId + '">Voir tout dans ' + esc(H.onglet) + ' ›</button></div></div></div>';
 }
 
-// Couche « fiche du lot » : les 7 contrôles, un geste par manque (+ « Je l'ai déjà » — R-2, à venir).
-function _pilOpenFiche(ref) {
+// Lot « document » (bulle « Documents à renouveler » = son filtre) : attestation d'assurance, ou pièce de la mise en location
+// (diagnostics, acte de cautionnement, attestation avant l'entrée).
+function _pilEstDocument(lig) {
+  if (!lig || !lig.cases) return false;
+  if (lig.cases.ass) return true;
+  return !!(lig.cases.loc && lig.cases.loc.some(li => li.gestes.some(g => g.geste === 'diag' || g.geste === 'caut' || g.geste === 'ass')));
+}
+// Lots dont les vidéos d'état des lieux seront supprimées sous 30 jours (EDL-VIDEO-IA, décision 7) : seul « bientôt » gardé
+// dans la bulle « Documents » (occasion de les garder en cas de litige) ; ref → item de bulle.
+function _pilLotsVideoAlerte(scopeLogs) {
+  const out = new Map();
+  if (typeof _edlVideoConservation !== 'function') return out;
+  const refs = new Set((scopeLogs || []).map(l => l.ref));
+  (DB.edl || []).forEach(rec => {
+    if (!rec || rec._deleted || !refs.has(rec.logement) || out.has(rec.logement)) return;
+    const c = _edlVideoConservation(rec);
+    if (!c || !c.alerte) return;
+    out.set(rec.logement, { ref: rec.logement, nom: _logLabel(rec.logement), detail: 'Vidéos d’état des lieux : suppression le ' + (typeof fd === 'function' ? fd(c.alerte.dateFin) : c.alerte.dateFin), urgenceJours: c.alerte.jours });
+  });
+  return out;
+}
+// La ligne d'un lot recalculée hors du rendu du tableau (bulle d'une case, fiche du lot, page téléphone) : MÊMES faits que
+// le tableau (_pilColRefs + _pilLotLigne), donc jamais de contradiction entre l'icône et son détail.
+function _pilLigneDe(ref) {
+  const l = (DB.logements || []).find(x => x && x.ref === ref); if (!l) return null;
+  const ctx = (typeof _pilCtxCourant === 'function') ? _pilCtxCourant() : null;
+  const refs = ctx ? _pilColRefs(ctx) : { impaye: new Set(), impayes: {}, parRef: {} };
+  return _pilLotLigne(l, null, new Date(), refs.impaye, refs);
+}
+// Lignes du détail (couche #pil-layer, PC / tablette). `keys` = les cases montrées ; avecTitre = nom de la case en tête de ligne.
+function _pilDetailLignes(lig, keys, avecTitre) {
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
+  let h = '';
+  keys.forEach(k => (lig.cases[k] || []).forEach(li => {
+    h += '<div class="ck"><span class="d ko"></span><span class="kn">' + (avecTitre ? '<b>' + esc(_pilTitre(k)) + '</b><s>' + esc(li.texte) + '</s>' : '<b>' + esc(li.texte) + '</b>') + '</span>'
+      + '<span class="gos">' + li.gestes.map((g, i) => '<button type="button" class="go' + (i === 0 ? ' hot' : '') + '" data-pilact="' + esc(g.geste) + '">' + esc(g.libelle) + ' ›</button>').join('') + '</span></div>';
+  }));
+  return h;
+}
+// TÉLÉPHONE (charte M-16) : le détail est une PAGE plein écran (couche standard .ov : ✕ + titre, corps défilant, pied
+// d'action collant, barre du bas masquée). Le geste de la première ligne est l'action du pied ; ses autres gestes et les
+// lignes suivantes restent dans le corps.
+function _pilPagePhone(lig, keys, titre, sousTitre) {
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
+  let ov = el('ov-pil-detail');
+  if (!ov) { ov = document.createElement('div'); ov.className = 'ov hidden'; ov.id = 'ov-pil-detail'; document.body.appendChild(ov); }
+  const lignes = []; keys.forEach(k => (lig.cases[k] || []).forEach(li => lignes.push({ k, li })));
+  const act = (g, cls) => '<button type="button" class="btn ' + cls + '" onclick="_pilGesteDepuisPage(\'' + _lyQ(lig.ref) + '\',\'' + _lyQ(g.geste) + '\')">' + esc(g.libelle) + '</button>';
+  const corps = lignes.map((x, i) => '<div class="pil-pg-l"><div class="t">' + (keys.length > 1 ? '<b>' + esc(_pilTitre(x.k)) + '</b>' : '') + esc(x.li.texte) + '</div>'
+    + '<div class="a">' + x.li.gestes.filter((g, j) => !(i === 0 && j === 0)).map(g => act(g, 'bs')).join('') + '</div></div>').join('')
+    || '<div class="pil-pg-l"><div class="t">Rien à faire pour ce lot.</div></div>';
+  const prim = lignes.length ? act(lignes[0].li.gestes[0], 'bp') : '<button type="button" class="btn bs" onclick="closeM(\'ov-pil-detail\')">Fermer</button>';
+  ov.innerHTML = '<div class="modal pil-pg" role="dialog" aria-modal="true" aria-label="' + esc(titre + ' — ' + sousTitre) + '">'
+    + '<div class="m-head"><h3>' + esc(titre) + '<small>' + esc(sousTitre) + '</small></h3><button type="button" class="m-close" onclick="closeM(\'ov-pil-detail\')" aria-label="Fermer">✕</button></div>'
+    + '<div class="m-body">' + corps + '</div><div class="m-foot">' + prim + '</div></div>';
+  openM('ov-pil-detail');
+}
+function _pilGesteDepuisPage(ref, geste) { closeM('ov-pil-detail'); _pilActionGeste(ref, geste); }
+// Clic sur l'ICÔNE d'une case : ce qui manque ou ce qui est dû, et le geste.
+function _pilOpenCase(ref, k, declencheur) {
+  const lig = _pilLigneDe(ref);
+  if (!lig || !lig.cases[k]) { if (typeof showToast === 'function') showToast('Rien à faire ici : la situation a changé.', 'info'); return; }
+  _pilDeclencheur = (typeof _isPhone === 'function' && _isPhone()) ? null : (declencheur || null);
+  if (typeof _isPhone === 'function' && _isPhone()) { _pilPagePhone(lig, [k], _pilTitre(k), _logLabel(ref)); return; }
   const L = el('pil-layer'); if (!L) return;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
-  const l = (DB.logements || []).find(x => x && x.ref === ref); if (!l) return;
-  // La fiche du lot lit les MÊMES ensembles que la matrice (helper partagé) — sinon une ligne propre
-  // pouvait ouvrir une fiche réclamant des gestes (audit : matrice ≠ fiche). Repli propre si pas de ctx.
-  const _fctx = (typeof _pilCtxCourant === 'function') ? _pilCtxCourant() : null;
-  const _fr = _fctx ? _pilColRefs(_fctx) : {};
-  const lig = _pilLotLigne(l, null, new Date(), _fr.impaye, _fr.irl, { ass: _fr.ass, diag: _fr.diag, entr: _fr.entr });
-  const SENS = { ok: 'en règle', wn: 'à compléter', ko: 'manquant', na: 'sans objet' };
-  // Bail repris : le sens des colonnes du vendeur change (pièce détenue / à réclamer).
-  const SENS_REP = { ok: 'pièce du vendeur détenue', ko: 'à réclamer au vendeur', na: 'sans objet' };
-  let lignes = '';
-  if (lig.vacant) lignes += '<div class="ck"><span class="d na"></span><span class="kn"><b>Occupation</b><s>lot vide</s></span>'
-    + '<button type="button" class="go hot" data-pilact="vacant">Relouer ›</button></div>';
-  _PIL_MTX_COLS.forEach((c, i) => {
-    const d = lig.dots[i], k = (d === 'ko' || d === 'wn');
-    const rep = lig.repris && _PIL_REPRIS_COLS[c.k];
-    const sens = rep ? (SENS_REP[d] || SENS[d]) : SENS[d];
-    const act = rep && _PIL_MTX_ACT_REPRIS[c.k] ? _PIL_MTX_ACT_REPRIS[c.k] : _PIL_MTX_ACT[c.k];
-    lignes += '<div class="ck"><span class="d ' + d + '"></span><span class="kn"><b>' + esc(c.l) + '</b><s>' + sens + '</s></span>'
-      + (k ? '<button type="button" class="go' + (d === 'ko' ? ' hot' : '') + '" data-pilact="' + c.k + '">' + esc(act) + ' ›</button>'
-        : '<span class="mut2">' + (d === 'na' ? 'sans objet' : 'à jour') + '</span>') + '</div>';
-  });
   L.dataset.lot = ref;
-  const repBar = lig.repris ? '<div class="pil-repbar">Bien acheté occupé — le bail se poursuit aux conditions du vendeur (art. 1743). Les pièces proviennent du vendeur, pas du bailleur actuel.'
-    + '<button type="button" class="lk" data-pilact="bail-modif">Modifier dans le bail ›</button></div>' : '';
-  L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh">'
-    + '<div class="sh-h"><span class="ttl"><b>' + esc(_logLabel(ref)) + (lig.repris ? ' <span class="pil-rep">repris</span>' : '') + '</b><s>' + esc(lig.imm) + ' · ' + (lig.loyer ? fmt(lig.loyer) : 'lot vacant') + '</s></span>'
+  L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh" role="dialog" aria-modal="true" aria-label="' + esc(_pilTitre(k) + ' — ' + _logLabel(ref)) + '">'
+    + '<div class="sh-h"><span class="ttl"><b>' + esc(_pilTitre(k)) + '</b><s>' + esc(_logLabel(ref)) + '</s></span>'
     + '<button type="button" class="x" data-pilclose="1" aria-label="Fermer">✕</button></div>'
-    + repBar + '<div class="sh-b">' + lignes + '</div></div></div>';
+    + '<div class="sh-b">' + _pilDetailLignes(lig, [k], false) + '</div></div></div>';
+  try { const b = L.querySelector('[data-pilact]'); if (b) b.focus({ preventScroll: true }); } catch (e) {}
+}
+// Clic sur la LIGNE d'un lot : toutes ses cases à faire, chacune avec son geste ; « Rien à faire » sinon.
+function _pilOpenFiche(ref) {
+  const lig = _pilLigneDe(ref); if (!lig) return;
+  const keys = ['loyer'].concat(_pilCols().map(c => c.k)).filter(k => lig.cases[k]);
+  const sous = lig.imm + ' · ' + (lig.loyer ? fmt(lig.loyer) : 'lot vacant');
+  if (typeof _isPhone === 'function' && _isPhone()) { _pilPagePhone(lig, keys, _logLabel(ref), sous); return; }
+  const L = el('pil-layer'); if (!L) return;
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
+  L.dataset.lot = ref;
+  L.innerHTML = '<div class="scrim" data-pilclose="1"></div><div class="shw"><div class="sh" role="dialog" aria-modal="true" aria-label="' + esc(_logLabel(ref)) + '">'
+    + '<div class="sh-h"><span class="ttl"><b>' + esc(_logLabel(ref)) + '</b><s>' + esc(sous) + '</s></span>'
+    + '<button type="button" class="x" data-pilclose="1" aria-label="Fermer">✕</button></div>'
+    + '<div class="sh-b">' + (keys.length ? _pilDetailLignes(lig, keys, true) : '<div class="ck"><span class="kn"><b>Rien à faire pour ce lot.</b></span></div>') + '</div></div></div>';
 }
 
-// Geste cliqué dans la fiche → l'écran d'action réel (l'onglet concerné, pré-ciblé).
+// Geste cliqué dans un détail → l'écran d'action réel (fonctions existantes), pré-ciblé sur le lot.
 function _pilActionGeste(ref, geste) {
   _pilCloseLayer();
-  const l = (DB.logements || []).find(x => x && x.ref === ref);
+  const fiche = (tab) => { if (typeof openLogFiche !== 'function') return false; openLogFiche(ref); if (tab && typeof setLogFicheTab === 'function') setTimeout(() => { try { setLogFicheTab(tab); } catch (e) {} }, 200); return true; };
   try {
-    if (geste === 'vacant') { go('biens'); }
-    else if (geste === 'bail-modif') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }   // bail repris → régler le « Type de contrat »
-    else if (geste === 'entr') { if (typeof openLogFiche === 'function') { openLogFiche(ref); if (typeof setLogFicheTab === 'function') setTimeout(() => setLogFicheTab('conformite'), 200); } else go('equipements'); }
+    if (geste === 'vacant') { if (!fiche()) go('biens'); }                                 // relouer / candidatures : la fiche du lot
     else if (geste === 'bail') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }
+    else if (geste === 'bail-papier') { const _b = DB.baux && DB.baux[ref]; _bailOuvrirDeclarationExterne(ref, (_b && _b.typeContrat === 'repris') ? 'repris' : 'papier'); }   // « Signé hors Propryo »
     else if (geste === 'edl') { go('edl'); }
-    else if (geste === 'ass') { go('baux'); }
+    else if (geste === 'edl-papier') {                                                     // « EDL fait hors Propryo » (onglet Documents)
+      if (fiche('documents')) setTimeout(() => { try { if (typeof _edlExtForm === 'function') _edlExtForm(true); } catch (e) {} }, 500); else go('edl');
+    }
+    else if (geste === 'ass') { if (typeof openMrh === 'function') openMrh(null, ref); else go('baux'); }
+    else if (geste === 'loyer') { if (!fiche('compta')) go('loyers'); }
+    else if (geste === 'entr') { if (!fiche('conformite')) go('equipements'); }
     else if (geste === 'diag') { if (typeof openLogModalOnTab === 'function') openLogModalOnTab(ref, 'diag'); else go('biens'); }
-    else if (geste === 'caut') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }
+    else if (geste === 'caut') { if (typeof openBail === 'function') openBail(ref); else go('baux'); }   // pièces du bail (lot 2)
     else if (geste === 'irl') { go('loyers'); }
     else go('biens');
   } catch (e) { try { go('biens'); } catch (e2) {} }
 }
-
 // Handler de clic délégué sur toute la page Pilotage (bulles, filtres, matrice, couches).
 function _pilWireClicks() {
   const page = el('p-accueil'); if (!page || page._pilWired) return; page._pilWired = true;
   page.addEventListener('click', (ev) => {
-    const close = ev.target.closest('[data-pilclose]'); if (close) { _pilCloseLayer(); return; }
+    const close = ev.target.closest('[data-pilclose]'); if (close) { _pilCloseLayer(true); return; }
     const onglet = ev.target.closest('[data-pilonglet]'); if (onglet) { const h = _PIL_HORS[onglet.dataset.pilonglet]; _pilCloseLayer(); if (h) h.go(); return; }
     const goItem = ev.target.closest('[data-pilgo]'); if (goItem) { _pilCloseLayer(); _pilOpenFiche(goItem.dataset.pilgo); return; }
     const incItem = ev.target.closest('[data-pilinc]'); if (incItem) { _pilCloseLayer(); const _i = (DB.incidents || []).find(x => x && String(x.id) === incItem.dataset.pilinc); if (_i && typeof openIncident === 'function') openIncident(_i.logRef || '', _i.id, null, _i.entity, _i.imm); return; }
@@ -8441,9 +8566,11 @@ function _pilWireClicks() {
     const clearFam = ev.target.closest('[data-pilclearfam]'); if (clearFam) { _pilMtxFamActive = null; rAccueil(); return; }
     const fl = ev.target.closest('[data-pilfl]'); if (fl) { _pilMtxFilter = fl.dataset.pilfl; _renderPilMatrice(_pilCtxCourant()); return; }
     const fam = ev.target.closest('[data-pilfam]'); if (fam) { _pilBulleClick(fam.dataset.pilfam); return; }
+    // Icône d'une case : son détail (avant la ligne, qui ouvre la fiche du lot).
+    const cas = ev.target.closest('[data-pilcase]'); if (cas) { _pilOpenCase(cas.dataset.pilref, cas.dataset.pilcase, cas); return; }
     const lot = ev.target.closest('[data-pillot]'); if (lot) { _pilOpenFiche(lot.dataset.pillot); return; }
   });
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && el('pil-layer') && el('pil-layer').innerHTML) _pilCloseLayer(); });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && el('pil-layer') && el('pil-layer').innerHTML) _pilCloseLayer(true); });
 }
 // ctx courant (pour re-render partiel de la matrice sur un changement de filtre).
 function _pilCtxCourant() {
@@ -9506,7 +9633,7 @@ function _computeUnifiedTodo(ctx) {
   // remplace 3 réécritures divergentes). Libellé UI « Assurance habitation » (anti-jargon).
   AlertRules.mrhManquante(scopeLogs, DB.mrh).forEach(it => {
     out.push({
-      type:'mrh', severity:'red', score:100,
+      type:'mrh', severity:'red', score:100, mrhEtat:'manquante',
       title:'Assurance habitation manquante',
       subtitle:_logLabel(it.ref)+(it.locataire?' — '+it.locataire:''),
       contextRef:it.ref, nom:_logLabel(it.ref),
@@ -9518,7 +9645,7 @@ function _computeUnifiedTodo(ctx) {
   AlertRules.mrhEcheances(DB.mrh, DB.logements, activeEnt, today).forEach(it => {
     if(it.expiree) {
       out.push({
-        type:'mrh', severity:'red', score:95,
+        type:'mrh', severity:'red', score:95, mrhEtat:'expiree', echeance:it.echeance,
         title:'Assurance habitation expirée',
         subtitle:_logLabel(it.ref)+' — échéance '+fd(it.echeance),
         contextRef:it.ref, nom:_logLabel(it.ref),
@@ -9553,7 +9680,7 @@ function _computeUnifiedTodo(ctx) {
     if(!c) return;
     if(c.etat === 'applicable') {
       out.push({
-        type:'irl', severity:'ora', score:70,
+        type:'irl', severity:'ora', score:70, irlEtat:'applicable', dateAnniv:c.dateAnniv, hc:l.hc, nouveauHC:rev.nouveauHC,
         title:'Révision IRL applicable',
         subtitle:_logLabel(l.ref)+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
         contextRef:l.ref, nom:_logLabel(l.ref),
@@ -9698,7 +9825,7 @@ function _computeUnifiedTodo(ctx) {
         const diff = Math.round((nextDate - today) / 86400000);
         if(diff < 0) {
           out.push({
-            type:'equip', severity:'red', score:85,
+            type:'equip', severity:'red', score:85, ruleLabel:rule.label, retardJours:Math.abs(diff),
             title:rule.label+' — en retard '+Math.abs(diff)+' j',
             subtitle:_logLabel(l.ref)+(l.locataire?' \u2014 '+l.locataire:''),
             contextRef:l.ref, nom:_logLabel(l.ref),
@@ -23714,6 +23841,7 @@ function saveMrh() {
     DB.mrh.push(m);
   }
   saveDB(); closeM('ov-mrh');
+  try { if (typeof agendaAutoSync === 'function') agendaAutoSync(); } catch (e) {}   // rappel d'attestation déplacé / retiré
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   showToast('Assurance habitation enregistrée','ok');
 }
@@ -23736,6 +23864,7 @@ function delMrh(id) {
       };
     }
     saveDB();
+    try { if (typeof agendaAutoSync === 'function') agendaAutoSync(); } catch (e) {}   // rappel d'attestation déplacé / retiré
     _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   });
   _undoToast('Assurance habitation supprimée');
