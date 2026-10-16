@@ -361,7 +361,7 @@ export function raisonDe(x) {
   const R = (cause, verifier, rang) => ({ cause, verifier, rang });
   const conclu = x && x.ok === false;
   switch (x && x.code) {
-    case 'B1': return R('Le net payé ne correspond pas au calcul', 'comparer avec le virement du salaire sur le relevé bancaire', 1);
+    case 'B1': return R('Le net payé ne correspond pas au calcul (acompte, saisie ou lecture possibles)', 'comparer avec le virement du salaire sur le relevé bancaire', 1);
     case 'N1': return R('Le net avant impôt ne correspond pas au brut moins les cotisations', 'comparer le net payé avec le virement du salaire sur le relevé bancaire', 2);
     case 'B4': case 'CB': case 'C2': return R('Cumul de l\'année incohérent avec les mois précédents', 'demander le bulletin de décembre ou une attestation employeur', 2);
     case 'B2': return R('L\'impôt prélevé ne correspond pas à sa base et à son taux', 'chercher une régularisation du prélèvement sur le bulletin', 3);
@@ -369,10 +369,10 @@ export function raisonDe(x) {
     case 'L1': return R('Une cotisation ne correspond pas à sa base et à son taux', 'vérifier les lignes de cotisations sur la pièce d\'origine', 3);
     case 'TL': return conclu ? R(`Taux de « ${x.ligne || 'cotisation'} » différent du taux légal 2026 (${x.attendu || 'taux légal'} attendu)`, 'vérifier la pièce d\'origine', 2)
       : R('Taux de cotisation inhabituel (autre régime ou lecture à confirmer)', 'vérifier les taux sur la pièce d\'origine', 3);
-    case 'CS': return R('Assiettes de la CSG incohérentes', 'vérifier les lignes de CSG sur la pièce d\'origine', conclu ? 2 : 3);
+    case 'CS': return conclu ? R('Assiettes de la CSG incohérentes', 'vérifier les lignes de CSG sur la pièce d\'origine', 2) : R('Assiettes de la CSG à confirmer', 'vérifier les lignes de CSG sur la pièce d\'origine', 3);
     case 'B6': return x.quoi === 'siret' ? (conclu ? R('Employeur différent de celui déclaré', 'vérifier le SIRET sur l\'Annuaire des entreprises', 2) : R('SIRET de l\'employeur lu avec incertitude', 'comparer avec le SIRET déclaré', 4))
       : (conclu ? R(`Nom différent ${x.garant ? 'du garant' : 'du candidat'}`, 'un nom d\'usage peut l\'expliquer ; vérifier la pièce d\'identité', 1) : R('Nom du salarié lu avec incertitude', 'comparer avec la pièce d\'identité', 4));
-    case 'B5': return x.mois ? R(`Mois manquant (${x.mois})`, 'demander le bulletin manquant', 3) : R(`Bulletin le plus récent : ${x.recent || 'ancien'}`, 'demander les derniers bulletins de salaire', 3);
+    case 'B5': return x.mois ? R(`Mois manquant${x.garant ? ' du garant' : ''} (${x.mois})`, 'demander le bulletin manquant', 3) : R(`Bulletin le plus récent : ${x.recent || 'ancien'}`, 'demander les derniers bulletins de salaire', 3);
     case 'B7': return x.quoi === 'employeur' ? R('Employeur du contrat différent de celui des bulletins', 'une agence d\'intérim peut l\'expliquer ; vérifier le contrat', 2)
       : x.proche ? R('Date d\'entrée différente du contrat de quelques semaines', 'date de signature ou d\'ancienneté possible ; vérifier la date d\'entrée sur le contrat', 2)
         : R('Date d\'entrée différente du contrat', 'un CDD suivi d\'un CDI peut l\'expliquer ; vérifier l\'avenant ou le nouveau contrat', 2);
@@ -436,7 +436,7 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
       const declare = [identite.prenom, identite.nom].filter(Boolean).join(' ');
       if (G && ok === false && (uneLettre(v.salarie, declare) || uneLettre(v.salarie, [identite.nom, identite.prenom].filter(Boolean).join(' ')))) e.incertaines.push({ code: 'B6', titre: 'nom' });
       else {
-        e.regles.push({ code: 'B6', ok: ok === null ? null : ok, titre: ok === false ? 'Le nom du salarié diffère de l\'identité déclarée.' : ok === null ? 'Nom du salarié' : 'Nom du salarié identique à l\'identité déclarée.', detail: `Salarié : ${v.salarie} ; identité déclarée${quiTxt} : ${declare}.`, source: { libelle: 'comparaison sans accents ni tirets' } });
+        e.regles.push({ code: 'B6', quoi: 'nom', garant: qui === 'garant', ok: ok === null ? null : ok, titre: ok === false ? 'Le nom du salarié diffère de l\'identité déclarée.' : ok === null ? 'Nom du salarié' : 'Nom du salarié identique à l\'identité déclarée.', detail: `Salarié : ${v.salarie} ; identité déclarée${quiTxt} : ${declare}.`, source: { libelle: 'comparaison sans accents ni tirets' } });
         if (ok === false) ajouter(e, { code: 'B6', quoi: 'nom', garant: qui === 'garant', icone: 'doc', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : le nom du salarié diffère de l'identité déclarée${quiTxt}.`, detail: `Salarié : ${v.salarie} ; identité déclarée : ${declare}. Un nom d'usage peut l'expliquer.`, source: 'lecture du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
       }
     }
@@ -448,7 +448,7 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
       const ok = cmpL === cmpD;
       if (G && !ok && memeAUneErreurPres(cmpL, cmpD)) e.incertaines.push({ code: 'B6', titre: 'SIRET' });
       else {
-        e.regles.push({ code: 'B6', ok, titre: ok ? 'SIRET identique à celui déclaré.' : 'Le SIRET du bulletin diffère de celui déclaré.', detail: `SIRET du bulletin : ${sl} ; déclaré : ${sd}.`, source: { libelle: 'déclaration du candidat' } });
+        e.regles.push({ code: 'B6', quoi: 'siret', ok, titre: ok ? 'SIRET identique à celui déclaré.' : 'Le SIRET du bulletin diffère de celui déclaré.', detail: `SIRET du bulletin : ${sl} ; déclaré : ${sd}.`, source: { libelle: 'déclaration du candidat' } });
         if (!ok) ajouter(e, { code: 'B6', quoi: 'siret', icone: 'building', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : le SIRET de l'employeur diffère de celui déclaré.`, detail: `SIRET lu sur le bulletin : ${sl} ; déclaré : ${sd}.`, source: 'lecture du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
       }
     }
@@ -510,7 +510,7 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
     };
     const lecture = G && manquants.length && periodes.some((p, i) => variantesPeriode(p).some((q) => !periodes.some((x, j) => j !== i && x === q) && consecutives(periodes.map((x, j) => (j === i ? q : x))) && cumulsCollent(i, q)));
     const liste = manquants.length > 6 ? manquants.slice(0, 6).join(', ') + ` et ${manquants.length - 6} autre${manquants.length - 6 > 1 ? 's' : ''}` : manquants.join(', ');
-    if (manquants.length && !lecture) constats.push({ code: 'B5', mois: liste, icone: 'clock', titre: `Bulletins${quiTxt} : période${manquants.length > 1 ? 's' : ''} absente${manquants.length > 1 ? 's' : ''} entre les bulletins reçus (${liste}).`, detail: `Bulletins reçus : ${triesP.map((t) => libellePeriode(t.v.periode)).join(', ')}. Le décret prévoit les trois derniers bulletins de salaire.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
+    if (manquants.length && !lecture) constats.push({ code: 'B5', mois: liste, garant: qui === 'garant', icone: 'clock', titre: `Bulletins${quiTxt} : période${manquants.length > 1 ? 's' : ''} absente${manquants.length > 1 ? 's' : ''} entre les bulletins reçus (${liste}).`, detail: `Bulletins reçus : ${triesP.map((t) => libellePeriode(t.v.periode)).join(', ')}. Le décret prévoit les trois derniers bulletins de salaire.`, source: SOURCES.decret.libelle, url: SOURCES.decret.url, ia: true });
   }
   const r0 = recuLe ? new Date(recuLe) : null;
   if (triesP.length && r0 && !isNaN(r0.getTime())) {

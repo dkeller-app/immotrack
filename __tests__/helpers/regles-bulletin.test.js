@@ -415,7 +415,7 @@ describe('raisons affichées sans clic (décision de Didier, 16/10) : cause + qu
     const tl = analyserBulletins({ pieces: [piece('a', avecLigne(AOUT, 5, { taux: 5.8, montant: 175.14 }))], identite: ID });
     expect(tl.constats[0]).toMatchObject({ code: 'TL', cause: 'Taux de « CSG déductible de l\'impôt sur le revenu » différent du taux légal 2026 (6,8 % attendu)', verifier: 'vérifier la pièce d\'origine' });
     const net = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 })], identite: ID });
-    expect(net.parPiece.a.regles.find((r) => r.code === 'B1')).toMatchObject({ cause: 'Le net payé ne correspond pas au calcul', verifier: 'comparer avec le virement du salaire sur le relevé bancaire' });
+    expect(net.parPiece.a.regles.find((r) => r.code === 'B1')).toMatchObject({ cause: 'Le net payé ne correspond pas au calcul (acompte, saisie ou lecture possibles)', verifier: 'comparer avec le virement du salaire sur le relevé bancaire' });
     const c = { id: 'c', nom: 'contrat.pdf', type: 'contrat', ia: { lu: { lisible: true, dateDebut: '2025-03-01', siret: '00000000200014' } } };
     const b7 = analyserBulletins({ pieces: [piece('a', AOUT), c], identite: ID });
     expect(b7.constats).toEqual([]);
@@ -427,7 +427,7 @@ describe('raisons affichées sans clic (décision de Didier, 16/10) : cause + qu
     const etat = (v) => { const a = analyserBulletins({ pieces: [piece('a', v)], identite: ID }); return VP.etatPiece({ doc, verif: null, ia: Object.assign({}, a.parPiece.a, { constats: a.constats }), iaLue: true }); };
     expect(etat(AOUT)).toMatchObject({ etat: 'ok', resume: null });
     const nv = etat({ ...AOUT, netAPayer: 2140 });
-    expect(nv.resume.texte).toBe('Le net payé ne correspond pas au calcul — comparer avec le virement du salaire sur le relevé bancaire.');
+    expect(nv.resume.texte).toBe('Le net payé ne correspond pas au calcul (acompte, saisie ou lecture possibles) — comparer avec le virement du salaire sur le relevé bancaire.');
     const av = etat(avecLigne(AOUT, 5, { taux: 5.8, montant: 175.14 }));
     expect(av.etat).toBe('averif'); expect(av.resume.texte).toMatch(/^Taux de « CSG déductible.*6,8 % attendu\) — vérifier la pièce d'origine\.$/);
     const avis = VP.etatPiece({ doc: { id: 'x', parentType: 'candidat', pieceType: 'I.D.1', mime: 'application/pdf' }, verif: { constats: [], indices: { metadonnees: {} } }, ia: null, iaLue: false });
@@ -440,5 +440,27 @@ describe('raisons affichées sans clic (décision de Didier, 16/10) : cause + qu
     const b = (p) => ({ ...AOUT, periode: p, cumulBrut: null, cumulNetImposable: null });
     const a = analyserBulletins({ pieces: [piece('1', b('2026-01')), piece('4', b('2026-04')), piece('7', b('2026-07'))], identite: ID });
     expect(VP.resumeConstats(a.constats.filter((k) => !k.pieceId)).texte).toMatch(/^Mois manquant \(février 2026, mars 2026, mai 2026, juin 2026\) — demander le bulletin manquant\.$/);
+  });
+});
+
+describe('relecture courte de l\'affichage (16/10)', () => {
+  it('raisons sous « Non vérifiable » : le calcul ne conclut pas (explications possibles), jamais un verdict', () => {
+    expect(raisonDe({ code: 'B1', ok: null }).cause).toBe('Le net payé ne correspond pas au calcul (acompte, saisie ou lecture possibles)');
+    expect(raisonDe({ code: 'CS', ok: null }).cause).toBe('Assiettes de la CSG à confirmer');
+    expect(raisonDe({ code: 'TL', ok: null }).cause).not.toMatch(/différent du taux légal/);
+  });
+  it('B6 : un SIRET différent dit « Employeur différent », jamais « Nom différent » ; bulletin du garant : « du garant »', async () => {
+    const VP = await import('../../js/core/verif-pieces.js');
+    const doc = { id: 'a', parentType: 'candidat', category: 'revenus', pieceType: 'I.D.2', mime: 'application/pdf' };
+    const siret = analyserBulletins({ pieces: [piece('a', { ...AOUT, siret: '99999999900017' })], identite: ID, siretDeclare: '000000002' });
+    const e = VP.etatPiece({ doc, verif: null, ia: Object.assign({}, siret.parPiece.a, { constats: siret.constats }), iaLue: true });
+    expect(e.etat).toBe('averif');
+    expect(e.resume.cause).toBe('Employeur différent de celui déclaré');
+    const garant = analyserBulletins({ pieces: [piece('a', { ...AOUT, salarie: 'DURAND Paul' })], identite: { nom: 'Lefort', prenom: 'Anne' }, qui: 'garant' });
+    const eg = VP.etatPiece({ doc, verif: null, ia: Object.assign({}, garant.parPiece.a, { constats: garant.constats }), iaLue: true });
+    expect(eg.resume.cause).toBe('Nom différent du garant');
+  });
+  it('mois manquant du garant précisé', () => {
+    expect(raisonDe({ code: 'B5', mois: 'août 2026', garant: true }).cause).toBe('Mois manquant du garant (août 2026)');
   });
 });

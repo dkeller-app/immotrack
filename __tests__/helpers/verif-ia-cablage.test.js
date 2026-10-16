@@ -78,7 +78,7 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(e.note).toBe(IaTransparence.MENTION_PROPOSITION + '.');
     expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<span>Non vérifiable</span>');
     // Décision de Didier (16/10) : la cause et quoi vérifier, visibles sans clic, échappées ; « + N autres » ouvre le détail.
-    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<div class="cand-vrf-raison"><span>Le net payé ne correspond pas au calcul — comparer avec le virement du salaire sur le relevé bancaire.</span>');
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<div class="cand-vrf-raison"><span>Le net payé ne correspond pas au calcul (acompte, saisie ou lecture possibles) — comparer avec le virement du salaire sur le relevé bancaire.</span>');
     expect(app._candVerifRaisonHtml({ texte: '<img src=x onerror=alert(1)>', autres: 2 }, 'f()')).toBe('<div class="cand-vrf-raison"><span>&lt;img src=x onerror=alert(1)&gt;</span> <button type="button" class="lien" onclick="f()">+ 2 autres</button></div>');
     expect(app._candVerifRaisonHtml(null, 'f()')).toBe('');
     await app._candIaLancer('c1');                                   // déjà lue : rien de plus
