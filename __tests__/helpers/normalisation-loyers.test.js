@@ -87,7 +87,9 @@ function finances(a, db) {
   });
   // Même formule que rFinances (index.html, R-2) : (dû − retard résiduel) ÷ dû, charges comprises.
   let du = 0, retard = 0;
-  r.months.forEach(m => { du += m.duHC + m.duCH; retard += m.loyerRetard + m.chargeRetard; });
+  // FINANCES-SUIVI-V2 : le retard est une POSITION — rFinances lit l'annuel (dernier mois exigible).
+  r.months.forEach(m => { du += m.duHC + m.duCH; });
+  retard = r.annual.loyerRetard + r.annual.chargeRetard;
   return { annual: r.annual, du, retard, recouvrement: du > 0 ? Math.round((du - retard) / du * 1000) / 10 : null };
 }
 

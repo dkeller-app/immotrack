@@ -264,13 +264,17 @@ describe('finances-window — composition avec le moteur mensuel (contrat étape
     const r = _computeFinancesMonthly({ ...base, window: w });
     const sept = r.months.find(m => m.ym === '2026-09');
     const octo = r.months.find(m => m.ym === '2026-10');
-    expect(sept.loyerRetard).toBe(0);   // tolérance respectée : elle suit dueMonth
-    expect(octo.loyerRetard).toBe(0);   // un mois NON ÉCHU ne peut pas être en retard
+    // FINANCES-SUIVI-V2 : positions de fin de mois — janvier à août impayés (6 400 €) ; septembre (tolérance)
+    // et octobre (non échu) n'ajoutent RIEN : la position ne bouge pas.
+    const aout = r.months.find(m => m.ym === '2026-08');
+    expect(aout.loyerRetard).toBe(6400);
+    expect(sept.loyerRetard).toBe(aout.loyerRetard);   // tolérance respectée : elle suit dueMonth
+    expect(octo.loyerRetard).toBe(sept.loyerRetard);   // un mois NON ÉCHU n'ajoute aucun retard
     expect(octo.loyersBrut).toBe(800);  // …mais son encaissement est bien compté (décision B)
 
     // Le geste fautif d'avant (entier de constat) fabriquait ~800 € de retard par lot.
     const fautif = _computeFinancesMonthly({ ...base, lastMonth: w.lastMonth });
-    expect(fautif.months.find(m => m.ym === '2026-09').loyerRetard).toBe(800);
+    expect(fautif.months.find(m => m.ym === '2026-09').loyerRetard - fautif.months.find(m => m.ym === '2026-08').loyerRetard).toBe(800);
   });
 
   it('A2 : une fenêtre VIDE produit ZÉRO mois, plus de janvier fantôme', () => {
@@ -432,7 +436,8 @@ describe("finances-window — cas limites du constat (M4, M6)", () => {
     expect(r.lastMonth).toBe(12);
     expect(r.dueMonth).toBe(9);
     ['2026-10', '2026-11', '2026-12'].forEach(ym => {
-      expect(r.months.find(m => m.ym === ym).loyerRetard).toBe(0);
+      // FINANCES-SUIVI-V2 : position figée au dernier mois exigible (aucun retard ajouté par un mois non échu)
+      expect(r.months.find(m => m.ym === ym).loyerRetard).toBe(r.months.find(m => m.ym === '2026-09').loyerRetard);
     });
     expect(r.months.find(m => m.ym === '2026-12').loyersBrut).toBe(800);
     // Le N-1 aligne couvre bien 12 mois, pas 9 (sinon la variation compare des durees).

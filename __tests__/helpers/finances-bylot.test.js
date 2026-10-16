@@ -95,7 +95,11 @@ describe('_computeFinancesMonthly — byLot (Lot 0 KPI)', () => {
       expect(Math.round(som('duHC') * 100) / 100).toBe(l.annual.duHC);
       expect(Math.round(som('duCH') * 100) / 100).toBe(l.annual.duCH);
       expect(Math.round(som('encaisse') * 100) / 100).toBe(l.annual.encaisse);
-      expect(Math.round((som('loyerRetard') + som('chargeRetard')) * 100) / 100).toBe(l.annual.retard);
+      // FINANCES-SUIVI-V2 : le retard est une POSITION — l'annuel est celle du dernier mois exigible.
+      const der = l.months[l.months.length - 1];
+      expect(Math.round((der.loyerRetard + der.chargeRetard) * 100) / 100).toBe(l.annual.retard);
+      expect(der.position).toBe(l.annual.position);
+      expect(l.solde).toBe(l.annual.position);
     }
   });
 

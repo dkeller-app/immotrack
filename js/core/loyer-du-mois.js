@@ -390,11 +390,18 @@ export function segmentsOccupation(bails) {
  * @param {Array<{hcDue:number, chDue:number, received:number,
  *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
  *        chronologiques (échus) ; `sources` optionnel, trié ou non (trié ici par date).
- * @param {{carry?:boolean, graceLast?:boolean}} [opts]
+ * FINANCES-SUIVI-V2 — un mois peut aussi porter `reglement` (retenue pour loyer sur le dépôt) et `remise`
+ * (manque accepté) : soldés après l'argent du mois, ordre H-1, plafonnés, jamais une avance. Et
+ * `opts.seuilArrondi` solde en fin de mois un écart total sous le seuil (plafond cumulé), tracé `arrondi`.
+ *
+ * @param {{carry?:boolean, graceLast?:boolean, opening?:Object, seuilArrondi?:number}} [opts]
  */
 export function _loyerArrearsPass(months, opts) {
   const carry = !!(opts && opts.carry);
   const graceLast = !!(opts && opts.graceLast);
+  // FINANCES-SUIVI-V2 : seuil d'arrondi (0 = aucun, comportement historique). Le suivi passe 1 (€).
+  const seuilArrondi = Math.max(0, Number(opts && opts.seuilArrondi) || 0);
+  let arrondiCumul = 0;
   const ms = months || [];
   const lastIdx = ms.length - 1;
   const loyerQ = [], chargeQ = [];                  // files des manques : {idx, short, due, recv}
@@ -411,7 +418,10 @@ export function _loyerArrearsPass(months, opts) {
   // R0-C (2ᵉ audit 🔴1) — `opening.idx` : mois où l'ouverture est posée (début du suivi dans la
   // fenêtre). Défaut 0 (début de fenêtre), comportement historique.
   const oIdx = _open ? Math.max(0, Math.min(ms.length ? ms.length - 1 : 0, Number(_open.idx) || 0)) : 0;
-  if (_open) {
+  // FINANCES-SUIVI-V2 : l'ouverture est posée AU MOIS `oIdx` (et non dès le 1ᵉʳ mois de la fenêtre) : la
+  // position d'un mois antérieur à la date notée ne la porte pas. Résidus et soldes inchangés.
+  const semerOuverture = () => {
+    if (!_open) return;
     const oL = Math.max(0, Number(_open.loyer) || 0), oC = Math.max(0, Number(_open.charge) || 0);
     if (oL > 0.005) loyerQ.push({ idx: oIdx, short: oL, due: oL, recv: 0, opening: true });
     if (oC > 0.005) chargeQ.push({ idx: oIdx, short: oC, due: oC, recv: 0, opening: true });
@@ -419,8 +429,8 @@ export function _loyerArrearsPass(months, opts) {
     // portée comme avance de départ → couvre les 1ers mois dus de l'année AVANT qu'un retard naisse.
     // Sinon l'Accueil afficherait un faux impayé sur un locataire qui a payé d'avance (audit C2 #1,
     // décision CDC (b) l.136). N'a de sens qu'avec le report (carry) — la politique du maître.
-    if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) avanceCarry = oA; }
-  }
+    if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) avanceCarry += oA; }
+  };
 
   // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────
   const imput = ms.map(() => []);                   // imput[idx] = [{date,id,montant,poste}]
@@ -472,6 +482,7 @@ export function _loyerArrearsPass(months, opts) {
   };
 
   const perMonth = ms.map((m, idx) => {
+    if (idx === oIdx) semerOuverture();
     const hcDue = Math.max(0, Number(m.hcDue) || 0);
     const chDue = Math.max(0, Number(m.chDue) || 0);
     const recv = Number(m.received) || 0;
@@ -488,7 +499,45 @@ export function _loyerArrearsPass(months, opts) {
     if (chargeShort > 0.005 && !grace) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
     const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL, 'loyer');   // arriérés loyer (priorité)
     const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC, 'charge');
+    // FINANCES-SUIVI-V2 — règlements SANS virement, appliqués APRÈS l'argent du mois, dans l'ordre H-1
+    // (loyer du mois → charges du mois → arriérés de loyer, plus vieux d'abord → arriérés de charges),
+    // plafonnés à la dette : ils ne créent JAMAIS d'avance et ne sont jamais un encaissement (2044 intacte).
+    //   `reglement` : retenue pour loyer sur le dépôt de garantie (bail sorti, décision 05/10 n° 2) ;
+    //   `remise`    : manque accepté par le bailleur (décision 05/10, Q1 du 06/10).
+    const solder = (amt) => {
+      let a = Math.max(0, Number(amt) || 0);
+      if (a <= 0.005) return 0;
+      const avant = a;
+      const prendre = (q, courant) => {
+        for (const e of q) {
+          if (a <= 0.0000001) break;
+          if (courant !== (e.idx === idx)) continue;
+          const t = Math.min(a, e.short); e.short -= t; a -= t;
+        }
+      };
+      prendre(loyerQ, true); prendre(chargeQ, true); prendre(loyerQ, false); prendre(chargeQ, false);
+      return _r2(avant - a);
+    };
+    const reglement = solder(m.reglement);
+    const remise = solder(m.remise);
+    // Écart d'arrondi (décision 05/10 n° 2 : « sous 1 €, soldé d'office, trace visible ») : en fin de mois,
+    // une dette ou une avance totale strictement sous le seuil restant est soldée, et tracée (`arrondi`,
+    // signé : − = dette abandonnée, + = avance abandonnée). Le seuil est un plafond CUMULÉ par passe.
+    let arrondi = 0;
+    if (seuilArrondi > 0) {
+      const dette = sumQ(loyerQ) + sumQ(chargeQ);
+      const reste = seuilArrondi - arrondiCumul;
+      if (dette > 0.005 && dette < reste - 0.0000001) {
+        loyerQ.forEach((e) => { e.short = 0; }); chargeQ.forEach((e) => { e.short = 0; });
+        arrondi = -_r2(dette); arrondiCumul += dette;
+      } else if (carry && dette <= 0.005 && pool > 0.005 && pool < reste - 0.0000001) {
+        arrondi = _r2(pool); arrondiCumul += pool; pool = 0; frags = [];
+      }
+    }
     const out = { loyerArrear: _r2(sumQ(loyerQ)), chargeArrear: _r2(sumQ(chargeQ)) };
+    if (reglement) out.reglement = reglement;
+    if (remise) out.remise = remise;
+    if (arrondi) out.arrondi = arrondi;
     if (carry) { avanceCarry = pool; out.avance = _r2(avanceCarry); }
     return out;
   });

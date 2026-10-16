@@ -120,10 +120,10 @@ describe('R0-C · Q1 révisé — le vrai _finBailHcChAt lit le point de départ
     const DB = ferrette({ anteriorite: { date: '2026-03-01', situation: 'arriere', loyer: 1300, charges: 0, mois: ['2026-01', '2026-02'] } });
     const app = monter(DB);
     const r = app._finMonthly(2026, null, computeConstatWindow({ year: 2026, today: TODAY, mouvements: DB.mouvements }));
-    expect(r.byLot['F-BAR'].months.reduce((s, m) => s + m.loyerRetard, 0)).toBe(1300);   // l'arriéré noté, une fois
+    expect(r.byLot['F-BAR'].annual.retard).toBe(1300);   // l'arriéré noté, une fois
     const prov = monter(ferrette());
     const r0 = prov._finMonthly(2026, null, computeConstatWindow({ year: 2026, today: TODAY, mouvements: ferrette().mouvements }));
-    expect(r0.byLot['F-BAR'].months.reduce((s, m) => s + m.loyerRetard, 0)).toBe(0);
+    expect(r0.byLot['F-BAR'].annual.retard).toBe(0);
   });
   it('🟠2 : _computeExpectedRent = Σ du dû de Finances (une seule règle)', () => {
     const app = monter(ferrette({ dateAcq: '2026-03-15' }));

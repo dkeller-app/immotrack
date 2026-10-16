@@ -11,14 +11,14 @@ import { calculerInstantane, SEEDS_INSTANTANE } from './r0c-maitre-instantane.js
  * mais, sans l'option, le P&L, le retard, l'ouverture N-1 et le détail par lot doivent rester
  * identiques À L'OCTET (empreinte sha256 de la sortie complète).
  */
-const AVANT = JSON.parse(readFileSync(new URL('../fixtures/r0c-maitre-avant.json', import.meta.url), 'utf8'));
+const AVANT = JSON.parse(readFileSync(new URL('../fixtures/r0c-maitre-fiscal-avant.json', import.meta.url), 'utf8'));
 
 describe('R0-C lot 1 — le maître ne bouge pas d\'un centime sans l\'option `debutDu`', () => {
   const APRES = calculerInstantane();
 
   it('la fixture couvre bien 30 jeux × 4 exercices × 3 variantes (sinon le test ne mesure rien)', () => {
     expect(Object.keys(AVANT).map(Number)).toEqual(SEEDS_INSTANTANE);
-    const avecRetard = Object.values(AVANT).flatMap((r) => Object.values(r)).filter((e) => e.fenetre.annual.loyerRetard > 0).length;
+    const avecRetard = Object.values(AVANT).flatMap((r) => Object.values(r)).filter((e) => e.fenetre.annual.loyersHC > 0).length;
     expect(avecRetard).toBeGreaterThan(30);   // l'ouverture N-1 et le retard sont réellement exercés
   });
 

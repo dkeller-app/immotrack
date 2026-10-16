@@ -9,7 +9,7 @@
  * plusieurs exercices, payés d'avance le 28 du mois précédent, contre-passés (débit sur loyer).
  *
  * Toute modification de ce générateur INVALIDE l'instantané figé
- * (__tests__/fixtures/r0c-maitre-avant.json) : ne le toucher qu'en régénérant la fixture
+ * (__tests__/fixtures/r0c-maitre-fiscal-avant.json) : ne le toucher qu'en régénérant la fixture
  * AVANT toute modification du moteur (cf. commentaire de r0c-maitre-instantane.test.js).
  */
 

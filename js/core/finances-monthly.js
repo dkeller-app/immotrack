@@ -1,8 +1,7 @@
 import { _computeLoyerChargeAlloc, _LOYER_TOLERANCE_JOUR, _loyerTodayLocal } from './loyer-statut.js';
-// AUDIT-SUIVI-LOYERS étape 4 — le RETARD affiché passe au netting avance↔retard (une avance
-// couvre les mois suivants avant de laisser naître un retard) : fin des « retard ET avance
-// simultanés » (C2, scénario user « 2 loyers payés en janvier, rien en février »).
-import { _computeLoyerNetting, duMoisSuivi, segmentsOccupation } from './loyer-du-mois.js';
+// FINANCES-SUIVI-V2 — UNE passe compensée (`_loyerArrearsPass`, carry) donne retard ET avance : une avance
+// couvre les mois suivants avant de laisser naître un retard ; jamais « retard ET avance » sur un bail.
+import { _loyerArrearsPass, duMoisSuivi, segmentsOccupation } from './loyer-du-mois.js';
 // R0-C : la dette de restitution suit la MÊME fenêtre d'exigibilité que Finances (tolérance < 10).
 import { computeExigibiliteWindow } from './finances-window.js';
 
@@ -33,7 +32,9 @@ function _collecterLoyers211(mvts, catLigne, poids, garder) {
     const q0 = mv.qui || ''; if (!q0) return;
     const amt0 = ((Number(mv.cr) || 0) - (Number(mv.db) || 0)) * w0;
     (parLot[q0] = parLot[q0] || {})[ym] = (parLot[q0][ym] || 0) + amt0;
-    lignes.push({ qui: q0, date: String(mv.date).slice(0, 10), ym, montant: amt0 });
+    // FINANCES-SUIVI-V2 : l'identifiant du mouvement (lien cliquable des fenêtres) et le bail CHOISI par
+    // l'utilisateur pour un virement reçu entre deux baux (`mv.bailDebut`, décision Q3 du 06/10).
+    lignes.push({ qui: q0, date: String(mv.date).slice(0, 10), ym, montant: amt0, id: (mv.id != null ? mv.id : null), bailDebut: mv.bailDebut ? String(mv.bailDebut).slice(0, 10) : null });
     if (!premierYm || ym < premierYm) premierYm = ym;
   });
   return { parLot, premierYm, lignes };
@@ -186,7 +187,8 @@ export function _computeFinancesMonthly(input) {
 
   const blank = () => ({
     loyersBrut: 0, loyersHC: 0, provisions: 0, avance: 0, recettesDiverses: 0,
-    loyerRetard: 0, chargeRetard: 0,   // arriérés (retard orange) — running au mois, fin de période à l'année
+    loyerRetard: 0, chargeRetard: 0,   // RETARD des locataires à la fin du mois (Σ des lots, jamais net) — à l'année : au dernier mois exigible
+    avanceLot: 0, ecart: 0, aRendre: 0, // FINANCES-SUIVI-V2 : avance compensée des lots, écart net (avance − retard), avance d'un parti à rendre
     duHC: 0, duCH: 0,                  // R-2 : dû du mois (barème historisé, Σ lots) — dénominateur du recouvrement
     rattrapage: 0,                     // part du reçu qui a servi des arriérés de mois ANTÉRIEURS (sous-ligne grise)
     nonAffecte: 0,                     // H-2 : encaissements de loyer SANS lot rattaché (comptés au total, détail faux)
@@ -352,34 +354,37 @@ export function _computeFinancesMonthly(input) {
     const v = { loyer: Math.max(0, Number(o.loyer) || 0), charge: Math.max(0, Number(o.charge) || 0), avance: Math.max(0, Number(o.avance) || 0) };
     return (v.loyer + v.charge + v.avance) > 0.005 ? Object.assign({ ym: String(o.ym) }, v) : null;
   };
-  const _openingOf = (q) => {
-    const yms = _preYmsLot(q);
+  // ── FINANCES-SUIVI-V2 — LA POSITION DES LOTS (avance OU retard, jamais les deux) ─────────────────────
+  // Avec `suivi(q)` injecté (l'app : `_finSuiviLot`), la position d'un lot vient du MOTEUR UNIQUE, bail par
+  // bail (`_computeSuiviLot` → `_positionLot`) : la dette d'un locataire parti n'est plus payée par le
+  // suivant, l'avance est compensée (lot E du 05/10, défaut C2 de l'audit du 14/07). Sans contexte de bail
+  // (appelants historiques, tests unitaires du P&L), le lot est suivi comme UN bail synthétique : MÊME
+  // passe (`_loyerArrearsPass` compensé), dû `loyerDue`, borne `debutDu` et ouverture comme avant. La passe
+  // fiscale (`_computeLoyerChargeAlloc` : loyers HC, provisions, base 2044) reste à l'encaissement, intacte.
+  const suiviOf = (typeof i.suivi === 'function') ? i.suivi : null;
+  const dueYm = dueMonth > 0 ? yr + '-' + String(dueMonth).padStart(2, '0') : null;
+  const _suiviSynthetique = (q) => {
+    const yms = _preYmsLot(q).concat(order.slice(0, dueMonth));
+    if (!yms.length) return null;
+    const recu = (ym) => _recuNet(q, ym, ym < yr + '-01'
+      ? ((preRecv[q] && preRecv[q][ym]) || 0)
+      : ((buckets[ym] && buckets[ym]._loyerByLot && buckets[ym]._loyerByLot[q]) || 0));
+    const months = yms.map(ym => { const d = loyerDue(q, ym) || {}; return { ym, hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: recu(ym) }; });
     const ouv = _ouv(q);
-    const ouvAvant = ouv && ouv.ym < yr + '-01' ? ouv : null;
-    const ouvDans = ouv && ouv.ym >= yr + '-01' && ouv.ym <= yr + '-12' ? ouv : null;
-    let res = null;
-    if (yms.length) {
-      const pm = yms.map(ym => {
-        const d = loyerDue(q, ym) || {};
-        return { hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: _recuNet(q, ym, (preRecv[q] && preRecv[q][ym]) || 0) };
-      });
-      const o0 = ouvAvant ? Object.assign({}, ouvAvant, { idx: Math.max(0, yms.indexOf(ouvAvant.ym)) }) : null;
-      const pr = _computeLoyerNetting(pm, false, o0);   // pas de tolérance sur le passé clos
-      if (pr.loyerArrear > 0.005 || pr.chargeArrear > 0.005) res = { loyer: pr.loyerArrear, charge: pr.chargeArrear };
-      else if (pr.avance > 0.005) res = { avance: pr.avance };   // trop-perçu de N-1 reporté (audit C2 #1, CDC (b))
-    }
-    if (ouvDans) {
-      res = res || {};
-      // Semée à SON mois (2ᵉ audit 🔴1), sauf si une dette d'avant l'exercice occupe déjà l'ouverture.
-      const idx = (res.loyer || res.charge) ? 0 : (parseInt(ouvDans.ym.slice(5, 7), 10) - 1);
-      res = { loyer: (res.loyer || 0) + ouvDans.loyer, charge: (res.charge || 0) + ouvDans.charge, avance: (res.avance || 0) + ouvDans.avance, idx };
-    }
-    return res;
+    let opening = null;
+    if (ouv && ouv.ym <= yms[yms.length - 1]) opening = Object.assign({}, ouv, { idx: Math.max(0, yms.indexOf(ouv.ym)) });
+    const r = _loyerArrearsPass(months, { carry: true, graceLast, opening });
+    const mois = months.map((m, idx) => {
+      const pm = r.months[idx] || {};
+      return { ym: m.ym, retardLoyer: round2(pm.loyerArrear || 0), retardCharge: round2(pm.chargeArrear || 0), avance: round2(pm.avance || 0),
+        loyerRetard: round2(r.retardMois[idx].loyer), chargeRetard: round2(r.retardMois[idx].charge) };
+    });
+    const prem = mois.find(m => (m.loyerRetard + m.chargeRetard) > 0.005);
+    return { baux: [{ debut: yms[0] + '-01', finDu: null, mois, depuisYm: prem ? prem.ym : null }] };
   };
 
-  const lotsEnRetard = [];       // R-2 : lots à retard résiduel > 0 (compteur « N impayés »)
-  // KPI Lot 0 (CDC-KPI §R-0 / D34) : le détail par lot est EXPOSÉ, pas jeté. Aucun calcul de
-  // plus — on range dans byLot exactement ce que la cascade et le netting produisent déjà.
+  const lotsEnRetard = [];       // R-2 : lots en retard au dernier mois exigible (compteur « N impayés »)
+  // KPI Lot 0 (CDC-KPI §R-0 / D34) : le détail par lot est EXPOSÉ, pas jeté.
   const byLot = {};
   const allLots = new Set();
   order.forEach(ym => { const lots = buckets[ym]._loyerByLot; if (lots) for (const q in lots) allLots.add(q); });
@@ -389,56 +394,57 @@ export function _computeFinancesMonthly(input) {
       const d = loyerDue(q, ym) || {};
       return { hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: (buckets[ym]._loyerByLot && buckets[ym]._loyerByLot[q]) || 0 };
     });
-    // KPI : une ligne de frise par mois, remplie au fil des deux passes ci-dessous.
     const lotFrise = order.map((ym, idx) => ({
       ym, duHC: lotMonths[idx].hcDue, duCH: lotMonths[idx].chDue,
-      encaisse: lotMonths[idx].received, loyerRetard: 0, chargeRetard: 0, avance: 0, rattrapage: 0
+      encaisse: lotMonths[idx].received, loyerRetard: 0, chargeRetard: 0, avance: 0, position: 0, aRendre: 0, rattrapage: 0
     }));
-    // R-2 : le dû CC du mois (barème historisé) est RENDU — c'est le dénominateur unique du
-    // recouvrement (remplace `attenduHCTheo`, la 2ᵉ définition du dû qui écrasait l'historique).
+    // R-2 : le dû CC du mois (barème historisé) — dénominateur unique du recouvrement.
     lotMonths.forEach((lm, idx) => { const b = buckets[order[idx]]; b.duHC += lm.hcDue; b.duCH += lm.chDue; });
+    // Passe FISCALE à l'encaissement (2044) : inchangée.
     _computeLoyerChargeAlloc(lotMonths).forEach((a, idx) => {
       const b = buckets[order[idx]];
       b.loyersHC += a.loyersHC; b.provisions += a.provisions; b.avance += a.avance;
       b.rattrapage += a.rattrapage || 0;
-      lotFrise[idx].avance = a.avance; lotFrise[idx].rattrapage = a.rattrapage || 0;
+      lotFrise[idx].rattrapage = a.rattrapage || 0;
     });
-    // Retard orange : RÉSIDU du mois (manque encore dû attribué à son mois d'origine, net des
-    // rattrapages) — colonne P&L par mois, on ne reporte pas (user 2026-07-13). L'annuel = SOMME
-    // des mois (= dette ouverte de fin de période, puisque le résidu somme à l'arriéré final).
-    // Calculé sur les seuls mois EXIGIBLES : un mois non échu (compté au constat parce qu'il
-    // porte déjà un encaissement — décision « B ») ne peut pas être « en retard ». Les mois
-    // au-delà de `dueMonth` gardent donc un retard de 0.
-    let _retardLot = 0;
-    const lotMonthsSuivi = debutDu ? lotMonths.map((lm, idx) => Object.assign({}, lm, { received: _recuNet(q, order[idx], lm.received) })) : lotMonths;
-    _computeLoyerNetting(lotMonthsSuivi.slice(0, dueMonth), graceLast, _openingOf(q)).retardMois.forEach((rm, idx) => {
-      const b = buckets[order[idx]];
-      b.loyerRetard += rm.loyer; b.chargeRetard += rm.charge;
-      lotFrise[idx].loyerRetard = rm.loyer; lotFrise[idx].chargeRetard = rm.charge;
-      _retardLot += rm.loyer + rm.charge;
+    // Position du lot à la fin de chaque mois EXIGIBLE ; au-delà (mois compté au constat, pas encore
+    // exigible), la position reste celle du dernier mois exigible : un mois non échu n'est jamais en retard.
+    const s = (q && q.indexOf('SCI:') !== 0) ? (suiviOf ? suiviOf(q) : _suiviSynthetique(q)) : null;
+    if (s && dueYm) order.forEach((ym, idx) => {
+      const p = _positionLot(s, idx < dueMonth ? ym : dueYm);
+      const b = buckets[ym];
+      b.loyerRetard += p.retardLoyer; b.chargeRetard += p.retardCharge;
+      b.avanceLot += p.avance; b.ecart += p.position; b.aRendre += p.aRendre;
+      Object.assign(lotFrise[idx], { loyerRetard: p.retardLoyer, chargeRetard: p.retardCharge, avance: p.avance, position: p.position, aRendre: p.aRendre });
     });
-    // R-2 : le compteur « N impayés » vient du MÊME moteur (lots à retard résiduel > 0),
-    // plus d'une liste calculée à part.
-    if (_retardLot > 0.005 && q) lotsEnRetard.push(q);
+    const pAn = (s && dueYm) ? _positionLot(s, dueYm) : null;
+    if (pAn && pAn.retard > 0.005 && q) lotsEnRetard.push(q);
 
-    // KPI : agrégats du lot = Σ de sa frise (mêmes règles que l'annuel du moteur). `solde` est
-    // la position de trésorerie signée du lot : encaissé − dû (+ avance / − retard).
     if (q) {
-      const sum = (k) => lotFrise.reduce((s, m) => s + (m[k] || 0), 0);
+      const sum = (k) => lotFrise.reduce((t, m) => t + (m[k] || 0), 0);
       const encaisse = round2(sum('encaisse'));
       const duHC = round2(sum('duHC')), duCH = round2(sum('duCH'));
+      // Ancienneté : le plus vieux mois encore dû, parmi les baux comptés au dernier mois exigible.
+      let depuisYm = null;
+      if (pAn && s) (s.baux || []).forEach(b => { if (pAn.baux.some(x => x.debut === b.debut) && b.depuisYm && (!depuisYm || b.depuisYm < depuisYm)) depuisYm = b.depuisYm; });
+      const position = pAn ? pAn.position : 0;
       byLot[q] = {
         months: lotFrise.map(m => ({
           ym: m.ym, duHC: round2(m.duHC), duCH: round2(m.duCH), encaisse: round2(m.encaisse),
           loyerRetard: round2(m.loyerRetard), chargeRetard: round2(m.chargeRetard),
-          avance: round2(m.avance), rattrapage: round2(m.rattrapage)
+          avance: round2(m.avance), position: round2(m.position), aRendre: round2(m.aRendre), rattrapage: round2(m.rattrapage)
         })),
         annual: {
           duHC, duCH, encaisse,
-          retard: round2(sum('loyerRetard') + sum('chargeRetard')),
-          avance: round2(sum('avance'))
+          // position au dernier mois exigible : retard (Σ des baux, jamais net) et avance (baux en cours)
+          retard: pAn ? pAn.retard : 0,
+          avance: pAn ? pAn.avance : 0,
+          aRendre: pAn ? pAn.aRendre : 0,
+          position
         },
-        solde: round2(encaisse - duHC - duCH)
+        // position signée du lot : + avance / − retard (plus « encaissé − dû » de l'année)
+        solde: position,
+        depuisYm
       };
     }
   });
@@ -452,7 +458,7 @@ export function _computeFinancesMonthly(input) {
     b.cashflowNet = b.reel;                                           // ton résultat propre (hors transit locataire)
     b.cashflowReel = b.reel + b.recupSolde;                           // vrai cash sur le compte (transit inclus)
     b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.assuranceEmprunteur + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus ; 250 = intérêts + assurance emprunteur
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'assuranceEmprunteur', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'avanceLot', 'ecart', 'aRendre', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'assuranceEmprunteur', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -462,9 +468,15 @@ export function _computeFinancesMonthly(input) {
   // Agrégat annuel (Σ des mois — loyersHC/provisions/avance inclus, PAS de re-cascade)
   const annual = Object.assign({ ym: yr, mo: 0 }, blank());
   months.forEach(b => {
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'assuranceEmprunteur']
-      .forEach(k => { annual[k] += b[k]; });   // retard : Σ des résidus mensuels = dette ouverte de fin de période
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'construction', 'nonDeductible', 'recup', 'interets', 'assuranceEmprunteur']
+      .forEach(k => { annual[k] += b[k]; });
   });
+  // FINANCES-SUIVI-V2 : retard, avance et écart sont des POSITIONS (à la fin du mois), pas des flux : la
+  // colonne Année est la position au DERNIER MOIS EXIGIBLE (décision 06/10), jamais la somme des mois.
+  {
+    const dm = dueMonth > 0 ? months[dueMonth - 1] : null;
+    ['loyerRetard', 'chargeRetard', 'avanceLot', 'ecart', 'aRendre'].forEach(k => { annual[k] = dm ? dm[k] : 0; });
+  }
   finalizeDerived(annual);
 
   const interetsTotal = annual.interets;
@@ -506,59 +518,86 @@ export function _ligne250DejaComptee(input) {
   return { lignes, total: somme(null), totalInterets: somme('interets'), totalAssurance: somme('assurance') };
 }
 
+/** Jours entre deux dates ISO (b − a), au jour près, sans fuseau. */
+const _joursEntre = (a, b) => Math.round((Date.parse(String(b).slice(0, 10) + 'T00:00:00Z') - Date.parse(String(a).slice(0, 10) + 'T00:00:00Z')) / 86400000);
+
+/**
+ * FINANCES-SUIVI-V2 — À QUEL BAIL APPARTIENT UN ENCAISSEMENT DE LOYER (règle unique du suivi).
+ *   1. le bail CHOISI par l'utilisateur (`mv.bailDebut`, alerte « à qui attribuer ce virement ») fait foi ;
+ *   2. sinon le bail dont l'occupation contient la date ;
+ *   3. avant le 1ᵉʳ bail du lot → le 1ᵉʳ bail (loyer payé quelques jours avant l'entrée) ; après le dernier
+ *      bail terminé → ce bail (arriéré réglé après la sortie) ;
+ *   4. ENTRE deux baux (vacance) → le bail le plus PROCHE dans le temps, marqué « à confirmer »
+ *      (décision Didier Q3, 06/10/2026 : on demande à l'utilisateur ; tant qu'il n'a pas répondu, le plus proche).
+ * @param {Array<{debut:string, end:string|null}>} segs segments d'occupation (segmentsOccupation)
+ * @param {string} date 'YYYY-MM-DD'
+ * @param {string|null} [choix] 'YYYY-MM-DD' début du bail choisi
+ * @returns {null|{k:number, aConfirmer:boolean, choisi:boolean}}
+ */
+export function _bailDuPaiement(segs, date, choix) {
+  const S = segs || [];
+  if (!S.length || !date) return null;
+  const d = String(date).slice(0, 10);
+  if (choix) {
+    const kc = S.findIndex((s) => s.debut === String(choix).slice(0, 10));
+    if (kc >= 0) return { k: kc, aConfirmer: false, choisi: true };
+  }
+  const kd = S.findIndex((s) => s.debut <= d && (!s.end || d <= s.end));
+  if (kd >= 0) return { k: kd, aConfirmer: false, choisi: false };
+  let prev = -1, next = -1;
+  S.forEach((s, idx) => { if (s.end && s.end < d) prev = idx; if (next < 0 && s.debut > d) next = idx; });
+  if (prev < 0) return next >= 0 ? { k: next, aConfirmer: false, choisi: false } : null;
+  if (next < 0) return { k: prev, aConfirmer: false, choisi: false };
+  const dp = _joursEntre(S[prev].end, d), dn = _joursEntre(d, S[next].debut);
+  return { k: dn <= dp ? next : prev, aConfirmer: true, choisi: false };
+}
+
 /**
  * R0-C lot 1 (docs/CDC-R0C.md, option B « Finances fait foi ») — LA DETTE D'UN BAIL, lue dans
  * le maître. C'est elle que la restitution du dépôt de garantie retient (art. 22 loi 89-462).
  *
- * Même cascade que le maître (`_computeLoyerNetting` : loyer → charges → arriérés → avance),
- * même dû (`duMoisSuivi` : barème historisé, prorata d'entrée, 1ᵉʳ terme exigible après le début du suivi), mêmes
- * encaissements (`_collecterLoyers211` : ligne 211, alias M-1, net des contre-passations),
- * même fenêtre d'exigibilité (tolérance avant le 10). Une seule différence, voulue : le calcul
- * court sur la vie D'UN bail, d'une traite, SANS JAMAIS SEMER D'OUVERTURE. Le passé du bail est
- * dans le calcul au lieu d'être reporté — c'est ce qui supprime le double/triple comptage de
- * l'ouverture N-1 (branche rejetée feat/r0c-retenue-dg) et la dette d'un locataire facturée au
- * suivant (cas C). Égalité au centime avec Finances prouvée par
- * __tests__/helpers/r0c-egalite-maitre.test.js (lots à un bail).
+ * FINANCES-SUIVI-V2 (docs/subjects/FINANCES-SUIVI-UNIQUE.md, décisions Didier 05/10 et 06/10) : c'est
+ * aussi LE MOTEUR UNIQUE du suivi des loyers. Finances, l'onglet Loyers, la relance, les quittances, le
+ * bandeau « Tous les loyers », l'Accueil et la restitution lisent tous ce calcul, bail par bail
+ * (`_computeSuiviLot` l'assemble pour un lot). Il porte en plus :
+ *   - la POSITION du bail à la fin de chaque mois (`mois[].retardLoyer/retardCharge/avance/position`) :
+ *     avance OU retard, jamais les deux (même cascade compensée) ;
+ *   - les règlements sans virement : `retenueLoyer` (retenue pour loyer sur le dépôt, posée au mois de la
+ *     fin du bail) et `manques` (manques acceptés, à leur mois) — plafonnés, jamais une avance, jamais un
+ *     encaissement (la 2044 n'en sait rien) ;
+ *   - l'arrondi sous `seuilArrondi` (le suivi passe 1 €), tracé ;
+ *   - le rattachement des encaissements de `_bailDuPaiement` (Q3) et la liste `aConfirmer`.
+ *
+ * Même cascade que le maître (loyer → charges → arriérés → avance), même dû (`duMoisSuivi` : barème
+ * historisé, prorata d'entrée, 1ᵉʳ terme exigible après le début du suivi), mêmes encaissements
+ * (`_collecterLoyers211` : ligne 211, alias M-1, net des contre-passations), même fenêtre d'exigibilité
+ * (tolérance avant le 10). Le calcul court sur la vie du bail d'une traite, sans ouverture reportée :
+ * le passé du bail est dans le calcul (fin du double/triple comptage, fin de la dette d'un locataire
+ * facturée au suivant — cas C, cas Arslan).
  *
  * Décisions Didier 30/09 intégrées :
- *   Q1 RÉVISÉ (01/10) — le dû part de l'entrée du bail, borné par `debutSuivi` (jouissance du bailleur
- *        actuel ou début de suivi d'une antériorité), jamais par une absence de relevés. Une part du
- *        bail antérieure à la borne → `suiviPartiel: true` ; un bail achevé avant la borne →
- *        `suiviAbsent: true` et montants `null` (dette inconnue, jamais un zéro muet).
- *   Q3 — `fin` = date de fin effective, sinon date de sortie (l'appelant choisit et avertit) ;
- *        elle borne le dû au jour près, même si le bail est encore ouvert.
- *   Q4 — un encaissement appartient au bail en vigueur à sa DATE ; la vacance qui suit un bail
- *        lui revient (arriéré réglé après la sortie), celle qui précède le 1ᵉʳ bail du lot aussi
- *        (loyer payé le 28 du mois d'avant). Date de bascule = entrée du bail suivant. Tout
- *        encaissement pris hors des dates d'occupation est listé dans `horsPeriode`.
- *        Un encaissement daté dans le mois qui précède l'entrée d'un bail voisin est listé dans
- *        `aRattacher` : il peut solder une dette, jamais devenir un trop-perçu versé (🟠6).
- *   Q5 — le trop-perçu restant est rendu dans `avance` (hors encaissements « à rattacher »).
- * Charges : `charge` est exposée, JAMAIS à retenir sur le dépôt (elles relèvent de la
- * régularisation — anti-double-compte).
+ *   Q1 RÉVISÉ (01/10) — le dû part de l'entrée du bail, borné par `debutSuivi` ; une part du bail
+ *        antérieure à la borne → `suiviPartiel: true` ; un bail achevé avant la borne → `suiviAbsent: true`
+ *        et montants `null` (dette inconnue, jamais un zéro muet).
+ *   Q3 — `fin` = date de fin effective, sinon date de sortie ; elle borne le dû au jour près.
+ *   Q5 — le trop-perçu restant est rendu dans `avance` (hors encaissements « à rattacher » / « à confirmer »).
+ * Charges : `charge` est exposée, JAMAIS à retenir sur le dépôt (régularisation — anti-double-compte).
  *
  * @param {Object} input
  * @param {string} input.ref ref du lot (clé `qui` des mouvements, comparaison exacte comme le maître)
  * @param {{bails:Array, bareme:Array}} input.ctx contexte duMois du LOT (tous ses baux)
  * @param {string} input.bailDebut 'YYYY-MM-DD' — identifie le bail (début de son segment)
- * @param {string|null} [input.fin] fin du dû 'YYYY-MM-DD' (Q3) ; absente = fin du segment
+ * @param {string|null} [input.fin] fin du dû 'YYYY-MM-DD' ; absente = fin du segment
  * @param {Array} input.mouvements
  * @param {function} input.catLigne cat → {ligne2044} | null (en prod `_finCatLigne`)
- * @param {string|null} [input.debutSuivi] borne du suivi 'YYYY-MM-DD' : entrée en jouissance du bailleur
- *        actuel / début de suivi d'une antériorité ; absente = depuis l'entrée du bail
- * @param {string|null} [input.sourceSuivi] 'acquisition' | 'anteriorite' | 'provisoire' : nature de la borne
- *        (les encaissements du mois qui précède un ACHAT sont marqués « à rattacher »)
- * @param {{loyer?:number, charge?:number, avance?:number}|null} [input.ouverture] solde d'ouverture de
- *        l'antériorité notée sur CE bail (posé une fois, au début du suivi)
+ * @param {string|null} [input.debutSuivi] borne du suivi 'YYYY-MM-DD'
+ * @param {string|null} [input.sourceSuivi] 'acquisition' | 'anteriorite' | 'provisoire'
+ * @param {{loyer?:number, charge?:number, avance?:number}|null} [input.ouverture] solde d'ouverture noté sur CE bail
+ * @param {Array<{ym:string, montant:number, id?:string, _deleted?:boolean}>} [input.manques] manques acceptés de CE bail
+ * @param {number} [input.retenueLoyer] retenue pour loyer sur le dépôt de CE bail (bail sorti)
+ * @param {number} [input.seuilArrondi] 0 par défaut ; le suivi passe 1
  * @param {string} [input.today] horloge locale 'YYYY-MM-DD'
- * @returns {null | {loyer:number|null, charge:number|null, avance:number|null, avanceBrute:number|null,
- *           mois:Array, from:string|null, to:string|null, debutSuivi:string|null, finDu:string|null,
- *           horsPeriode:Array<{date:string, montant:number}>,
- *           horsSuivi:Array<{date:string, montant:number, aRattacher:boolean}>,
- *           aRattacher:Array<{date:string, montant:number, compte:boolean, motif:string}>,
- *           graceLast:boolean, suiviPartiel:boolean, suiviAbsent:boolean}}
- *          null = bail introuvable ou bornes incohérentes : dette INCONNUE (≠ 0). Montants null +
- *          `suiviAbsent` = le bail s'achève avant la borne de suivi : dette inconnue, aussi.
+ * @returns {null|Object} null = bail introuvable ou bornes incohérentes : dette INCONNUE (≠ 0).
  */
 export function _computeDetteBail(input) {
   const i = input || {};
@@ -578,16 +617,12 @@ export function _computeDetteBail(input) {
   if (i.fin) { const f = String(i.fin).slice(0, 10); if (!finDu || f < finDu) finDu = f; }
   if (finDu && finDu < debut) return null;
 
-  // Q1 RÉVISÉ (Didier 01/10) — borne de suivi FOURNIE par l'appelant : date d'entrée en jouissance du
-  // bailleur actuel, ou date de début de suivi d'une antériorité saisie. Sans borne, le dû part de
-  // l'entrée du bail. Jamais d'une absence de relevés.
   const debutSuivi = i.debutSuivi ? (String(i.debutSuivi).length === 7 ? i.debutSuivi + '-01' : String(i.debutSuivi).slice(0, 10)) : null;
-  // 🟠5 — dette PARTIELLEMENT connue : la part du bail antérieure à la borne n'est pas calculée (elle
-  // relève d'une antériorité). Dette TOTALEMENT inconnue : le bail s'achève avant la borne → null.
   const suiviPartiel = !!(debutSuivi && debutSuivi > debut);
   if (debutSuivi && finDu && debutSuivi > finDu) {
-    return { loyer: null, charge: null, avance: null, avanceBrute: null, mois: [], from: null, to: null, debutSuivi, finDu,
-      horsPeriode: [], aRattacher: [], horsSuivi: [], graceLast: false, suiviPartiel: true, suiviAbsent: true };
+    return { loyer: null, charge: null, avance: null, avanceBrute: null, position: null, mois: [], from: null, to: null, debutSuivi, finDu,
+      horsPeriode: [], aRattacher: [], aConfirmer: [], horsSuivi: [], graceLast: false, suiviPartiel: true, suiviAbsent: true,
+      depuisYm: null, manquesIgnores: [], retenue: { montant: 0, appliquee: 0 }, arrondis: [] };
   }
   // Dû de CE bail seul, sa fin portée à `finDu` (segmentDebut isole sa part d'un mois partagé).
   const ctxDu = {
@@ -601,20 +636,21 @@ export function _computeDetteBail(input) {
   const moisCourant = today.slice(0, 7);
   const dernierExigible = W.dueMonth > 0 ? today.slice(0, 4) + '-' + String(W.dueMonth).padStart(2, '0') : _ymPlus(today.slice(0, 4) + '-01', -1);
 
-  // Q4 — rattachement par la date : [entrée (ou −∞ pour le 1ᵉʳ bail du lot) ; entrée du suivant[.
-  const col = _collecterLoyers211(i.mouvements, catLigne, () => 1, (mv, ym) => {
-    if (mv.qui !== ref || ym > dernierExigible) return false;
-    const d = String(mv.date).slice(0, 10);
-    if (aUnPrecedent && d < debut) return false;
-    if (next && d >= next.debut) return false;
-    return true;
+  // Rattachement de chaque encaissement du lot à SON bail (`_bailDuPaiement`, règle unique Q3).
+  const col = _collecterLoyers211(i.mouvements, catLigne, () => 1, (mv, ym) => mv.qui === ref && ym <= dernierExigible);
+  const miens = [];
+  col.lignes.forEach(l => {
+    const r = _bailDuPaiement(segs, l.date, l.bailDebut);
+    if (r && r.k === k) miens.push(Object.assign({}, l, { aConfirmer: !!r.aConfirmer, choisi: !!r.choisi }));
   });
-  // 2ᵉ audit 🔴1 / 3ᵉ audit A1 — un encaissement daté AVANT le début du suivi n'est jamais imputé :
-  // `horsSuivi` (ceux du mois qui précède un ACHAT marqués « à rattacher » par l'utilisateur).
-  const lignesSuivi = debutSuivi ? col.lignes.filter(l => l.date >= debutSuivi) : col.lignes;
-  const avant = debutSuivi ? _avantBorne(col.lignes.filter(l => l.date < debutSuivi), debutSuivi, { achat: i.sourceSuivi === 'acquisition' }) : { horsSuivi: [] };
-  const recu = {};
-  lignesSuivi.forEach(l => { recu[l.ym] = (recu[l.ym] || 0) + l.montant; });
+  // 2ᵉ audit 🔴1 / 3ᵉ audit A1 — un encaissement daté AVANT le début du suivi n'est jamais imputé.
+  const lignesSuivi = debutSuivi ? miens.filter(l => l.date >= debutSuivi) : miens;
+  const avant = debutSuivi ? _avantBorne(miens.filter(l => l.date < debutSuivi), debutSuivi, { achat: i.sourceSuivi === 'acquisition' }) : { horsSuivi: [] };
+  const recu = {}, src = {};
+  lignesSuivi.forEach(l => {
+    recu[l.ym] = (recu[l.ym] || 0) + l.montant;
+    (src[l.ym] = src[l.ym] || []).push({ date: l.date, id: l.id, montant: l.montant });
+  });
   const derniereLigne = lignesSuivi.reduce((m, l) => (l.ym > m ? l.ym : m), '');
   const premierSuivi = lignesSuivi.reduce((m, l) => (!m || l.ym < m ? l.ym : m), '');
   let from = debut.slice(0, 7);
@@ -626,38 +662,54 @@ export function _computeDetteBail(input) {
 
   const yms = [];
   for (let ym = from; ym <= to && yms.length <= 1200; ym = _ymPlus(ym, 1)) yms.push(ym);
+  // Règlements sans virement : la retenue pour loyer au mois de la fin du bail (sinon au dernier mois
+  // suivi), les manques acceptés à LEUR mois (un manque hors des mois du bail est ignoré, et dit).
+  const retenue = finDu ? round2(Math.max(0, Number(i.retenueLoyer) || 0)) : 0;
+  const ymRetenue = retenue > 0.005 && yms.length ? (yms.includes(finDu.slice(0, 7)) ? finDu.slice(0, 7) : yms[yms.length - 1]) : null;
+  const manques = (Array.isArray(i.manques) ? i.manques : [])
+    .filter(m => m && !m._deleted && /^\d{4}-\d{2}$/.test(String(m.ym || '')) && (Number(m.montant) || 0) > 0.005);
+  const manquesIgnores = manques.filter(m => !yms.includes(String(m.ym))).map(m => ({ id: m.id != null ? m.id : null, ym: String(m.ym), montant: round2(Number(m.montant)) }));
   const lignesMois = yms.map(ym => {
     const d = duMoisSuivi(ctxDu, ym, debutSuivi, { segmentDebut: debut });
-    return { ym, hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: recu[ym] || 0 };
+    const o = { ym, hcDue: Number(d.hc) || 0, chDue: Number(d.ch) || 0, received: recu[ym] || 0, sources: src[ym] || [] };
+    const mq = manques.filter(m => String(m.ym) === ym).reduce((t, m) => t + (Number(m.montant) || 0), 0);
+    if (mq > 0.005) o.remise = mq;
+    if (ym === ymRetenue) o.reglement = retenue;
+    return o;
   });
   const graceLast = !!W.graceLast && yms.length > 0 && yms[yms.length - 1] === moisCourant;
-  // Aucune ouverture REPORTÉE (le passé du bail est dans le calcul) ; seule l'antériorité NOTÉE sur ce bail
-  // (Q1 révisé) est posée, une fois, au début du suivi.
-  // Semée AU MOIS du début du suivi (2ᵉ audit 🔴1).
+  // Seule l'antériorité NOTÉE sur ce bail (Q1 révisé) est posée, une fois, au mois du début du suivi.
   const ouv = i.ouverture ? { loyer: Math.max(0, Number(i.ouverture.loyer) || 0), charge: Math.max(0, Number(i.ouverture.charge) || 0), avance: Math.max(0, Number(i.ouverture.avance) || 0) } : null;
   const opening = ouv ? Object.assign({}, ouv, { idx: debutSuivi ? Math.max(0, yms.indexOf(debutSuivi.slice(0, 7))) : 0 }) : null;
-  const r = _computeLoyerNetting(lignesMois, graceLast, opening);
-  const mois = lignesMois.map((m, idx) => ({
-    ym: m.ym, duHC: round2(m.hcDue), duCH: round2(m.chDue), encaisse: round2(m.received),
-    loyerRetard: round2(r.retardMois[idx].loyer), chargeRetard: round2(r.retardMois[idx].charge),
-    avance: round2((r.months[idx] && r.months[idx].avance) || 0)
-  }));
+  const r = _loyerArrearsPass(lignesMois, { carry: true, graceLast, opening, seuilArrondi: Number(i.seuilArrondi) || 0 });
+  const aConfLignes = lignesSuivi.filter(l => l.aConfirmer);
+  const mois = lignesMois.map((m, idx) => {
+    const pm = r.months[idx] || {};
+    const retL = round2(pm.loyerArrear || 0), retC = round2(pm.chargeArrear || 0), av = round2(pm.avance || 0);
+    return {
+      ym: m.ym, duHC: round2(m.hcDue), duCH: round2(m.chDue), encaisse: round2(m.received),
+      // résidu : ce qui reste dû AUJOURD'HUI de CE mois (relance, quittances, ancienneté)
+      loyerRetard: round2(r.retardMois[idx].loyer), chargeRetard: round2(r.retardMois[idx].charge),
+      // position du bail à la FIN du mois (Finances, fenêtre, bandeau) : avance OU retard
+      avance: av, retardLoyer: retL, retardCharge: retC, position: round2(av - retL - retC),
+      remise: round2(pm.remise || 0), reglement: round2(pm.reglement || 0), arrondi: round2(pm.arrondi || 0),
+      paiements: (src[m.ym] || []).map(p => ({ id: p.id, date: p.date, montant: round2(p.montant),
+        aConfirmer: aConfLignes.some(l => l.id === p.id && l.date === p.date) })),
+      imputations: (r.imputations && r.imputations[idx]) || []
+    };
+  });
   const horsPeriode = lignesSuivi
     .filter(l => l.date < debut || (finDu && l.date > finDu))
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(l => ({ date: l.date, montant: round2(l.montant) }));
-  // 🟠6 — encaissements « à rattacher » : datés dans le mois qui précède l'entrée d'un bail VOISIN. La
-  // date les donne au bail en vigueur (Q4), mais c'est souvent le 1ᵉʳ loyer du locataire suivant
-  // (terme à échoir) : ils peuvent solder une dette, JAMAIS devenir un trop-perçu versé au locataire.
-  // Côté SORTANT (`compte: true`) : seule la part qui ferait un trop-perçu est en cause. On remonte les encaissements
-  // de la fenêtre du plus récent au plus ancien jusqu'à couvrir l'avance produite : ce sont eux qui
-  // « débordent » (le loyer normal du dernier mois, lui, a servi au dernier mois).
+  // 🟠6 — encaissements « à rattacher » : datés dans le mois qui précède l'entrée d'un bail VOISIN, ils
+  // peuvent solder une dette, JAMAIS devenir un trop-perçu versé au locataire sortant.
   const avanceBrute = round2(r.avance || 0);
   const aRattacher = [];
   if (next && avanceBrute > 0.005) {
     const seuil = _isoMoinsUnMois(next.debut);
     let reste = avanceBrute;
-    lignesSuivi.filter(l => l.date >= seuil && l.date < next.debut && l.montant > 0)
+    lignesSuivi.filter(l => l.date >= seuil && l.date < next.debut && l.montant > 0 && !l.choisi)
       .sort((x, y) => y.date.localeCompare(x.date))
       .forEach(l => {
         if (reste <= 0.005) return;
@@ -666,26 +718,96 @@ export function _computeDetteBail(input) {
         aRattacher.push({ date: l.date, montant: m, compte: true, motif: 'avant l’entrée du bail suivant' });
       });
   }
-  // Côté ENTRANT (`compte: false`, non comptés dans CE bail) : les mêmes encaissements, vus depuis le
-  // bail suivant (calculés sur le bail précédent, sans récursion au-delà d'un voisin).
   if (aUnPrecedent && !i._sansVoisin) {
-    const prec = _computeDetteBail(Object.assign({}, i, { bailDebut: segs[k - 1].debut, fin: null, _sansVoisin: true }));
+    const prec = _computeDetteBail(Object.assign({}, i, { bailDebut: segs[k - 1].debut, fin: null, manques: [], retenueLoyer: 0, _sansVoisin: true }));
     ((prec && prec.aRattacher) || []).forEach(x => aRattacher.push({ date: x.date, montant: x.montant, compte: false,
       motif: 'avant l’entrée de ce bail' }));
   }
   aRattacher.sort((x, y) => x.date.localeCompare(y.date));
-  const enAttente = round2(aRattacher.filter(x => x.compte).reduce((t, x) => t + x.montant, 0));
+  // Q3 — encaissements reçus pendant une vacance, attribués au bail le plus proche « à confirmer ».
+  const aConfirmer = aConfLignes.map(l => ({ id: l.id, date: l.date, montant: round2(l.montant) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const enAttente = round2(aRattacher.filter(x => x.compte).reduce((t, x) => t + x.montant, 0)
+    + aConfirmer.filter(x => x.montant > 0).reduce((t, x) => t + x.montant, 0));
+  const der = mois.length ? mois[mois.length - 1] : null;
+  const prem = mois.find(m => (m.loyerRetard + m.chargeRetard) > 0.005);
   return {
     // Σ des résidus mensuels ARRONDIS au centime — exactement la règle d'agrégation du maître.
     loyer: round2(mois.reduce((s, m) => s + m.loyerRetard, 0)),
     charge: round2(mois.reduce((s, m) => s + m.chargeRetard, 0)),
-    // Q5 — trop-perçu restituable : jamais celui qui viendrait d'un encaissement « à rattacher ».
+    // Q5 — trop-perçu restituable : jamais celui qui viendrait d'un encaissement à rattacher / à confirmer.
     avance: round2(Math.max(0, avanceBrute - enAttente)),
     avanceBrute,
+    position: der ? der.position : 0,
     mois, from: yms.length ? from : null, to: yms.length ? to : null,
-    debutSuivi, finDu, horsPeriode, aRattacher, graceLast,
-    // Encaissements datés avant le début du suivi : jamais imputés (3ᵉ audit A1).
+    debutSuivi, finDu, horsPeriode, aRattacher, aConfirmer, graceLast,
     horsSuivi: avant.horsSuivi,
-    suiviPartiel, suiviAbsent: false
+    suiviPartiel, suiviAbsent: false,
+    depuisYm: prem ? prem.ym : null,
+    manquesIgnores,
+    retenue: { montant: retenue, appliquee: round2(mois.reduce((s, m) => s + m.reglement, 0)) },
+    arrondis: mois.filter(m => Math.abs(m.arrondi) > 0.005).map(m => ({ ym: m.ym, montant: m.arrondi }))
   };
+}
+
+/**
+ * FINANCES-SUIVI-V2 — LE SUIVI D'UN LOT : `_computeDetteBail` pour chacun de ses baux (segments
+ * d'occupation tronqués C4). Aucune autre imputation : chaque surface lit ce résultat, directement ou à
+ * travers `_positionLot` / le maître Finances.
+ * @param {Object} input mêmes champs que `_computeDetteBail` (sans `bailDebut`/`fin`), plus :
+ *   ouverture  {bailDebut, loyer, charge, avance}|null — l'antériorité notée (un bail)
+ *   manques    [{bailDebut, ym, montant, id, ...}] — journal du lot (tombstones ignorés)
+ *   retenues   {[bailDebut]: montant} — retenues pour loyer sur le dépôt
+ * @returns {null|{ref:string, debutSuivi:string|null, baux:Array}}
+ */
+export function _computeSuiviLot(input) {
+  const i = input || {};
+  if (!i.ref || !i.ctx) return null;
+  const segs = segmentsOccupation(i.ctx.bails);
+  const ouvDe = (d) => (i.ouverture && String(i.ouverture.bailDebut || '').slice(0, 10) === d) ? i.ouverture : null;
+  const baux = segs.map(s => {
+    const r = _computeDetteBail(Object.assign({}, i, {
+      bailDebut: s.debut, fin: null, ouverture: ouvDe(s.debut),
+      manques: (Array.isArray(i.manques) ? i.manques : []).filter(m => m && !m._deleted && String(m.bailDebut || '').slice(0, 10) === s.debut),
+      retenueLoyer: (i.retenues && i.retenues[s.debut]) || 0
+    }));
+    return r ? Object.assign({ debut: s.debut, end: s.end }, r) : null;
+  }).filter(Boolean);
+  const debutSuivi = i.debutSuivi ? (String(i.debutSuivi).length === 7 ? i.debutSuivi + '-01' : String(i.debutSuivi).slice(0, 10)) : null;
+  return { ref: i.ref, debutSuivi, sourceSuivi: i.sourceSuivi || null, baux };
+}
+
+/**
+ * FINANCES-SUIVI-V2 — LA POSITION D'UN LOT À LA FIN D'UN MOIS : Σ des baux visibles ce mois-là.
+ *   - un bail compte de son 1ᵉʳ mois suivi à son dernier ; un bail EN COURS garde sa dernière position
+ *     au-delà (mois pas encore exigibles) ;
+ *   - un bail TERMINÉ (locataire parti) : sa dette, figée, reste visible jusqu'à la fin de l'année civile
+ *     de son départ, puis disparaît (décision Didier Q2, 06/10 : l'année qui compte est celle du mois
+ *     regardé) ; son avance éventuelle est « à rendre » (`aRendre`), HORS de la position du lot.
+ * @param {{baux:Array}|null} suivi sortie de `_computeSuiviLot`
+ * @param {string} ym 'YYYY-MM'
+ * @returns {{ym:string, retardLoyer:number, retardCharge:number, retard:number, avance:number, position:number,
+ *            aRendre:number, baux:Array<{debut:string, parti:boolean, retard:number, avance:number, ym:string}>}}
+ */
+export function _positionLot(suivi, ym) {
+  const r2 = n => Math.round(n * 100) / 100;
+  const out = { ym, retardLoyer: 0, retardCharge: 0, retard: 0, avance: 0, position: 0, aRendre: 0, baux: [] };
+  if (!suivi || !Array.isArray(suivi.baux) || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return out;
+  for (const b of suivi.baux) {
+    if (!b || b.suiviAbsent || !Array.isArray(b.mois) || !b.mois.length) continue;
+    if (ym < b.mois[0].ym) continue;
+    const parti = !!b.finDu && ym > b.finDu.slice(0, 7);
+    if (parti && ym.slice(0, 4) !== b.finDu.slice(0, 4)) continue;
+    let m = null;
+    for (const x of b.mois) { if (x.ym <= ym) m = x; else break; }
+    if (!m) continue;
+    out.retardLoyer += m.retardLoyer; out.retardCharge += m.retardCharge;
+    if (parti) out.aRendre += m.avance; else out.avance += m.avance;
+    out.baux.push({ debut: b.debut, parti, retard: r2(m.retardLoyer + m.retardCharge), avance: r2(m.avance), ym: m.ym });
+  }
+  out.retardLoyer = r2(out.retardLoyer); out.retardCharge = r2(out.retardCharge);
+  out.retard = r2(out.retardLoyer + out.retardCharge);
+  out.avance = r2(out.avance); out.aRendre = r2(out.aRendre);
+  out.position = r2(out.avance - out.retard);
+  return out;
 }

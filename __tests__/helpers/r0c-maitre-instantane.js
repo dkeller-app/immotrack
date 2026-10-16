@@ -3,7 +3,7 @@
  *
  * Calcule `_computeFinancesMonthly` sur les jeux multi-lots/multi-baux du générateur, pour
  * plusieurs exercices, fenêtres (constat / numérique) et périmètres (nul / pondéré SCI).
- * La fixture `__tests__/fixtures/r0c-maitre-avant.json` a été produite par CE fichier sur le
+ * La fixture `__tests__/fixtures/r0c-maitre-fiscal-avant.json` a été produite par CE fichier sur le
  * moteur NON MODIFIÉ (commit de base 8bdd5d86), AVANT toute ligne du lot 1 :
  *
  *     node __tests__/helpers/r0c-maitre-instantane.js --ecrire
@@ -40,8 +40,26 @@ const sansNouveauxPostesNuls = (v) => {
   }
   return o;
 };
-/** Forme stockée : l'annuel EN CLAIR (lisible dans un diff) + l'empreinte de la sortie complète. */
-const forme = (r0) => { const r = sansNouveauxPostesNuls(r0); return { annual: r.annual, lots: Object.keys(r.byLot).sort(), sha256: empreinte(r) }; };
+/**
+ * FINANCES-SUIVI-V2 (16/10/2026) — la photo porte sur la PARTIE FISCALE ET CASH du maître : P&L mensuel et annuel,
+ * dû et encaissé par lot. Le retard, l'avance et la position par lot sont désormais calculés par le moteur
+ * unique du suivi (positions de fin de mois, avance compensée — lot E du 05/10) : ils sont retirés de la
+ * photo et couverts par leurs propres tests (finances-suivi-v2*.test.js). La fixture a été réécrite avec
+ * cette projection sur le code de main AVANT le chantier (1fc276c5, v15.754) : le P&L ne bouge pas d'un centime.
+ */
+const POSTES_SUIVI = ['loyerRetard', 'chargeRetard', 'avanceLot', 'ecart', 'aRendre'];
+const projectionFiscale = (r) => {
+  const sansSuivi = (b) => { const o = {}; for (const k of Object.keys(b)) if (!POSTES_SUIVI.includes(k)) o[k] = b[k]; return o; };
+  const byLot = {};
+  for (const q of Object.keys(r.byLot || {})) {
+    const L = r.byLot[q];
+    byLot[q] = { months: L.months.map((m) => ({ ym: m.ym, duHC: m.duHC, duCH: m.duCH, encaisse: m.encaisse, rattrapage: m.rattrapage })),
+      annual: { duHC: L.annual.duHC, duCH: L.annual.duCH, encaisse: L.annual.encaisse } };
+  }
+  return { months: r.months.map(sansSuivi), annual: sansSuivi(r.annual), interetsTotal: r.interetsTotal, interetsKnown: r.interetsKnown, lastMonth: r.lastMonth, dueMonth: r.dueMonth, byLot };
+};
+/** Forme stockée : l'annuel EN CLAIR (lisible dans un diff) + l'empreinte de la sortie (projection fiscale). */
+const forme = (r0) => { const r = projectionFiscale(sansNouveauxPostesNuls(r0)); return { annual: r.annual, lots: Object.keys(r.byLot).sort(), sha256: empreinte(r) }; };
 
 export const SEEDS_INSTANTANE = Array.from({ length: 30 }, (_, i) => 1000 + i);
 export const TODAY_INSTANTANE = '2026-09-30';
@@ -82,7 +100,7 @@ if (typeof process !== 'undefined' && process.argv && process.argv.includes('--e
   const url = await import('node:url');
   const path = await import('node:path');
   const dir = path.dirname(url.fileURLToPath(import.meta.url));
-  const dest = path.join(dir, '..', 'fixtures', 'r0c-maitre-avant.json');
+  const dest = path.join(dir, '..', 'fixtures', 'r0c-maitre-fiscal-avant.json');
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, JSON.stringify(calculerInstantane()));
   console.log('fixture écrite :', dest, fs.statSync(dest).size, 'octets');

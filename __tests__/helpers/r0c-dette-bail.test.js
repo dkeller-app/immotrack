@@ -221,13 +221,25 @@ describe('_computeDetteBail — Q4 : encaissements rattachés par leur date, vac
   const ctx = { ref, bareme: [], bails: [
     { debut: '2025-01-01', finEffective: '2025-06-30', archive: true, hc: 700, ch: 0 },
     { debut: '2025-09-01', finEffective: null, archive: false, hc: 800, ch: 0 }] };
-  it('un arriéré réglé APRÈS la sortie, pendant la vacance, revient au locataire sortant', () => {
+  // FINANCES-SUIVI-V2 — décision Didier Q3 (06/10) : un virement reçu ENTRE deux baux va au bail le plus
+  // PROCHE dans le temps, « à confirmer » ; le choix de l'utilisateur (`mv.bailDebut`) fait foi.
+  it('Q3 : un virement pendant la vacance va au bail le plus proche, à confirmer (12/08 : 20 j avant l’entrée, 43 j après la sortie)', () => {
     const mouvements = [...ymRange('2025-01', '2025-05').map((ym) => pay(ref, ym + '-05', 700)), pay(ref, '2025-08-12', 700),
+      ...ymRange('2025-09', '2026-09').map((ym) => pay(ref, ym + '-05', 800))];
+    const d = dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-06-30', mouvements });
+    expect(d.loyer).toBe(700);
+    const l2 = dette({ ref, ctx, bailDebut: '2025-09-01', fin: null, mouvements });
+    expect(l2.aConfirmer).toEqual([{ id: null, date: '2025-08-12', montant: 700 }]);
+    expect(l2).toMatchObject({ loyer: 0, avanceBrute: 700, avance: 0 });   // jamais un trop-perçu tant qu'il est à confirmer
+  });
+  it('Q3 : le choix de l’utilisateur (ancien locataire) fait foi : l’arriéré réglé après la sortie revient au sortant', () => {
+    const mouvements = [...ymRange('2025-01', '2025-05').map((ym) => pay(ref, ym + '-05', 700)), Object.assign(pay(ref, '2025-08-12', 700), { bailDebut: '2025-01-01' }),
       ...ymRange('2025-09', '2026-09').map((ym) => pay(ref, ym + '-05', 800))];
     const d = dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-06-30', mouvements });
     expect(d.loyer).toBe(0);
     expect(d.horsPeriode).toEqual([{ date: '2025-08-12', montant: 700 }]);
-    expect(dette({ ref, ctx, bailDebut: '2025-09-01', fin: null, mouvements }).loyer).toBe(0);
+    expect(d.aConfirmer).toEqual([]);
+    expect(dette({ ref, ctx, bailDebut: '2025-09-01', fin: null, mouvements })).toMatchObject({ loyer: 0, aConfirmer: [] });
   });
   it('le 1ᵉʳ bail du lot récupère aussi un loyer payé AVANT l\'entrée (28 du mois précédent)', () => {
     const mouvements = [pay(ref, '2024-12-28', 700), ...ymRange('2025-02', '2025-06').map((ym) => pay(ref, ym + '-05', 700))];
@@ -286,9 +298,9 @@ describe('_computeDetteBail — 🟠6 : un loyer payé AVANT l\'entrée du suiva
       ...ymRange('2025-10', '2026-09').map((ym) => pay(ref, ym + '-05', 800))];
     const l1 = dette({ ref, ctx, bailDebut: '2025-01-01', fin: '2025-06-30', mouvements });
     expect(l1.avance).toBe(0);
-    expect(l1.aRattacher.map((x) => x.date)).toEqual(['2025-08-28']);
+    // Q3 (06/10) : pendant la vacance, le virement va au bail le plus proche (le suivant), « à confirmer »
     const l2 = dette({ ref, ctx, bailDebut: '2025-09-01', fin: null, mouvements });
-    expect(l2.aRattacher.map((x) => [x.date, x.compte])).toEqual([['2025-08-28', false]]);
+    expect(l2.aConfirmer.map((x) => x.date)).toEqual(['2025-08-28']);
   });
   it('un vrai trop-perçu du sortant (hors de la fenêtre) reste restituable', () => {
     const ctx = { ref, bareme: [], bails: [{ debut: '2025-01-01', finEffective: '2025-06-30', archive: true, hc: 700, ch: 0 },
@@ -324,7 +336,7 @@ describe('maître et dette — le solde d\'ouverture de l\'ANTÉRIORITÉ est pos
   const maitre = (year, borne, ouv, mouvements) => _computeFinancesMonthly({ mouvements, year, today: '2026-09-30', lastMonth: year === 2026 ? 9 : 12,
     catLigne, activeLots: [ref], debutDu: () => borne, ouverture: () => ouv,
     loyerDue: (q, ym) => duMoisSuivi(ctx, ym, borne) }).byLot[ref];
-  const tot = (b) => Math.round(b.months.reduce((s, m) => s + m.loyerRetard, 0) * 100) / 100;
+  const tot = (b) => b.annual.retard;   // FINANCES-SUIVI-V2 : position au dernier mois exigible
   it('arrivée au 01/01/2025 avec 1 300 € d\'arriéré, loyers payés ensuite : 1 300 € reportés, une seule fois, sur 2025 PUIS 2026', () => {
     const mouvements = ymRange('2025-01', '2026-09').map((ym) => pay(ref, ym + '-05', 650));
     const ouv = { ym: '2025-01', loyer: 1300, charge: 0, avance: 0 };

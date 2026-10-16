@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { _computeDetteBail, _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
+import { _computeDetteBail, _computeFinancesMonthly, _computeSuiviLot } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { duMoisSuivi, _debutSuivi, duMois } from '../../js/core/loyer-du-mois.js';
 import { etatMoisLot, retardLot } from '../../js/core/loyers-mois.js';
@@ -45,7 +45,10 @@ function mesurer(seed) {
     loyerDue: (q, ym) => (q === j.ref ? duMoisSuivi(j.ctx, ym, borne) : { hc: 0, ch: 0 })
   });
   const b = r.byLot[j.ref];
-  const s = (k) => (b ? Math.round(b.months.reduce((t, m) => t + m[k], 0) * 100) / 100 : 0);
+  // FINANCES-SUIVI-V2 : byLot porte la POSITION du lot à la fin de chaque mois ; la dette du bail est
+  // la position au dernier mois exigible de l'exercice (plus la somme des résidus mensuels).
+  const fin = b && r.dueMonth > 0 ? b.months[r.dueMonth - 1] : null;
+  const s = (k) => (fin ? Math.round(fin[k] * 100) / 100 : 0);
   return { j, d, annee, maitre: { loyer: s('loyerRetard'), charge: s('chargeRetard') } };
 }
 
@@ -96,10 +99,24 @@ describe('R0-C — plusieurs baux sur un lot : écart ÉPINGLÉ jusqu\'au lot 4 
     expect(bail('2024-01-01', '2024-12-31').loyer).toBe(1400);
     expect(bail('2025-01-01', '2026-06-30')).toMatchObject({ loyer: 0, avance: 750 });
   });
-  it('Finances (par lot, avant le lot 4) : 650 € de loyer en retard — le net des deux locataires', () => {
+  it('Finances SANS contexte de bail (bail synthétique) : 650 € — le net des deux locataires, épinglé', () => {
     const r = _computeFinancesMonthly({ mouvements, year: 2026, window: computeConstatWindow({ year: 2026, today, mouvements }), today,
       catLigne, activeLots: [ref], debutDu: () => debutDu, loyerDue: (q, ym) => duMoisSuivi(ctx, ym, null) });
-    expect(r.byLot[ref].months.reduce((s, m) => s + m.loyerRetard, 0)).toBe(650);
+    expect(r.byLot[ref].months[r.dueMonth - 1].loyerRetard).toBe(650);   // + 100 € de charges
+  });
+  // FINANCES-SUIVI-V2 (lot 4 réalisé) : avec le suivi par bail injecté, plus aucun mélange de locataires.
+  const suivi = () => _computeSuiviLot({ ref, ctx, mouvements, catLigne, today });
+  const fin = (annee) => _computeFinancesMonthly({ mouvements, year: annee, window: computeConstatWindow({ year: annee, today, mouvements }), today,
+    catLigne, activeLots: [ref], suivi, loyerDue: (q, ym) => duMoisSuivi(ctx, ym, null) });
+  it('Finances PAR BAIL : 2024 → 1 400 € de loyer (et 100 € de charges) dus par le locataire 1 (visible l’année de son départ)', () => {
+    const b = fin(2024).byLot[ref];
+    expect(b.annual).toMatchObject({ retard: 1500, avance: 0 });   // 1 400 € de loyer + 100 € de charges
+  });
+  it('Finances PAR BAIL : 2025 → la dette du locataire 1 a disparu (Q2), le locataire 2 est en avance de 750 €', () => {
+    expect(fin(2025).byLot[ref].annual).toMatchObject({ retard: 0, avance: 750 });
+  });
+  it('Finances PAR BAIL : 2026 → le locataire 2 est parti le 30/06 : 750 € à rendre, hors de la position du lot', () => {
+    expect(fin(2026).byLot[ref].annual).toMatchObject({ retard: 0, avance: 0, aRendre: 750 });
   });
 });
 

@@ -25,7 +25,9 @@ function maitre({ ref, ctx, mouvements, borne, ouv, annee, today = TODAY }) {
     loyerDue: (q, ym) => (q === ref ? duMoisSuivi(ctx, ym, borne) : { hc: 0, ch: 0 })
   });
   const b = r.byLot[ref];
-  const s = (k) => (b ? Math.round(b.months.reduce((t, m) => t + m[k], 0) * 100) / 100 : 0);
+  // FINANCES-SUIVI-V2 : position du lot au dernier mois exigible (byLot porte des positions de fin de mois).
+  const fin = b && r.dueMonth > 0 ? b.months[r.dueMonth - 1] : null;
+  const s = (k) => (fin ? Math.round(fin[k] * 100) / 100 : 0);
   return { loyer: s('loyerRetard'), charge: s('chargeRetard'), months: b ? b.months : [] };
 }
 function cas(ant, mouvements, { debut = '2024-01-01', jouissance = null, finEffective = null, today = TODAY } = {}) {

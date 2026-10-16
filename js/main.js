@@ -76,7 +76,7 @@ import {
 
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
 import {
-  _computeFinancesMonthly, _computeDetteBail, _avantBorne, _ligne250DejaComptee
+  _computeFinancesMonthly, _computeDetteBail, _avantBorne, _ligne250DejaComptee, _computeSuiviLot, _positionLot, _bailDuPaiement
 } from './core/finances-monthly.js';
 
 // REFONTE FINANCES étape 2 — LE résolveur de périmètre unique (P-1/P-2/P-3) + les deux
@@ -550,6 +550,10 @@ window._computeFinancesMonthly = _computeFinancesMonthly;
 // R0-C lot 1 — dette d'UN bail lue dans le maître (restitution du dépôt, art. 22) : consommée
 // au lot 2 par `_finDetteBail` (déclaration de fonction inline, jamais un const).
 window._computeDetteBail = _computeDetteBail;
+// FINANCES-SUIVI-V2 — le moteur unique du suivi des loyers (bail par bail) et sa position de fin de mois.
+window._computeSuiviLot = _computeSuiviLot;
+window._positionLot = _positionLot;
+window._bailDuPaiement = _bailDuPaiement;
 // R0-C C1 — encaissements d'avant une date d'achat « à rattacher » : lus par `_loyerEtatLot` (note de
 // l'onglet Loyers et de la relance). La règle reste unique (finances-monthly.js).
 window._avantBorne = _avantBorne;

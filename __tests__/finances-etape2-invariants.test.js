@@ -143,7 +143,9 @@ describe('étape 2 · tranche 1 — invariant I-1 (IRL d\'août, janvier→juill
 describe('étape 2 · tranche 2 — R-2 : recouvrement sur le dû du barème (suppressions §9)', () => {
   const duCCsur = (r, dueMonth) => {
     let du = 0, retard = 0;
-    r.months.forEach((m) => { if (m.mo <= dueMonth) { du += m.duHC + m.duCH; retard += m.loyerRetard + m.chargeRetard; } });
+    // FINANCES-SUIVI-V2 : le retard est une POSITION (fin de mois) — le KPI lit l'annuel (dernier mois exigible).
+    r.months.forEach((m) => { if (m.mo <= dueMonth) { du += m.duHC + m.duCH; } });
+    retard = r.annual.loyerRetard + r.annual.chargeRetard;
     return { du: Math.round(du * 100) / 100, retard: Math.round(retard * 100) / 100 };
   };
 
@@ -189,7 +191,7 @@ describe('étape 2 · tranche 2 — R-2 : recouvrement sur le dû du barème (su
     const { du, retard } = duCCsur(r, win.dueMonth);
     expect(retard).toBe(9 * 100);
     const sept = r.months.find((m) => m.mo === 9);
-    expect(sept.chargeRetard).toBe(100);          // la cascade sert le loyer d'abord
+    expect(sept.chargeRetard).toBe(900);          // la cascade sert le loyer d'abord ; position fin septembre (9 × 100)
     expect(sept.loyerRetard).toBe(0);
     expect(Math.round((du - retard) / du * 1000) / 10).toBeCloseTo(88.9, 1);
   });
@@ -228,7 +230,9 @@ describe('étape 2 · tranche 3 — tableau (L-2/L-4/L-5, rattrapage, H-2, H-7)'
     const juin = r.months.find((m) => m.mo === 6);
     expect(juin.rattrapage).toBe(900);                         // le mois qui reçoit porte le rattrapage
     const mars = r.months.find((m) => m.mo === 3);
-    expect(mars.loyerRetard + mars.chargeRetard).toBe(0);      // arriéré soldé (netting)
+    expect(mars.loyerRetard + mars.chargeRetard).toBe(900);    // FINANCES-SUIVI-V2 : position FIN MARS (mars impayé)
+    expect(juin.loyerRetard + juin.chargeRetard).toBe(0);      // soldé en juin (netting)
+    expect(r.annual.loyerRetard + r.annual.chargeRetard).toBe(0);
     expect(r.annual.rattrapage).toBe(900);
   });
 
