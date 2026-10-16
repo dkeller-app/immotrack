@@ -196,10 +196,15 @@ describe('attestation courante du locataire en place', () => {
     const mrh = [{ id: 1751700000000, logement: 'A', echeance: '2026-07-01' }, { id: 1751300000000, logement: 'A' }]
     expect(mrhEcheances(mrh, [log], '', TODAY)).toMatchObject([{ ref: 'A', expiree: true }])
   })
-  it('l’attestation du locataire précédent ne compte pas (échue avant l’entrée, ou autre nom) : « manquante »', () => {
+  it('l’attestation du locataire précédent ne compte pas (échue avant l’entrée) : « manquante » ; jamais écartée sur le seul nom', () => {
     expect(mrhManquante([log], [{ logement: 'A', echeance: '2025-06-30' }])).toMatchObject([{ ref: 'A' }])
     expect(mrhEcheances([{ logement: 'A', echeance: '2025-06-30' }], [log], '', TODAY)).toEqual([])
-    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'M. Martin' }])).toMatchObject([{ ref: 'A' }])
-    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'DURAND' }])).toEqual([])   // même personne, autre graphie
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'M. Martin' }])).toEqual([])   // nom figé à l’enregistrement : l’attestation valide compte
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '2026-12-31', locataire: 'DURAND' }])).toEqual([])
+  })
+  it('à égalité de date de création inconnue, l’attestation datée reste la courante ; une échéance illisible ne crée ni « expirée » ni « manquante »', () => {
+    expect(mrhEcheances([{ id: 5, logement: 'A', echeance: '2026-07-01' }, { id: 6, logement: 'A' }], [log], '', TODAY)).toMatchObject([{ ref: 'A', expiree: true }])
+    expect(mrhManquante([log], [{ logement: 'A', echeance: '31/12/2026' }])).toEqual([])
+    expect(mrhEcheances([{ logement: 'A', echeance: '31/12/2026' }, { logement: 'A', echeance: '2026-07-01', id: 1 }], [log], '', TODAY)).toMatchObject([{ ref: 'A', expiree: true }])
   })
 })

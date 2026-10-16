@@ -50,31 +50,24 @@
   }
 
   // MATRICE-ACCUEIL (16/10) — QUELLE attestation compte pour le locataire en place :
-  //  - celle du locataire PRÉCÉDENT ne compte pas : échéance antérieure à l'entrée (log.debut), ou nom de locataire noté
-  //    sur l'attestation différent de celui du lot ;
+  //  - celle du locataire PRÉCÉDENT ne compte pas : échéance antérieure à l'entrée (log.debut). Jamais sur le seul nom :
+  //    le nom noté sur l'attestation est figé à l'enregistrement (correction d'orthographe, colocataire remplacé) ;
   //  - parmi les autres, la plus récente : une attestation SANS échéance saisie après la dernière attestation datée la
   //    remplace (ni « expirée », ni « manquante ») ; sinon l'échéance la plus lointaine.
-  const _nomNorm = (s) => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ').replace(/\b(m|mme|mlle|mr|monsieur|madame|mademoiselle|et)\b/g, ' ').replace(/\s+/g, ' ').trim()
   const _creeLe = (m) => (Number(m && m.id) > 1e12 ? Number(m.id) : (Date.parse((m && m._modifiedAt) || '') || 0))
   function attestationPourLocataire(m, log) {
     if (!m || !log) return true
     const deb = String(log.debut || '').slice(0, 10)
     if (deb && m.echeance && String(m.echeance).slice(0, 10) < deb) return false
-    const a = _nomNorm(m.locataire), b = _nomNorm(log.locataire)
-    if (!a || !b) return true
-    // même personne si l'un des noms contient tous les mots de l'autre (« Durand » / « Mme Durand », un couple / l'un des deux)
-    const ta = a.split(' '), tb = b.split(' ')
-    const inclus = (x, y) => x.every(t => y.indexOf(t) >= 0)
-    return inclus(ta, tb) || inclus(tb, ta)
+    return true
   }
   function attestationCourante(mrhList, log) {
     const l = (mrhList || []).filter(alive).filter(m => m.logement === (log && log.ref) && attestationPourLocataire(m, log))
     if (!l.length) return null
-    const datees = l.filter(m => m.echeance)
+    const datees = l.filter(m => /^\d{4}-\d{2}-\d{2}/.test(String(m.echeance || '')))
     const derniereDatee = datees.slice().sort((a, b) => String(b.echeance).localeCompare(String(a.echeance)))[0] || null
-    const sansDate = l.filter(m => !m.echeance).sort((a, b) => _creeLe(b) - _creeLe(a))[0] || null
-    if (sansDate && (!derniereDatee || _creeLe(sansDate) >= _creeLe(derniereDatee))) return sansDate
+    const sansDate = l.filter(m => datees.indexOf(m) < 0).sort((a, b) => _creeLe(b) - _creeLe(a))[0] || null
+    if (sansDate && (!derniereDatee || _creeLe(sansDate) > _creeLe(derniereDatee))) return sansDate
     return derniereDatee || sansDate
   }
 

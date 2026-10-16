@@ -506,6 +506,7 @@ const _AGENDA_ICON_SVG = {
   RAMONAGE: '<path d="M4 20v-9l8-6 8 6v9"/><path d="M15.5 6.5V4H18v4"/><path d="M9.5 20v-4.5h5V20"/>',
   DAAF: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4"/><path d="M12 4.5V6M12 18v1.5M4.5 12H6M18 12h1.5"/>',
   ELEC: '<path d="M13 3 5 13h6l-1 8 8-11h-6l1-7Z"/>',
+  MRH: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3Z"/><path d="M9 12l2 2 4-4"/>',
   DPE: '<path d="M5 19C5 11 11 5 19 5c0 8-6 14-14 14Z"/><path d="M5.5 18.5c3-4 7-6.5 11-7.5"/>',
   VMC: '<circle cx="12" cy="12" r="2.2"/><path d="M12 9.8c-.3-3.3.6-5.3 2.4-5.3 1.6 0 1.8 2.6-.6 4.2M14.2 12c3.3-.3 5.3.6 5.3 2.4 0 1.6-2.6 1.8-4.2-.6M12 14.2c.3 3.3-.6 5.3-2.4 5.3-1.6 0-1.8-2.6.6-4.2M9.8 12c-3.3.3-5.3-.6-5.3-2.4 0-1.6 2.6-1.8 4.2.6"/>',
   TRAVAUX: '<path d="M14.5 4.5l5 5-2.2 2.2-5-5z"/><path d="M12 7L5 14a2.1 2.1 0 003 3l7-7"/>',
@@ -1820,6 +1821,8 @@ const AGENDA_CATS = {
   REGUL:     { label:'Régularisation charges', couleur:'#ea580c', icon:'⚖️' },
   // v15.249 B8 (D-B11) : échéances de diagnostics obligatoires (DDT) — DPE/élec/gaz/ERP…
   DIAG:      { label:'Diagnostic à renouveler', couleur:'#0d9488', icon:'📋' },
+  // MATRICE-ACCUEIL (16/10) : attestation d'assurance habitation du locataire qui arrive à échéance
+  MRH:       { label:'Assurance habitation',   couleur:'#0284c7', icon:'🛡️' },
   CHAUDIERE: { label:'Entretien chaudière',    couleur:'#dc2626', icon:'🔥' },
   RAMONAGE:  { label:'Ramonage',               couleur:'#78350f', icon:'🏠' },
   DAAF:      { label:'Test DAAF',              couleur:'#b45309', icon:'🚨' },
@@ -2148,6 +2151,7 @@ function agendaAutoSync() {
   // Clés BAIL/BAIL_PREVIS valides ce run — sert à purger les doublons dont la date a bougé
   // (ex. correctif fuseau horaire : échéance 30/12 → 31/12, l'ancienne clé devient orpheline).
   const validBailKeys = new Set();
+  const validMrhKeys = new Set();   // MRH:<ref>:<échéance> de l'attestation courante (locataire présent)
 
   DB.logements.forEach(l => {
     // R-0 : sur le cache, un bail repris à l'achat (art. 1743, aucun nom sur la fiche) ne
@@ -2264,6 +2268,26 @@ function agendaAutoSync() {
       }
     }
 
+    // ── Assurance habitation (MATRICE-ACCUEIL 16/10) : l'échéance de l'attestation COURANTE du locataire présent
+    //    (AlertRules.attestationCourante : celle du locataire précédent ne compte pas, une attestation sans échéance plus
+    //    récente n'en crée pas). Une nouvelle attestation change la clé : l'ancien événement est purgé plus bas.
+    if (String(bail.debut).slice(0, 10) <= todayStr && typeof window !== 'undefined' && window.AlertRules && typeof window.AlertRules.attestationCourante === 'function') {
+      const _att = window.AlertRules.attestationCourante(DB.mrh, Object.assign({}, l, { debut: bail.debut }));
+      const _ech = _att && /^\d{4}-\d{2}-\d{2}/.test(String(_att.echeance || '')) ? String(_att.echeance).slice(0, 10) : '';
+      if (_ech) {
+        const key = `MRH:${l.ref}:${_ech}`;
+        validMrhKeys.add(key);
+        if (!existing.has(key)) {
+          toAdd.push({ id:agendaId(), titre:`Demander l’attestation d’assurance — ${l.ref}`,
+            date:_ech, dateFin:_ech, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
+            cat:'MRH', couleur:'', notes:`L’attestation d’assurance habitation du locataire arrive à échéance le ${fd(_ech)}.\nDemander la nouvelle attestation (obligation du locataire, art. 7 g de la loi du 6 juillet 1989).`,
+            recurrence:{type:'none',interval:1,fin:''},
+            rappels:[30], auto:true, autoKey:key, done:false, createdAt:todayStr });
+          existing.add(key);
+        }
+      }
+    }
+
     // ── Entretiens équipements (depuis bail.chauffXxx ET log.equipements v15.08) ─
     if(typeof EQUIP_RULES !== 'undefined') {
       const equipData = (DB.equipements||{})[l.ref] || {};
@@ -2361,6 +2385,14 @@ function agendaAutoSync() {
     DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'DIAG' && !validDiagKeys.has(e.autoKey)));
     _diagPurged = DB.agenda.length !== _before;
   }
+  // Purge des rappels d'assurance dont l'attestation n'est plus la courante (nouvelle attestation, locataire parti) : un
+  // seul événement par lot, à la bonne date, d'une synchronisation à l'autre.
+  let _mrhPurged = false;
+  if (DB.agenda && DB.agenda.length) {
+    const _before = DB.agenda.length;
+    DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'MRH' && !validMrhKeys.has(e.autoKey)));
+    _mrhPurged = DB.agenda.length !== _before;
+  }
   // Purge des échéances BAIL/BAIL_PREVIS orphelines (autoKey absent de l'état courant) — supprime
   // notamment les doublons dont la date a bougé d'un jour après le correctif fuseau horaire.
   let _bailPurged = false;
@@ -2370,7 +2402,7 @@ function agendaAutoSync() {
     _bailPurged = DB.agenda.length !== _before;
   }
 
-  if(toAdd.length || _diagPurged || _bailPurged || _irlAgendaRecale) {
+  if(toAdd.length || _diagPurged || _bailPurged || _mrhPurged || _irlAgendaRecale) {
     if(toAdd.length) DB.agenda.push(...toAdd);
     DB.agendaLastSync = todayStr;
     saveDB();
@@ -7613,7 +7645,7 @@ function _pilCollectFamilles(ctx) {
   // ── PILOTAGE DU PARC (16/10) : les bulles Documents, Révision et Entretiens comptent EXACTEMENT les lots dont le tableau
   //    montre l'icône (mêmes règles : ce qui est dû, pas ce qui est à venir) — leur clic filtre le tableau sur ces lots.
   //    L'item d'origine (urgence, pire cas) est gardé quand il existe.
-  try {
+  if (typeof _pilCols === 'function' && _pilCols().length) try {
     const _r = _pilColRefs(ctx);
     const _ligs = scopeLogs.map(l => _pilLotLigne(l, null, new Date(), _r.impaye, _r));
     const _garde = (arr, pred, defaut) => {
@@ -8107,7 +8139,7 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
   const sig = (bail && BSE) ? BSE.etatSignatureBail(bail) : { etat: 'non', conclu: false, date: null };
   const edlEntree = bail ? !!_edlEntreeDuBail(bail, l) : false;
   const dateSortie = (bail && bail.depart && bail.depart.dateSortie) ? String(bail.depart.dateSortie).slice(0, 10) : '';
-  const phase = PL ? PL.phaseDuLot({ today: auj, loue, bail: bail ? { debut: bail.debut, sig: sig.etat, dateSortie, majLe: bail._modifiedAt } : null, edlEntree }) : 'en-cours';
+  const phase = PL ? PL.phaseDuLot({ today: auj, loue, bail: bail ? { debut: bail.debut, sig: sig.etat, dateSortie } : null, edlEntree }) : 'en-cours';
   const debut = (bail && bail.debut) ? String(bail.debut).slice(0, 10) : '';
   const t = (refs && refs.parRef && refs.parRef[l.ref]) || { mrh: [], equip: [], irl: [] };
   const mrhIt = t.mrh.find(x => x.mrhEtat === 'manquante') || t.mrh.find(x => x.mrhEtat === 'expiree') || null;
@@ -8299,7 +8331,8 @@ function _renderPilMatrice(ctx) {
       default:          return true;   // dépôt/finbail/régul : pas de colonne → liste, pas filtre
     }
   };
-  const garde = (lig) => famMatch(lig) && (_pilMtxFilter === 'tous' || (_pilMtxFilter === 'ko' && lig.aFaire) || (_pilMtxFilter === 'vac' && lig.vacant));
+  // Une bulle active montre EXACTEMENT ses lots (son compteur) : le filtre Tous / À faire / Vacants ne s'y ajoute pas.
+  const garde = (lig) => _pilMtxFamActive ? famMatch(lig) : (_pilMtxFilter === 'tous' || (_pilMtxFilter === 'ko' && lig.aFaire) || (_pilMtxFilter === 'vac' && lig.vacant));
   const loyerCell = (lig) => '<span class="pil-loyer">' + _pilCase(lig, 'loyer') + '<span class="pil-amt">' + (lig.loyer ? fmt(lig.loyer) : '—') + '</span></span>';
   // Téléphone étroit (repli, l'Accueil téléphone a sa propre page) : une carte par lot, ses icônes NOMMÉES.
   const puces = (lig) => {
@@ -8362,10 +8395,12 @@ const _PIL_HORS = {
   incident:{ onglet: 'Biens', go: () => go('biens') },
   regul:   { onglet: 'Charges', go: () => _rgOuvrirAnnee() }   // alerte = régul N-1
 };
-function _pilCloseLayer() {
+function _pilCloseLayer(rendreFocus) {
   const L = el('pil-layer'); if (L) L.innerHTML = '';
-  // Le focus revient sur l'icône qui a ouvert le détail (clavier, lecteur d'écran).
+  // Fermeture par ✕, voile ou Échap : le focus revient sur l'icône qui a ouvert le détail (clavier, lecteur d'écran).
+  // Pas quand un geste ouvre un autre écran (le focus irait derrière la nouvelle couche).
   const f = _pilDeclencheur; _pilDeclencheur = null;
+  if (!rendreFocus) return;
   try { if (f && document.body.contains(f)) f.focus({ preventScroll: true }); } catch (e) {}
 }
 let _pilDeclencheur = null;
@@ -8468,7 +8503,7 @@ function _pilGesteDepuisPage(ref, geste) { closeM('ov-pil-detail'); _pilActionGe
 function _pilOpenCase(ref, k, declencheur) {
   const lig = _pilLigneDe(ref);
   if (!lig || !lig.cases[k]) { if (typeof showToast === 'function') showToast('Rien à faire ici : la situation a changé.', 'info'); return; }
-  _pilDeclencheur = declencheur || null;
+  _pilDeclencheur = (typeof _isPhone === 'function' && _isPhone()) ? null : (declencheur || null);
   if (typeof _isPhone === 'function' && _isPhone()) { _pilPagePhone(lig, [k], _pilTitre(k), _logLabel(ref)); return; }
   const L = el('pil-layer'); if (!L) return;
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s || ''));
@@ -8519,7 +8554,7 @@ function _pilActionGeste(ref, geste) {
 function _pilWireClicks() {
   const page = el('p-accueil'); if (!page || page._pilWired) return; page._pilWired = true;
   page.addEventListener('click', (ev) => {
-    const close = ev.target.closest('[data-pilclose]'); if (close) { _pilCloseLayer(); return; }
+    const close = ev.target.closest('[data-pilclose]'); if (close) { _pilCloseLayer(true); return; }
     const onglet = ev.target.closest('[data-pilonglet]'); if (onglet) { const h = _PIL_HORS[onglet.dataset.pilonglet]; _pilCloseLayer(); if (h) h.go(); return; }
     const goItem = ev.target.closest('[data-pilgo]'); if (goItem) { _pilCloseLayer(); _pilOpenFiche(goItem.dataset.pilgo); return; }
     const incItem = ev.target.closest('[data-pilinc]'); if (incItem) { _pilCloseLayer(); const _i = (DB.incidents || []).find(x => x && String(x.id) === incItem.dataset.pilinc); if (_i && typeof openIncident === 'function') openIncident(_i.logRef || '', _i.id, null, _i.entity, _i.imm); return; }
@@ -8531,7 +8566,7 @@ function _pilWireClicks() {
     const cas = ev.target.closest('[data-pilcase]'); if (cas) { _pilOpenCase(cas.dataset.pilref, cas.dataset.pilcase, cas); return; }
     const lot = ev.target.closest('[data-pillot]'); if (lot) { _pilOpenFiche(lot.dataset.pillot); return; }
   });
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && el('pil-layer') && el('pil-layer').innerHTML) _pilCloseLayer(); });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && el('pil-layer') && el('pil-layer').innerHTML) _pilCloseLayer(true); });
 }
 // ctx courant (pour re-render partiel de la matrice sur un changement de filtre).
 function _pilCtxCourant() {

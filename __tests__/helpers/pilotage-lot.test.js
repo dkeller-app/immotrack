@@ -38,12 +38,13 @@ describe('phaseDuLot', () => {
 })
 
 describe('phaseDuLot — bail loué SANS date d’entrée', () => {
-  // Choix (16/10) : la date d'entrée n'est pas obligatoire à l'enregistrement (« jamais bloquer ») ; un bail sans date touché
-  // depuis moins de 60 jours est une saisie en cours (préparation), au-delà c'est une fiche ancienne incomplète (en cours).
-  it('modifié il y a moins de 60 jours : préparation ; plus ancien ou jamais daté : en cours (jamais « en préparation » à vie)', () => {
-    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'non', majLe: '2026-10-01T09:00:00Z' } })).toBe('preparation')
-    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'non', majLe: '2026-05-01T09:00:00Z' } })).toBe('en-cours')
+  // Choix (16/10, relecture) : la date d'entrée n'est pas obligatoire à l'enregistrement (« jamais bloquer »), et rien ne date
+  // une saisie en cours (_modifiedAt bouge à chaque révision ou migration) : la fiche incomplète est « en cours », jamais
+  // « en préparation » à vie ; seule une signature commencée dans Propryo la garde en préparation.
+  it('sans date d’entrée : en cours ; signature commencée : préparation', () => {
     expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'non' } })).toBe('en-cours')
+    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'non', majLe: '2026-10-15' } })).toBe('en-cours')
+    expect(P.phaseDuLot({ today: AUJ, loue: true, bail: { debut: '', sig: 'partiel' } })).toBe('preparation')
   })
 })
 

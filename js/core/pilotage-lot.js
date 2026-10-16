@@ -46,11 +46,12 @@ export function dateFr(iso) { const m = ISO.exec(String(iso == null ? '' : iso))
 
 /**
  * Phase du lot.
- * @param {{today:string, loue:boolean, bail:null|{debut?:string, sig?:string, dateSortie?:string, majLe?:string}, edlEntree?:boolean}} f
+ * @param {{today:string, loue:boolean, bail:null|{debut?:string, sig?:string, dateSortie?:string}, edlEntree?:boolean}} f
  *   sig = état de signature (BailSignatureEtat : 'non' | 'partiel' | 'electronique' | 'externe') ;
- *   dateSortie = date de sortie du congé enregistré (bail.depart.dateSortie) ;
- *   majLe = dernière modification du bail (_modifiedAt) : un bail SANS date d'entrée n'est « en préparation » que s'il a été
- *   touché depuis moins de 60 jours (une saisie en cours), sinon c'est une fiche ancienne incomplète, traitée « en cours ».
+ *   dateSortie = date de sortie du congé enregistré (bail.depart.dateSortie).
+ *   Un bail loué SANS date d'entrée (la date n'est pas obligatoire à l'enregistrement) est une fiche incomplète : il est
+ *   « en cours » (rien ne permet de dater une saisie en cours ; _modifiedAt bouge à chaque révision ou migration), sauf
+ *   signature commencée dans Propryo.
  * @returns {'relocation'|'preparation'|'en-cours'}
  */
 export function phaseDuLot(f) {
@@ -59,10 +60,7 @@ export function phaseDuLot(f) {
   if (!o.loue || !b) return 'relocation'
   if (jour(b.dateSortie)) return 'relocation'                       // congé reçu (D2, 16/10)
   const debut = jour(b.debut)
-  if (!debut) {
-    const m = ecartJours(b.majLe, o.today)
-    return (b.sig === 'partiel' || (m != null && m <= FENETRE_ENTREE_JOURS)) ? 'preparation' : 'en-cours'
-  }
+  if (!debut) return b.sig === 'partiel' ? 'preparation' : 'en-cours'
   if (debut > jour(o.today) || b.sig === 'partiel') return 'preparation'
   const e = ecartJours(debut, o.today)
   if (e != null && e <= FENETRE_ENTREE_JOURS && (b.sig === 'non' || !b.sig || !o.edlEntree)) return 'preparation'
