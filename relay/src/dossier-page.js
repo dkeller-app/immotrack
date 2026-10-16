@@ -3,7 +3,8 @@ import { typesPourCategorie } from '../../js/core/pieces-candidature.js';
 import { TYPES_AVIS } from '../../js/core/verif-pieces.js';
 
 // Bumpé à chaque changement de dossier.js / dossier.css / viseur.js / vendor/lecture-photo* (cache navigateur du formulaire public).
-export const ASSET_VERSION = '4';   // LECTURE-PHOTOS : prise de vue, contrôle immédiat des photos
+// 4 : VERIF-LISIBLE (lecture des bulletins « si le propriétaire l'active ») ; 5 : LECTURE-PHOTOS (prise de vue, contrôle immédiat).
+export const ASSET_VERSION = '5';
 const CATS_PIECES = ['identite', 'domicile', 'situation', 'ressources', 'garant'];
 
 function jsonForScript(v) {

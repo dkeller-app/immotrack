@@ -16,7 +16,7 @@ import * as LecturePhotoClient from '../../js/core/lecture-photo-client.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
-const SRC = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_ensureZxing', '_canvasVersGris', '_zxingLecteur', '_lecturePhotoClient', '_candVerifEtat', '_candVrfIco', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifConstats', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
+const SRC = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_ensureZxing', '_canvasVersGris', '_zxingLecteur', '_lecturePhotoClient', '_candVerifEtat', '_candVerifBadgeHtml', '_candIaPieces', '_candIaAnalyse', '_candVerifLigneHtml', '_candVerifResumeHtml', '_candVerifLignesHtml', '_candVerifCopier', '_candVerifDetail', '_candVerifDatePdf', '_candPointsAVerifier']
   .map((n) => extraireFonction(P1, n)).join('\n') + '\n'
   + 'async ' + extraireFonction(P1, '_tddocConfiance') + '\n'
   + 'async ' + extraireFonction(P1, '_lirePhotoCanvas') + '\n'
@@ -59,7 +59,7 @@ function monter(DB, { analyse, binaire = 'data:application/pdf;base64,JVBERg==',
   };
   const noms = Object.keys(deps).filter((n) => !['_tddocMagasin', '_tddocMagasinLe', '_tddocMagasinPromesse', '_zxingPromesse'].includes(n));
   const prelude = 'let _tddocMagasin = null, _tddocMagasinLe = 0, _tddocMagasinPromesse = null; let _zxingPromesse = null; let _lecturePhotoCli = null; let _candIaOcr = { actif: null, le: 0 };\n';
-  const exp = '\nreturn { _candVerifierPieces, _candVerifLigneHtml, _candVerifDetail, _candPointsAVerifier, _candSetPieceType, _candVerifReglages };';
+  const exp = '\nreturn { _candVerifierPieces, _candVerifLigneHtml, _candVerifResumeHtml, _candVerifDetail, _candPointsAVerifier, _candSetPieceType, _candVerifReglages };';
   const app = new Function(...noms, prelude + SRC + exp)(...noms.map((n) => deps[n]));
   return { app, j, dom };
 }
@@ -138,21 +138,34 @@ describe('déclenchement et enregistrement', () => {
   });
 });
 
-describe('affichage et « Points à vérifier »', () => {
-  it('ligne sous la pièce, détail en couche, constats repris avec actions (impots.gouv + détail), sans total', async () => {
+describe('affichage : un état par pièce, détail au clic (VERIF-LISIBLE)', () => {
+  it('avis sans code et fichier modifié : pastille « À vérifier » (jamais verte), résumé des pièces, détail en lignes courtes ; plus rien dans « Points à vérifier »', async () => {
     const DB = parc();
     const { app, j, dom } = monter(DB, { analyse: SANS_CODE });
     await app._candVerifierPieces('c1');
     const ligne = app._candVerifLigneHtml(DB.documents[0]);
-    expect(ligne).toContain('Non vérifiable automatiquement');
-    expect(ligne).not.toContain('cand-vrf ok');
-    const pts = app._candPointsAVerifier(DB.candidats[0]);
-    expect(pts.map((p) => p.code)).toEqual(['V4', 'T1']);
-    expect(pts[0].actionsHtml).toContain('Vérifier sur impots.gouv');
+    expect(ligne).toContain('<span>À vérifier</span>');
+    expect(ligne).toContain('class="cand-vbdg averif"');
+    expect(ligne).not.toContain('vert');
+    expect(app._candVerifResumeHtml(DB.candidats[0], DB.documents)).toContain('0 OK · 1 à vérifier');
+    expect(app._candPointsAVerifier(DB.candidats[0])).toEqual([]);
     app._candVerifDetail('d1');
     expect(j.modale).toBe('ov-verif-piece');
-    expect(dom['vp-body'].innerHTML).toContain('Informations internes du fichier (sans IA)');
-    expect(dom['vp-body'].innerHTML).toContain('01/07/2026');
+    const corps = dom['vp-body'].innerHTML;
+    expect(corps).toContain('Code officiel absent ou illisible');
+    expect(corps).toContain('Fichier modifié 92 jours après sa création');
+    expect(corps).toContain('Dernier avis émis : à voir sur impots.gouv');
+    expect(corps).not.toMatch(/\bIA\b/);
+    expect(dom['vp-foot'].innerHTML).toContain('Vérifier sur impots.gouv');
+  });
+  it('vert seulement pour une signature officielle vérifiée sans écart', () => {
+    const DB = parc();
+    DB.documents[0].verif = { v: 1, le: '2026-10-12T10:00:00Z', illisible: false, constats: [], indices: null,
+      deuxDDoc: { etat: 'valide', type: '28', typeLibelle: 'Avis d\'impôt sur les revenus', ac: 'FR06', certificat: 'FPE3', champs: [], comparaisons: [], annee: '2025' } };
+    const { app } = monter(DB, { analyse: SANS_CODE });
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('class="cand-vbdg ok vert"');
+    DB.documents[0].verif.deuxDDoc.comparaisons = [{ id: '41', libelle: 'Revenu fiscal de référence', signe: '1', statut: 'absent' }];
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('class="cand-vbdg averif"');
   });
   it('changer le type de la pièce recalcule les constats sans relire le fichier', async () => {
     const DB = parc();
@@ -166,13 +179,11 @@ describe('affichage et « Points à vérifier »', () => {
 
 describe('échappement des gestionnaires on…= (identifiant hostile)', () => {
   const HOSTILE = 'x"y&quot;z\'w</b>';
-  it('ligne « Vérification » et « Points à vérifier » : l\'identifiant arrive intact à la fonction', async () => {
+  it('pastille de la pièce : l\'identifiant arrive intact à la fonction', async () => {
     const DB = parc([AVIS({ id: HOSTILE })]);
     const { app } = monter(DB, { analyse: SANS_CODE });
     await app._candVerifierPieces('c1');
     expect(appelDe(app._candVerifLigneHtml(DB.documents[0]), 'onclick', '_candVerifDetail')).toEqual([HOSTILE]);
-    const pts = app._candPointsAVerifier(DB.candidats[0]);
-    expect(appelDe(pts[0].actionsHtml, 'onclick', '_candVerifDetail')).toEqual([HOSTILE]);
   });
   it('pièce hors liste (C1) : boutons Supprimer et Conserver', () => {
     const DB = parc([AVIS({ id: HOSTILE, name: 'releve-compte.pdf', originalName: 'releve-compte.pdf', pieceType: '' })]);
@@ -213,7 +224,7 @@ describe('échappement des gestionnaires on…= (identifiant hostile)', () => {
     expect(DB.documents[0].pieceType).toBe('I.D.2');
   });
   it('aucune chaîne JS entre apostrophes avec escHtml collé dans les nouveaux gestionnaires', () => {
-    for (const n of ['_candVerifLigneHtml', '_candVerifConstats', '_candVerifDetail']) {
+    for (const n of ['_candVerifLigneHtml', '_candVerifResumeHtml', '_candVerifDetail', '_candVerifDossierDetail']) {
       expect(extraireFonction(P1, n), n).not.toMatch(/\(\\'' \+ escHtml\(/);
     }
   });
@@ -222,12 +233,12 @@ describe('échappement des gestionnaires on…= (identifiant hostile)', () => {
 describe('relectures du 14/10 : constats recalculés, minimisation au changement de type, tombe sans données', () => {
   it('un constat stocké altéré en base (adresse javascript:) n\'est jamais affiché : les constats viennent du code', async () => {
     const DB = parc();
-    const { app } = monter(DB, { analyse: SANS_CODE });
+    const { app, dom } = monter(DB, { analyse: SANS_CODE });
     await app._candVerifierPieces('c1');
     DB.documents[0].verif.constats = [{ code: 'X', titre: 'injecté', url: 'javascript:alert(1)', source: 's' }];
-    const pts = app._candPointsAVerifier(DB.candidats[0]);
-    expect(JSON.stringify(pts)).not.toContain('javascript:');
-    expect(pts.map((p) => p.code)).toEqual(['V4', 'T1']);
+    app._candVerifDetail('d1');
+    expect(dom['vp-body'].innerHTML + dom['vp-foot'].innerHTML).not.toMatch(/javascript:|injecté/);
+    expect(app._candPointsAVerifier(DB.candidats[0])).toEqual([]);
   });
   it('pièce retypée en pièce d\'identité : résultats de vérification effacés, plus aucun constat', async () => {
     const DB = parc([AVIS({ category: 'ressources' })]);
