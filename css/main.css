@@ -9441,8 +9441,6 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .cand-pvi .src{font-size:11.5px;color:var(--t3);margin:5px 0 0 22px}
 .cand-pvi .src a{color:var(--t2)}
 .cand-pvi .act{margin:7px 0 0 22px;display:flex;gap:6px;flex-wrap:wrap}
-.cand-pv-vide{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--t2)}
-.cand-pv-vide svg{flex:0 0 auto;margin-top:2px}
 .cand-pv-regle{font-size:11.5px;color:var(--t3);border-top:1px dashed var(--bor);padding-top:8px;margin-top:8px;line-height:1.45}
 /* Lot 2 : type de chaque pièce (liste fermée du décret), SIREN employeur, avertissement « pièce hors liste ». */
 .cand-piece{display:flex;flex-direction:column;gap:5px}
@@ -9460,34 +9458,37 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .cand-legal q{font-style:italic;color:var(--t1)}
 .cand-legal .s{display:block;font-size:11px;color:var(--t3);margin-top:5px}
 .cand-legal a{color:var(--t2)}
-/* VERIF-DOCUMENTS — ligne « Vérification » sous une pièce et couche de détail. Vert seulement pour la signature de
-   l'État vérifiée (fait cryptographique) ; tout autre état est neutre, jamais corail (charte M-15). */
-.cand-vrf{display:flex;gap:8px;align-items:flex-start;border-top:1px dashed var(--bor);margin:2px 2px 0 34px;padding-top:7px;font-size:12.5px;color:var(--t2);line-height:1.45}
-.cand-vrf svg{flex:0 0 auto;margin-top:2px;color:var(--t2)}
-.cand-vrf .bx{flex:1;min-width:0}
-.cand-vrf .st{font-weight:700;color:var(--t1)}
-.cand-vrf.ok svg,.cand-vrf.ok .st{color:var(--pos)}
-.cand-vrf .btn{flex:0 0 auto;margin-left:auto}
-.cand-vrf.solo{border-top:none;margin:0;padding-top:0}
+/* VERIF-LISIBLE (v15.750) — un état par pièce : une icône + un mot (OK / À vérifier / Non vérifiable / Non lue /
+   En attente). Vert SEULEMENT pour une signature officielle vérifiée (fait cryptographique) ; tout autre état est
+   neutre, jamais corail (charte M-15). Le détail s'ouvre au clic, en quelques lignes courtes. */
+.cand-vrf{display:flex;gap:8px;align-items:center;margin:0 2px 2px 34px;font-size:12px;color:var(--t2)}
+.cand-vrf .k{font-weight:600}
+.cand-vbdg{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:12.5px;font-weight:700;line-height:1.2;border-radius:999px;padding:4px 11px;min-height:30px;border:1px solid var(--bor);background:var(--sur2);color:var(--t1);cursor:pointer;white-space:nowrap}
+.cand-vbdg svg{flex:0 0 auto}
+.cand-vbdg.vert{color:var(--pos);border-color:var(--pos);background:transparent}
+.cand-vbdg.nonlue,.cand-vbdg.attente{color:var(--t2);font-weight:600}
+span.cand-vbdg{cursor:default}
+.cand-vrf-resume{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;font-weight:700;color:var(--t1);padding:0 2px 10px}
+.cand-vrf-resume .k{color:var(--t2);font-weight:600}
 .vp-modal{max-width:720px}
 #vp-body{display:flex;flex-direction:column;gap:12px}
 #vp-body .ct{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin:4px 0 -4px}
-.vp-piece{display:flex;gap:10px;align-items:center;border:1px solid var(--bor);background:var(--sur2);border-radius:var(--r);padding:9px 11px}
-.vp-piece svg{color:var(--t2);flex:0 0 auto}
-.vp-piece .nm{font-weight:600;font-size:13px;color:var(--t1);overflow-wrap:anywhere}
-.vp-tbl-wrap{overflow-x:auto;overscroll-behavior:contain}
-.vp-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
-.vp-tbl th{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);text-align:left;padding:6px 8px;border-bottom:1px solid var(--bor)}
-.vp-tbl td{padding:7px 8px;border-bottom:1px solid var(--bor2,var(--bor));vertical-align:top;color:var(--t2)}
-.vp-tbl td.v{color:var(--t1);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.vp-tbl tr:last-child td{border-bottom:none}
+.vp-tete{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.vp-tete svg{color:var(--t2);flex:0 0 auto}
+.vp-tete .cand-vbdg svg{color:inherit}
+.vp-tete .nm{flex:1;min-width:0;font-weight:700;font-size:14px;color:var(--t1);overflow-wrap:anywhere}
+.vp-lignes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.vp-lignes li{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--t1);line-height:1.4}
+.vp-lignes li svg{flex:0 0 auto;margin-top:2px;color:var(--t2)}
+.vp-lignes li.non{color:var(--t2)}
+.vp-lignes li.vert svg{color:var(--pos)}
+.vp-note{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--t2)}
+.vp-note svg{flex:0 0 auto;margin-top:2px}
+.vp-src{font-size:11.5px;color:var(--t3)}
 .vp-refs{display:flex;flex-direction:column;gap:6px}
 .vp-refs .r{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--bor);border-radius:var(--r);padding:7px 10px;background:var(--sur2)}
 .vp-refs .k{font-size:12px;color:var(--t2);min-width:140px}
 .vp-refs .v{font-family:var(--mono);font-size:13px;color:var(--t1);flex:1;min-width:0;overflow-wrap:anywhere}
-.vp-kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px}
-.vp-kv .k{color:var(--t2)}
-.vp-kv .v{color:var(--t1);overflow-wrap:anywhere}
 #vp-foot{flex-wrap:wrap;gap:8px}
 /* Lot 3 : lecture des bulletins par l'IA (à la demande) */
 .cand-ia-lot{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;border:1px solid var(--bor);background:var(--sur2);border-radius:10px;padding:10px 12px;margin-top:10px}
@@ -9499,21 +9500,10 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .cand-ia-envoi .it svg{color:var(--t2);flex:0 0 auto}
 .cand-ia-envoi .n{flex:1;min-width:0;overflow-wrap:anywhere}
 .cand-ia-envoi .m{color:var(--t3);font-size:11.5px;white-space:nowrap}
-.cand-ia-bandeau{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--bor);background:var(--sur2);border-radius:var(--r);padding:9px 11px;font-size:12.5px;color:var(--t2);line-height:1.45}
-.cand-ia-bandeau svg{flex:0 0 auto;margin-top:2px}
-.cand-ia-bandeau b{color:var(--t1)}
 .cand-ia-champs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
 .cand-ia-champs .f{display:flex;flex-direction:column;gap:3px;min-width:0}
 .cand-ia-champs .k{font-size:11.5px;font-weight:600;color:var(--t2)}
 .cand-ia-champs .inp{min-height:34px;font-variant-numeric:tabular-nums}
-.cand-ia-regles{display:flex;flex-direction:column}
-.cand-ia-regles .r{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bor2,var(--bor));font-size:12.5px;color:var(--t2);line-height:1.45}
-.cand-ia-regles .r:last-child{border-bottom:none}
-.cand-ia-regles .r svg{flex:0 0 auto;margin-top:2px;color:var(--t2)}
-.cand-ia-regles .r.ok svg{color:var(--t2)}   /* vert réservé à la signature 2D-Doc vérifiée */
-.cand-ia-regles .r b{color:var(--t1)}
-.cand-ia-regles .s{display:block;font-size:11.5px;color:var(--t3);margin-top:2px}
-.cand-ia-regles .s a{color:var(--t2)}
 /* Lot 4 : Paramètres › Candidatures */
 .vp-reglage{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bor2,var(--bor))}
 .vp-reglage:last-child{border-bottom:none}
@@ -9525,16 +9515,18 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .vp-modes label{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--t2);padding:8px 10px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);min-height:44px;cursor:pointer}
 .vp-modes label b{color:var(--t1)}
 .vp-modes input{accent-color:var(--acc);margin-top:3px}
+.vp-etat{display:block;width:fit-content;margin-top:6px;font-size:12px;font-weight:700;color:var(--t1);background:var(--neutral-soft,var(--sur2));border-radius:999px;padding:3px 10px}
+.vp-reglage .sw-l.dis{cursor:default;color:var(--t3)}
 @media (max-width:767px){
-  .cand-vrf{margin-left:2px;flex-wrap:wrap}
-  .cand-vrf .btn{min-height:44px}
+  .cand-vrf{margin-left:2px}
+  .cand-vbdg{min-height:44px;padding:6px 14px}
   #ov-verif-piece{padding:0;align-items:stretch}
   #ov-verif-piece .vp-modal{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0 !important;border-radius:0 !important;display:flex;flex-direction:column}
   #ov-verif-piece .m-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;max-height:none}
   #ov-verif-piece .m-foot{display:grid;grid-template-columns:1fr;gap:8px}
   #ov-verif-piece .m-foot .btn{width:100%;min-height:46px;justify-content:center;white-space:normal;text-align:center}
   #ov-verif-piece .m-foot .btn.bp{order:-1}
-  .vp-refs .btn,.vp-tbl .btn,.cand-ia-lot .btn,#vp-body .btn,#params-candidatures .btn{min-height:44px}
+  .vp-refs .btn,.cand-ia-lot .btn,#vp-body .btn,#params-candidatures .btn{min-height:44px}
   .cand-ia-lot .btn{width:100%;justify-content:center}
   .cand-ia-champs{grid-template-columns:1fr}
   .cand-ia-champs .inp{font-size:16px;min-height:44px}

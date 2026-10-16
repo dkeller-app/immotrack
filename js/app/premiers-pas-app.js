@@ -157,6 +157,7 @@ const CSS = `
 .pp-row .s{font-size:13px;color:var(--t2);margin-top:2px;line-height:1.4}
 .pp-row .w{font-size:12.5px;color:var(--t3);margin-top:4px;font-weight:600}
 .pp-row .go{flex:none;align-self:center}
+#ov-pp .pp-revoir{width:100%;margin:0 0 12px}
 .pp-row.next{border-color:var(--acc)}
 #ov-pp .pp-intro{margin:0 0 12px;color:var(--t2);font-size:14px}
 #ov-pp .m-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -259,11 +260,15 @@ function liste() {
         <span class="m"><span class="t">${i + 1}. ${esc(x.titre)}</span><span class="s">${esc(x.sous)}</span>${x.fait ? '<span class="w">Fait</span>' : (x.bloque ? '<span class="w">Après le bail</span>' : '')}</span>
         ${!x.fait && !x.bloque ? `<span class="go"><button type="button" class="pp-btn${prochaine ? ' pri' : ''}" onclick="PremiersPas.faire('${x.id}')">${esc(x.cta)}</button></span>` : ''}</li>`
     }).join('')
+    // Ouverte aussi depuis l'entrée « Premiers pas » (barre latérale, Plus) : la carte peut être masquée ou repliée.
+    // ici : la carte peut exister sur l'accueil de ce compte (D11 : pas pour un associé sans structure propre).
+    const ici = !!(ev.pp && PP.listeVisible(db(), ev.x))
+    const montre = ici && PP.doitAfficherListe(ev.pp, e, maintenant())
     const old = document.getElementById('ov-pp'); if (old) old.remove()
     document.body.insertAdjacentHTML('beforeend', `<div class="ov" id="ov-pp"><div class="modal" style="max-width:620px" role="dialog" aria-modal="true" aria-labelledby="pp-liste-t">
       <div class="m-head"><h3 id="pp-liste-t">Premiers pas · ${e.faits} sur ${e.total}</h3><button type="button" class="m-close" aria-label="Fermer" onclick="PremiersPas.fermerListe()">${ico('close', 18)}</button></div>
-      <div class="m-body"><p class="pp-intro">Chaque étape se coche seule quand l’action est faite dans l’app.</p><ul class="pp-rows">${rows}</ul></div>
-      <div class="m-foot"><button type="button" class="pp-btn lien" onclick="PremiersPas.fermerListe();PremiersPas.relancer()">${ico('play', 14)} Revoir la visite</button><button type="button" class="pp-btn lien" onclick="PremiersPas.fermerListe();PremiersPas.masquer()">${ico('eye', 14)} Masquer la liste</button><span class="sp"></span><button type="button" class="pp-btn" onclick="PremiersPas.fermerListe()">Fermer</button></div></div></div>`)
+      <div class="m-body"><button type="button" class="pp-btn pp-revoir" onclick="PremiersPas.fermerListe();PremiersPas.relancer()">${ico('play', 14)} Revoir la visite guidée</button><p class="pp-intro">Chaque étape se coche seule quand l’action est faite dans l’app.</p><ul class="pp-rows">${rows}</ul></div>
+      <div class="m-foot">${montre ? `<button type="button" class="pp-btn lien" onclick="PremiersPas.fermerListe();PremiersPas.masquer()">${ico('eye', 14)} Masquer de l’accueil</button>` : (ici ? `<button type="button" class="pp-btn lien" onclick="PremiersPas.fermerListe();PremiersPas.afficher()">${ico('eye', 14)} Afficher sur l’accueil</button>` : '')}<span class="sp"></span><button type="button" class="pp-btn" onclick="PremiersPas.fermerListe()">Fermer</button></div></div></div>`)
     if (G('openM')) W.openM('ov-pp')
     const ov = document.getElementById('ov-pp')
     ov.addEventListener('keydown', (k) => { if (k.key === 'Escape') { k.stopPropagation(); fermerListe() } })
@@ -307,14 +312,15 @@ function faire(id) {
 function masquer() {
   const pp = lirePP(); if (!pp) return
   enregistrer(PP.masquer(pp, maintenant()))
-  toast('Liste masquée. Elle se réaffiche depuis Paramètres › Mon profil.', 'info', 4500)
+  toast('Liste masquée de l’accueil. Elle reste dans le menu, à « Premiers pas ».', 'info', 4500)
   rafraichir()
 }
 function afficher() {
   const pp = lirePP(); if (!pp) return
   enregistrer(PP.afficher(pp, maintenant()))
   toast('Liste « Premiers pas » affichée sur l’accueil.', 'ok', 3000)
-  if (G('rParamsProfile')) W.rParamsProfile()
+  if (pageCourante() === 'params' && G('rParamsProfile')) W.rParamsProfile()
+  rafraichir()
 }
 function reglerMesure(oui) {
   const ev = evaluer()   // d'abord : une progression mise à jour ici ne doit pas être écrasée
@@ -387,7 +393,7 @@ function visite(i) {
         ? '<button type="button" class="pp-btn pri" data-pp-go="1">Commencer la visite</button><button type="button" class="pp-btn" data-pp-fin="passee">Passer</button>'
         : `<button type="button" class="pp-btn lien" data-pp-fin="passee">Passer</button><span class="sp"></span>${i > 1 ? `<button type="button" class="pp-btn" data-pp-go="${i - 1}">Précédent</button>` : ''}<button type="button" class="pp-btn pri" ${i < n ? `data-pp-go="${i + 1}"` : 'data-pp-fin="finie"'}>${i < n ? 'Suivant' : 'Terminer'}</button>`}</div>
       ${demo ? '<div class="pp-demo">Voir d’abord un parc rempli : <button type="button" data-pp-demo>ouvrir la démonstration</button> (nouvel onglet, données fictives).</div>' : ''}
-      ${intro ? '<div class="pp-demo">La visite se relance depuis Paramètres › Mon profil.</div>' : ''}
+      ${intro ? '<div class="pp-demo">La visite se relance depuis « Premiers pas », dans le menu.</div>' : ''}
     </div></div>`
   host.onclick = (ev) => {
     const b = ev.target.closest('button'); if (!b) return
@@ -457,12 +463,13 @@ function profil(wrap) {
     }
     const ev = evaluer(); const pp = ev && ev.pp
     if (!pp || wrap.querySelector('.pp-prof')) return
-    const montre = PP.listeVisible(db(), ev.x) && PP.doitAfficherListe(pp, ev.etat, maintenant())
+    const ici = PP.listeVisible(db(), ev.x)
+    const montre = ici && PP.doitAfficherListe(pp, ev.etat, maintenant())
     const etatTxt = `${ev.etat.faits} étape${ev.etat.faits > 1 ? 's' : ''} sur ${ev.etat.total} faite${ev.etat.faits > 1 ? 's' : ''}.`
     const hote = wrap.firstElementChild || wrap
     hote.insertAdjacentHTML('beforeend', `<div class="ct mb12" style="font-size:14px">${ico('flag', 15)} Premiers pas</div>
-      <div class="pp-prof"><p>${montre ? 'Liste affichée sur l’accueil.' : 'Liste masquée sur l’accueil.'} ${esc(etatTxt)}</p>
-        ${montre ? '' : `<button type="button" class="btn bs bb" onclick="PremiersPas.afficher()">${ico('eye', 14)} Afficher la liste sur l’accueil</button>`}
+      <div class="pp-prof"><p>${montre ? 'Liste affichée sur l’accueil.' : (ici ? 'Liste masquée sur l’accueil.' : 'Aucune structure propre à ce compte : la liste ne s’affiche pas sur l’accueil.')} ${esc(etatTxt)}</p>
+        ${montre || !ici ? '' : `<button type="button" class="btn bs bb" onclick="PremiersPas.afficher()">${ico('eye', 14)} Afficher la liste sur l’accueil</button>`}
         <label><input type="checkbox"${pp.mesure !== false ? ' checked' : ''} onchange="PremiersPas.mesure(this.checked)"> <span>Partager la progression de mise en route avec Propryo</span></label>
         <div class="pp-info">Propryo enregistre dans le compte les étapes de mise en route faites et leur date, pour mesurer la prise en main pendant la bêta. Aucun outil de mesure extérieur, aucune donnée de locataire. Décocher efface les dates des étapes et n’en enregistre plus ; seul reste ce qui sert à l’affichage (liste masquée, visite passée, fin de la mise en route).</div>
       </div>`)

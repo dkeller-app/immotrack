@@ -14,8 +14,8 @@ import * as IaTransparence from '../../js/core/ia-transparence.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const NOMS = ['_candVerifReglages', '_candAvecDelai', '_candVerifActuelle', '_candIaClient', '_candIaPieces', '_candIaAnalyse', '_candIaAFaire', '_candIaLotHtml', '_candIaOuvrir', '_candIaDetailHtml', '_candIaCorriger',
-  '_candVerifEtat', '_candVrfIco', '_candVerifLigneHtml', '_candVerifConstats', '_candVerifParams', 'rParamsCandidatures', '_candVerifReglerLocaux', '_candVerifReglerIa', '_candVerifReglerModeIa', '_candVerifNoticeIa', '_candVerifActiverIa'];
-const SRC = NOMS.map((n) => extraireFonction(P1, n)).join('\n') + '\nasync ' + extraireFonction(P1, '_candIaDispo') + '\nasync ' + extraireFonction(P1, '_candIaLancer');
+  '_candVerifEtat', '_candVerifBadgeHtml', '_candVerifLigneHtml', '_candVerifResumeHtml', '_candVerifParams', 'rParamsCandidatures', '_candVerifReglerLocaux', '_candVerifReglerIa', '_candVerifReglerModeIa', '_candVerifNoticeIa', '_candVerifActiverIa'];
+const SRC = NOMS.map((n) => extraireFonction(P1, n)).join('\n') + '\nasync ' + extraireFonction(P1, '_candIaDispo') + '\nasync ' + extraireFonction(P1, '_candIaServiceOuvert') + '\nasync ' + extraireFonction(P1, '_candIaLancer');
 const escHtml = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const LU_AOUT = { lisible: true, periode: '2026-08', salarie: 'DUPONT Camille', employeur: 'C', siret: '00000000100016', dateEntree: null, heures: 151.67, tauxHoraire: 19.4501, salaireBase: 2950, brut: 2950, totalCotisations: 658.6, autresLignes: [],
   lignes: [{ libelle: 'Complémentaire santé', base: 4005, taux: 0.8, montant: 32.04 }, { libelle: 'Sécurité sociale plafonnée', base: 2950, taux: 6.9, montant: 203.55 }, { libelle: 'Sécurité sociale déplafonnée', base: 2950, taux: 0.4, montant: 11.8 }, { libelle: 'Complémentaire tranche 1', base: 2950, taux: 3.15, montant: 92.93 }, { libelle: 'CEG tranche 1', base: 2950, taux: 0.86, montant: 25.37 }, { libelle: 'CSG déductible', base: 3019.69, taux: 6.8, montant: 205.34 }, { libelle: 'CSG/CRDS non déductible', base: 3019.69, taux: 2.9, montant: 87.57 }],
@@ -36,7 +36,7 @@ function monter(DB, { statut = { ok: true, ocr: { actif: true } }, structurer, b
     _ficheCandidatOuverte: 'c1', _candVerifDetail: () => {}, _candIaEnCours: new Set(), _candVerifierPieces: async () => { j.locales = (j.locales || 0) + 1; }
   };
   const noms = Object.keys(deps);
-  const app = new Function(...noms, 'let _candIaOcr = { actif: null, le: 0 };\n' + SRC + '\nreturn { ' + NOMS.concat(['_candIaDispo', '_candIaLancer']).join(', ') + ' };')(...noms.map((n) => deps[n]));
+  const app = new Function(...noms, 'let _candIaOcr = { actif: null, le: 0 };\n' + SRC + '\nreturn { ' + NOMS.concat(['_candIaDispo', '_candIaServiceOuvert', '_candIaLancer']).join(', ') + ' };')(...noms.map((n) => deps[n]));
   return { app, j, dom, inputs };
 }
 const BUL = (o = {}) => Object.assign({ id: 'b1', parentType: 'candidat', parentId: 'c1', category: 'ressources', pieceType: 'I.D.2', mime: 'application/pdf', originalName: 'bulletin-aout.pdf', uploadedAt: '2026-10-11T10:00:00Z' }, o);
@@ -63,7 +63,7 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(dom['vp-body'].innerHTML).not.toContain('avis.pdf'); expect(dom['vp-body'].innerHTML).not.toContain('cni.pdf');
     expect(dom['vp-body'].innerHTML).toContain('30 jours au plus');
   });
-  it('lecture : une page par pièce, valeurs posées sur la pièce, audit sans contenu, constat B1 dans « Points à vérifier »', async () => {
+  it('lecture : une page par pièce, valeurs posées sur la pièce, audit sans contenu, règle B1 en écart sur la pièce', async () => {
     const DB = parc();
     const { app, j } = monter(DB);
     await app._candIaLancer('c1');
@@ -71,10 +71,11 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(DB.documents[0].verifIa).toMatchObject({ type: 'bulletin', lu: { netAPayer: 2140 }, corrections: {} });
     expect(j.audits[0][3]).toBe('lecture par l\'IA (page 1, bulletin)');
     expect(JSON.stringify(j.audits)).not.toMatch(/2140|DUPONT/);
-    const pts = app._candVerifConstats(DB.candidats[0]);
-    expect(pts.map((p) => p.code)).toEqual(['B1']);
-    expect(pts[0].date).toBe('lu le ' + new Date().toISOString().slice(0, 10).split('-').reverse().join('/'));
-    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('Écart relevé');
+    const e = app._candVerifEtat(DB.documents[0]);
+    expect(e).toMatchObject({ etat: 'averif', vert: false });
+    expect(e.lignes.filter((l) => l.type === 'ecart').map((l) => l.texte)).toEqual(['Le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source']);
+    expect(e.note).toBe(IaTransparence.MENTION_PROPOSITION + '.');
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<span>À vérifier</span>');
     await app._candIaLancer('c1');                                   // déjà lue : rien de plus
     expect(j.appels.length).toBe(1);
   });
@@ -101,7 +102,7 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     await app._candIaLancer('c1');
     expect(j.appels).toEqual([]);
     expect(DB.documents[0].verifIa).toMatchObject({ erreur: 'rendu' });
-    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('préparée sur l');
+    expect(app._candVerifEtat(DB.documents[0]).lignes.map((l) => l.texte)).toContain('Lecture reportée');
   });
   it('contrôle local lancé avant la lecture ; un avis reconnu par son code 2D-Doc n\'est jamais envoyé, même typé « bulletin »', async () => {
     const DB = parc([BUL({ verif: { v: 1, le: '2026-10-11', deuxDDoc: { etat: 'valide', type: '28' }, constats: [] } })]);
@@ -134,8 +135,8 @@ describe('corrections du bailleur', () => {
     expect(DB.documents[0].verifIa.corrections).toMatchObject({ netAPayer: { avant: 2140, apres: 2193.04 } });
     expect(DB.documents[0].verifIa.corrections.brut).toBeUndefined();
     expect(j.audits.at(-1)[3]).toBe('correction de la lecture IA : netAPayer');
-    expect(app._candVerifConstats(DB.candidats[0])).toEqual([]);
-    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('Aucun écart relevé');
+    expect(app._candVerifEtat(DB.documents[0]).lignes.some((l) => l.type === 'ecart')).toBe(false);
+    expect(app._candVerifLigneHtml(DB.documents[0])).toContain('<span>OK</span>');
   });
   it('saisie non reconnue : rien n\'est enregistré', async () => {
     const DB = parc();
@@ -148,6 +149,19 @@ describe('corrections du bailleur', () => {
 });
 
 describe('Paramètres › Candidatures', () => {
+  it('service de lecture fermé : aucune mention d\'IA, case désactivée « Bientôt disponible » ; ouvert : réglage complet', async () => {
+    const DB = { params: {}, candidats: [], documents: [] };
+    const ferme = monter(DB, { statut: { ok: true, ocr: { actif: false } } });
+    await ferme.app._candIaServiceOuvert(true);
+    ferme.app.rParamsCandidatures();
+    const h = ferme.dom['params-candidatures'].innerHTML;
+    expect(h).toContain('Bientôt disponible'); expect(h).toContain('<input type="checkbox" disabled>');
+    expect(h).not.toMatch(/\bIA\b|Mistral|notice/i);
+    const ouvert = monter(DB);
+    await ouvert.app._candIaServiceOuvert(true);
+    ouvert.app.rParamsCandidatures();
+    expect(ouvert.dom['params-candidatures'].innerHTML).toContain('Lecture des bulletins de salaire par l\'IA');
+  });
   it('première activation de la lecture IA : notice à valider ; ensuite réglage du mode', () => {
     const DB = { params: {}, candidats: [], documents: [] };
     const { app, j, dom } = monter(DB);
@@ -174,7 +188,8 @@ describe('page publique de dépôt : information du candidat', () => {
     expect(D).toContain('Mistral AI, sous-traitant, lecture dans l\'Union européenne, conservation 30 jours au plus');
     expect(D).toContain('aucune pièce supplémentaire n\'est demandée');
     expect(D).toContain('opposition');
-    expect(readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8')).toMatch(/ASSET_VERSION = '3'/);
+    expect(D).toContain('si le propriétaire l\'active');
+    expect(readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8')).toMatch(/ASSET_VERSION = '4'/);
   });
 });
 

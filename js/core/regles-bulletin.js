@@ -174,6 +174,7 @@ function essai(eg, vals, k, y) { const old = vals[k]; vals[k] = y; try { return 
 const GROUPES_VOISINS = [
   ['netAPayer', 'netAvantImpot', 'netSocial', 'netImposable', 'impotBase', 'impotMontant', 'impotTaux', 'brut', 'totalCotisations'],
   ['cumulBrut', 'cumulNetImposable', 'brut', 'netImposable', 'netSocial', 'netAvantImpot', 'netAPayer'],
+  ['heures', 'tauxHoraire', 'salaireBase', 'brut'],
 ];
 const EGALES_PAR_NATURE = new Set(['netImposable|impotBase']);   // base de l'impôt = net imposable : égalité normale
 export function doublon(k, vals) {
@@ -191,9 +192,11 @@ export function doublon(k, vals) {
 function explicable(eg, vals, E, tient) {
   for (const k of eg.champs) {
     if (vals[k] == null) continue;
-    // Zéro (valeur peut-être non lue : le relais ne cherche pas 0 dans le texte) ou valeur d'une case voisine.
-    if (vals[k] === 0 || doublon(k, vals)) return true;
     const autres = E.filter((e) => e !== eg && tient.get(e) && e.champs.includes(k));
+    // Zéro (valeur peut-être non lue : le relais ne cherche pas 0 dans le texte) ou valeur d'une case voisine, que
+    // rien d'autre ne confirme (impôt à 0 € confirmé par base × taux 0 % : pas une lecture manquée).
+    // CS : une assiette n'est que faiblement confirmée par base × taux (taux imprimé arrondi) → case voisine = plausible.
+    if ((vals[k] === 0 || doublon(k, vals)) && (!autres.length || eg.code === 'CS')) return true;
     for (const y of variantesLecture(vals[k])) {
       if (essai(eg, vals, k, y) && autres.every((e) => essai(e, vals, k, y))) return true;
     }
@@ -388,7 +391,7 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
       const declare = [identite.prenom, identite.nom].filter(Boolean).join(' ');
       if (G && ok === false && (uneLettre(v.salarie, declare) || uneLettre(v.salarie, [identite.nom, identite.prenom].filter(Boolean).join(' ')))) e.incertaines.push({ code: 'B6', titre: 'nom' });
       else {
-        e.regles.push({ code: 'B6', ok: ok !== false, titre: ok === false ? 'Le nom du salarié diffère de l\'identité déclarée.' : 'Nom du salarié identique à l\'identité déclarée.', detail: `Salarié : ${v.salarie} ; identité déclarée${quiTxt} : ${declare}.`, source: { libelle: 'comparaison sans accents ni tirets' } });
+        e.regles.push({ code: 'B6', ok: ok === null ? null : ok, titre: ok === false ? 'Le nom du salarié diffère de l\'identité déclarée.' : ok === null ? 'Nom du salarié' : 'Nom du salarié identique à l\'identité déclarée.', detail: `Salarié : ${v.salarie} ; identité déclarée${quiTxt} : ${declare}.`, source: { libelle: 'comparaison sans accents ni tirets' } });
         if (ok === false) ajouter(e, { code: 'B6', icone: 'doc', titre: `Bulletin ${libellePeriode(v.periode) || nom(p)} : le nom du salarié diffère de l'identité déclarée${quiTxt}.`, detail: `Salarié : ${v.salarie} ; identité déclarée : ${declare}. Un nom d'usage peut l'expliquer.`, source: 'lecture du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
       }
     }
@@ -432,7 +435,14 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
       b: (y) => serie.filter((t) => t !== s && t.kc === s.kc && t.A === s.B && okSerie.get(t)).every((t) => t.tient(Object.assign({}, t.vals, { a: y }))),
     };
     const cle = { a: [s.A.a.vals, s.kc], b: [s.B.a.vals, s.kc], n: [s.B.a.vals, s.kv] };
-    if (['a', 'b', 'n'].some((f) => s.vals[f] === 0 || doublon(cle[f][1], cle[f][0]))) return true;
+    // Zéro ou case voisine : lecture plausible seulement si rien d'autre ne confirme la valeur (égalité du bulletin B pour
+    // son montant du mois, continuité voisine pour un cumul).
+    const confirme = {
+      n: () => { const a = s.B.a; return !!(a.E && a.E.some((e) => a.tient.get(e) && e.champs.includes(s.kv))); },
+      a: () => serie.some((t) => t !== s && t.kc === s.kc && t.B === s.A && okSerie.get(t)),
+      b: () => serie.some((t) => t !== s && t.kc === s.kc && t.A === s.B && okSerie.get(t)),
+    };
+    if (['a', 'b', 'n'].some((f) => (s.vals[f] === 0 || doublon(cle[f][1], cle[f][0])) && !confirme[f]())) return true;
     return ['a', 'b', 'n'].some((f) => variantesLecture(s.vals[f]).some((y) => s.tient(Object.assign({}, s.vals, { [f]: y })) && garde[f](y)));
   };
   for (const s of serie) {
@@ -485,6 +495,22 @@ export function analyserBulletins({ pieces, identite, siretDeclare, recuLe, qui,
     const autre = fiables.find((b) => siretDe(b.v.siret) && sc && siretDe(b.v.siret).slice(0, 9) !== sc.slice(0, 9) && !(G && memeAUneErreurPres(siretDe(b.v.siret).slice(0, 9), sc.slice(0, 9))));
     if (autre) constats.push({ code: 'B7', icone: 'building', titre: `Contrat ${nom(p)} et bulletin ${libellePeriode(autre.v.periode)} : employeurs différents (SIREN).`, detail: `Contrat : ${sc} ; bulletin : ${siretDe(autre.v.siret)}.`, source: 'lecture du contrat et du bulletin (proposée par l\'IA, à vérifier)', ia: true, pieceId: p.id });
   }
-  for (const { e } of bull) { e.etat = e.constats.length ? 'ecart' : (e.regles.length ? 'sans_ecart' : 'lu'); }
+  // Règles non conclues (garde-fou) : publiées avec ok = null sous un titre neutre (« Non lu : … » à l'affichage), une
+  // par nature, jamais un écart. Bulletin sans quorum : aucune règle (« Montants non contrôlés »).
+  const NEUTRES = { B1: 'Net à payer et impôt prélevé', B2: 'Impôt prélevé : base × taux', N1: 'Brut, cotisations et net avant impôt',
+    S1: 'Salaire de base : heures × taux horaire', L1: 'Cotisations : base × taux', C2: 'Cumuls de l\'année', TL: 'Taux légaux des cotisations',
+    CS: 'Assiette de la CSG', B4: 'Cumul net imposable avec le mois précédent', CB: 'Cumul brut avec le mois précédent' };
+  for (const { e } of bull) {
+    if (G && !e.lectureIncertaine) {
+      const vus = new Set(e.regles.filter((r) => r.ok === true || r.ok === false).map((r) => r.code + '|' + r.titre));
+      const deja = new Set();
+      for (const x of e.incertaines) {
+        const titre = x.code === 'B6' ? (x.titre === 'nom' ? 'Nom du salarié' : 'SIRET de l\'employeur') : (NEUTRES[x.code] || x.code);
+        if (deja.has(titre) || vus.has(x.code + '|' + titre)) continue; deja.add(titre);
+        e.regles.push({ code: x.code, ok: null, titre, detail: 'Lecture à confirmer : valeur à vérifier sur la pièce.', source: { libelle: 'garde-fou de lecture' } });
+      }
+    }
+    e.etat = e.constats.length ? 'ecart' : (e.regles.some((r) => r.ok === true || r.ok === false) ? 'sans_ecart' : 'lu');
+  }
   return { parPiece, constats };
 }

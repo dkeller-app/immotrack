@@ -234,31 +234,35 @@ Recommandations (toutes retenues) en **gras**.
 SMIC horaire 12,02 € (décret 2025-1228) puis **12,31 € au 01/06/2026** (arrêté du 22/05/2026) ; PMSS 4 005 € / PASS 48 060 € (arrêté du 22/12/2025) ; taux salariés Urssaf (page du 01/01/2026) : vieillesse 6,90 % plafonnée + 0,40 %, CSG 6,80 % déductible + 2,40 % non déductible, CRDS 0,50 %, sur 98,25 % du brut dans la limite de 4 PASS ; Alsace-Moselle 1,30 % (régime général ; 1,19 % au régime agricole dès le 01/07/2026, MSA) ; Agirc-Arrco 2026 (circulaire 2025-16, répartition « sauf dispositions particulières ») ; apprentis exonérés jusqu'à 50 % du SMIC (BOSS) ; heures sup. : réduction 11,31 % (Urssaf) ; montant net social : contributions patronales santé et prévoyance **intégrées** (BOSS) ; plafond : régularisation progressive mois par mois (BOSS, assiette générale ch. 6).
 
 ### 9.2 Règles (js/core/regles-bulletin.js)
-| Code | Règle | Statut |
+Une règle sort sous le format `{code, ok, titre, detail, source}` : `ok: true` respectée, `ok: false` écart (« À vérifier »), **`ok: null` non conclue** (affichée « Non lu : … » par `etatPiece`, jamais un écart).
+
+| Code | Règle | Peut produire un constat ? |
 |---|---|---|
-| B1, B2 | net payé = net avant impôt − impôt ; impôt = base × taux | conservées |
+| B1 | net payé = net avant impôt − impôt prélevé (R3243-1) | **oui** |
+| B2 | impôt = base × taux | non (une régularisation du prélèvement l'explique) : listée si elle tient |
 | B3 | net social ≤ brut | **retirée** : le net social intègre les parts patronales santé/prévoyance (BOSS) → faux écart sur les apprentis |
-| B4, CB | cumul net imposable / **cumul brut** = cumul précédent + mois (même SIRET, même année) | conservée / ajoutée |
-| B5, B6, B7 | périodes, identité/SIRET, contrat | conservées (garde-fou de lecture ajouté) |
-| N1 | brut − cotisations salariales ± lignes entre le total et le net = net avant impôt | **ancre seulement** (une ligne non lue produirait le même écart qu'un net retouché) |
-| L1, L2 | base × taux = montant par ligne ; somme des lignes = total (L2 : ancre seulement) | ajoutées |
-| S1 | heures × taux horaire = salaire de base (arrondi 151,67 h toléré) | ajoutée |
-| C2 | cumul ≥ montant du mois ; = en janvier | ajoutée |
-| TL | taux salariaux légaux 2026 sur les lignes reconnues (hors revenus de remplacement 6,2 %) | ajoutée (2026 seulement) |
-| CS | assiette CSG non déductible ≥ assiette déductible | ajoutée |
-| — | assiette plafonnée ≤ PMSS ; taux Agirc-Arrco ; assiette CSG ≥ 98,25 % brut ; net imposable recalculé ; SMIC ; taux global des « charges » | **écartées** (exceptions légitimes non visibles sur le bulletin, ou faux écarts mesurés) |
+| B4, CB | cumul net imposable / **cumul brut** = cumul précédent + mois (même SIRET, même employeur, pas d'entrée dans le mois, même année) | **oui** |
+| B5, B6, B7 | périodes (sur tous les bulletins reçus), SIREN, contrat | **oui** (garde-fou de lecture) ; B6 nom indéterminé → `ok: null` |
+| N1, L2 | brut − cotisations ± lignes = net avant impôt ; somme des lignes = total | non (ancres) |
+| S1 | heures × taux horaire = salaire de base | non (l'horaire du contrat peut être lu à la place des heures payées) |
+| L1 | base × taux = montant, par ligne | non (assiette ou colonne voisine) : synthèse listée si toutes tiennent |
+| C2 | cumul ≥ mois ; = en janvier | non (colonne voisine) |
+| TL | taux salarial légal 2026 | **oui, seulement pour la CSG/CRDS** (6,80 / 2,40 / 0,50 / 2,90), sur un bulletin du régime général (vieillesse plafonnée lue à 6,90 %) dont la somme des lignes = total ; vieillesse et Alsace-Moselle hors norme → `ok: null` (Mayotte, régimes spéciaux non vérifiés) |
+| CS | assiette CSG non déductible ≥ déductible (BOSS) | **oui**, si somme des lignes = total et taux des deux lignes conformes à leur libellé |
+| — | plafond, Agirc-Arrco, assiette CSG / brut, net imposable recalculé, SMIC, taux global | **écartées** |
 
 ### 9.3 Garde-fou de lecture : une erreur de lecture ne produit jamais « À vérifier »
-1. Quorum : constats seulement si **au moins 2 égalités d'ancrage** tiennent (B1, N1, L2, S1) ; sinon « valeurs lues », aucun constat.
-2. Un écart qu'**une** erreur de lecture plausible d'**une** valeur explique (chiffre remplacé, deux chiffres inversés, chiffre en trop/en moins, virgule déplacée, signe perdu), **sans casser une autre égalité qui tient**, n'est pas un constat (rangé dans `incertaines`, non affiché).
-3. Lignes décalées (taux légal d'une autre ligne, plusieurs taux hors norme) : pas de constat de taux. Cumul égal au mois hors janvier : colonne du mois lue, ignoré. Période : les cumuls tranchent entre trou réel et mois mal lu. Nom à une lettre près, SIRET / date à un chiffre près : pas de constat.
-4. Relais : SIRET à clé de Luhn (La Poste : Luhn ou somme des chiffres multiple de 5), **chaque nombre de l'annotation doit figurer dans le texte reconnu** de la page (sinon écarté, compté ; texte reçu mais vide = tout montant non nul écarté ; journal : drapeau txt=0/1, jamais le contenu) ; lignes bornées à 40 ; libellé portant 13 chiffres ou plus (NIR, IBAN) écarté ; texte reconnu jamais renvoyé ni journalisé. Limites connues (relecture Fable) : petits entiers presque toujours présents dans le texte, zéro et signe non contrôlés, champs permutés et erreurs communes à l'OCR et à l'annotation non vus — c'est le rôle du garde-fou côté app.
+1. Quorum : règles appliquées seulement si **au moins 2 égalités d'ancrage** tiennent (B1, N1, L2, S1) ; sinon « Montants non contrôlés ».
+2. Écart non conclu (`ok: null`) s'il s'explique par une lecture plausible d'**une** valeur sans casser une autre égalité qui tient : chiffre remplacé, inversion, chiffre en trop/en moins, virgule déplacée, signe perdu ; **valeur égale à une case voisine** (net social, taux, base, brut, cumul…) ou **zéro**, quand rien d'autre ne confirme la valeur (relecture adverse Opus du 16/10).
+3. Lignes décalées ou colonne patronale (taux légal d'une autre ligne, taux patronal, taux de remplacement 6,2 / 3,8 / 4,3, plusieurs taux hors norme, somme des lignes ≠ total) : aucun constat de taux ni d'assiette.
+4. Cumul égal au mois hors janvier : colonne du mois lue, ignoré. Période : les cumuls de deux bulletins sûrs tranchent entre trou réel et mois mal lu ; un bulletin sans quorum compte comme reçu. Nom à une lettre près, SIREN à un chiffre près, date à un chiffre près ou jour/mois inversés : pas de constat.
+5. Relais : SIRET à clé de Luhn (La Poste : Luhn ou somme des chiffres multiple de 5), **chaque nombre de l'annotation doit figurer dans le texte reconnu** de la page (sinon écarté, compté ; texte reçu mais vide = tout montant non nul écarté ; journal : drapeau txt=0/1, jamais le contenu) ; lignes bornées à 40 ; libellé portant 13 chiffres ou plus (NIR, IBAN) écarté ; texte reconnu jamais renvoyé ni journalisé. Limites connues (relecture Fable) : petits entiers presque toujours présents dans le texte, zéro et signe non contrôlés, champs permutés et erreurs communes à l'OCR et à l'annotation non vus — c'est le rôle du garde-fou côté app.
 
 ### 9.4 Mesures (corpus 100 % synthétique, `node mockups/REGLES-PAIE/mesure-ia.mjs --essais 10`)
 - Dossiers légitimes lus parfaitement : **0 / 88** constat.
-- **5 680 erreurs de lecture simulées** (chiffre substitué, transposition, décimale déplacée, ligne sautée, libellés décalés, signe, ligne entre total et net sautée), une par dossier : **0 faux « À vérifier » avec garde-fou** (0,0 %) contre **3 689 (64,9 %) sans**.
-- Prix (détection des retouches, lecture parfaite) : 100 % pour les retouches de plusieurs chiffres (net ×1,3, cumuls ×1,2, taux CSG/vieillesse faux) ; **31,8 %** pour « net payé +300 » ou « brut +500 » (un seul chiffre changé) ; **0 %** pour les nets retouchés ensemble (N1 ancre seulement) et le total des cotisations retouché seul.
-- Phase 1 (lecteur local pdf.js, non retenu en V1) : 99,7 % de valeurs exactes sur 6 mises en page connues, mais lecture fausse sur mises en page inconnues → reste un **banc de mesure R&D** (`mockups/REGLES-PAIE/lecteur.mjs`), cf. §7 verrou 2.
+- **10 080 erreurs de lecture simulées**, une par dossier, 12 familles (chiffre substitué, transposition, décimale, ligne sautée, libellés décalés, signe, ligne entre total et net sautée, case voisine, assiette voisine, colonne patronale, zéro, horaire du contrat) : **0 faux « À vérifier » avec garde-fou** contre **7 072 (70,2 %) sans**. Attaques de la relecture Opus (34 cas) : 0 constat.
+- Prix (détection des retouches, lecture parfaite) : 100 % net payé ×1,3, cumul brut ×1,2, taux CSG faux ; 95 % brut ×1,3 ; 91 % cumul net imposable ×1,2 ; 77 % cumul net imposable +800 ; 32 % net payé +300 / brut +500 (un seul chiffre) ; **0 %** pour : nets retouchés ensemble, impôt retouché, taux horaire, total des cotisations, une cotisation, taux de vieillesse (règles devenues non concluantes).
+- Phase 1 (lecteur local pdf.js, non retenu en V1) : 99,7 % de valeurs exactes sur 6 mises en page connues, lecture fausse sur mises en page inconnues → **banc de mesure R&D** (`mockups/REGLES-PAIE/lecteur.mjs`), cf. §7 verrou 2.
 
 ### 9.5 Coût et taille
 Prix inchangé : l'OCR annoté est facturé **à la page** (§6) ; le schéma étendu ne change que la taille de la réponse (≈ 12 Ko au pire avec l'échappement JSON : 40 lignes, libellés ≤ 80 caractères ; ~3 Ko en pratique). À l'activation : essayer `maxItems` (40 / 8) en mode strict avec `relay/scripts/verif-ocr-ue.mjs`. Délai de la tâche inchangé (45 s).

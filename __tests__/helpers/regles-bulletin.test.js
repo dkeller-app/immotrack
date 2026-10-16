@@ -19,7 +19,7 @@ const AOUT = { lisible: true, periode: '2026-08', salarie: 'ROTH-SCHALLER Kévin
   heures: 151.67, tauxHoraire: 19.4501, salaireBase: 2950, brut: 2950, totalCotisations: 658.6, lignes: LIGNES, autresLignes: [],
   netSocial: 2312.6, netAvantImpot: 2291.4, impotBase: 2341.8, impotTaux: 4.2, impotMontant: 98.36, netAPayer: 2193.04, netImposable: 2341.8,
   cumulBrut: 23600, cumulNetImposable: 15610.4 };
-const SEPT = { ...AOUT, periode: '2026-09', netImposable: 2312.6, cumulBrut: 26550, cumulNetImposable: 17923 };
+const SEPT = { ...AOUT, periode: '2026-09', netImposable: 2318.4, cumulBrut: 26550, cumulNetImposable: 17928.8 };
 const JUIL = { ...AOUT, periode: '2026-07', cumulBrut: 20650, cumulNetImposable: 13268.6 };
 const piece = (id, lu, extra = {}) => ({ id, nom: id + '.pdf', type: 'bulletin', ia: { le: '2026-10-13T09:16:00Z', lu }, ...extra });
 const ID = { nom: 'Roth-Schaller', prenom: 'Kévin' };
@@ -50,34 +50,45 @@ describe('règles internes (R3243-1, arrêté du 25/02/2016, Urssaf 2026, BOSS)'
     expect(reglesInternes({})).toEqual([]);
     expect(reglesInternes(null)).toEqual([]);
   });
-  it('impôt : arrondi toléré (10 centimes)', () => {
+  it('B2, L1, S1, C2 : règles listées quand elles tiennent, jamais un constat quand elles ne tiennent pas (ok = null)', () => {
     expect(reglesInternes({ ...AOUT, impotMontant: 98.3, netAPayer: 2193.1 }).find((x) => x.code === 'B2').ok).toBe(true);
-    expect(reglesInternes({ ...AOUT, impotMontant: 120, netAPayer: 2171.4 }).find((x) => x.code === 'B2').ok).toBe(false);
+    const cas = [
+      { ...AOUT, impotMontant: 128.36, netAPayer: 2163.04 },              // régularisation du prélèvement : B2 non concluante
+      avecLigne(AOUT, 1, { montant: 163.55 }),                              // une ligne : assiette ou colonne voisine possible
+      { ...AOUT, tauxHoraire: 21.4501 },                                     // horaire du contrat lu pour les heures payées possible
+      { ...AOUT, periode: '2026-01', cumulBrut: 3712.48, cumulNetImposable: 2341.8 },
+    ];
+    for (const v of cas) {
+      const a = analyserBulletins({ pieces: [piece('a', v)], identite: ID });
+      expect(a.constats).toEqual([]);
+      expect(a.parPiece.a.regles.every((r) => r.ok !== false)).toBe(true);
+      expect(a.parPiece.a.regles.some((r) => r.ok === null)).toBe(true);
+    }
+    const s1 = analyserBulletins({ pieces: [piece('a', { ...AOUT, tauxHoraire: 21.4501 })], identite: ID }).parPiece.a.regles.find((r) => r.ok === null);
+    expect(s1).toMatchObject({ code: 'S1', titre: 'Salaire de base : heures × taux horaire', ok: null });
   });
-  it('L1 : une cotisation retouchée (total et nets suivis) est relevée', () => {
-    const r = reglesInternes(avecLigne(AOUT, 1, { montant: 163.55 }));
-    expect(r.find((x) => x.code === 'L1')).toMatchObject({ ok: false, titre: 'La cotisation « Sécurité sociale plafonnée » ne correspond pas à sa base multipliée par son taux.' });
-    expect(sp(r.find((x) => x.code === 'L1').detail)).toBe('2 950,00 € × 6,9 % = 203,55 € ; imprimé : 163,55 € ; écart : 40,00 €.');
+  it('S1 : 151,67 h × taux imprimé à 2 ou 4 décimales toléré', () => {
+    expect(reglesInternes({ ...AOUT, salaireBase: 2500, tauxHoraire: 16.48, brut: 2500, totalCotisations: 208.6, netAvantImpot: 2291.4 }).find((x) => x.code === 'S1').ok).toBe(true);
+    expect(reglesInternes({ ...AOUT, heures: 151.67, tauxHoraire: 12.02, salaireBase: 1823.03 }).find((x) => x.code === 'S1').ok).toBe(true);
   });
-  it('TL : taux salarial différent du taux légal 2026 (montant recalculé), source Urssaf ; jamais hors 2026', () => {
-    const v = avecLigne(AOUT, 1, { taux: 5.9, montant: 174.05 });
+  it('TL : taux de CSG différent du taux légal 2026 (régime général : vieillesse à 6,90 %), source Urssaf ; jamais hors 2026', () => {
+    const v = avecLigne(AOUT, 5, { taux: 5.8, montant: 175.14 });
     const tl = reglesInternes(v).find((x) => x.code === 'TL');
-    expect(tl).toMatchObject({ ok: false, titre: 'Le taux salarial de « Sécurité sociale plafonnée » diffère du taux légal 2026 (vieillesse plafonnée).', detail: 'Taux imprimé : 5,9 % ; taux légal : 6,9 %.' });
+    expect(tl).toMatchObject({ ok: false, titre: 'Le taux salarial de « CSG déductible de l\'impôt sur le revenu » diffère du taux légal 2026 (CSG déductible).', detail: 'Taux imprimé : 5,8 % ; taux légal : 6,8 %.' });
     expect(tl.source.url).toContain('urssaf.fr');
     expect(reglesInternes({ ...v, periode: '2025-12' }).some((x) => x.code === 'TL')).toBe(false);
+  });
+  it('TL : vieillesse ou Alsace-Moselle hors norme (Mayotte, régimes spéciaux) → jamais un constat', () => {
+    for (const v of [avecLigne(AOUT, 1, { taux: 5.9, montant: 174.05 }), avecLigne(AOUT, 1, { taux: 4.1, montant: 120.95 })]) {
+      const a = analyserBulletins({ pieces: [piece('a', v)], identite: ID });
+      expect(a.constats).toEqual([]);
+      expect(a.parPiece.a.regles.find((r) => r.code === 'TL')).toMatchObject({ ok: null, titre: 'Taux légaux des cotisations' });
+    }
   });
   it('CS : assiette CSG non déductible inférieure à l\'assiette déductible (plusieurs chiffres), source BOSS', () => {
     const cs = reglesInternes(avecLigne(AOUT, 6, { base: 1519.69, montant: 44.07 })).find((x) => x.code === 'CS');
     expect(cs).toMatchObject({ ok: false, titre: 'L\'assiette de la CSG non déductible est inférieure à celle de la CSG déductible.' });
     expect(cs.source.url).toContain('boss.gouv.fr');
-  });
-  it('S1 : salaire de base ≠ heures × taux horaire ; 151,67 h × taux arrondi toléré', () => {
-    expect(reglesInternes({ ...AOUT, tauxHoraire: 21.4501 }).find((x) => x.code === 'S1').ok).toBe(false);
-    expect(reglesInternes({ ...AOUT, heures: 151.67, tauxHoraire: 12.02, salaireBase: 1823.03, brut: 1823.03, totalCotisations: 658.6 - 1126.97 + 1126.97 }).find((x) => x.code === 'S1').ok).toBe(true);
-  });
-  it('C2 : cumul de janvier différent du mois relevé', () => {
-    const r = reglesInternes({ ...AOUT, periode: '2026-01', cumulBrut: 3712.48, cumulNetImposable: 2341.8 });
-    expect(r.find((x) => x.code === 'C2')).toMatchObject({ ok: false, titre: 'Le cumul brut de janvier diffère du brut du mois.' });
   });
   it('catégories de lignes : revenus de remplacement exclus (CSG 6,2 % sur indemnités)', () => {
     expect(categorieLigne('CSG déductible')).toBe('csgd');
@@ -164,7 +175,7 @@ describe('analyse du dossier', () => {
     const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 }), piece('s', { ...SEPT, cumulNetImposable: 17905.2 })], identite: ID, recuLe: '2026-10-11' });
     expect(a.constats.map((c) => [c.code, c.pieceId])).toEqual([['B1', 'a'], ['B4', 's']]);
     expect(a.constats[1].titre).toBe('Bulletin septembre 2026 : le cumul net imposable ne prolonge pas celui du bulletin d\'août 2026.');
-    expect(sp(a.constats[1].detail)).toBe('Cumul d\'août 2026 15 610,40 € + net imposable 2 312,60 € = 17 923,00 € ; cumul imprimé 17 905,20 €. Écart : 17,80 €.');
+    expect(sp(a.constats[1].detail)).toBe('Cumul d\'août 2026 15 610,40 € + net imposable 2 318,40 € = 17 928,80 € ; cumul imprimé 17 905,20 €. Écart : 23,60 €.');
     expect(a.parPiece.a.etat).toBe('ecart'); expect(a.parPiece.s.etat).toBe('ecart');
   });
   it('identité et SIRET : nom différent, SIRET différent (SIREN déclaré comparé au SIREN lu)', () => {
@@ -203,7 +214,7 @@ describe('analyse du dossier', () => {
   it('aucun mot de jugement, chaque constat a une source', () => {
     const a = analyserBulletins({ pieces: [piece('j', { ...JUIL, salarie: 'X Y', siret: '11111111111116' }), piece('s', { ...avecLigne(SEPT, 1, { taux: 5.9, montant: 174.05 }), netAPayer: 1, impotMontant: 900, cumulNetImposable: 1, cumulBrut: 91.5 }),
       { id: 'c', nom: 'c', type: 'contrat', ia: { lu: { lisible: true, dateDebut: '2020-01-01', siret: '22222222222222' } } }], identite: ID, siretDeclare: '00000000200014', recuLe: '2027-03-01' });
-    expect(a.constats.length).toBeGreaterThanOrEqual(6);
+    expect(a.constats.length).toBeGreaterThanOrEqual(3);
     for (const c of a.constats) { expect(c.titre + c.detail).not.toMatch(INTERDITS); expect(c.source).toBeTruthy(); }
   });
   it('rapide : six bulletins analysés en moins de 300 ms', () => {
@@ -247,5 +258,60 @@ describe('relecture du 14/10 (Opus) : liste des mois absents bornée', () => {
   it('année mal lue sans autre trou (2016 au lieu de 2026, mois consécutifs) : pas de constat B5', () => {
     const a = analyserBulletins({ pieces: [piece('x', { ...JUIL, periode: '2016-07' }), piece('a', AOUT)], identite: ID });
     expect(a.constats.filter((c) => c.code === 'B5')).toEqual([]);
+  });
+});
+
+describe('relecture adverse Opus du 16/10 : une valeur juste prise dans une case voisine ne produit jamais de constat', () => {
+  const sans = (v, extra = {}) => analyserBulletins({ pieces: [piece('a', v)], identite: ID, recuLe: '2026-10-10', ...extra }).constats;
+  it('nets et prélèvement : net à payer lu sur le net avant impôt, net avant impôt lu sur le net social, impôt lu sur le taux ou la base', () => {
+    for (const v of [{ ...AOUT, netAPayer: 2291.4 }, { ...AOUT, netAvantImpot: 2312.6 }, { ...AOUT, impotMontant: 4.2 }, { ...AOUT, impotMontant: 2341.8 }, { ...AOUT, impotBase: 1441.8 }]) expect(sans(v)).toEqual([]);
+  });
+  it('lignes : colonne patronale (taux et montant), assiette lue sur le brut, montant 0 d\'un apprenti', () => {
+    for (const v of [avecLigne(AOUT, 1, { taux: 8.55, montant: 252.23 }), { ...AOUT, lignes: LIGNES.map((l, i) => (i === 1 ? { ...l, taux: 8.55 } : l)) },
+      { ...AOUT, lignes: LIGNES.map((l, i) => (i === 5 ? { ...l, base: 2950 } : l)) }, { ...AOUT, lignes: LIGNES.map((l, i) => (i === 6 ? { ...l, base: 2950 } : l)) },
+      { ...AOUT, lignes: LIGNES.map((l, i) => (i === 1 ? { ...l, montant: 0 } : l)) }]) expect(sans(v)).toEqual([]);
+  });
+  it('heures du contrat (169 h), cumul lu 0, colonne du cumul voisine en janvier, champ rendu à 0', () => {
+    for (const v of [{ ...AOUT, heures: 169 }, { ...AOUT, cumulBrut: 0 }, { ...AOUT, periode: '2026-01', cumulBrut: 2341.8, cumulNetImposable: 2341.8 }, { ...AOUT, impotMontant: 0 }]) expect(sans(v)).toEqual([]);
+  });
+  it('impôt à 0 € confirmé par un taux de 0 % : B1 reste vérifiée (pas une lecture manquée)', () => {
+    const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, impotTaux: 0, impotMontant: 0, netAPayer: 2140 })], identite: ID });
+    expect(a.constats.map((c) => c.code)).toEqual(['B1']);
+  });
+  it('B5 : un bulletin sans quorum a bien été reçu (aucun mois réputé absent)', () => {
+    const aoutPartiel = { lisible: true, periode: '2026-08', netAvantImpot: 2291.4, impotMontant: 98.36, netAPayer: 2193.04 };
+    const a = analyserBulletins({ pieces: [piece('j', JUIL), piece('a', aoutPartiel), piece('s', SEPT)], identite: ID, recuLe: '2026-10-10' });
+    expect(a.constats).toEqual([]);
+    expect(a.parPiece.a.lectureIncertaine).toBe(true);
+  });
+  it('changement d\'employeur en cours d\'année (date d\'entrée dans le mois, SIRET non lu) : cumuls non comparés', () => {
+    const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, siret: null }), piece('s', { ...SEPT, siret: null, employeur: 'Autre SAS', dateEntree: '2026-09-01', cumulBrut: 2950, cumulNetImposable: 2318.4 })], identite: ID });
+    expect(a.constats).toEqual([]);
+  });
+  it('B6 : siège déclaré, établissement sur le bulletin (même SIREN) ; B7 : jour et mois inversés', () => {
+    expect(analyserBulletins({ pieces: [piece('a', AOUT)], identite: ID, siretDeclare: '00000000299991' }).constats).toEqual([]);
+    const c = { id: 'c', nom: 'contrat.pdf', type: 'contrat', ia: { lu: { lisible: true, dateDebut: '2023-04-09', siret: '00000000200014' } } };
+    expect(analyserBulletins({ pieces: [piece('a', AOUT), c], identite: ID }).constats).toEqual([]);
+  });
+  it('B6 (pilotage) : comparaison de nom indéterminée → ok null (« Non lu »), jamais « concordant »', () => {
+    const a = analyserBulletins({ pieces: [piece('a', { ...AOUT, salarie: '—' })], identite: ID });
+    expect(a.parPiece.a.regles.find((r) => r.code === 'B6')).toMatchObject({ ok: null, titre: 'Nom du salarié' });
+    expect(analyserBulletins({ pieces: [piece('a', AOUT)], identite: ID }).parPiece.a.regles.find((r) => r.code === 'B6').ok).toBe(true);
+  });
+  it('entrées abîmées : aucune exception (pièce nulle, période non textuelle, date de réception invalide)', () => {
+    expect(() => analyserBulletins({ pieces: [null, piece('a', { ...AOUT, periode: 202608, dateEntree: 5 })], identite: ID, recuLe: 'pas une date' })).not.toThrow();
+  });
+});
+
+describe('affichage (etatPiece de verif-pieces, main v15.749) : règles non concluantes = « Non lu », jamais « À vérifier »', () => {
+  it('une erreur de lecture : la pièce n\'est pas « À vérifier » ; un vrai écart : « À vérifier »', async () => {
+    const VP = await import('../../js/core/verif-pieces.js');
+    const doc = { id: 'a', parentType: 'candidat', category: 'revenus', pieceType: 'I.D.2', mime: 'application/pdf', verifIa: { lu: {} } };
+    const lecture = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2291.4 })], identite: ID }).parPiece.a;
+    const e1 = VP.etatPiece({ doc, verif: null, ia: lecture, iaLue: true });
+    expect(e1.etat).not.toBe('averif');
+    expect(e1.lignes.some((l) => /^Non lu : net à payer et impôt prélevé/i.test(l.texte))).toBe(true);
+    const ecart = analyserBulletins({ pieces: [piece('a', { ...AOUT, netAPayer: 2140 })], identite: ID }).parPiece.a;
+    expect(VP.etatPiece({ doc, verif: null, ia: ecart, iaLue: true }).etat).toBe('averif');
   });
 });

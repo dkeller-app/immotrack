@@ -94,11 +94,12 @@ export function nombresDuTexte(texte) {
   const ajout = (x) => { if (Number.isFinite(x)) out.add(Math.round(Math.abs(x) * 10000) / 10000); };
   const lire = (tok) => {
     let s = tok;
+    if (/^\d{1,3}(,\d{3})+\.\d{1,2}$/.test(s)) { ajout(+s.replace(/,/g, '')); return; }   // format anglais 2,950.00
     if (/,\d+$/.test(s)) { s = s.replace(/[ .]/g, '').replace(',', '.'); ajout(+s); return; }
     if (/^\d{1,3}(\.\d{3})+$/.test(s)) { ajout(+s.replace(/\./g, '')); ajout(+s.replace(/\.(?=\d{3}$)/, '').replace(/\./g, '')); ajout(parseFloat(s)); return; }
     ajout(+s.replace(/ /g, ''));
   };
-  const RE = /\d{1,3}(?:[ .]\d{3})+(?:,\d+|\.\d{1,2}(?!\d))?|\d+(?:[.,]\d+)?/g; let m;
+  const RE = /\d{1,3}(?:,\d{3})+\.\d{1,2}(?!\d)|\d{1,3}(?:[ .]\d{3})+(?:,\d+|\.\d{1,2}(?!\d))?|\d+(?:[.,]\d+)?/g; let m;
   while ((m = RE.exec(t))) { lire(m[0]); for (const p of m[0].split(' ')) if (p) lire(p); }
   return out;
 }

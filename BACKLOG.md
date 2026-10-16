@@ -1,4 +1,29 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.749 (16/10, pilotage Desktop, GO Didier)** — **Vérification lisible des pièces** (`feat/verif-lisible`, e9e6ed43, renuméroté v15.750 → v15.749 ; 8 135 tests verts ; relecture Opus : 12 constats, 11 corrigés).
+>
+> **Livré :**
+> - Un badge par pièce : OK (vert seulement si signature 2D-Doc vérifiée) / À vérifier / Non vérifiable / Non lue / En attente.
+> - Une ligne de synthèse en tête ; le détail seulement au clic.
+> - « Points à vérifier » limité à l'employeur et aux pièces hors liste légale.
+> - Aucune mention « IA » tant que `AI_OCR` est éteinte (Paramètres : « Lecture des pièces — Bientôt disponible »).
+> - `etatPiece` accepte n'importe quelle liste de règles `{code, ok, titre}` (prêt pour `feat/regles-paie`).
+>
+> **Reste :**
+> - B6 `regles-bulletin.js:129` : `ok !== false` montre une comparaison indéterminée comme concordante → à corriger dans `feat/regles-paie`.
+> - Smoke Didier sur un vrai dossier.
+>
+> **En cours :**
+> - `feat/matrice-accueil` → v15.750 (ajout de l'échéance d'assurance dans l'Agenda, puis relecture finale).
+> - `feat/lecture-photos` → v15.751.
+> - `feat/regles-paie` → v15.752.
+> 🚦 **MAIN = v15.748 (16/10, pilotage Desktop, demande de Didier)**
+> Premiers pas retrouvables (`feat/premiers-pas-acces`, 8fc2eafa, renuméroté v15.749 → v15.748) : entrée « Premiers pas » dans une zone « Aide » en bas de la barre latérale sur PC et tablette, en tête de « Plus » sur téléphone. Elle ouvre la liste, avec « Revoir la visite guidée » en tête et « Masquer / Afficher sur l'accueil », même si la carte est masquée ou repliée.
+> Tests : 8 115 verts. Geste réel : 16/16. Relecture Opus : SÛR.
+> **Décisions Didier du 16/10 :**
+> - GO « Pilotage du parc » : le tableau s'ouvre au clic sur « À regarder » ; un lot passe en « Mise en location » dès le congé reçu (`feat/matrice-accueil`, en cours → v15.749).
+> - Documents : **l'IA lit tout**, photo comme PDF (`feat/regles-paie` réorienté ; lecture locale pdf.js écartée).
+> - Prérequis bêta, côté Didier : activer `AI_OCR`, rétention zéro chez Mistral, `verif-ocr-ue.mjs`.
+> - SEMIA traité dans une session séparée.
 > 🚦 **MAIN = v15.747 (15/10, pilotage Desktop, GO Didier)** — **Premiers pas** (`feat/premiers-pas`, 68d5c15e ; 338 fichiers / 8 114 tests verts ; 2 relectures Opus « SÛR après corrections » ; geste réel 30/30 sur PC, tablette et téléphone). CDC : `docs/CDC-PREMIERS-PAS.md`.
   - **Carte « Premiers pas »** en tête de l'accueil, 8 étapes cochées automatiquement : logement, bail, relevé, règle, plafond, artisan, espace locataire, associé. Elle se masque, puis disparaît 7 jours après la fin.
   - **Visite guidée** : bulle de bienvenue + 6 étapes ; Échap = passée ; relance depuis Mon profil ; lien vers `?demo=1`.

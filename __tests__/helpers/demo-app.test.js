@@ -3,7 +3,7 @@
 // pré-calculée par le module de vérification sur des pièces fictives.
 import { describe, it, expect } from 'vitest'
 import { completerIncidents, completerVerifs, SCENARIOS_VERIF, bailIdDe, ESPACE_DEMO } from '../../js/app/demo-app.js'
-import { VERSION_VERIF, etatAffiche } from '../../js/core/verif-pieces.js'
+import { VERSION_VERIF, etatPiece } from '../../js/core/verif-pieces.js'
 import { verdictDuConstat } from '../../js/core/incident-circuit.js'
 
 const CAND = { id: 'cand_demo_1', nom: 'Rousseau', prenom: 'Emma', garant: { nom: 'Rousseau', prenom: 'Jean' } }
@@ -27,7 +27,7 @@ describe('vérifications 2D-Doc pré-calculées (pièces fictives)', () => {
     const d = doc({ _demoVerif: 'avis-valide' }); const D = { candidats: [CAND], documents: [d] }
     expect(completerVerifs(D, now)).toBe(1)
     expect(d.verif.v).toBe(VERSION_VERIF)
-    expect(etatAffiche(d, d.verif)).toMatchObject({ etat: 'signature_valide', positif: true })
+    expect(etatPiece({ doc: d, verif: d.verif })).toMatchObject({ etat: 'ok', vert: true })
     expect(d.verif.constats).toEqual([])
     expect(completerVerifs(D, now)).toBe(0)   // déjà posée
   })
@@ -41,7 +41,7 @@ describe('vérifications 2D-Doc pré-calculées (pièces fictives)', () => {
     const d = doc({ parentId: 'cand_demo_2', mime: 'image/jpeg', _demoVerif: 'avis-sans-code' }); const D = { candidats: [CAND2], documents: [d] }
     completerVerifs(D, now)
     expect(d.verif.constats.map((c) => c.code)).toEqual(['V4'])
-    expect(etatAffiche(d, d.verif).positif).toBe(false)
+    expect(etatPiece({ doc: d, verif: d.verif })).toMatchObject({ etat: 'nonverif', vert: false })
   })
   it('aucune donnée réelle dans les scénarios (numéros à zéro, document fictif)', () => {
     for (const k of Object.keys(SCENARIOS_VERIF)) {

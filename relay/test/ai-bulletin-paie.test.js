@@ -214,7 +214,7 @@ describe('REGLES-PAIE : corrections de la relecture Fable du 16/10', () => {
     expect(lignes.join(' ')).not.toMatch(/2950|2193/);
   });
   it('M1 : milliers par espace avec point décimal, espaces fines et tabulaires', () => {
-    for (const [t, v] of [['2 950.45', 2950.45], ['2 950,45', 2950.45], ['2 950,45', 2950.45], ['12 345 678,90', 12345678.9], ['6,9000', 6.9], ['1.234,56', 1234.56]]) expect(T.nombresDuTexte(t).has(v), t).toBe(true);
+    for (const [t, v] of [['2 950.45', 2950.45], ['2 950,45', 2950.45], ['2 950,45', 2950.45], ['12 345 678,90', 12345678.9], ['6,9000', 6.9], ['1.234,56', 1234.56], ['2,950.00', 2950], ['1,234,567.89', 1234567.89], ['12,34', 12.34]]) expect(T.nombresDuTexte(t).has(v), t).toBe(true);
   });
   it('M2 : La Poste — clé de Luhn ou somme des chiffres multiple de 5', () => {
     expect(T.siretValide('35600000000048')).toBe(true);
