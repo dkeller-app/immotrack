@@ -1,7 +1,7 @@
 // __tests__/helpers/verif-pieces.test.js — VERIF-DOCUMENTS : assemblage des vérifications d'une pièce
 // (2D-Doc + indices techniques), constats des « Points à vérifier », état affiché sous la pièce.
 import { describe, it, expect } from 'vitest';
-import { pieceConcernee, aAnalyser, identiteAttendue, anneesAvisAttendues, construireVerif, etatAffiche, constatsDePiece, detail, VERSION_VERIF } from '../../js/core/verif-pieces.js';
+import { pieceConcernee, aAnalyser, identiteAttendue, anneesAvisAttendues, construireVerif, etatPiece, constatsDePiece, detail, VERSION_VERIF } from '../../js/core/verif-pieces.js';
 
 const INTERDITS = /fraude|frauduleu|\bfaux\b|fausse|falsifi|suspect|douteu|(?<!véri)fiable|truqu|mensong|\bscore\b|\bnote\b/i;
 const CAND = { id: 'c1', nom: 'Marchal-Oberlin', prenom: 'Inès', garant: { nom: 'Oberlin', prenom: 'Paul' } };
@@ -15,6 +15,7 @@ const VALIDE = { etat: 'valide', code: 'valide', motif: 'Signature valide…', e
 const TEXTE = 'Déclarant 1 | MARCHAL OBERLIN INES | Revenu fiscal de référence | 33 870 € | Référence de l\'avis | 26 00 000 000 001 | Numéro fiscal 00 00 000 000 001';
 const META = { producteur: 'DGFiP', createur: 'DGFiP', creeLe: 'D:20260724080000Z', modifieLe: 'D:20260724080000Z' };
 const NOW = new Date('2026-10-12T18:42:00Z');
+const ep = (doc, verif) => etatPiece({ doc, verif });
 const v = (analyse, resultats, doc = AVIS) => construireVerif({ doc, candidat: CAND, analyse, resultats, maintenant: NOW });
 
 describe('pièces concernées et relance', () => {
@@ -46,10 +47,10 @@ describe('pièces concernées et relance', () => {
 
 describe('scénario A : avis signé, données et nom identiques', () => {
   const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE, metadonnees: META, enregistrements: 1, superpositions: [] }, [VALIDE]);
-  it('état vert « Signature 2D-Doc vérifiée » (DGFiP : FPE* sous FR06), aucun constat', () => {
-    const e = etatAffiche(AVIS, ver);
-    expect(e).toMatchObject({ etat: 'signature_valide', libelle: 'Signature 2D-Doc vérifiée', positif: true });
-    expect(e.phrase).toBe('avis d\'impôt sur les revenus de la DGFiP, revenus 2025 ; données retrouvées dans le texte du fichier ; nom identique à l\'identité déclarée.');
+  it('état vert « OK » (signature de la DGFiP : FPE* sous FR06), aucun constat', () => {
+    const e = ep(AVIS, ver);
+    expect(e).toMatchObject({ etat: 'ok', mot: 'OK', vert: true });
+    expect(e.lignes.slice(0, 3).map((l) => l.texte)).toEqual(['Signature de la DGFiP vérifiée', 'Données signées retrouvées dans le fichier', 'Nom identique au candidat']);
     expect(ver.constats).toEqual([]);
   });
   it('minimisation : l\'adresse n\'est pas conservée ; références pour impots.gouv gardées', () => {
@@ -66,21 +67,21 @@ describe('scénario A : avis signé, données et nom identiques', () => {
 });
 
 describe('écarts sur un avis signé', () => {
-  it('valeur signée absente du texte imprimé → état neutre « Écart relevé » + constat V5', () => {
+  it('valeur signée absente du texte imprimé → état neutre « À vérifier » + constat V5', () => {
     const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE.replace('33 870', '43 870'), metadonnees: META }, [VALIDE]);
-    expect(etatAffiche(AVIS, ver)).toMatchObject({ etat: 'ecart', positif: false });
+    expect(ep(AVIS, ver)).toMatchObject({ etat: 'averif', vert: false });
     const c = ver.constats.find((x) => x.code === 'V5');
     expect(c.detail).toBe('Revenu fiscal de référence inscrit dans le code signé : 33 870. Cette valeur n\'apparaît pas dans le texte du fichier (couche texte du PDF).');
   });
   it('nom signé différent de l\'identité déclarée → V6, avec explication possible', () => {
     const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [{ ...VALIDE, champs: CHAMPS.map((c) => (c.id === '46' ? { ...c, valeur: 'DUPONT CAMILLE' } : c)) }]);
-    expect(etatAffiche(AVIS, ver).etat).toBe('ecart');
+    expect(ep(AVIS, ver).etat).toBe('averif');
     expect(ver.constats.find((x) => x.code === 'V6').detail).toContain('Un avis commun, un nom d\'usage ou un changement d\'état civil peut l\'expliquer.');
   });
   it('photo : pas de texte imprimé → aucune comparaison inventée', () => {
     const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [VALIDE], { ...AVIS, mime: 'image/jpeg' });
     expect(ver.deuxDDoc.comparaisons).toEqual([]);
-    expect(etatAffiche({ ...AVIS, mime: 'image/jpeg' }, ver).etat).toBe('signature_valide');
+    expect(ep({ ...AVIS, mime: 'image/jpeg' }, ver)).toMatchObject({ etat: 'ok', vert: true });
   });
   it('avis trop ancien → V7 (décret : dernier ou avant-dernier avis)', () => {
     const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE, metadonnees: META }, [{ ...VALIDE, champs: CHAMPS.map((c) => (c.id === '45' ? { ...c, valeur: '2021' } : c)) }]);
@@ -89,45 +90,47 @@ describe('écarts sur un avis signé', () => {
 });
 
 describe('scénario B et autres états', () => {
-  it('avis sans code lisible → « Non vérifiable automatiquement » + V4 avec renvoi au service manuel', () => {
+  it('avis sans code lisible → « Non vérifiable » + V4 avec renvoi au service manuel', () => {
     const ver = v({ estPdf: false, codes: [], texte: '' }, []);
-    expect(etatAffiche(AVIS, ver)).toMatchObject({ etat: 'non_verifiable', libelle: 'Non vérifiable automatiquement' });
+    expect(ep(AVIS, ver)).toMatchObject({ etat: 'nonverif', mot: 'Non vérifiable' });
     expect(ver.constats[0]).toMatchObject({ code: 'V4', svair: true });
   });
-  it('code non conforme → V2 ; révocation inconnue → « Vérification reportée », sans constat', () => {
+  it('code non conforme → V2 ; révocation inconnue → « Non vérifiable » (vérification reportée), sans constat', () => {
     const inv = v({ estPdf: true, codes: ['x'], texte: '' }, [{ etat: 'invalide', code: 'signature', motif: 'La signature ne correspond pas aux données du code.', entete: ENT }]);
-    expect(etatAffiche(AVIS, inv)).toMatchObject({ etat: 'code_non_conforme', positif: false });
+    expect(ep(AVIS, inv)).toMatchObject({ etat: 'averif', vert: false });
     expect(inv.constats[0].code).toBe('V2');
     const rep = v({ estPdf: true, codes: ['x'], texte: '' }, [{ etat: 'non_verifiable', code: 'revocation_inconnue', reessayer: true, motif: 'La liste de révocation de l\'autorité n\'a pas pu être contrôlée : vérification reportée.', entete: ENT }]);
     expect(rep.reessayer).toBe(true);
-    expect(etatAffiche(AVIS, rep)).toMatchObject({ etat: 'reportee', phrase: 'la liste de révocation de l\'autorité n\'a pas pu être contrôlée.' });
+    expect(ep(AVIS, rep)).toMatchObject({ etat: 'nonverif' });
+    expect(ep(AVIS, rep).lignes[0].texte).toBe('Signature non vérifiable : vérification reportée');
     expect(rep.constats).toEqual([]);
   });
   it('autorité inconnue (code de test, autre pays) → V3 « non vérifiable »', () => {
     const ver = v({ estPdf: true, codes: ['x'] }, [{ etat: 'non_verifiable', code: 'ac_inconnue', motif: 'L\'autorité « FR00 » ne figure pas dans la liste de confiance de France Titres.', entete: { ...ENT, ac: 'FR00' } }]);
-    expect(etatAffiche(AVIS, ver).etat).toBe('non_verifiable');
+    expect(ep(AVIS, ver).etat).toBe('nonverif');
     expect(ver.constats[0].code).toBe('V3');
   });
   it('plusieurs codes sur la pièce : le résultat valide l\'emporte', () => {
     const ver = v({ estPdf: true, codes: ['a', 'b'], texte: TEXTE }, [{ etat: 'illisible', code: 'entete', motif: '…', entete: {} }, VALIDE]);
     expect(ver.deuxDDoc.etat).toBe('valide');
   });
-  it('fichier illisible → « Lecture impossible », aucun constat', () => {
+  it('fichier illisible → « Non vérifiable », aucun constat', () => {
     const ver = v({ illisible: true }, []);
-    expect(etatAffiche(AVIS, ver)).toMatchObject({ etat: 'illisible', libelle: 'Lecture impossible' });
+    expect(ep(AVIS, ver)).toMatchObject({ etat: 'nonverif' });
+    expect(ep(AVIS, ver).lignes[0].texte).toBe('Fichier illisible');
     expect(ver.constats).toEqual([]);
   });
-  it('justificatif de domicile sans code, PDF modifié → « Indice technique »', () => {
+  it('justificatif de domicile sans code, PDF modifié → « À vérifier » ; sans indice → « OK » neutre', () => {
     const dom = { ...AVIS, category: 'domicile', pieceType: 'I.B.1', originalName: 'quittances.pdf' };
     const ver = v({ estPdf: true, codes: [], metadonnees: { createur: 'X', creeLe: 'D:20260701', modifieLe: 'D:20261001' }, enregistrements: 1 }, [], dom);
-    expect(etatAffiche(dom, ver)).toMatchObject({ etat: 'indice', libelle: 'Indice technique' });
+    expect(ep(dom, ver)).toMatchObject({ etat: 'averif', vert: false });
     expect(ver.constats[0].titre).toBe('« quittances.pdf » : le fichier a été modifié après sa création.');
     const propre = v({ estPdf: true, codes: [], metadonnees: META, enregistrements: 1 }, [], dom);
-    expect(etatAffiche(dom, propre)).toMatchObject({ etat: 'aucun_controle', phrase: 'Aucun code 2D-Doc, aucun indice technique relevé.' });
+    expect(ep(dom, propre)).toMatchObject({ etat: 'ok', vert: false });
   });
   it('pièce non concernée et analyse pas encore faite', () => {
-    expect(etatAffiche({ ...AVIS, category: 'identite' }, null).etat).toBe('aucun_controle');
-    expect(etatAffiche(AVIS, null).etat).toBe('en_attente');
+    expect(ep({ ...AVIS, category: 'identite' }, null).etat).toBe('nonlue');
+    expect(ep(AVIS, null).etat).toBe('attente');
   });
 });
 
@@ -146,26 +149,26 @@ describe('relectures du 14/10 (Opus, Fable)', async () => {
     expect(ver.constats.map((c) => c.code)).toEqual(['V4']);
     expect(ver.constats[0].svair).toBe(true);
   });
-  it('« de la DGFiP » seulement pour FPE* sous FR04 / FR06 et un avis d\'impôt ; sinon autorité et certificat nommés', () => {
+  it('« de la DGFiP » seulement pour FPE* sous FR04 / FR06 et un avis d\'impôt ; sinon « signature officielle »', () => {
     expect(estDgfip({ ac: 'FR06', certificat: 'FPE3', type: '28' })).toBe(true);
     expect(estDgfip({ ac: 'FR03', certificat: 'FPE3', type: '28' })).toBe(false);
     expect(estDgfip({ ac: 'FR06', certificat: 'FPE3', type: '01' })).toBe(false);
     const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE }, [{ ...VALIDE, entete: { ...ENT, ac: 'FR07', certificat: 'FPE1' } }]);
-    expect(etatAffiche(AVIS, ver).phrase).toMatch(/^avis d'impôt sur les revenus \(autorité FR07, certificat FPE1\)/);
+    expect(ep(AVIS, ver).lignes[0].texte).toBe('Signature officielle vérifiée');
   });
   it('avis portant le code signé d\'un autre document (facture) : constat V8, état neutre', () => {
     const ver = v({ estPdf: true, codes: ['x'], texte: TEXTE }, [{ ...VALIDE, entete: { ...ENT, ac: 'FR03', certificat: 'EDFD', type: '01' }, champs: [] }]);
     expect(ver.constats.map((c) => c.code)).toContain('V8');
-    expect(etatAffiche(AVIS, ver)).toMatchObject({ etat: 'ecart', positif: false });
+    expect(ep(AVIS, ver)).toMatchObject({ etat: 'averif', vert: false });
   });
-  it('photo d\'un avis signé : la phrase dit que les montants imprimés n\'ont pas été comparés et donne le revenu signé', () => {
+  it('photo d\'un avis signé : le détail dit que les montants imprimés n\'ont pas été comparés', () => {
     const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [VALIDE], { ...AVIS, mime: 'image/jpeg' });
-    expect(etatAffiche({ ...AVIS, mime: 'image/jpeg' }, ver).phrase).toContain('montants imprimés non comparés (image ou PDF sans texte) ; revenu fiscal de référence signé : 33\u00a0870 €, à comparer avec la pièce');
+    expect(ep({ ...AVIS, mime: 'image/jpeg' }, ver).lignes.map((l) => l.texte)).toContain('Montants imprimés non comparés (image)');
   });
   it('un code valide et un code non conforme sur la même pièce : le second n\'est pas tu', () => {
     const ver = v({ estPdf: true, codes: ['a', 'b'], texte: TEXTE }, [VALIDE, { etat: 'invalide', code: 'signature', motif: 'x', entete: ENT }]);
     expect(ver.constats.map((c) => c.code)).toContain('V2');
-    expect(etatAffiche(AVIS, ver).etat).toBe('ecart');
+    expect(ep(AVIS, ver).etat).toBe('averif');
   });
   it('affichage à jour : nom déclaré corrigé et type changé pris en compte sans relire le fichier', () => {
     const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [{ ...VALIDE, champs: CHAMPS.map((c) => (c.id === '46' ? { ...c, valeur: 'DUPONT CAMILLE' } : c)) }]);
@@ -186,7 +189,7 @@ describe('formulation', () => {
     ];
     let n = 0;
     for (const ver of cas) {
-      const e = etatAffiche(AVIS, ver); expect(e.libelle + e.phrase).not.toMatch(INTERDITS);
+      const e = ep(AVIS, ver); expect(e.mot + ' ' + e.lignes.map((l) => l.texte).join(' ')).not.toMatch(INTERDITS);
       for (const c of ver.constats) { n++; expect(c.titre + c.detail).not.toMatch(INTERDITS); expect(c.source).toBeTruthy(); expect(c.date).toMatch(/^le \d\d\/\d\d\/\d{4}$/); }
     }
     expect(n).toBeGreaterThanOrEqual(8);
@@ -197,30 +200,11 @@ describe('formulation', () => {
 });
 
 describe('lot 3 : état d\'une pièce lue par l\'IA', async () => {
-  const { etatIa, typeLectureIa } = await import('../../js/core/verif-pieces.js');
+  const { typeLectureIa } = await import('../../js/core/verif-pieces.js');
   const { noticeBulletins } = await import('../../js/core/ia-transparence.js');
   const BUL = { ...AVIS, pieceType: 'I.D.2', originalName: 'bulletin-aout.pdf' };
-  const base = { etat: 'aucun_controle', libelle: '', phrase: 'Aucun code 2D-Doc, aucun indice technique relevé.', positif: false, icone: 'info', detail: true };
   it('types lus : bulletins et contrat (candidat et garant), rien d\'autre', () => {
     expect(['I.D.2', 'II.E.3', 'I.C.1', 'II.D.1', 'I.D.1', ''].map((t) => typeLectureIa({ pieceType: t }))).toEqual(['bulletin', 'bulletin', 'contrat', 'contrat', null, null]);
-  });
-  it('non lancée : proposée seulement si la lecture est disponible ; jamais verte', () => {
-    expect(etatIa(BUL, null, base, false)).toBe(base);
-    expect(etatIa(BUL, { etat: 'ia_non_lancee' }, base, true)).toMatchObject({ etat: 'ia_non_lancee', libelle: 'Lecture par l\'IA non lancée', positif: false });
-  });
-  it('écart, sans écart, illisible, reportée : libellés factuels, mention « lu par l\'IA, à vérifier »', () => {
-    const ec = etatIa(BUL, { etat: 'ecart', regles: [], constats: [{ titre: 'Bulletin août 2026 : le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source.' }] }, base, true);
-    expect(ec).toMatchObject({ etat: 'ecart', libelle: 'Écart relevé', positif: false });
-    expect(ec.phrase).toBe('le net à payer ne correspond pas au net avant impôt moins l\'impôt prélevé à la source (lu par l\'IA, à vérifier).');
-    expect(etatIa(BUL, { etat: 'sans_ecart', regles: [1, 2, 3], constats: [] }, base, true).phrase).toBe('3 règles appliquées (calculs, cumuls, nom, employeur) (lu par l\'IA, à vérifier).');
-    expect(etatIa(BUL, { etat: 'illisible' }, base, true).libelle).toBe('Lecture impossible');
-    expect(etatIa(BUL, { etat: 'ia_erreur' }, base, true).etat).toBe('reportee');
-    expect(etatIa({ ...BUL, pieceType: 'I.C.1' }, { etat: 'lu' }, base, true).phrase).toContain('date d\'entrée');
-  });
-  it('une signature de l\'État vérifiée reste prioritaire, sauf écart relevé par les règles', () => {
-    const sig = { etat: 'signature_valide', positif: true };
-    expect(etatIa(BUL, { etat: 'sans_ecart', regles: [], constats: [] }, sig, true)).toBe(sig);
-    expect(etatIa(BUL, { etat: 'ecart', regles: [], constats: [] }, sig, true).etat).toBe('ecart');
   });
   it('notice : ce qui part, qui lit, ce qui est gardé ; ton neutre ; rétention selon la constante', () => {
     const n = noticeBulletins({ retentionZero: false });

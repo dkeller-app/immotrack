@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.748';
+const IMMOTRACK_VERSION = '15.750';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -13740,8 +13740,8 @@ function _candPointsAVerifier(c){
         actionsHtml: `<button class="btn bs bb" onclick="_candPieceHorsListeSupprimer('${_lyQ(d.id)}')">${_uiIcon('trash',14)} Supprimer cette pièce</button><button class="btn bs bb" onclick="_candPieceHorsListeConserver('${_lyQ(d.id)}')">Conserver</button>` });
     });
   }
-  // VERIF-DOCUMENTS — constats des pièces (2D-Doc, indices techniques), rangés par pièce, sans total.
-  if(typeof _candVerifConstats === 'function') _candVerifConstats(c).forEach(p => pts.push(p));
+  // VERIF-LISIBLE (v15.750) : les constats des pièces ne sont plus listés ici ; chaque pièce porte son état
+  // (OK / À vérifier / Non vérifiable) et son détail s'ouvre au clic (_candVerifDetail).
   return pts;
 }
 // Vérification de l'employeur dans l'Annuaire des entreprises (API publique, appel direct : CORS ouvert).
@@ -13905,8 +13905,9 @@ async function _candVerifierPieces(candId, opts){
     if(opts.toast) showToast('Vérification enregistrée', 'ok');
   }
 }
-// Ligne « Vérification » sous une pièce (fiche candidat). Vert seulement pour « Signature de l'État vérifiée ».
-// État affiché d'une pièce : vérification locale, puis (bulletins, contrat) lecture par l'IA et règles de cohérence.
+// VERIF-LISIBLE (v15.750) — un état par pièce, d'un coup d'œil : OK (vert seulement pour une signature officielle
+// vérifiée) / À vérifier / Non vérifiable (ou Non lue, En attente) ; le détail s'ouvre au clic (_candVerifDetail).
+// L'état vient de VerifPieces.etatPiece (module pur, testé) : vérification locale + règles de la lecture, quelles qu'elles soient.
 function _candVerifActuelle(d){
   const VP = window.VerifPieces; if(!VP || !d || !d.verif) return d && d.verif;
   const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === d.parentId);
@@ -13914,111 +13915,86 @@ function _candVerifActuelle(d){
 }
 function _candVerifEtat(d){
   const VP = window.VerifPieces; const R = _candVerifReglages();
-  let e = R.locaux ? VP.etatAffiche(d, _candVerifActuelle(d)) : { etat: 'aucun_controle', libelle: '', phrase: '', positif: false, icone: 'info', detail: false };
-  if(R.ia && VP.typeLectureIa && VP.typeLectureIa(d)){
+  if(!VP || !VP.etatPiece || !d) return null;
+  let ia = null, iaLue = false;
+  if(R.ia && d.verifIa && VP.typeLectureIa && VP.typeLectureIa(d)){
     const c = (DB.candidats||[]).find(x => x && !x._deleted && x.id === d.parentId);
     const ana = c ? _candIaAnalyse(c) : null;
-    e = VP.etatIa(d, ana && ana.parPiece[d.id], e, _candIaOcr.actif === true) || e;
+    const e = ana && ana.parPiece[d.id];
+    if(e){
+      const propres = e.constats || [];
+      ia = { etat: e.etat, regles: e.regles || [], constats: propres.concat(ana.constats.filter(k => k.pieceId === d.id && !propres.includes(k))) };
+      iaLue = true;
+    }
   }
-  return e;
+  if(!R.locaux && !iaLue) return null;
+  return VP.etatPiece({ doc: d, verif: R.locaux ? _candVerifActuelle(d) : null, ia, iaLue });
 }
-function _candVrfIco(n){ return { seal:'seal', calc:'calc', doc:'doc', clock:'clock', minus:'minus', info:'info', sparkle:'sparkle', check:'check' }[n] || 'info'; }
+// Pastille : une icône + un mot (jamais l'icône seule).
+function _candVerifBadgeHtml(e){
+  const ico = { ok: e.vert ? 'seal' : 'check', averif: 'warn', nonverif: 'help', nonlue: 'minus', attente: 'clock' }[e.etat] || 'minus';
+  return _uiIcon(ico, 14) + '<span>' + escHtml(e.mot) + '</span>';
+}
 function _candVerifLigneHtml(d){
-  const VP = window.VerifPieces; const R = _candVerifReglages();
-  if(!VP || !d || (!R.locaux && !R.ia)) return '';
-  const e = _candVerifEtat(d);
-  if(!e.libelle && !e.phrase) return '';
-  const ico = _candVrfIco(e.icone);
-  const q = '\'' + _lyQ(d.id) + '\'';
-  return '<div class="cand-vrf' + (e.positif ? ' ok' : '') + '">' + _uiIcon(ico, 15)
-    + '<div class="bx">' + (e.libelle ? '<b class="st">' + escHtml(e.libelle) + '</b> — ' : '') + escHtml(e.phrase) + '</div>'
-    + (e.detail ? '<button class="btn bs bb" onclick="_candVerifDetail(' + q + ')">' + _uiIcon('eye', 14) + ' Détail</button>' : '')
-    + '</div>';
+  const e = _candVerifEtat(d); if(!e) return '';
+  return '<div class="cand-vrf"><span class="k">Vérification</span><button type="button" class="cand-vbdg ' + e.etat + (e.vert ? ' vert' : '') + '" onclick="_candVerifDetail(\'' + _lyQ(d.id) + '\')" title="Voir le détail de la vérification">'
+    + _candVerifBadgeHtml(e) + '</button></div>';
 }
-// Constats des pièces pour la carte « Points à vérifier » (ordre des pièces, sans total).
-function _candVerifConstats(c){
-  const VP = window.VerifPieces; if(!VP) return [];
-  const out = [];
-  if(_candVerifReglages().locaux) (DB.documents||[]).filter(d => d && !d._deleted && d.parentType === 'candidat' && String(d.parentId) === String(c.id) && d.verif)
-    .forEach(d => {
-      const q = '\'' + _lyQ(d.id) + '\'';
-      ((_candVerifActuelle(d) || {}).constats || []).forEach(k => {
-        const p = Object.assign({}, k);
-        p.actionsHtml = (k.svair ? '<a class="btn bs bb" href="' + escHtml(VP.URL_SVAIR) + '" target="_blank" rel="noopener">' + _uiIcon('external', 14) + ' Vérifier sur impots.gouv</a>' : '')
-          + '<button class="btn bs bb" onclick="_candVerifDetail(' + q + ')">' + _uiIcon('eye', 14) + ' Voir le détail</button>';
-        out.push(p);
-      });
-    });
-  // Lot 3 : constats des règles de cohérence sur les bulletins lus par l'IA (valeurs proposées par l'IA, à vérifier).
-  if(_candVerifReglages().ia){
-    const ana = _candIaAnalyse(c);
-    ana.constats.forEach(k => {
-      const p = Object.assign({}, k);
-      const dp = k.pieceId ? (DB.documents||[]).find(x => x && x.id === k.pieceId) : null;
-      if(dp && dp.verifIa && dp.verifIa.le) p.date = 'lu le ' + fd(String(dp.verifIa.le).slice(0, 10));
-      if(dp) p.actionsHtml = '<button class="btn bs bb" onclick="_candVerifDetail(\'' + _lyQ(dp.id) + '\')">' + _uiIcon('eye', 14) + ' Voir le détail</button>';
-      out.push(p);
-    });
-  }
-  return out;
+// Ligne de tête des pièces : un compte de PIÈCES (jamais un avis sur la personne). `docs` = pièces affichées avec un état.
+function _candVerifResumeHtml(c, docs){
+  const VP = window.VerifPieces; if(!VP || !VP.resumePieces || !c) return '';
+  const r = VP.resumePieces((docs || []).map(_candVerifEtat).filter(Boolean));
+  const dossier = _candVerifReglages().ia ? _candIaAnalyse(c).constats.filter(k => !k.pieceId) : [];
+  if(!r.texte && !dossier.length) return '';
+  return '<div class="cand-vrf-resume"><span class="k">Pièces :</span>' + (r.texte ? '<span>' + escHtml(r.texte) + '</span>' : '')
+    + (dossier.length ? '<button type="button" class="cand-vbdg averif" onclick="_candVerifDossierDetail(\'' + _lyQ(c.id) + '\')">' + _uiIcon('warn', 14) + '<span>Bulletins : à vérifier</span></button>' : '')
+    + '</div>';
 }
 function _candVerifCopier(txt){
   try{ navigator.clipboard.writeText(String(txt)).then(() => showToast('Copié', 'ok', 1500), () => showToast('Copie impossible : sélectionner le texte à la main.', 'warn')); }
   catch(e){ showToast('Copie impossible : sélectionner le texte à la main.', 'warn'); }
 }
-// Couche « Détail » d'une vérification (page plein écran sur téléphone, M-16).
+// Détail d'une pièce, au clic sur sa pastille (page plein écran sur téléphone, M-16) : l'état, quelques lignes courtes
+// (fait / écart / non contrôlé), les références pour impots.gouv d'un avis, les valeurs lues corrigeables le cas échéant.
+function _candVerifLignesHtml(lignes){
+  const ico = { ok: 'check', ecart: 'warn', non: 'minus' };
+  return '<ul class="vp-lignes">' + (lignes || []).map(l => '<li class="' + escHtml(l.type) + (l.vert ? ' vert' : '') + '">' + _uiIcon(ico[l.type] || 'minus', 15) + '<span>' + escHtml(l.texte) + '</span></li>').join('') + '</ul>';
+}
 function _candVerifDetail(docId){
-  const VP = window.VerifPieces; if(!VP) return;
+  const VP = window.VerifPieces; if(!VP || !VP.etatPiece) return;
   const d = (DB.documents||[]).find(x => x && !x._deleted && String(x.id) === String(docId) && x.parentType === 'candidat'); if(!d) return;
-  const det = VP.detail(d, _candVerifActuelle(d));
+  const e = _candVerifEtat(d) || VP.etatPiece({ doc: d, verif: null });
   const q = '\'' + _lyQ(d.id) + '\'';
-  const e = _candVerifEtat(d);
-  let h = '<div class="vp-piece">' + _uiIcon('doc', 16) + '<div><div class="nm">' + escHtml(det.piece) + '</div>'
-    + '<div class="mu sm">' + (d.verif ? 'Vérifiée sur l\'appareil le ' + escHtml(det.le) : 'Pas encore vérifiée') + '</div></div></div>';
-  h += '<div class="cand-vrf solo' + (e.positif ? ' ok' : '') + '">' + _uiIcon(_candVrfIco(e.icone), 15)
-    + '<div class="bx">' + (e.libelle ? '<b class="st">' + escHtml(e.libelle) + '</b> — ' : '') + escHtml(e.phrase) + '</div></div>';
-  const dd = det.deuxDDoc;
-  if(dd){
-    if(dd.lignes.length){
-      h += '<div class="vp-tbl-wrap"><table class="vp-tbl"><thead><tr><th>Donnée signée</th><th>Dans le code</th><th>Comparaison</th></tr></thead><tbody>'
-        + dd.lignes.map(l => '<tr><td>' + escHtml(l.libelle) + '</td><td class="v">' + escHtml(l.valeur) + '</td><td>' + escHtml(l.comparaison || '—') + '</td></tr>').join('')
-        + '</tbody></table></div>';
-    }
-    if(dd.identite) h += '<div class="cand-keep">' + _uiIcon('person', 15) + '<span>' + escHtml(dd.identite) + '</span></div>';
-    h += '<div class="cand-legal">' + (dd.etat === 'valide'
-        ? 'Code 2D-Doc ' + escHtml(dd.type) + ' · autorité <b>' + escHtml(dd.ac) + '</b>, certificat <b>' + escHtml(dd.certificat) + '</b>' + (dd.validite ? ' (valide ' + escHtml(dd.validite) + ')' : '') + (dd.dateSignature ? ' · signé le ' + escHtml(dd.dateSignature) : '') + (dd.revocation ? ' · ' + escHtml(dd.revocation) : '') + ' · chaîne contrôlée jusqu\'à la liste de confiance de France Titres, sur l\'appareil.'
-        : escHtml(dd.motif))
-      + '<span class="s">' + escHtml(window.DeuxDDoc ? window.DeuxDDoc.SOURCE_2DDOC.libelle : '') + ', §5.1 (procédure de vérification).</span></div>';
-    if(dd.etat === 'valide') h += '<div class="cand-keep">' + _uiIcon('info', 15) + '<span>Une signature valide prouve que le document a été émis par son autorité et que les données du code n\'ont pas été modifiées depuis. Pour un avis d\'imposition, elle ne prouve pas qu\'il s\'agit du dernier avis émis : le service de vérification d\'impots.gouv le dit, avec les deux références ci-dessous.</span></div>';
-    if(dd.svair){
-      h += '<div class="vp-refs">'
-        + (dd.svair.numeroFiscal ? '<div class="r"><span class="k">Numéro fiscal</span><span class="v">' + escHtml(dd.svair.numeroFiscal) + '</span><button class="btn bs bb" onclick="_candVerifCopier(\'' + _lyQ(String(dd.svair.numeroFiscal)) + '\')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
-        + (dd.svair.referenceAvis ? '<div class="r"><span class="k">Référence de l\'avis</span><span class="v">' + escHtml(dd.svair.referenceAvis) + '</span><button class="btn bs bb" onclick="_candVerifCopier(\'' + _lyQ(String(dd.svair.referenceAvis)) + '\')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
-        + '</div>';
-    }
-  }
-  if(det.constats.length){
-    h += '<div class="ct">Points à vérifier</div><div class="cand-pv">' + det.constats.map(p =>
-      '<div class="cand-pvi"><div class="tt">' + _uiIcon(p.icone === 'minus' ? 'minus' : p.icone === 'clock' ? 'clock' : 'doc', 15) + '<span>' + escHtml(p.titre) + '</span></div>'
-      + (p.detail ? '<div class="dd">' + escHtml(p.detail) + '</div>' : '')
-      + '<div class="src">Source : ' + (p.url && /^https:\/\//.test(String(p.url)) ? '<a href="' + escHtml(p.url) + '" target="_blank" rel="noopener">' + escHtml(p.source) + '</a>' : escHtml(p.source)) + (p.date ? ' · ' + escHtml(p.date) : '') + '</div></div>').join('') + '</div>';
-  }
-  if(det.indices){
-    const m = det.indices.metadonnees || {};
-    h += '<div class="ct">Informations internes du fichier (sans IA)</div><div class="kvg vp-kv">'
-      + '<div class="k">Logiciel de création</div><div class="v">' + escHtml(m.createur || '—') + '</div>'
-      + '<div class="k">Logiciel producteur</div><div class="v">' + escHtml(m.producteur || '—') + '</div>'
-      + '<div class="k">Créé le</div><div class="v">' + escHtml(_candVerifDatePdf(m.creeLe) || '—') + '</div>'
-      + '<div class="k">Modifié le</div><div class="v">' + escHtml(_candVerifDatePdf(m.modifieLe) || '—') + '</div>'
-      + '<div class="k">Enregistrements</div><div class="v">' + escHtml(String(det.indices.enregistrements || '—')) + '</div></div>'
-      + '<div class="mu sm">Ces informations sont déclarées par les logiciels qui ont produit le fichier. Elles ne permettent pas de conclure : un fichier ré-enregistré, compressé ou imprimé en PDF les modifie.</div>';
+  let h = '<div class="vp-tete">' + _uiIcon('doc', 16) + '<span class="nm">' + escHtml(d.originalName || d.name || 'pièce') + '</span>'
+    + '<span class="cand-vbdg ' + e.etat + (e.vert ? ' vert' : '') + '">' + _candVerifBadgeHtml(e) + '</span></div>'
+    + _candVerifLignesHtml(e.lignes);
+  if(e.note) h += '<div class="vp-note">' + _uiIcon('info', 14) + '<span>' + escHtml(e.note) + '</span></div>';
+  const ref = e.impots || {};
+  if(ref.numeroFiscal || ref.referenceAvis){
+    h += '<div class="vp-refs">'
+      + (ref.numeroFiscal ? '<div class="r"><span class="k">Numéro fiscal</span><span class="v">' + escHtml(ref.numeroFiscal) + '</span><button class="btn bs bb" onclick="_candVerifCopier(\'' + _lyQ(String(ref.numeroFiscal)) + '\')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
+      + (ref.referenceAvis ? '<div class="r"><span class="k">Référence de l\'avis</span><span class="v">' + escHtml(ref.referenceAvis) + '</span><button class="btn bs bb" onclick="_candVerifCopier(\'' + _lyQ(String(ref.referenceAvis)) + '\')">' + _uiIcon('copy', 14) + ' Copier</button></div>' : '')
+      + '</div>';
   }
   if(typeof _candIaDetailHtml === 'function') h += _candIaDetailHtml(d);
+  const v = _candVerifReglages().locaux ? d.verif : null;
+  if(v && v.le) h += '<div class="vp-src">Contrôlé sur l\'appareil le ' + escHtml(VP.detail(d, v).le) + (e.vert ? ' · liste de confiance de l\'État (France Titres)' : '') + '</div>';
   el('vp-title').textContent = 'Vérification de la pièce';
   el('vp-body').innerHTML = h;
-  el('vp-foot').innerHTML = ((dd && dd.svair) || det.constats.some(k => k.svair) ? '<a class="btn bs" href="' + escHtml(VP.URL_SVAIR) + '" target="_blank" rel="noopener">' + _uiIcon('external', 14) + ' Service de vérification d\'impots.gouv</a>' : '')
-    + '<button class="btn bs" onclick="_candVerifierPieces(\'' + _lyQ(d.parentId) + '\',{force:true,docId:' + q + ',toast:true})">' + _uiIcon('refresh', 14) + ' Vérifier à nouveau</button>'
+  el('vp-foot').innerHTML = (e.impots ? '<a class="btn bs" href="' + escHtml(VP.URL_SVAIR) + '" target="_blank" rel="noopener">' + _uiIcon('external', 14) + ' Vérifier sur impots.gouv</a>' : '')
+    + (VP.pieceConcernee(d) && _candVerifReglages().locaux ? '<button class="btn bs" onclick="_candVerifierPieces(\'' + _lyQ(d.parentId) + '\',{force:true,docId:' + q + ',toast:true})">' + _uiIcon('refresh', 14) + ' Vérifier à nouveau</button>' : '')
     + '<button class="btn bp" onclick="closeM(\'ov-verif-piece\')">Fermer</button>';
+  openM('ov-verif-piece');
+}
+// Points de lecture qui portent sur l'ensemble des bulletins (ex. période absente) : même couche, mêmes lignes courtes.
+function _candVerifDossierDetail(candId){
+  const c = (DB.candidats||[]).find(x => x && !x._deleted && String(x.id) === String(candId)); if(!c) return;
+  const pts = _candIaAnalyse(c).constats.filter(k => !k.pieceId);
+  const T = window.IaTransparence;
+  el('vp-title').textContent = 'Bulletins de salaire';
+  el('vp-body').innerHTML = _candVerifLignesHtml(pts.map(k => ({ type: 'ecart', texte: String(k.titre || '').replace(/^[^:]*\s:\s/, '').replace(/\.$/, '').replace(/^./, x => x.toUpperCase()) })))
+    + '<div class="vp-note">' + _uiIcon('info', 14) + '<span>' + escHtml((T ? T.MENTION_PROPOSITION : 'Proposé par l\'IA, à vérifier') + '.') + '</span></div>';
+  el('vp-foot').innerHTML = '<button class="btn bp" onclick="closeM(\'ov-verif-piece\')">Fermer</button>';
   openM('ov-verif-piece');
 }
 // ── VERIF-DOCUMENTS lot 3 : lecture des bulletins de salaire (et page 1 du contrat) par l'IA, à la demande ────────────
@@ -14032,6 +14008,11 @@ function _candIaClient(){
 }
 async function _candIaDispo(force){
   if(!_candVerifReglages().ia) return false;
+  return _candIaServiceOuvert(force);
+}
+// État du service de lecture annoncé par le relais (/ai/status), indépendant du réglage du bailleur : les Paramètres
+// disent « Bientôt disponible » tant qu'il est fermé (VERIF-LISIBLE). Mis en cache 10 minutes.
+async function _candIaServiceOuvert(force){
   if(!force && _candIaOcr.actif !== null && Date.now() - _candIaOcr.le < 600000) return _candIaOcr.actif;
   const cl = _candIaClient(); if(!cl) return false;
   let s = null; try{ s = await cl.statut(); }catch(e){ s = null; }
@@ -14137,7 +14118,7 @@ async function _candIaLancer(candId, opts){
   if(!opts.auto){
     const M = { disabled: 'Lecture par l\'IA pas encore ouverte sur ce compte.', quota: 'Limite de lectures du jour atteinte : reprise possible demain.', offline: 'Pas de réseau : lecture reportée.', auth: 'Session à renouveler : lecture reportée.', unavailable: 'Service de lecture indisponible : réessayer plus tard.' };
     M.arret = 'Lecture interrompue.';
-    showToast(arret ? (M[arret] || M.unavailable) : (lues ? 'Lecture terminée : constats dans « Points à vérifier »' : 'Aucune pièce lue'), arret ? 'warn' : 'ok', 4000);
+    showToast(arret ? (M[arret] || M.unavailable) : (lues ? 'Lecture terminée : état des pièces mis à jour' : 'Aucune pièce lue'), arret ? 'warn' : 'ok', 4000);
   }
   try{ if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden') && _ficheCandidatOuverte === candId) openFicheCandidat(candId); }catch(e){}
 }
@@ -14145,28 +14126,21 @@ async function _candIaLancer(candId, opts){
 function _candIaDetailHtml(d){
   const VP = window.VerifPieces, RB = window.ReglesBulletin;
   if(!VP || !RB || !VP.typeLectureIa(d) || !_candVerifReglages().ia) return '';
+  // VERIF-LISIBLE : rien tant qu'aucune lecture n'a eu lieu (plus de renvoi vers un bouton absent) ; les règles et
+  // leurs résultats sont dans les lignes du détail (etatPiece) ; ici seulement les valeurs lues, corrigeables.
   const ia = d.verifIa;
-  if(!ia) return '<div class="ct">Lecture par l\'IA</div><div class="mu sm">Pas encore lue : bouton « Lire avec l\'IA » dans la carte des pièces.</div>';
-  if(ia.erreur) return '<div class="ct">Lecture par l\'IA</div><div class="mu sm">Le service de lecture n\'a pas répondu le ' + escHtml(fd(String(ia.le).slice(0, 10))) + ' : relancer depuis la carte des pièces.</div>';
-  const c = (DB.candidats||[]).find(x => x && x.id === d.parentId);
-  const ana = c ? _candIaAnalyse(c) : { parPiece: {}, constats: [] };
-  const e = ana.parPiece[d.id] || { regles: [], constats: [] };
+  if(!ia || ia.erreur || !ia.lu) return '';
   const v = RB.valeursRetenues(ia) || {};
+  if(v.lisible === false) return '';
   const champs = ia.type === 'contrat' ? RB.CHAMPS_CONTRAT : RB.CHAMPS_BULLETIN;
   const q = '\'' + _lyQ(d.id) + '\'';
   const aff = (k) => { const x = v[k]; if(x == null) return ''; return RB.NUMERIQUES.includes(k) ? String(x).replace('.', ',') : String(x); };
-  let h = '<div class="ct">Lecture par l\'IA</div>'
-    + '<div class="cand-ia-bandeau">' + _uiIcon('sparkle', 15) + '<span><b>' + escHtml(window.IaTransparence ? window.IaTransparence.MENTION_PROPOSITION : 'Proposé par l\'IA, à vérifier') + '.</b> Valeurs lues le ' + escHtml(fd(String(ia.le).slice(0, 10))) + ' sur la première page ; les règles, elles, sont écrites. Corriger une valeur relance les règles.</span></div>';
-  if(v.lisible === false) return h + '<div class="mu sm">La page n\'a pas pu être lue : aucune règle appliquée.</div>';
+  let h = '<div class="ct">Valeurs lues le ' + escHtml(fd(String(ia.le).slice(0, 10))) + ' (corrigeables)</div>';
   h += '<div class="cand-ia-champs">' + champs.map(([k, lib]) => {
     const corr = ia.corrections && Object.prototype.hasOwnProperty.call(ia.corrections, k);
     return '<label class="f"><span class="k">' + escHtml(lib) + (corr ? ' <em class="mu">(corrigé)</em>' : '') + '</span><input class="inp" data-champ="' + escHtml(k) + '" value="' + escHtml(aff(k)) + '" inputmode="' + (RB.NUMERIQUES.includes(k) ? 'decimal' : 'text') + '"></label>';
   }).join('') + '</div>'
     + '<div><button class="btn bs" onclick="_candIaCorriger(' + q + ')">' + _uiIcon('save', 14) + ' Enregistrer les corrections</button></div>';
-  if(e.regles.length) h += '<div class="ct">Règles appliquées</div><div class="cand-ia-regles">' + e.regles.map(r => '<div class="r' + (r.ok ? ' ok' : '') + '">' + _uiIcon(r.ok ? 'check' : 'calc', 15)
-    + '<span><b>' + escHtml(r.titre) + '</b> ' + escHtml(r.detail || '') + '<span class="s">' + (r.source && r.source.url ? '<a href="' + escHtml(r.source.url) + '" target="_blank" rel="noopener">' + escHtml(r.source.libelle) + '</a>' : escHtml((r.source && r.source.libelle) || '')) + '</span></span></div>').join('') + '</div>';
-  const autres = ana.constats.filter(k => k.pieceId === d.id && !e.constats.includes(k));
-  if(autres.length) h += autres.map(k => '<div class="cand-pvi"><div class="tt">' + _uiIcon('doc', 15) + '<span>' + escHtml(k.titre) + '</span></div><div class="dd">' + escHtml(k.detail || '') + '</div></div>').join('');
   return h;
 }
 function _candIaCorriger(docId){
@@ -14203,14 +14177,22 @@ function rParamsCandidatures(){
   const host = el('params-candidatures'); if(!host) return;
   const R = _candVerifReglages();
   const coche = (b) => b ? ' checked' : '';
+  // VERIF-LISIBLE : tant que le relais n'annonce pas la lecture ouverte, aucune mention d'IA et case désactivée
+  // (« Bientôt disponible ») ; le réglage enregistré n'est pas modifié. État inconnu : interrogé, puis nouveau rendu.
+  const ouverte = _candIaOcr.actif === true;
+  if(_candIaOcr.actif === null) _candIaServiceOuvert().then(ok => { if(ok) rParamsCandidatures(); }).catch(() => {});
+  const ligneIa = ouverte
+    ? '<div class="vp-reglage"><div class="tx"><b>Lecture des bulletins de salaire par l\'IA</b>Mistral AI, lecture effectuée dans l\'Union européenne. Contrôle des calculs, des cumuls, des périodes, du nom et de l\'employeur ; chaque valeur lue se corrige. Seule la première page des bulletins et du contrat de travail est envoyée.'
+      + (R.ia ? '<div class="vp-modes"><label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'demande') + ' onchange="_candVerifReglerModeIa(\'demande\')"><span><b>À la demande</b> — un bouton dans chaque fiche ; seuls les dossiers étudiés sont lus.</span></label>'
+        + '<label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'reception') + ' onchange="_candVerifReglerModeIa(\'reception\')"><span><b>À la réception du dossier</b> — chaque dossier reçu est lu automatiquement.</span></label></div>' : '')
+      + '<div style="margin-top:8px"><button class="btn bs bb" onclick="_candVerifNoticeIa(false)">' + _uiIcon('info', 14) + ' Lire la notice</button></div></div>'
+      + '<label class="sw-l"><input type="checkbox"' + coche(R.ia) + ' onchange="_candVerifReglerIa(this.checked)"> Activé</label></div>'
+    : '<div class="vp-reglage"><div class="tx"><b>Lecture des pièces</b>Contrôle des montants des pièces.<span class="vp-etat">Bientôt disponible</span></div>'
+      + '<label class="sw-l dis"><input type="checkbox" disabled> Indisponible</label></div>';
   host.innerHTML = '<div class="card"><div class="ct" style="margin-top:0">Vérification des pièces des candidats</div>'
-    + '<div class="vp-reglage"><div class="tx"><b>Contrôles sur l\'appareil</b>Signature 2D-Doc des avis d\'imposition et des pièces qui en portent un (contre la liste de confiance publiée par France Titres) ; informations internes des fichiers PDF (logiciels, dates, textes superposés). Rien ne quitte l\'appareil.</div>'
+    + '<div class="vp-reglage"><div class="tx"><b>Contrôles sur l\'appareil</b>Signature officielle des avis d\'imposition, comparaison avec le candidat, dates du fichier. Rien ne quitte l\'appareil.</div>'
     + '<label class="sw-l"><input type="checkbox"' + coche(R.locaux) + ' onchange="_candVerifReglerLocaux(this.checked)"> Activé</label></div>'
-    + '<div class="vp-reglage"><div class="tx"><b>Lecture des bulletins de salaire par l\'IA</b>Mistral AI, lecture effectuée dans l\'Union européenne. Contrôle des calculs, des cumuls, des périodes, du nom et de l\'employeur ; chaque valeur lue se corrige. Seule la première page des bulletins et du contrat de travail est envoyée.'
-    + (R.ia ? '<div class="vp-modes"><label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'demande') + ' onchange="_candVerifReglerModeIa(\'demande\')"><span><b>À la demande</b> — un bouton dans chaque fiche ; seuls les dossiers étudiés sont lus.</span></label>'
-      + '<label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'reception') + ' onchange="_candVerifReglerModeIa(\'reception\')"><span><b>À la réception du dossier</b> — chaque dossier reçu est lu automatiquement.</span></label></div>' : '')
-    + '<div style="margin-top:8px"><button class="btn bs bb" onclick="_candVerifNoticeIa(false)">' + _uiIcon('info', 14) + ' Lire la notice</button></div></div>'
-    + '<label class="sw-l"><input type="checkbox"' + coche(R.ia) + ' onchange="_candVerifReglerIa(this.checked)"> Activé</label></div></div>'
+    + ligneIa + '</div>'
     + '<div class="card"><div class="ct" style="margin-top:0">Ce qui n\'est jamais fait</div><div class="cand-keep">' + _uiIcon('shield', 15) + '<span>Aucun score, aucun classement, aucun refus automatique. Aucune pièce supplémentaire demandée au candidat pour vérifier. Aucune vérification automatisée sur impots.gouv : le service de vérification des avis reste manuel.</span></div></div>';
 }
 function _candVerifReglerLocaux(on){
@@ -14270,7 +14252,7 @@ function _candPieceHorsListeConserver(docId){
 function _candPointsAVerifierHtml(c){
   const pts = _candPointsAVerifier(c);
   const regle = '<div class="cand-pv-regle">Ces points sont des constats, pas un avis sur le candidat. Ils se vérifient auprès de lui ; la décision appartient au bailleur. Propryo ne calcule aucun score et ne classe pas les dossiers.</div>';
-  if(!pts.length) return '<div class="cand-pv-vide">' + _uiIcon('check',15) + '<span>Aucun point relevé par les contrôles automatiques.</span></div>' + regle;
+  if(!pts.length) return '';   // VERIF-LISIBLE : rien à signaler → pas de carte (l'état des pièces est sur chaque pièce)
   return '<div class="cand-pv">' + pts.map(p =>
     '<div class="cand-pvi"><div class="tt">' + _uiIcon(p.icone || 'doc', 15) + '<span>' + escHtml(p.titre) + '</span></div>'
     + (p.detail ? '<div class="dd">' + escHtml(p.detail) + '</div>' : '')
@@ -14562,7 +14544,8 @@ function _complementLocal(c, id, note){
   if(el('ov-fiche-candidat') && !el('ov-fiche-candidat').classList.contains('hidden')) openFicheCandidat(id);
   showToast('Statut « En cours ». Aucune relance en ligne (candidat hors canal).','info',6000);
 }
-// Bascule "Pièces vérifiées" : tant que false, les données restent "déclaratives".
+// Bascule « Pièces examinées par le bailleur » (donnée piecesVerifiees, nom conservé) : tant que false, les données
+// restent « déclaratives ». Décision manuelle, sans lien avec les contrôles automatiques (VERIF-LISIBLE : libellé renommé).
 function toggleCandidatPiecesVerifiees(id){
   const c = (DB.candidats||[]).find(x=>x && x.id===id); if(!c) return;
   c.piecesVerifiees = !c.piecesVerifiees; _stamp(c);
@@ -14857,8 +14840,8 @@ function openFicheCandidat(id){
       <div class="card">
         <div class="flex-b" style="margin-bottom:12px">
           <div class="ct" style="margin:0">Pièces du dossier</div>
-          <label class="toggle ${verifie?'on':''}" onclick="toggleCandidatPiecesVerifiees('${c.id}')" title="Tant que ce n'est pas activé, les données restent déclaratives">
-            <span class="track"></span><span class="sm" style="font-weight:600">Pièces vérifiées</span>
+          <label class="toggle ${verifie?'on':''}" onclick="toggleCandidatPiecesVerifiees('${_lyQ(c.id)}')" title="Case du bailleur, sans lien avec les contrôles automatiques : tant qu'elle n'est pas cochée, les données restent déclaratives">
+            <span class="track"></span><span class="sm" style="font-weight:600">Pièces examinées par le bailleur</span>
           </label>
         </div>
         <div style="margin-top:12px">${piecesGroupedHtml}</div>
@@ -14866,10 +14849,10 @@ function openFicheCandidat(id){
       </div>
       </div>
       <div class="fc-side">
-    <div class="card">
+    ${pointsHtml ? `<div class="card">
       <div class="ct" style="margin-top:0">Points à vérifier</div>
       ${pointsHtml}
-    </div>
+    </div>` : ''}
     <div class="card">
       <div class="ct" style="margin-top:0">Conservation des données</div>
       <div class="cand-keep">${_uiIcon('lock',15)}<span>${conservationHtml}</span></div>

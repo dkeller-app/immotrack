@@ -17299,7 +17299,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.748 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.750 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17749,7 +17749,9 @@ function _renderCandidatPiecesGrouped(cand){
       <div style="padding:2px 12px 12px">${autres.map(_attachmentRowHtml).join('')}</div>
     </details>` : '';
   const flag = `<div class="flex-b" style="align-items:center;padding:8px 2px 0;border-top:1px dashed var(--bor);margin-top:4px;font-size:12.5px;color:var(--t2)"><span>Dossier déclaré complet par le candidat</span><span style="font-weight:700;color:${cand.piecesCompletes?'var(--grn,#16a34a)':'var(--ora,#e0771c)'}">${cand.piecesCompletes?'✓ Oui':'⏳ Non'}</span></div>`;
-  return `<div id="cand-pieces-grouped-${candId}">${catHtml}${autresHtml}${flag}</div>`;
+  // VERIF-LISIBLE : une ligne de tête qui compte les pièces affichées avec un état (OK / à vérifier / non vérifiable).
+  const resume = (typeof _candVerifResumeHtml === 'function') ? _candVerifResumeHtml(cand, CATS.flatMap(cat => byCat[cat.key] || [])) : '';
+  return `<div id="cand-pieces-grouped-${candId}">${resume}${catHtml}${autresHtml}${flag}</div>`;
 }
 
 // CANDIDATURES-CONFORMITE lot 2 — type d'une pièce de candidat (liste fermée du décret, contrôlée).
