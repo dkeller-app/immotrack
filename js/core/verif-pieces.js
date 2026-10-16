@@ -231,8 +231,8 @@ export function detail(doc, verif) {
 // sans liste de codes en dur : ok true = respectée, ok false = écart, autre = non lue (abstention, jamais un écart).
 export const ETATS_PIECE = Object.freeze({ ok: 'OK', averif: 'À vérifier', nonverif: 'Non vérifiable', nonlue: 'Non lue', attente: 'En attente' });
 const RAISON_NON_VERIFIABLE = {
-  ac_inconnue: 'émetteur absent de la liste de l\'État', certificat_introuvable: 'certificat introuvable', hors_validite: 'certificat hors de sa validité',
-  chaine: 'certificat non reconnu', revocation_inconnue: 'vérification reportée', version: 'format du code non pris en charge', caracteres: 'format du code non pris en charge'
+  ac_inconnue: 'émetteur absent de la liste de l\'État', certificat_introuvable: 'certificat introuvable', hors_validite: 'date de signature non valable',
+  chaine: 'certificat non reconnu', revocation_inconnue: 'vérification reportée', version: 'format du code non pris en charge', caracteres: 'format du code non pris en charge', signature_absente: 'code sans signature'
 };
 const phraseCourte = (t) => { const s = String(t || '').trim().replace(/\.$/, ''); return s.charAt(0).toUpperCase() + s.slice(1); };
 const sansPrefixe = (t) => phraseCourte(String(t || '').replace(/^[^:]*\s:\s/, ''));
@@ -246,7 +246,10 @@ function lignesIndices(verif) {
     } else if (t.code === 'T2') out.push({ type: 'ecart', texte: `Fichier enregistré ${ind.enregistrements} fois` });
     else if (t.code === 'T3') out.push({ type: 'ecart', texte: phraseCourte(t.titre) });
   }
-  if (!out.length) out.push({ type: 'ok', texte: 'Rien relevé dans le fichier' });
+  if (!out.length) {
+    const m = ind.metadonnees || {};
+    out.push(lireDatePdf(m.creeLe) && lireDatePdf(m.modifieLe) ? { type: 'ok', texte: 'Rien relevé dans le fichier' } : { type: 'non', texte: 'Dates du fichier absentes : modifications non contrôlées' });
+  }
   return out;
 }
 /**
@@ -256,15 +259,16 @@ function lignesIndices(verif) {
  * @param {object} p.verif   vérification à jour (actualiser) ou null
  * @param {object} [p.ia]    résultat de lecture de la pièce ({etat, regles:[{code, ok, titre}], constats:[{code, titre}]})
  * @param {boolean} [p.iaLue] une lecture a eu lieu (sinon aucune ligne de lecture, aucun mot « IA »)
+ * @param {boolean} [p.refuse] dossier non retenu : les pièces ne sont plus relues
  * @returns {{etat, mot, vert:boolean, lignes:Array<{type:'ok'|'ecart'|'non', texte, vert?, lu?}>, impots:object|null, note:string}}
  */
-export function etatPiece({ doc, verif, ia, iaLue }) {
+export function etatPiece({ doc, verif, ia, iaLue, refuse }) {
   const fin = (etat, lignes, extra) => Object.assign({ etat, mot: ETATS_PIECE[etat], vert: false, lignes, impots: null, note: '' }, extra || {});
   if (!pieceConcernee(doc) && !iaLue) {
     const ident = doc && (doc.category === 'identite' || /^I(I)?\.A\./.test(String(doc.pieceType || '')));
     return fin('nonlue', [{ type: 'non', texte: ident ? 'Pièce d\'identité : jamais lue, à comparer à l\'œil' : 'Pas de contrôle automatique pour ce type de pièce' }]);
   }
-  if (!verif && !iaLue) return fin('attente', [{ type: 'non', texte: 'Contrôle fait à l\'ouverture de la fiche, sur l\'appareil' }]);
+  if (!verif && !iaLue) return refuse ? fin('nonlue', [{ type: 'non', texte: 'Non contrôlée : dossier non retenu' }]) : fin('attente', [{ type: 'non', texte: 'Contrôle fait à l\'ouverture de la fiche, sur l\'appareil' }]);
   const lignes = []; const v = verif || {};
   const estAvis = TYPES_AVIS.includes(String(doc.pieceType || ''));
   const estImage = /^image\//i.test(String(doc.mime || ''));
@@ -281,12 +285,15 @@ export function etatPiece({ doc, verif, ia, iaLue }) {
         const abs = cmp.filter((c) => c.statut === 'absent');
         if (abs.length) abs.forEach((c) => lignes.push({ type: 'ecart', texte: `${c.libelle} signé absent du fichier` }));
         else lignes.push({ type: 'ok', texte: 'Données signées retrouvées dans le fichier' });
-      } else if (TYPES_AVIS_IMPOT.includes(dd.type)) lignes.push({ type: 'non', texte: 'Montants imprimés non comparés (image)' });
+      } else if (TYPES_AVIS_IMPOT.includes(dd.type)) {
+        const rfr = (dd.champs || []).find((c) => c.id === '41');
+        lignes.push({ type: 'non', texte: 'Montants imprimés non comparés (image)' + (rfr && rfr.valeur ? ` : revenu fiscal de référence signé ${nombre(rfr.valeur)} €, à comparer avec la pièce` : '') });
+      }
       const qui = dd.qui === 'garant' ? 'du garant' : 'du candidat';
       if (dd.identite === 'concorde') lignes.push({ type: 'ok', texte: `Nom identique au ${dd.qui === 'garant' ? 'garant' : 'candidat'}` });
-      else if (dd.identite === 'differe') lignes.push({ type: 'ecart', texte: `Nom différent de celui ${qui}` });
+      else if (dd.identite === 'differe') lignes.push({ type: 'ecart', texte: `Nom différent de celui ${qui} : ${(dd.nomsSignes || []).join(' · ')} (déclaré : ${dd.identiteAttendue || '—'})` });
       if (codes.has('V7')) lignes.push({ type: 'ecart', texte: `Revenus ${dd.annee} : ni le dernier ni l'avant-dernier avis` });
-      else if (TYPES_AVIS_IMPOT.includes(dd.type) && dd.annee) lignes.push({ type: 'ok', texte: 'Avis de l\'année attendue' });
+      else if (TYPES_AVIS_IMPOT.includes(dd.type) && dd.annee) lignes.push(doc.uploadedAt ? { type: 'ok', texte: 'Avis de l\'année attendue' } : { type: 'non', texte: `Revenus ${dd.annee} : année non comparée` });
       if (dd.svair) impots = Object.assign({}, dd.svair);
     } else if (dd && dd.etat === ETAT.INVALIDE) {
       lignes.push({ type: 'ecart', texte: dd.code === 'revoque' ? 'Signature révoquée par son émetteur' : 'Signature non conforme au code officiel' });
@@ -294,13 +301,13 @@ export function etatPiece({ doc, verif, ia, iaLue }) {
       lignes.push({ type: 'non', texte: 'Signature non vérifiable : ' + (RAISON_NON_VERIFIABLE[dd.code] || 'code non reconnu') });
     } else if (estAvis) {
       lignes.push({ type: 'non', texte: estImage ? 'Code officiel illisible sur la photo' : 'Code officiel absent ou illisible' });
-    } else lignes.push({ type: 'non', texte: 'Pas de signature officielle sur la pièce' });
+    } else lignes.push({ type: 'non', texte: 'Aucun code officiel lu' });
     lignes.push(...lignesIndices(v));
   }
   // Lecture des montants (règles quelconques) : seulement si une lecture a eu lieu.
   let note = '';
   if (iaLue && ia) {
-    if (ia.etat === 'illisible') lignes.push({ type: 'non', texte: 'Non lu : page illisible', lu: true });
+    if (ia.etat === 'illisible') { lignes.push({ type: 'non', texte: 'Non lu : page illisible', lu: true }); note = MENTION_PROPOSITION + '.'; }
     else if (ia.etat === 'ia_erreur') lignes.push({ type: 'non', texte: 'Lecture reportée', lu: true });
     else {
       const regles = ia.regles || [];
@@ -309,8 +316,9 @@ export function etatPiece({ doc, verif, ia, iaLue }) {
         else if (r.ok === false) lignes.push({ type: 'ecart', texte: phraseCourte(r.titre), lu: true });
         else { const t = phraseCourte(r.titre); lignes.push({ type: 'non', texte: 'Non lu : ' + t.charAt(0).toLowerCase() + t.slice(1), lu: true }); }
       }
-      const enEcart = new Set(regles.filter((r) => r.ok === false).map((r) => r.code));
-      for (const c of ia.constats || []) if (!enEcart.has(c.code)) lignes.push({ type: 'ecart', texte: sansPrefixe(c.titre), lu: true });
+      const dejaVues = new Set(regles.map((r) => r.code));   // une règle abstenue (ok null) ne devient jamais un écart par son constat
+      for (const c of ia.constats || []) if (!dejaVues.has(c.code)) lignes.push({ type: 'ecart', texte: sansPrefixe(c.titre), lu: true });
+      if (!regles.some((r) => r.ok === true || r.ok === false) && !(ia.constats || []).some((c) => !dejaVues.has(c.code))) lignes.push({ type: 'non', texte: 'Montants non contrôlés', lu: true });
       note = MENTION_PROPOSITION + '.';
     }
   } else if (typeLectureIa(doc)) lignes.push({ type: 'non', texte: 'Montants non contrôlés' });

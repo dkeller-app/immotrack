@@ -13928,7 +13928,8 @@ function _candVerifEtat(d){
     }
   }
   if(!R.locaux && !iaLue) return null;
-  return VP.etatPiece({ doc: d, verif: R.locaux ? _candVerifActuelle(d) : null, ia, iaLue });
+  const cand = (DB.candidats||[]).find(x => x && !x._deleted && String(x.id) === String(d.parentId));
+  return VP.etatPiece({ doc: d, verif: R.locaux ? _candVerifActuelle(d) : null, ia, iaLue, refuse: !!(cand && cand.statut === 'refuse') });
 }
 // Pastille : une icône + un mot (jamais l'icône seule).
 function _candVerifBadgeHtml(e){
@@ -13992,7 +13993,7 @@ function _candVerifDossierDetail(candId){
   const pts = _candIaAnalyse(c).constats.filter(k => !k.pieceId);
   const T = window.IaTransparence;
   el('vp-title').textContent = 'Bulletins de salaire';
-  el('vp-body').innerHTML = _candVerifLignesHtml(pts.map(k => ({ type: 'ecart', texte: String(k.titre || '').replace(/^[^:]*\s:\s/, '').replace(/\.$/, '').replace(/^./, x => x.toUpperCase()) })))
+  el('vp-body').innerHTML = _candVerifLignesHtml(pts.map(k => ({ type: 'ecart', texte: String(k.titre || '').replace(/^Bulletins\s:\s/, '').replace(/\.$/, '').replace(/^./, x => x.toUpperCase()) })))
     + '<div class="vp-note">' + _uiIcon('info', 14) + '<span>' + escHtml((T ? T.MENTION_PROPOSITION : 'Proposé par l\'IA, à vérifier') + '.') + '</span></div>';
   el('vp-foot').innerHTML = '<button class="btn bp" onclick="closeM(\'ov-verif-piece\')">Fermer</button>';
   openM('ov-verif-piece');
@@ -14180,7 +14181,10 @@ function rParamsCandidatures(){
   // VERIF-LISIBLE : tant que le relais n'annonce pas la lecture ouverte, aucune mention d'IA et case désactivée
   // (« Bientôt disponible ») ; le réglage enregistré n'est pas modifié. État inconnu : interrogé, puis nouveau rendu.
   const ouverte = _candIaOcr.actif === true;
-  if(_candIaOcr.actif === null) _candIaServiceOuvert().then(ok => { if(ok) rParamsCandidatures(); }).catch(() => {});
+  if(_candIaOcr.actif === null || Date.now() - _candIaOcr.le > 600000){
+    const avant = _candIaOcr.actif;
+    _candIaServiceOuvert(true).then(() => { if(_candIaOcr.actif !== null && _candIaOcr.actif !== avant) rParamsCandidatures(); }).catch(() => {});
+  }
   const ligneIa = ouverte
     ? '<div class="vp-reglage"><div class="tx"><b>Lecture des bulletins de salaire par l\'IA</b>Mistral AI, lecture effectuée dans l\'Union européenne. Contrôle des calculs, des cumuls, des périodes, du nom et de l\'employeur ; chaque valeur lue se corrige. Seule la première page des bulletins et du contrat de travail est envoyée.'
       + (R.ia ? '<div class="vp-modes"><label><input type="radio" name="vp-mode"' + coche(R.iaMode === 'demande') + ' onchange="_candVerifReglerModeIa(\'demande\')"><span><b>À la demande</b> — un bouton dans chaque fiche ; seuls les dossiers étudiés sont lus.</span></label>'

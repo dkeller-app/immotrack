@@ -163,7 +163,7 @@ describe('relectures du 14/10 (Opus, Fable)', async () => {
   });
   it('photo d\'un avis signé : le détail dit que les montants imprimés n\'ont pas été comparés', () => {
     const ver = v({ estPdf: false, codes: ['x'], texte: '' }, [VALIDE], { ...AVIS, mime: 'image/jpeg' });
-    expect(ep({ ...AVIS, mime: 'image/jpeg' }, ver).lignes.map((l) => l.texte)).toContain('Montants imprimés non comparés (image)');
+    expect(ep({ ...AVIS, mime: 'image/jpeg' }, ver).lignes.map((l) => l.texte)).toContain('Montants imprimés non comparés (image) : revenu fiscal de référence signé 33 870 €, à comparer avec la pièce');
   });
   it('un code valide et un code non conforme sur la même pièce : le second n\'est pas tu', () => {
     const ver = v({ estPdf: true, codes: ['a', 'b'], texte: TEXTE }, [VALIDE, { etat: 'invalide', code: 'signature', motif: 'x', entete: ENT }]);

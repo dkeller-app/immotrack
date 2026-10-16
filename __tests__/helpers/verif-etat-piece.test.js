@@ -44,7 +44,7 @@ describe('avis d\'imposition', () => {
     const d = { ...AVIS, verif: ver(AVIS, { estPdf: false, codes: ['x'], texte: '' }, [autre]) };
     const e = etatPiece({ doc: d, verif: d.verif });
     expect(e.etat).toBe('averif');
-    expect(textes(e)).toContain('Nom différent de celui du candidat');
+    expect(textes(e)).toContain('Nom différent de celui du candidat : DUPONT CAMILLE (déclaré : Inès Marchal-Oberlin)');
   });
   it('photo sans code lisible → « Non vérifiable » + impots.gouv', () => {
     const photo = { ...AVIS, mime: 'image/jpeg', originalName: 'avis.jpg' };
@@ -78,7 +78,7 @@ describe('bulletin de salaire', () => {
     const d = pdf(META);
     const e = etatPiece({ doc: d, verif: d.verif });
     expect(e).toMatchObject({ etat: 'ok', mot: 'OK', vert: false });
-    expect(textes(e)).toEqual(['Pas de signature officielle sur la pièce', 'Rien relevé dans le fichier', 'Montants non contrôlés']);
+    expect(textes(e)).toEqual(['Aucun code officiel lu', 'Rien relevé dans le fichier', 'Montants non contrôlés']);
     sansMotIa(e);
   });
   it('fichier modifié après sa création → « À vérifier »', () => {
@@ -98,11 +98,31 @@ describe('bulletin de salaire', () => {
       { type: 'non', texte: 'Non lu : règle C', lu: true }, { type: 'ecart', texte: 'Autre point', lu: true }]);
     expect(e.note).toBe(MENTION_PROPOSITION + '.');
   });
-  it('lecture abstenue (page douteuse) → jamais « À vérifier » à cause d\'elle', () => {
+  it('lecture abstenue (page douteuse) → jamais « À vérifier » à cause d\'elle ; la mention de lecture reste', () => {
     const d = pdf(META);
     const e = etatPiece({ doc: d, verif: d.verif, ia: { etat: 'illisible', regles: [], constats: [] }, iaLue: true });
     expect(e.etat).toBe('ok');
     expect(textes(e)).toContain('Non lu : page illisible');
+    expect(e.note).toBe(MENTION_PROPOSITION + '.');
+  });
+  it('règle abstenue qui émet quand même un constat : pas d\'écart (contrat générique)', () => {
+    const d = pdf(META);
+    const e = etatPiece({ doc: d, verif: d.verif, ia: { etat: 'lu', regles: [{ code: 'N1', ok: null, titre: 'Règle N.' }], constats: [{ code: 'N1', titre: 'Bulletin : règle N.' }] }, iaLue: true });
+    expect(e.etat).toBe('ok');
+    expect(e.lignes.some((l) => l.type === 'ecart')).toBe(false);
+  });
+  it('lu mais aucune règle concluante → « Montants non contrôlés » ; seule, la pièce n\'est pas « OK »', () => {
+    const sansDates = { ...BUL, verif: ver(BUL, { estPdf: true, codes: [], texte: 'x', metadonnees: {}, enregistrements: 1, superpositions: [] }, []) };
+    const e = etatPiece({ doc: sansDates, verif: sansDates.verif, ia: { etat: 'lu', regles: [], constats: [] }, iaLue: true });
+    expect(textes(e)).toContain('Montants non contrôlés');
+    expect(e.etat).toBe('nonverif');
+  });
+  it('PDF sans dates internes : modifications non contrôlées, jamais « Rien relevé »', () => {
+    const q = { ...BUL, category: 'domicile', pieceType: 'I.B.1' };
+    const d = { ...q, verif: ver(q, { estPdf: true, codes: [], texte: 'x', metadonnees: {}, enregistrements: 1, superpositions: [] }, []) };
+    const e = etatPiece({ doc: d, verif: d.verif });
+    expect(textes(e)).toEqual(['Aucun code officiel lu', 'Dates du fichier absentes : modifications non contrôlées']);
+    expect(e.etat).toBe('nonverif');
   });
   it('image sans code ni lecture → « Non vérifiable » (rien n\'a pu être contrôlé)', () => {
     const img = { ...BUL, mime: 'image/png' };
@@ -117,8 +137,17 @@ describe('pièces hors contrôle, attente, résumé', () => {
     expect(e).toMatchObject({ etat: 'nonlue', mot: 'Non lue', vert: false });
     expect(textes(e)).toEqual(['Pièce d\'identité : jamais lue, à comparer à l\'œil']);
   });
-  it('pas encore vérifiée → « En attente », hors du résumé', () => {
+  it('pas encore vérifiée → « En attente », hors du résumé ; dossier non retenu → jamais relue, « Non lue »', () => {
     expect(etatPiece({ doc: AVIS, verif: null })).toMatchObject({ etat: 'attente', mot: 'En attente' });
+    expect(etatPiece({ doc: AVIS, verif: null, refuse: true })).toMatchObject({ etat: 'nonlue', lignes: [{ type: 'non', texte: 'Non contrôlée : dossier non retenu' }] });
+  });
+  it('avis signé sans date de réception : l\'année n\'est pas affirmée ; photo : revenu signé à comparer à l\'œil', () => {
+    const sansDate = { ...AVIS, uploadedAt: undefined, mime: 'image/jpeg' };
+    const d = { ...sansDate, verif: ver(sansDate, { estPdf: false, codes: ['x'], texte: '' }, [VALIDE]) };
+    const t = textes(etatPiece({ doc: d, verif: d.verif }));
+    expect(t).toContain('Revenus 2025 : année non comparée');
+    expect(t).not.toContain('Avis de l\'année attendue');
+    expect(t).toContain('Montants imprimés non comparés (image) : revenu fiscal de référence signé 33\u00a0870 €, à comparer avec la pièce');
   });
   it('fichier illisible → « Non vérifiable »', () => {
     expect(etatPiece({ doc: AVIS, verif: { v: 1, le: NOW.toISOString(), illisible: true, constats: [] } }).etat).toBe('nonverif');
