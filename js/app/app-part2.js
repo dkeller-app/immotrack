@@ -17299,7 +17299,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.752 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.754 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -26887,7 +26887,7 @@ function rParamsRules(hostId) {
   const cartes = rs => rs.map(r => _bankRulesCarteHtml(r, dup[r.id] || null)).join('');
   const nb = rs => '<span class="brg-mut" style="font-size:var(--fs-sm)">' + rs.length + ' règle' + (rs.length > 1 ? 's' : '') + '</span>';
   const bailBtn = (val, lbl) => '<button type="button" class="brg-btn" aria-pressed="' + (bail === val || (val !== 'all' && bail !== 'all' && _bankRuleNorm(bail) === _bankRuleNorm(val))) + '" data-act="bail" data-val="' + escHtml(val) + '" onclick="_bankRulesAct(this)">' + escHtml(lbl) + '</button>';
-  let h = '<div class="brg-rl"><div class="brg-bar"><p class="brg-hint">Classées par compte. Après l\'enregistrement d\'une règle, Propryo propose de l\'appliquer aux mouvements déjà enregistrés : rien ne change sans confirmation.</p>'
+  let h = '<div class="brg-rl"><div class="brg-bar"><p class="brg-hint">Classées par compte. Une règle s\'applique aux prochains imports ; elle ne touche pas aux mouvements déjà enregistrés.</p>'
     + (tous.bailleurs.length > 1
       ? '<div class="brg-acts" role="group" aria-label="Bailleur" style="margin:0">' + tous.bailleurs.map(b => bailBtn(b, 'Bailleur : ' + b)).join('') + bailBtn('all', 'Voir tout') + '</div>'
       : '')
@@ -27336,6 +27336,27 @@ function rAgenda() {
   rAgendaList();
 }
 
+// Didier 16/10 : un rappel de RÉVISION IRL non fait dont la date est passée change de couleur (jeton d'alerte --neg).
+function _agendaRevisionEnRetard(e) {
+  if (!e || e.done || e._deleted || e.cat !== 'IRL' || !e.autoKey) return false;
+  const today = (typeof _isoLocal === 'function') ? _isoLocal(new Date()) : new Date().toISOString().slice(0,10);
+  const d = String(e.date || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d >= today) return false;
+  // Seul le DERNIER rappel de révision passé du lot peut être en retard (les années précédentes sont closes).
+  const autres = (DB.agenda || []).filter(x => x && !x._deleted && x.cat === 'IRL' && x.autoKey && x.logement === e.logement && String(x.date || '') < today);
+  if (autres.some(x => String(x.date || '') > d)) return false;
+  const l = (DB.logements || []).find(x => x && x.ref === e.logement);
+  const bail = DB.baux && DB.baux[e.logement];
+  if (!l || !bail || !bail.debut) return false;
+  // Avant la première révision possible (un an après l'entrée) : rien à réviser.
+  const debut = String(bail.debut).slice(0, 10), un = new Date(debut + 'T00:00:00'); un.setFullYear(un.getFullYear() + 1);
+  if (d < _isoLocal(un).slice(0, 10)) return false;
+  // Révision appliquée (ou programmée) pour ce cycle : à l'heure.
+  const applique = String(l.irlDerniereApplication || '').slice(0, 10);
+  if (applique) { const lim = new Date(d + 'T00:00:00'); lim.setDate(lim.getDate() - 45); if (applique >= _isoLocal(lim).slice(0, 10)) return false; }
+  try { const rev = (typeof computeIRLRevision === 'function') ? computeIRLRevision(l) : null; if (rev && (rev.dejaApplique || rev.etat === 'rien-a-reviser')) return false; } catch (err) {}
+  return true;
+}
 function _agendaEvtCard(e, compact=false) {
   if(_isPhone()) return _agendaEvtCardPhone(e);
   const cat = AGENDA_CATS[e.cat] || AGENDA_CATS.AUTRE;
@@ -27355,7 +27376,7 @@ function _agendaEvtCard(e, compact=false) {
           ? `<span class="badge ora">J-${daysLeft}</span>`
           : `<span class="badge acc">À réaliser</span>`;
 
-  return `<div class="agenda-card${e.done?' agenda-done':' agenda-todo'}" onclick="openAgendaEvt('${e.id}')">
+  return `<div class="agenda-card${e.done?' agenda-done':' agenda-todo'}${_agendaRevisionEnRetard(e)?' agenda-late':''}" onclick="openAgendaEvt('${e.id}')">
     <div class="agenda-card-top">
       <span class="agenda-cat-badge">${_agendaIconSvg(e.cat,13)} ${cat.label}</span>
       ${badge}
@@ -27450,6 +27471,7 @@ function _ensureAgendaPhCss(){
     '.agph-sec-h.late .cnt{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border-color:transparent}',
     '.agph-card{background:var(--sur);border:1px solid var(--bor);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}',
     '.agph-card.todo{box-shadow:inset 3px 0 0 var(--acc)}',
+    '.agph-card.late{box-shadow:inset 3px 0 0 var(--neg);background:var(--neg-soft);background:color-mix(in srgb, var(--neg) 10%, var(--sur));border-color:var(--neg)}',
     '.agph-card.done{opacity:.62}',
     '.agph-card.done .agph-ti{text-decoration:line-through;text-decoration-color:var(--t3)}',
     '.agph-top{display:flex;gap:11px;align-items:flex-start}',
@@ -27552,7 +27574,7 @@ function _agendaEvtCardPhone(e){
   const acts=e.done
     ? `<button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Supprimer</button>`
     : `<button class="done" onclick="agendaMarkDone(event,'${e.id}')">${_uiIcon('check')}Marquer fait</button><button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Suppr.</button>`;
-  return `<div class="agph-card${e.done?' done':' todo'}" onclick="openAgendaEvt('${e.id}')">
+  return `<div class="agph-card${e.done?' done':' todo'}${_agendaRevisionEnRetard(e)?' late':''}" onclick="openAgendaEvt('${e.id}')">
     <div class="agph-top"><div class="agph-ico">${_agendaIconSvg(e.cat,19)}</div>
       <div style="flex:1;min-width:0"><div class="agph-ti">${escHtml(e.titre)}</div><div class="agph-meta">${meta.join('')}${badge}</div></div></div>
     <div class="agph-acts">${acts}</div>
@@ -31183,10 +31205,11 @@ function _bankImportAddRule(i) {
 //  - application : la ligne SOURCE suit la règle, l'import en cours est reclassé (les
 //    lignes classées à la main sont sautées ET annoncées), les imports futurs aussi ;
 //    jamais les mouvements déjà en base, sauf le mouvement d'où la règle est créée.
-// RETOURS 15/10 (lot 2, point 5 — Didier revient sur la décision n°3 du 06/10) :
-//  - modifier une règle DEPUIS LA FICHE d'un mouvement met aussi à jour ce mouvement (il devient la ligne de départ) ;
-//  - après l'enregistrement, Propryo PROPOSE d'appliquer la règle aux mouvements déjà en base concernés, toujours sur
-//    confirmation, case par case, annulable (_bankRuleProposerApplication ; liste : js/core/regle-application.js) ;
+// RETOURS 15/10 (lot 2, point 5) et décision de Didier du 16/10 (« une règle n'affecte pas le passé, que le futur ») :
+//  - une règle créée ou modifiée ne s'applique qu'aux PROCHAINS imports (et à l'import en cours) : aucun mouvement déjà
+//    enregistré n'est reclassé, sauf le mouvement de départ ;
+//  - créer ou modifier une règle DEPUIS LA FICHE d'un mouvement met à jour CE mouvement (geste explicite) ; s'il avait été
+//    classé à la main, la modification de la règle demande d'abord confirmation ;
 //  - un mouvement sans compte (saisi à la main, importé avant les comptes) : la règle demande le compte, le mouvement
 //    y est rattaché à l'enregistrement (au lieu du refus).
 // ════════════════════════════════════════════════════════════════════════════
@@ -31667,10 +31690,10 @@ function _bankRulePreviewRender() {
     + (imp ? '<div class="brg-kpi"><b>' + nImport + '</b><span>ligne' + (nImport > 1 ? 's' : '') + ' de l\'import en cours classée' + (nImport > 1 ? 's' : '') + ' à l\'enregistrement</span></div>'
       + (nProt ? '<div class="brg-kpi"><b>' + nProt + '</b><span>déjà classée' + (nProt > 1 ? 's' : '') + ' à la main : laissée' + (nProt > 1 ? 's' : '') + ' telle' + (nProt > 1 ? 's' : '') + ' quelle' + (nProt > 1 ? 's' : '') + '</span></div>' : '')
       + '<div class="brg-kpi"><b>' + nOff + '</b><span>décochée' + (nOff > 1 ? 's' : '') + ' : à classer à la main</span></div>' : '')
-    + '<div class="brg-kpi info"><b>' + p.nBase + '</b><span>déjà en base sur ce compte — ceux dont le classement changerait seront proposés après l\'enregistrement, <b style="display:inline;font:600 var(--fs-sm) var(--font)">sur confirmation</b></span></div></div>';
+    + '<div class="brg-kpi info"><b>' + p.nBase + '</b><span>déjà en base sur ce compte — <b style="display:inline;font:600 var(--fs-sm) var(--font)">pour information</b> : la règle ne les modifie pas, elle s\'applique aux prochains imports</span></div></div>';
   const recap = (d.srcMvId != null)
-    ? '<div class="brg-hint">À l\'enregistrement : ce mouvement (ligne de départ) suit la règle, puis Propryo propose de l\'appliquer aux autres mouvements déjà en base qui correspondent, sur confirmation. Les prochains imports de ce compte la suivront.</div>'
-    : '<div class="brg-hint">À l\'enregistrement : la ligne de départ suit la règle, les lignes cochées de l\'import en cours aussi (sauf celles déjà classées à la main, laissées telles quelles), puis les prochains imports de ce compte. Les mouvements déjà en base sont proposés ensuite, sur confirmation.</div>';
+    ? '<div class="brg-hint">À l\'enregistrement : ce mouvement (ligne de départ) suit la règle, puis les prochains imports de ce compte. Les autres mouvements déjà enregistrés ne changent pas.</div>'
+    : '<div class="brg-hint">À l\'enregistrement : la ligne de départ suit la règle, les lignes cochées de l\'import en cours aussi (sauf celles déjà classées à la main, laissées telles quelles), puis les prochains imports de ce compte. Les mouvements déjà enregistrés ne changent pas.</div>';
   host.innerHTML = '<div class="brg-pv">' + head + '<div class="brg-pvs">' + rows + '</div></div>' + verdict + _bankRuleAutresApercuHtml(d, cand, p) + kpis + recap
     + _bankRuleExceptionsHtml(d) + needHtml;
 }
@@ -31755,19 +31778,30 @@ function _bankRuleSave() {
     return;
   }
   _stamp(rule);
-  // RETOURS 15/10 — la version PRÉCÉDENTE de la règle : elle dit quels mouvements avaient été « classés par cette règle »
-  // et jamais retouchés depuis (proposés cochés après l'enregistrement).
-  const ancienne = base ? Object.assign({}, base) : null;
   if (idx >= 0) DB.importRules[idx] = rule; else DB.importRules.push(rule);
   if (typeof _stamp === 'function') _stamp(DB);
   // D7 — mouvement de départ sans compte : il est rattaché au compte de la règle (choisi dans la fenêtre), seulement si la
   // règle le couvre (relecture Fable A4).
   if (d.srcMvId != null && d.mvSansCompte) _bankRuleRattacherCompte(d.srcMvId, rule.compte, rule);
-  // (a) Le mouvement enregistré d'où la règle est créée (ou modifiée) : mis à jour directement — SAUF en modification
-  // d'un mouvement classé à la main : il n'est jamais reclassé sans être montré, il apparaît décoché dans la proposition
-  // (relecture Fable A3).
+  // (a) Le mouvement enregistré d'où la règle est créée (ou modifiée) : mis à jour directement, LUI SEUL. En modification
+  // d'un mouvement classé à la main, on demande d'abord (jamais de reclassement d'un choix manuel sans le dire).
   const srcMv = d.srcMvId != null ? (DB.mouvements || []).find(x => x && !x._deleted && String(x.id) === String(d.srcMvId)) : null;
-  const srcMainGarde = !!(srcMv && srcMv._classeMain && idx >= 0);
+  // La question n'est posée que si la règle modifiée changerait vraiment ce mouvement (relecture du 16/10).
+  const srcAcc = srcMv ? ((DB.params.bankAccounts || []).find(a => a && !a._deleted && String(a.id) === String(srcMv._bankAccountId)) || null) : null;
+  const srcPatch = (srcMv && srcMv._classeMain && idx >= 0) ? window._bankRulePatchMouvement(rule, srcMv, { account: srcAcc, loyerCC: _bankLoyerCC }) : null;
+  // Classement qu'aurait le mouvement (mêmes règles d'écriture que _bankRuleAppliquerAuMv : compteur ⇒ pas de logement,
+  // immeuble déduit du logement) : la question n'a lieu que si la catégorie ou l'affectation changerait.
+  const srcChangerait = !!(srcPatch && srcPatch.ok) && (() => {
+    const apres = Object.assign({}, srcMv, srcPatch.patch);
+    if (apres.compteurCcId && apres.qui) apres.qui = '';
+    if (('qui' in srcPatch.patch) && apres.qui && !String(apres.qui).startsWith('SCI:')) {
+      const log = (DB.logements || []).find(l => l && !l._deleted && l.ref === apres.qui);
+      if (log) apres.imm = log.imm || '';
+    }
+    return ['cat', 'qui', 'imm', 'compteurCcId'].some(k => String(srcMv[k] == null ? '' : srcMv[k]) !== String(apres[k] == null ? '' : apres[k]));
+  })();
+  const srcMainGarde = srcChangerait
+    && !confirm2('Ce mouvement a été classé à la main.\n\nLe reclasser selon la règle modifiée ? (Sinon, il reste tel quel ; la règle s\'appliquera aux prochains imports.)');
   const mvRes = (d.srcMvId != null && !srcMainGarde) ? _bankRuleApplyToSourceMv(rule, d.srcMvId) : null;
   saveDB();
   const motif = window._bankRuleMotif(rule);
@@ -31777,7 +31811,8 @@ function _bankRuleSave() {
   const res = _bankRuleAfterChange(rule, d.srcIndex);
   const msg = [(idx >= 0 ? '✓ Règle « ' + motif + ' » enregistrée' : '✓ Règle « ' + motif + ' » créée')];
   if (mvRes && mvRes.msg) msg.push(mvRes.msg);
-  if (srcMainGarde) msg.push('ce mouvement, classé à la main, n\'a pas été modifié : il est proposé, décoché, avec les autres');
+  if (srcMainGarde) msg.push('ce mouvement, classé à la main, n\'a pas été modifié');
+  msg.push('la règle s\'applique aux prochains imports ; les ' + (d.srcMvId != null ? 'autres ' : '') + 'mouvements déjà enregistrés ne changent pas');
   if (res.reclasse) msg.push('les lignes de l\'import ont été reclassées');
   if (nExNouvelles) msg.push(nExNouvelles + (nExNouvelles > 1 ? ' lignes laissées hors règle (exceptions)' : ' ligne laissée hors règle (exception)'));
   if (res.sourceSuit === false) msg.push('la ligne de départ ne remplit pas ces critères : elle n\'a pas été modifiée');
@@ -31788,17 +31823,13 @@ function _bankRuleSave() {
     : ((mvRes && mvRes.ok && mvRes.mv) ? window._bankRuleAutresResultats(DB.importRules, rule, mvRes.mv, { account: mvRes.acc, loyerCC: _bankLoyerCC, dejaClassee: true }) : []);
   autres.forEach(a => msg.push(_bankAutreRegleTxt(a, d.srcMvId != null ? 'pour ce mouvement' : 'pour la ligne de départ')));
   const warnMsg = res.protegees || res.sourceSuit === false || (mvRes && !mvRes.ok) || autres.length;
-  showToast(msg.join(' · '), warnMsg ? 'warn' : 'ok', (warnMsg || mvRes) ? 7000 : 3500);
-  // Retour sur la fiche du mouvement, à jour (la fiche avait été fermée pour ouvrir la règle) — APRÈS la proposition
-  // d'application aux autres mouvements, s'il y en a une.
+  showToast(msg.join(' · '), warnMsg ? 'warn' : 'ok', (warnMsg || mvRes) ? 7000 : 5000);
+  // Retour sur la fiche du mouvement, à jour (la fiche avait été fermée pour ouvrir la règle).
   const retourId = (mvRes && mvRes.mv) ? mvRes.mv.id : (srcMainGarde ? srcMv.id : null);
-  const retourFiche = () => {
-    if (retourId != null) {
-      if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
-      if (typeof openEditMv === 'function') openEditMv(retourId);
-    }
-  };
-  if (!_bankRuleProposerApplication(rule, ancienne, srcMainGarde ? null : d.srcMvId, retourFiche)) retourFiche();
+  if (retourId != null) {
+    if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+    if (typeof openEditMv === 'function') openEditMv(retourId);
+  }
 }
 
 // D7 — rattache un mouvement sans compte au compte de la règle créée depuis lui (choisi dans la fenêtre). Jamais un
@@ -31834,7 +31865,7 @@ function _bankRuleApplyToSourceMv(rule, mvId) {
 // UN mouvement suit UNE règle : correctif du module pur (`_bankRulePatchMouvement`, testé), exclusivité logement ↔
 // compteur, immeuble déduit du logement (comme à l'import), `_stamp` (synchro), journal. Le mouvement est désormais
 // classé par la règle : le marqueur « classé à la main » tombe. L'appelant enregistre (saveDB).
-// Chemin UNIQUE du mouvement de départ et des mouvements cochés dans « Appliquer aussi » : aucun calcul parallèle.
+// Seul appelant : le mouvement de départ (_bankRuleApplyToSourceMv) ; aucun calcul parallèle.
 function _bankRuleAppliquerAuMv(rule, m) {
   const acc = (DB.params.bankAccounts || []).find(a => a && !a._deleted && String(a.id) === String(m._bankAccountId)) || null;
   const res = window._bankRulePatchMouvement(rule, m, { account: acc, loyerCC: _bankLoyerCC });
@@ -31851,142 +31882,6 @@ function _bankRuleAppliquerAuMv(rule, m) {
   _stamp(m);
   if (typeof _auditLog === 'function') _auditLog('update', 'mouvement', m.id, (m.lib || String(m.id)) + ' (règle « ' + window._bankRuleMotif(rule) + ' »)', before, m);
   return { ok: true, changed: true, acc, before };
-}
-
-// ══════════════════════════════════════════════════════════════
-// RETOURS 15/10 (lot 2, point 5) — « Appliquer aussi aux mouvements déjà enregistrés ? »
-// Proposé après l'enregistrement d'une règle (création ou modification), seulement s'il y a des mouvements concernés.
-// Liste en trois groupes (js/core/regle-application.js, testé) : à classer (cochés), classés autrement — à la main, autre
-// règle, découpés — (DÉCOCHÉS et signalés), déjà classés par l'ancienne version de cette règle (cochés). Rien ne change
-// sans « Reclasser N mouvements ». Une case décochée laisse le mouvement tel quel, sans exception sur la règle (D8).
-// Application : _bankRuleAppliquerAuMv, une seule opération (_undoOp) → « Annuler » ; une ligne de journal par mouvement.
-// Téléphone : la couche standard .ov/.modal est une page entière, pied d'action collant (charte M-16).
-// ══════════════════════════════════════════════════════════════
-let _bankRuleAppl = null;   // { ruleId, motif, groupes, coches:Set(id), apres:Function }
-function _bankRuleProposerApplication(rule, ancienne, sourceId, apres) {
-  if (!rule || !window.RegleApplication || typeof window.RegleApplication.mouvementsConcernes !== 'function') return false;
-  let g;
-  try {
-    g = window.RegleApplication.mouvementsConcernes(rule, { mouvements: DB.mouvements || [], ancienne, comptes: DB.params.bankAccounts || [],
-      logements: DB.logements || [], sourceId, loyerCC: _bankLoyerCC });
-  } catch (e) { console.warn('[règle → mouvements existants]', e); return false; }
-  if (!g || !g.total) return false;
-  // Un mouvement d'une année antérieure (déclaration 2044 peut-être déjà faite) est proposé DÉCOCHÉ, et signalé.
-  const anCourant = String(new Date().getFullYear());
-  const anterieur = x => String((x.mv && x.mv.date) || '').slice(0, 4) < anCourant;
-  const coches = new Set([...g.aClasser, ...g.parRegle].filter(x => !anterieur(x)).map(x => String(x.id)));
-  _bankRuleAppl = { ruleId: rule.id, motif: window._bankRuleMotif(rule), sens: rule.sens, compte: rule.compte, cree: !ancienne, groupes: g, coches, apres };
-  let ov = el('ov-bank-rule-appl');
-  if (!ov) {
-    ov = document.createElement('div');
-    ov.className = 'ov'; ov.id = 'ov-bank-rule-appl';
-    ov.innerHTML = '<div class="modal" style="max-width:660px;width:96%;max-height:90vh"><div class="m-head"><h3 id="brg-appl-t"></h3>'
-      + '<button class="m-close" aria-label="Fermer sans rien changer" onclick="_bankRuleApplFermer()">✕</button></div>'
-      + '<div class="m-body" id="brg-appl-b"></div><div class="m-foot" id="brg-appl-f" style="gap:8px"></div></div>';
-    document.body.appendChild(ov);
-  }
-  ov.classList.remove('hidden');
-  _bankRuleApplRender();
-  return true;
-}
-function _bankRuleApplRender() {
-  const st = _bankRuleAppl; if (!st) return;
-  const g = st.groupes;
-  const acc = (DB.params.bankAccounts || []).find(a => a && String(a.id) === String(st.compte));
-  const aff = c => {
-    if (c.compteurCcId) return 'compteur collectif';
-    if (c.qui && String(c.qui).startsWith('SCI:')) return String(c.qui).slice(4);
-    if (c.qui) return _logLabel(c.qui);
-    if (c.imm) return 'immeuble ' + c.imm;
-    return 'sans affectation';
-  };
-  const cls = c => (c.cat ? escHtml(c.cat) : 'à classer') + ' · ' + escHtml(aff(c));
-  const ligne = x => {
-    const m = x.mv; const cr = (Number(m.cr) || 0) > 0; const id = String(x.id);
-    const raison = ((x.raison && x.raison !== 'a-classer' && x.raison !== 'non-affecte' && x.raison !== 'ancienne-version')
-      ? '<span class="brg-appl-why">' + escHtml(window.RegleApplication.RAISONS[x.raison] || '') + '</span>' : '')
-      + (String(m.date || '').slice(0, 4) < String(new Date().getFullYear()) ? '<span class="brg-appl-why">année ' + escHtml(String(m.date || '').slice(0, 4)) + '</span>' : '');
-    return '<div class="brg-pvr"><label class="brg-cb"><input type="checkbox" data-id="' + escHtml(id) + '"' + (st.coches.has(id) ? ' checked' : '')
-      + ' aria-label="Reclasser le mouvement du ' + escHtml(fd(m.date)) + ', ' + escHtml(m.lib || '') + '" onchange="_bankRuleApplCase(this.dataset.id,this.checked)"></label>'
-      + '<span class="brg-l"><span>' + escHtml(fd(m.date)) + ' · ' + escHtml(m.lib || '') + raison + '</span>'
-      + '<span class="brg-appl-chg"><s>' + cls(x.avant) + '</s> → <b>' + cls(x.apres) + '</b></span></span>'
-      + '<span class="brg-m ' + (cr ? 'brg-pos' : 'brg-neg') + '">' + (cr ? '+' : '−') + fmt(cr ? m.cr : m.db) + '</span></div>';
-  };
-  const bloc = (cle, titre, aide) => {
-    const arr = g[cle]; if (!arr.length) return '';
-    const tous = arr.every(x => st.coches.has(String(x.id)));
-    return '<div class="brg-appl-grp"><div class="brg-appl-h"><span>' + titre + ' <span class="brg-appl-n">' + arr.length + '</span></span>'
-      + (arr.length > 1 ? '<button type="button" class="brg-lnk" data-g="' + cle + '" onclick="_bankRuleApplTout(this.dataset.g)">' + (tous ? 'Tout décocher' : 'Tout cocher') + '</button>' : '') + '</div>'
-      + (aide ? '<p class="brg-hint" style="margin:0 0 6px">' + aide + '</p>' : '')
-      + '<div class="brg-pv"><div class="brg-pvs brg-appl-pvs">' + arr.map(ligne).join('') + '</div></div></div>';
-  };
-  el('brg-appl-t').textContent = st.cree ? 'Règle créée' : 'Règle modifiée';
-  el('brg-appl-b').innerHTML = '<p class="brg-appl-lead"><b>Appliquer aussi aux mouvements déjà enregistrés ?</b></p>'
-    + '<p class="brg-hint" style="margin-top:0">La règle <span class="brg-mot">« ' + escHtml(st.motif) + ' »</span> ('
-    + (st.sens === 'db' ? 'dépenses' : (st.sens === 'cr' ? 'recettes' : 'dépenses et recettes')) + (acc ? ', ' + escHtml(acc.label || '') : '')
-    + ') est enregistrée ; les prochains imports de ce compte la suivront. Ces mouvements déjà enregistrés y correspondent aussi : cocher ceux à reclasser.</p>'
-    + bloc('aClasser', 'À classer')
-    + bloc('autrement', 'Classés autrement', 'Classés à la main, par une autre règle, ou découpés : laissés tels quels, sauf case cochée.')
-    + bloc('parRegle', 'Déjà classés par cette règle', 'Classés par l\'ancienne version de la règle, jamais retouchés depuis.')
-    + '<div class="brg-alert info" style="margin-top:12px">Le reclassement compte dans Finances et la déclaration 2044 : les mouvements des années précédentes sont décochés par défaut (déclaration peut-être déjà faite). Il s\'annule juste après avec « Annuler », et chaque changement est noté au journal du mouvement.</div>';
-  el('brg-appl-f').innerHTML = _bankRuleApplPiedHtml(st.coches.size);
-}
-function _bankRuleApplCase(id, on) {
-  const st = _bankRuleAppl; if (!st) return;
-  if (on) st.coches.add(String(id)); else st.coches.delete(String(id));
-  _bankRuleApplMajPied();   // pied et « Tout cocher » seulement : la case garde le focus (clavier, lecteur d'écran)
-}
-function _bankRuleApplPiedHtml(n) {
-  return '<button class="btn bs" onclick="_bankRuleApplFermer()">Ne rien changer</button>'
-    + '<button class="btn bp" onclick="_bankRuleApplValider()"' + (n ? '' : ' disabled') + '>' + (n ? 'Reclasser ' + n + ' mouvement' + (n > 1 ? 's' : '') : 'Aucun mouvement coché') + '</button>';
-}
-function _bankRuleApplMajPied() {
-  const st = _bankRuleAppl; if (!st) return;
-  const f = el('brg-appl-f'); if (f) f.innerHTML = _bankRuleApplPiedHtml(st.coches.size);
-  const b = el('brg-appl-b');
-  if (b && b.querySelectorAll) b.querySelectorAll('[data-g]').forEach(x => {
-    const arr = (st.groupes[x.dataset.g] || []).map(e => String(e.id));
-    x.textContent = arr.every(id => st.coches.has(id)) ? 'Tout décocher' : 'Tout cocher';
-  });
-}
-function _bankRuleApplTout(cle) {
-  const st = _bankRuleAppl; if (!st || !st.groupes[cle]) return;
-  const arr = st.groupes[cle].map(x => String(x.id));
-  const tous = arr.every(id => st.coches.has(id));
-  arr.forEach(id => { if (tous) st.coches.delete(id); else st.coches.add(id); });
-  const b = el('brg-appl-b');
-  if (b && b.querySelectorAll) b.querySelectorAll('input[type=checkbox][data-id]').forEach(c => { if (arr.includes(c.dataset.id)) c.checked = !tous; });
-  _bankRuleApplMajPied();
-}
-function _bankRuleApplFermer() {
-  const st = _bankRuleAppl; _bankRuleAppl = null;
-  const ov = el('ov-bank-rule-appl'); if (ov) ov.classList.add('hidden');
-  if (st && typeof st.apres === 'function') st.apres();
-}
-function _bankRuleApplValider() {
-  const st = _bankRuleAppl; if (!st) return;
-  const rule = window._bankRuleById(DB.importRules || [], st.ruleId);
-  if (!rule) { showToast('Règle introuvable (supprimée entre-temps ?) : rien n\'a été reclassé.', 'err', 6000); _bankRuleApplFermer(); return; }
-  const ids = new Set(st.coches);
-  let n = 0, ignores = 0, enregistre = true;
-  _undoOp('Règle « ' + st.motif + ' » appliquée aux mouvements enregistrés', () => {
-    (DB.mouvements || []).forEach(m => {
-      if (!m || m._deleted || !ids.has(String(m.id))) return;
-      const r = _bankRuleAppliquerAuMv(rule, m);   // revérifie la correspondance au moment d'appliquer
-      if (r.ok && r.changed) n++; else ignores++;
-    });
-    if (n) {
-      // Journal DANS l'opération annulable : « Annuler » le retire avec le reste (relecture Fable A5).
-      if (typeof _auditLog === 'function') _auditLog('update', 'import-rule', rule.id, 'appliquée à ' + n + ' mouvement' + (n > 1 ? 's' : '') + ' déjà enregistré' + (n > 1 ? 's' : '') + ' (sur confirmation)');
-      enregistre = saveDB() !== false;
-    }
-  });
-  _bankRuleApplFermer();
-  if (n && !enregistre) { showToast('Le reclassement n\'a pas pu être enregistré (hors ligne ou lecture seule) : réessayer une fois la connexion revenue.', 'err', 8000); return; }
-  if (typeof rMv === 'function' && el('mv-tbody')) rMv();
-  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
-  if (n) _undoToast(n + ' mouvement' + (n > 1 ? 's' : '') + ' reclassé' + (n > 1 ? 's' : '') + ' selon la règle « ' + st.motif + ' »' + (ignores ? ' · ' + ignores + ' laissé' + (ignores > 1 ? 's' : '') + ' tel' + (ignores > 1 ? 's' : '') + ' quel' + (ignores > 1 ? 's' : '') + ' (déjà à jour ou plus concerné' + (ignores > 1 ? 's' : '') + ')' : ''), 'ok');
-  else showToast('Aucun mouvement reclassé (déjà à jour ou plus concernés).', 'warn', 5000);
 }
 
 function _bankRuleDelete() {

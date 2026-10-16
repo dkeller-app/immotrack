@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.752';
+const IMMOTRACK_VERSION = '15.754';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -2140,7 +2140,7 @@ function agendaAutoSync() {
   // Migration v12.11 : supprimer les anciens événements IRL auto qui ont la mauvaise date
   // (ancienne date = anniversaire exact, nouvelle = 1er du mois N-1)
   // On les détecte : ils ont cat=IRL, auto=true, et leur titre ne commence PAS par "Préparer"
-  const oldIRL = DB.agenda.filter(e => e.auto && e.cat==='IRL' && !e.titre?.startsWith('Préparer'));
+  const oldIRL = DB.agenda.filter(e => e.auto && e.cat==='IRL' && !e.titre?.startsWith('Préparer') && !e.titre?.startsWith('Révision IRL'));
   if(oldIRL.length) {
     const oldKeys = new Set(oldIRL.map(e=>e.autoKey));
     DB.agenda = DB.agenda.filter(e => !oldKeys.has(e.autoKey));
@@ -2166,38 +2166,42 @@ function agendaAutoSync() {
     const yrNow = today.getFullYear();
 
     // ── Révisions IRL (3 ans glissants) ──────────────────
-    // Date de l'événement = 1er du mois N-1 (début du mois précédant l'anniversaire)
+    // Didier 16/10 : l'événement est À LA DATE DE RÉVISION, avec un rappel un mois avant (avant : le 1er du mois précédant,
+    // rappel 7 j). Même clé IRL:<lot>:<année> : l'événement automatique existant (non fait, non déplacé à la main) est
+    // recalé ci-dessous — aucun ancien événement orphelin, aucun doublon.
     const rev = computeIRLRevision ? computeIRLRevision(l) : null;
-    if(rev && rev.dateRevision) {
+    const _dRev = rev ? (rev.dateRevision || (rev.effetPrevuIso ? new Date(rev.effetPrevuIso + 'T00:00:00') : null)) : null;
+    if(_dRev) {
       for(let y = yrNow - 1; y <= yrNow + 2; y++) {
-        const revDate = new Date(rev.dateRevision);
+        const revDate = new Date(_dRev);
         revDate.setFullYear(y);
-        // Rappel = 1er du mois précédant l'anniversaire
-        const notifDate = new Date(revDate.getFullYear(), revDate.getMonth() - 1, 1);
-        // IRL-REVISION (audit M5) — date LOCALE (toISOString rendait la veille : 31 du mois d'avant)
-        const ds = _isoLocal(notifDate);
+        // IRL-REVISION (audit M5) — date LOCALE (toISOString rendait la veille)
+        const ds = _isoLocal(revDate);
         const key = `IRL:${l.ref}:${y}`;
+        const _titreIrl = `Révision IRL — ${l.ref} (le ${fd(ds)})`;
         // … et un rappel auto déjà créé, pas encore traité, SUIT la date de révision (R1 : bail
         // commencé en cours de mois → révision au mois suivant) au lieu de rester à l'ancien mois.
         if (existing.has(key)) {
           const _ev = DB.agenda.find(e => e && e.auto && e.autoKey === key && !e._deleted);
           // Audit passe 2 — seulement si l'utilisateur n'a pas déplacé ce rappel à la main (autoDate =
           // la date posée par l'app ; absente = rappel créé avant ce suivi, toujours automatique).
-          if (_ev && !_ev.done && _ev.date !== ds && (!_ev.autoDate || _ev.date === _ev.autoDate)) {
+          const _rap = Array.isArray(_ev && _ev.rappels) ? _ev.rappels.join(',') : '';
+          if (_ev && !_ev.done && (!_ev.autoDate || _ev.date === _ev.autoDate) && (_ev.date !== ds || _ev.titre !== _titreIrl || _rap !== '30')) {
             _ev.autoDate = ds;
             _ev.date = ds; _ev.dateFin = ds;
-            _ev.titre = `Préparer révision IRL — ${l.ref} (éch. ${fd(_isoLocal(revDate))})`;
-            _ev.notes = `Date de révision du bail : ${fd(_isoLocal(revDate))}\nPréparer la lettre de révision IRL à envoyer au locataire.`;
+            _ev.titre = _titreIrl;
+            _ev.rappels = [30];
+            _ev.notes = `Date de révision du bail : ${fd(ds)}\nPréparer la lettre de révision IRL à envoyer au locataire (rappel un mois avant).`;
             if (typeof _stamp === 'function') _stamp(_ev);
             _irlAgendaRecale = true;
           }
         }
         if(!existing.has(key)) {
-          toAdd.push({ id:agendaId(), titre:`Préparer révision IRL — ${l.ref} (éch. ${fd(_isoLocal(revDate))})`,
+          toAdd.push({ id:agendaId(), titre:_titreIrl,
             date:ds, dateFin:ds, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
-            cat:'IRL', couleur:'', notes:`Date de révision du bail : ${fd(_isoLocal(revDate))}\nPréparer la lettre de révision IRL à envoyer en recommandé.`,
+            cat:'IRL', couleur:'', notes:`Date de révision du bail : ${fd(ds)}\nPréparer la lettre de révision IRL à envoyer au locataire (rappel un mois avant).`,
             recurrence:{type:'none',interval:1,fin:''},
-            rappels:[7], auto:true, autoKey:key, autoDate:ds, done:false, createdAt:todayStr });
+            rappels:[30], auto:true, autoKey:key, autoDate:ds, done:false, createdAt:todayStr });
           existing.add(key);
         }
       }
@@ -2285,7 +2289,7 @@ function agendaAutoSync() {
             date:_ech, dateFin:_ech, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
             cat:'MRH', couleur:'', notes:`L’attestation d’assurance habitation du locataire arrive à échéance le ${fd(_ech)}.\nDemander la nouvelle attestation (obligation du locataire, art. 7 g de la loi du 6 juillet 1989).`,
             recurrence:{type:'none',interval:1,fin:''},
-            rappels:[30], auto:true, autoKey:key, done:false, createdAt:todayStr });
+            rappels:[], auto:true, autoKey:key, done:false, createdAt:todayStr });
           existing.add(key);
         }
       }
@@ -2335,7 +2339,7 @@ function agendaAutoSync() {
             date:ds, dateFin:ds, logement:l.ref, immeuble:l.imm||'', entite:bail.entity||'',
             cat:rule.cat, couleur:'', notes:`Base légale : ${rule.base}`,
             recurrence:{type:'none',interval:1,fin:''},
-            rappels:rule.rappels||[30,7], auto:true, autoKey:key, done:false, createdAt:todayStr });
+            rappels:[], auto:true, autoKey:key, done:false, createdAt:todayStr });   // Didier 16/10 : à date, sans rappel anticipé
           existing.add(key);
         }
       });
@@ -2388,6 +2392,13 @@ function agendaAutoSync() {
     DB.agenda = DB.agenda.filter(e => !(e.auto && e.cat === 'DIAG' && !validDiagKeys.has(e.autoKey)));
     _diagPurged = DB.agenda.length !== _before;
   }
+  // Didier 16/10 — assurance et entretiens : à date, sans rappel anticipé. Les événements AUTOMATIQUES déjà créés (non faits,
+  // non modifiés à la main) perdent leurs rappels ; un événement modifié à la main (auto:false) garde les siens.
+  let _rappelsRetires = false;
+  (DB.agenda || []).forEach(e => {
+    if (!e || e._deleted || !e.auto || e.done || !e.autoKey || !(/^(MRH|EQUIP):/.test(e.autoKey))) return;
+    if (Array.isArray(e.rappels) && e.rappels.length) { e.rappels = []; if (typeof _stamp === 'function') _stamp(e); _rappelsRetires = true; }
+  });
   // Purge des rappels d'assurance dont l'attestation n'est plus la courante (nouvelle attestation, locataire parti) : un
   // seul événement par lot, à la bonne date, d'une synchronisation à l'autre.
   let _mrhPurged = false;
@@ -2406,7 +2417,7 @@ function agendaAutoSync() {
     _bailPurged = DB.agenda.length !== _before;
   }
 
-  if(toAdd.length || _diagPurged || _bailPurged || _mrhPurged || _irlAgendaRecale) {
+  if(toAdd.length || _diagPurged || _bailPurged || _mrhPurged || _irlAgendaRecale || _rappelsRetires) {
     if(toAdd.length) DB.agenda.push(...toAdd);
     DB.agendaLastSync = todayStr;
     saveDB();
@@ -7647,7 +7658,7 @@ function _pilCollectFamilles(ctx) {
   } catch (e) {}
 
   // ── PILOTAGE DU PARC (16/10) : les bulles Documents, Révision et Entretiens comptent EXACTEMENT les lots dont le tableau
-  //    montre l'icône (mêmes règles : ce qui est dû, pas ce qui est à venir) — leur clic filtre le tableau sur ces lots.
+  //    montre l'icône (mêmes règles, anticipation comprise : révision 30 j, assurance et entretiens 15 j) — leur clic filtre le tableau sur ces lots.
   //    L'item d'origine (urgence, pire cas) est gardé quand il existe.
   if (typeof _pilCols === 'function' && _pilCols().length) try {
     const _r = _pilColRefs(ctx);
@@ -8146,8 +8157,8 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
   const phase = PL ? PL.phaseDuLot({ today: auj, loue, bail: bail ? { debut: bail.debut, sig: sig.etat, dateSortie } : null, edlEntree }) : 'en-cours';
   const debut = (bail && bail.debut) ? String(bail.debut).slice(0, 10) : '';
   const t = (refs && refs.parRef && refs.parRef[l.ref]) || { mrh: [], equip: [], irl: [] };
-  const mrhIt = t.mrh.find(x => x.mrhEtat === 'manquante') || t.mrh.find(x => x.mrhEtat === 'expiree') || null;
-  const irlIt = t.irl.find(x => x.irlEtat === 'applicable') || null;
+  const mrhIt = t.mrh.find(x => x.mrhEtat === 'manquante') || t.mrh.find(x => x.mrhEtat === 'expiree') || t.mrh.find(x => x.mrhEtat === 'bientot') || null;
+  const irlIt = t.irl.find(x => x.irlEtat === 'applicable') || t.irl.find(x => x.irlEtat === 'preavis') || null;
   const impIt = (pay === 'neg' && refs && refs.impayes) ? refs.impayes[l.ref] : null;
   const faits = {
     today: auj, phase, fmt: (typeof fmt === 'function') ? fmt : undefined,
@@ -8156,8 +8167,10 @@ function _pilLotLigne(l, byLotEntry, today, impayeRefs, refs) {
     // incomplète, cf. PilotageLot.phaseDuLot) est considéré occupé, comme le dit bailLoueAu.
     enPlace: !!(loue && bail && (debut ? debut <= auj : phase === 'en-cours')),
     assurance: mrhIt ? { etat: mrhIt.mrhEtat, echeance: mrhIt.echeance } : null,
-    entretiens: t.equip.filter(x => x.severity === 'red').map(x => ({ libelle: x.ruleLabel || x.title, retardJours: x.retardJours })),
-    revision: irlIt ? { dateAnniv: irlIt.dateAnniv, hc: irlIt.hc, nouveauHC: irlIt.nouveauHC } : null,
+    entretiens: t.equip.map(x => x.severity === 'red'
+      ? { libelle: x.ruleLabel || x.title, retardJours: x.retardJours, echeance: x.echeance }
+      : { libelle: x.ruleLabel || x.title, retardJours: 0, joursAvant: x.joursAvant, echeance: x.echeance }),
+    revision: irlIt ? { etat: irlIt.irlEtat, dateAnniv: irlIt.dateAnniv, hc: irlIt.hc, nouveauHC: irlIt.nouveauHC, indiceManquant: !!irlIt.indiceManquant } : null,
     vacant: !loue, dateSortie, bail: bail ? { debut: bail.debut, sig: sig.etat, repris: bail.typeContrat === 'repris' } : null, edlEntree,
     candidats: { retenus: 0, aEtudier: 0 }, cautions: [], attestations: [], diagnostics: []
   };
@@ -9654,7 +9667,7 @@ function _computeUnifiedTodo(ctx) {
       });
     } else {
       out.push({
-        type:'mrh', severity:'ora', score:60,
+        type:'mrh', severity:'ora', score:60, mrhEtat:'bientot', echeance:it.echeance,
         title:'Assurance habitation expire dans '+it.jours+' j',
         subtitle:_logLabel(it.ref),
         contextRef:it.ref, nom:_logLabel(it.ref),
@@ -9676,6 +9689,19 @@ function _computeUnifiedTodo(ctx) {
   // loyer court et que la revision est due. Le bail decide, pas le cache.
   scopeLogs.filter(l => _lotEstLoue(l) && l.debut).forEach(l => {
     const rev = typeof computeIRLRevision === 'function' ? computeIRLRevision(l) : null;
+    // Didier 16/10 — la révision s'anticipe d'un mois même quand l'indice n'est pas encore publié (ou pour la première
+    // révision) : la date d'effet est connue, l'Accueil prépare la révision 30 jours avant ; le montant viendra avec l'indice.
+    if (rev && (rev.etat === 'indice-manquant' || rev.etat === 'trop-jeune') && rev.effetPrevuIso) {
+      const _j = Math.round((new Date(rev.effetPrevuIso + 'T00:00:00') - new Date(_isoLocal(today) + 'T00:00:00')) / 86400000);
+      if (_j <= 30) out.push({
+        type:'irl', severity:'info', score:60, irlEtat: _j > 0 ? 'preavis' : 'applicable', dateAnniv: rev.effetPrevuIso, hc: l.hc,
+        indiceManquant: rev.etat === 'indice-manquant',
+        title: rev.etat === 'indice-manquant' ? 'Révision IRL — indice pas encore publié' : 'Première révision IRL',
+        subtitle: _logLabel(l.ref) + ' — ' + fd(rev.effetPrevuIso),
+        contextRef: l.ref, nom: _logLabel(l.ref), actionLabel: 'Préparer', actionFn: "go('irl',null)"
+      });
+      return;
+    }
     const c = AlertRules.irlClassifier(rev, l, today, _isoLocal);
     if(!c) return;
     if(c.etat === 'applicable') {
@@ -9689,7 +9715,7 @@ function _computeUnifiedTodo(ctx) {
       });
     } else {
       out.push({
-        type:'irl', severity:'info', score:60,
+        type:'irl', severity:'info', score:60, irlEtat:'preavis', dateAnniv:c.dateAnniv, hc:l.hc, nouveauHC:rev.nouveauHC,
         title:'Révision IRL dans '+c.jours+' j',
         subtitle:_logLabel(l.ref)+' — '+fmt(l.hc)+' → '+fmt(rev.nouveauHC),
         contextRef:l.ref, nom:_logLabel(l.ref),
@@ -9825,7 +9851,7 @@ function _computeUnifiedTodo(ctx) {
         const diff = Math.round((nextDate - today) / 86400000);
         if(diff < 0) {
           out.push({
-            type:'equip', severity:'red', score:85, ruleLabel:rule.label, retardJours:Math.abs(diff),
+            type:'equip', severity:'red', score:85, ruleLabel:rule.label, retardJours:Math.abs(diff), echeance:_isoLocal(nextDate),
             title:rule.label+' — en retard '+Math.abs(diff)+' j',
             subtitle:_logLabel(l.ref)+(l.locataire?' \u2014 '+l.locataire:''),
             contextRef:l.ref, nom:_logLabel(l.ref),
@@ -9834,7 +9860,7 @@ function _computeUnifiedTodo(ctx) {
           });
         } else if(diff <= 30) {
           out.push({
-            type:'equip', severity:'ora', score:55,
+            type:'equip', severity:'ora', score:55, ruleLabel:rule.label, joursAvant:diff, echeance:_isoLocal(nextDate),
             title:rule.label+' — dans '+diff+' j',
             subtitle:_logLabel(l.ref)+(l.locataire?' \u2014 '+l.locataire:''),
             contextRef:l.ref, nom:_logLabel(l.ref),
@@ -11701,8 +11727,8 @@ async function saveMv() {
       // et gagne de toute façon (la préservation ne touche pas une clé déjà là).
       _preserverSaufChampsPilotes(m, DB.mouvements[i], _mvDocCleared ? ['pj', 'pjId'] : []);
       // RETOURS 15/10 (lot 2, point 5) — la fiche change la catégorie ou l'affectation : le mouvement est « classé à la
-      // main ». Une règle appliquée plus tard aux mouvements enregistrés ne le proposera jamais coché
-      // (js/core/regle-application.js). Sans changement de classement, le marqueur existant est conservé tel quel.
+      // main ». Modifier une règle depuis sa fiche demandera alors avant de le reclasser (js/core/regle-application.js).
+      // Sans changement de classement, le marqueur existant est conservé tel quel.
       if (window.RegleApplication && window.RegleApplication.classeMainApresEdition(DB.mouvements[i], m)) m._classeMain = true;
       _auditLog('update', 'mouvement', m.id, m.lib||m.fac||String(m.id), DB.mouvements[i], m);
       DB.mouvements[i]=m;

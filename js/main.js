@@ -110,7 +110,7 @@ import { duMois, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, finOccupationB
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import { computeEntretienStatut } from './core/entretien-statut.js';
 import { regrouperEntretiens } from './core/entretien-regroupement.js';   // RETOURS 15/10 lot 2 — poêle / insert : une échéance
-import * as RegleApplication from './core/regle-application.js';   // RETOURS 15/10 lot 2 — règle → mouvements existants, sur confirmation
+import * as RegleApplication from './core/regle-application.js';   // RETOURS 15/10 lot 2 — marqueur « classé à la main » (fiche du mouvement)
 import * as BailPiecesExternes from './core/bail-pieces-externes.js';   // RETOURS 15/10 lot 2 — pièces du bail signé hors Propryo
 import { computePilotageFamilles, pilotagePay, FAMILLES as _PIL_FAMILLES, ZONES as _PIL_ZONES, FAMILLES_SI_NON_VIDES as _PIL_SI_NON_VIDES } from './core/pilotage-familles.js';
 import {
@@ -533,7 +533,7 @@ window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupat
 window.loyerDuLotA = loyerDuLotA;
 window.computeEntretienStatut = computeEntretienStatut;   // KPI Lot 0 — statut d'entretien (12 obligations)
 window.EntretienRegroupement = { regrouperEntretiens };   // migration de démarrage (_bootDataJobs)
-window.RegleApplication = RegleApplication;   // _bankRuleProposerApplication, saveMv (marqueur « classé à la main »)
+window.RegleApplication = RegleApplication;   // saveMv (marqueur « classé à la main »)
 window.BailPiecesExternes = BailPiecesExternes;   // pièces du bail hors Propryo, prédicat « caution détenue » (_bailCautionDetenue)
 window.computePilotageFamilles = computePilotageFamilles; // KPI Lot 1 — agrégateur des 8 familles
 window.pilotagePay = pilotagePay;                         // KPI audit §1 — pastille paiement == bulle Impayés

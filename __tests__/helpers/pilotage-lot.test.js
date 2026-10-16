@@ -127,6 +127,42 @@ describe('casesDuLot — Mise en location', () => {
   })
 })
 
+describe('casesDuLot — anticipation (Didier 16/10 : révision 30 j avant, assurance et entretiens 15 j avant)', () => {
+  const base = { today: AUJ, phase: 'en-cours', fmt, enPlace: true }
+  it('révision : à préparer dans les 30 jours avant la date, due ensuite ; rien au-delà de 30 jours', () => {
+    expect(libelles(P.casesDuLot({ ...base, revision: { etat: 'preavis', dateAnniv: '2026-11-10', hc: 400, nouveauHC: 405 } }).irl))
+      .toEqual(['Révision à préparer (le 10/11/2026) : 400 € → 405 € hors charges.'])
+    expect(P.casesDuLot({ ...base, revision: { etat: 'preavis', dateAnniv: '2026-11-20', hc: 400 } }).irl).toBeNull()   // J-35
+    expect(libelles(P.casesDuLot({ ...base, revision: { etat: 'applicable', dateAnniv: '2026-10-01', hc: 400, nouveauHC: 405 } }).irl))
+      .toEqual(['Révision due depuis le 01/10/2026 : 400 € → 405 € hors charges.'])
+  })
+  it('assurance : à renouveler dans les 15 jours avant l’échéance ; rien au-delà', () => {
+    expect(libelles(P.casesDuLot({ ...base, assurance: { etat: 'bientot', echeance: '2026-10-30' } }).ass))
+      .toEqual(['Attestation à renouveler le 30/10/2026 : demander la nouvelle au locataire.'])
+    expect(P.casesDuLot({ ...base, assurance: { etat: 'bientot', echeance: '2026-11-05' } }).ass).toBeNull()   // J-20
+  })
+  it('entretiens : à faire dans les 15 jours avant l’échéance, en retard ensuite ; rien au-delà', () => {
+    const c = P.casesDuLot({ ...base, entretiens: [
+      { libelle: 'Entretien chaudière gaz', retardJours: 0, joursAvant: 10, echeance: '2026-10-26' },
+      { libelle: 'Ramonage', retardJours: 0, joursAvant: 25, echeance: '2026-11-10' },
+      { libelle: 'Entretien VMC', retardJours: 12 },
+    ] })
+    expect(libelles(c.entr)).toEqual(['Entretien chaudière gaz : à faire avant le 26/10/2026.', 'Entretien VMC : en retard de 12 jours.'])
+  })
+  it('révision dont l’indice n’est pas encore publié : à préparer quand même 30 jours avant, sans montant', () => {
+    expect(libelles(P.casesDuLot({ ...base, revision: { etat: 'preavis', dateAnniv: '2026-11-01', hc: 400, indiceManquant: true } }).irl))
+      .toEqual(['Révision à préparer (le 01/11/2026) : indice IRL pas encore publié.'])
+  })
+  it('entretiens : la fenêtre de 15 jours se juge sur la date d’échéance, pas sur l’heure', () => {
+    const c = P.casesDuLot({ ...base, entretiens: [{ libelle: 'Ramonage', retardJours: 0, joursAvant: 15, echeance: '2026-11-01' }] })
+    expect(c.entr).toBeNull()   // J-16 par les dates, même si l'arrondi horaire donnait 15
+  })
+  it('constante d’anticipation exposée', () => {
+    expect(P.ANTICIPATION_JOURS).toEqual({ irl: 30, ass: 15, entr: 15 })
+  })
+})
+
+
 describe('outils', () => {
   it('derniereEcheance : la plus récente, vides ignorées', () => {
     expect(P.derniereEcheance(['2026-09-29', '', null, '2027-09-30'])).toBe('2027-09-30')
