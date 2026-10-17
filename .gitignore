@@ -99,3 +99,5 @@ actes/
 _recovery-bail-signe/
 _setpass-test0.mjs
 _definir-mdp-test0.bat
+# Exports et sauvegardes de données réelles (protégé aussi par .git/info/exclude, non versionné)
+_import/

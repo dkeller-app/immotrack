@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.762';
+const IMMOTRACK_VERSION = '15.763';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -3905,7 +3905,7 @@ function fmtN(n) {
 function fd(iso) {
   if(!iso) return '–';
   const d = new Date(iso+'T00:00:00');
-  if(isNaN(d.getTime())) return String(iso); // tolérant : valeur brute si non parsable (ex. DDN legacy texte libre) plutôt que « Invalid Date »
+  if(isNaN(d.getTime())) return String(iso).replace(/[<>"&]/g, ''); // tolérant : valeur brute si non parsable (ex. DDN legacy texte libre) plutôt que « Invalid Date » — sans < > " & (rendue dans du HTML)
   return d.toLocaleDateString('fr-FR');
 }
 
@@ -4579,7 +4579,7 @@ function _renderRemoteSignBadge(bail, ref) {
     const refSafe = String(ref);   // `ref` est déjà échappé par l'appelant (_renderLogFichePanelBail passe refSafe) — ne pas ré-échapper (double-escape)
     // Boutons secondaires de la charte (plus de bleu codé en dur ni d'emoji) : libellé + line-icon.
     const cloudBtn = (keyArg, title, label) => '<button class="btn bs bb" onclick="_openCloudBailPdf(\'' + refSafe + '\'' + keyArg + ')" title="' + title + '">' + _uiIcon('doc', 14) + label + '</button>';
-    const legacyBtn = (u, title, label) => '<button class="btn bs bb" onclick="window.open(\'' + _lyQ(u) + '\',\'_blank\',\'noopener\')" title="' + title + '">' + _uiIcon('doc', 14) + label + '</button>';
+    const legacyBtn = (u, title, label) => !/^https:\/\//i.test(String(u || '')) ? '' : '<button class="btn bs bb" onclick="window.open(\'' + _lyQ(u) + '\',\'_blank\',\'noopener\')" title="' + title + '">' + _uiIcon('doc', 14) + label + '</button>';
     // Certificat FUSIONNÉ en dernière page du PDF signé (certRef.merged, v15.703) : un seul bouton — le
     // bouton « Certificat » séparé faisait doublon (Didier 30/09). Anciens baux (PDF sans certificat, ou
     // fusion en échec) : bouton Certificat conservé.
@@ -10756,6 +10756,7 @@ function _mvDocOpenInWindow(pj, wPre) {
   if(!w) { showToast('Popup bloquée — autoriser les popups','err',5000); return; }
   try { w.document.open(); } catch (e) {}
   const safeName = escHtml(pj.name || 'Document');
+  if (!/^data:/i.test(String(pj.dataB64 || ''))) { try { w.close(); } catch (e) {} showToast('Document illisible : format inattendu.', 'err', 6000); return; }
   if(/pdf/i.test(pj.mime || '') || /\.pdf$/i.test(pj.name || '')) {
     w.document.write(`<!DOCTYPE html><html><head><title>${safeName}</title><meta charset="utf-8"></head><body style="margin:0"><iframe src="${escHtml(pj.dataB64)}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);
   } else if(/image/i.test(pj.mime || '')) {
@@ -11270,9 +11271,9 @@ function _affDestBadge(id, tgt, niv) {
   const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(catV) : null;
   const qui = (el(tgt + '-qui') && el(tgt + '-qui').value) || '';
   const imm = (el(tgt + '-imm') && el(tgt + '-imm').value) || '';
-  const where = niv === 'sci' ? ('🏛️ ' + (qui.replace(/^SCI:/, '') || '—'))
+  const where = escHtml(niv === 'sci' ? ('🏛️ ' + (qui.replace(/^SCI:/, '') || '—'))
     : (niv === 'imm' || niv === 'recup') ? ('🏢 ' + (imm || '—'))
-    : ('🚪 ' + (qui || '—'));
+    : ('🚪 ' + (qui || '—')));
   const recup = (niv === 'recup') || (sc && sc.recup);
   if (recup) return '<div class="affv2-dest recu"><span class="ic">👥</span><div><div class="ttl">Réparti sur les locataires <span class="tag2044">RÉGUL</span></div><div class="det">Via un compteur collectif · ' + where + '. <span style="opacity:.8">Pas sur la 2044 (ça se neutralise).</span></div></div></div>';
   const lig = sc && sc.ligne2044;
@@ -13581,7 +13582,7 @@ function rCandidats(){
     const sub = _candContratLabel(c);
     const lien = c.source==='lien' ? '<span class="note-lien">lien</span>' : '';
     const dateDeb = c.dateDebutSouhaitee ? fd(c.dateDebutSouhaitee) : '—';
-    return `<tr class="${c.vu===false?'cand-row-new':''}" onclick="if(typeof openFicheCandidat==='function')openFicheCandidat('${c.id}')" style="cursor:pointer">
+    return `<tr class="${c.vu===false?'cand-row-new':''}" onclick="if(typeof openFicheCandidat==='function')openFicheCandidat('${_lyQ(c.id)}')" style="cursor:pointer">
       <td data-label="Candidat"><div class="cand-b-name"><div class="avatar">${escHtml(_candInitials(c))}</div><div><div class="nm">${escHtml(nomComplet)}${lien}${c.vu===false?' <span class="cand-new-pill">● Nouveau</span>':''}</div>${sub?`<div class="sub">${escHtml(sub)}</div>`:''}</div></div></td>
       <td data-label="Bien">${escHtml(bien)}${c.dateDebutSouhaitee?`<div class="cand-supp">Début souhaité ${escHtml(dateDeb)}</div>`:''}</td>
       <td data-label="Reçu le">${escHtml(recu)}</td>
@@ -15369,17 +15370,17 @@ function openFicheCandidat(id){
   let actionsHtml = '';
   if(c.statut!=='converti'){
     if(c.statut==='valide' || c.statut==='refuse')
-      actionsHtml += `<button class="btn bs bb" onclick="setCandidatStatut('${c.id}','enCours')">↩ Repasser en cours</button>`;
+      actionsHtml += `<button class="btn bs bb" onclick="setCandidatStatut('${_lyQ(c.id)}','enCours')">↩ Repasser en cours</button>`;
     if(c.statut!=='valide')
-      actionsHtml += `<button class="btn bg bb" onclick="setCandidatStatut('${c.id}','valide')">✓ Valider</button>`;
+      actionsHtml += `<button class="btn bg bb" onclick="setCandidatStatut('${_lyQ(c.id)}','valide')">✓ Valider</button>`;
     if(c.statut!=='refuse')
-      actionsHtml += `<button class="btn br bb" onclick="refuserCandidat('${c.id}')">✕ Refuser</button>`;
-    actionsHtml += `<button class="btn bs bb" onclick="demanderComplementCandidat('${c.id}')">📩 Demander un complément</button>`;
+      actionsHtml += `<button class="btn br bb" onclick="refuserCandidat('${_lyQ(c.id)}')">✕ Refuser</button>`;
+    actionsHtml += `<button class="btn bs bb" onclick="demanderComplementCandidat('${_lyQ(c.id)}')">📩 Demander un complément</button>`;
   } else {
     actionsHtml = `<span class="mu sm">Candidat converti en bail — pipeline verrouillé.</span>`;
   }
   // 🗑 Suppression définitive — disponible sur TOUTE fiche (double confirm si actif), poussée à droite.
-  actionsHtml += `<button class="btn br bb" onclick="deleteCandidat('${c.id}')" title="Supprimer définitivement ce candidat (dossier + pièces, RGPD)" style="margin-left:auto">🗑 Supprimer</button>`;
+  actionsHtml += `<button class="btn br bb" onclick="deleteCandidat('${_lyQ(c.id)}')" title="Supprimer définitivement ce candidat (dossier + pièces, RGPD)" style="margin-left:auto">🗑 Supprimer</button>`;
   // D13 : rappel visuel d'une demande de complément en attente.
   const complBanner = (c.statut==='enCours' && c.complementNote)
     ? `<div class="alert info" style="margin-top:12px;margin-bottom:0">📩 <b>Complément demandé :</b> ${escHtml(c.complementNote)}${c.source==='lien'?' — le candidat peut le déposer via son lien (dossier conservé).':''}</div>`
@@ -15404,7 +15405,7 @@ function openFicheCandidat(id){
   const loyerAttenduHtml = (loyerHC>0
       ? `<b>${loyerHC.toLocaleString('fr-FR')} €</b><span class="mu" style="font-size:11px"> /mois${_laSrcTxt?(' · '+_laSrcTxt):''}</span>`
       : '<span style="color:var(--ora);font-weight:600">à renseigner</span>')
-    + ` <button onclick="openLoyerBienModal('${c.id}')" title="Mettre à jour le loyer du logement" style="border:1px solid var(--bor);background:var(--sur2);border-radius:6px;width:26px;height:24px;cursor:pointer;font-size:12px;vertical-align:middle;margin-left:4px">✏️</button>`;
+    + ` <button onclick="openLoyerBienModal('${_lyQ(c.id)}')" title="Mettre à jour le loyer du logement" style="border:1px solid var(--bor);background:var(--sur2);border-radius:6px;width:26px;height:24px;cursor:pointer;font-size:12px;vertical-align:middle;margin-left:4px">✏️</button>`;
   const contratBadge = c.contrat ? `<span class="badge blu">${escHtml(c.contrat)}</span>` : '<span class="mu">—</span>';
 
   // ── Garant / Garantie Visale ─────────────────────────────────────────────
@@ -15474,7 +15475,7 @@ function openFicheCandidat(id){
       <div class="flex-b" style="flex-wrap:wrap;gap:12px">
         <div><div style="font-weight:700;font-size:15px;font-family:var(--display)">Candidat validé — prêt pour le bail</div>
         <div class="mu sm" style="margin-top:3px">La création du bail reprendra l'identité, le bien et les conditions saisies.</div></div>
-        <button class="btn bp" onclick="if(typeof convertCandidatToBail==='function'){convertCandidatToBail('${c.id}')}else{showToast('Conversion en bail : disponible à la prochaine étape (Phase 6).','info',5000)}">Créer le bail à partir de ce candidat →</button>
+        <button class="btn bp" onclick="if(typeof convertCandidatToBail==='function'){convertCandidatToBail('${_lyQ(c.id)}')}else{showToast('Conversion en bail : disponible à la prochaine étape (Phase 6).','info',5000)}">Créer le bail à partir de ce candidat →</button>
       </div></div>`;
   } else {
     convHtml = `<div class="card">
@@ -15494,7 +15495,7 @@ function openFicheCandidat(id){
           <div class="fc-sub">Candidat pour <b>${escHtml(bienTxt)}</b> · Date début souhaitée ${escHtml(dateDeb)} · Source : ${escHtml(sourceTxt)}</div>
         </div>
       </div>
-      <button class="btn bs bb" onclick="_editCandidatFromFiche('${c.id}')">✏ Modifier</button>
+      <button class="btn bs bb" onclick="_editCandidatFromFiche('${_lyQ(c.id)}')">✏ Modifier</button>
     </div>
 
     <div class="fc-layout">
@@ -19008,7 +19009,7 @@ function previewBailDataV2(bail, log, ref) {
     }
   </style>`;
   const toolbar = `<div id="toolbar" class="no-print"><span class="ttl">📜 Bail V2 — ${titleLabel.replace(/[<>"']/g,'')}</span><button class="btn-cl" onclick="window.close()">✕ Fermer</button></div>`;
-  const finalHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bail V2 — ${ref}</title>${css}</head><body>${toolbar}<div id="doc-wrap">${contentHtml}</div></body></html>`;
+  const finalHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bail V2 — ${escHtml(ref)}</title>${css}</head><body>${toolbar}<div id="doc-wrap">${contentHtml}</div></body></html>`;
 
   const win = window.open('', '_blank');
   if (!win) { showToast('Popup bloquée — autoriser les popups', 'err'); return; }
@@ -20420,6 +20421,16 @@ function _buildNoticeStructure() {
   return N;
 }
 
+/* Donnée sérialisée dans un <script> inline de la popup du bail : JSON.stringify n'échappe ni < ni > ni &,
+   ni U+2028/U+2029 → une valeur contenant « </script> » fermerait le bloc et injecterait du HTML dans une
+   fenêtre de même origine. Échappements \uXXXX : valeur identique une fois relue par le moteur JS. */
+function _jsonPourScript(v) {
+  var j = JSON.stringify(v);
+  if (j === undefined) return 'undefined';
+  return j.replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
 function previewBailData(bail, log, ref, opts) {
   if (!window._BAIL_PDF_LIBS && window.ensurePdfLibs) {
     window.ensurePdfLibs().then(() => previewBailData(bail, log, ref, opts), () => { showToast('⚠ Libs PDF indisponibles (réseau ?). Réessayer.', 'err', 6000); });
@@ -20492,7 +20503,7 @@ function previewBailData(bail, log, ref, opts) {
     signataires.push({id:'loc-'+i, role:'LOCATAIRE'+(locs.length>1?' '+(i+1):''),
       nomCourt:nom.split(' ').slice(-1)[0], header:'<strong>LOCATAIRE'+(locs.length>1?' '+(i+1):'')+'</strong> &mdash; '+nom});
   });
-  var sigsJson = JSON.stringify(signataires.map(function(s){return {id:s.id,nomCourt:s.nomCourt,role:s.role};}));
+  var sigsJson = _jsonPourScript(signataires.map(function(s){return {id:s.id,nomCourt:s.nomCourt,role:s.role};}));
   var N_PAGES = 10;
 
   /* ── Helpers ─────────────────────────────────────────────── */
@@ -20747,7 +20758,7 @@ function previewBailData(bail, log, ref, opts) {
   /* BAIL SIGNÉ HORS PROPRYO : ni démarrage de signature, ni « PDF » (il ressemblerait à un exemplaire signé) — seul l'aperçu. */
   var _bailExterne = !!(bail.signatures && bail.signatures.mode === 'externe');
   var toolbar = '<div id="toolbar" class="no-print">'
-    +'<span class="ttl">\ud83d\udcdc Bail \u2014 '+titleLabel+'</span>'
+    +'<span class="ttl">\ud83d\udcdc Bail \u2014 '+escHtml(titleLabel)+'</span>'
     +'<span id="wiz-counter" class="wiz-counter">\ud83d\udcc4 Page 1 / '+N_PAGES+'</span>'
     +(_bailExterne?'':'<button class="btn-wiz" onclick="_wizPorteUnique()">\u270d\ufe0f D\u00e9marrer signature</button>')
     /* v13.22 \u2014 toolbar \u00e9pur\u00e9e : "Test" et "Pr\u00e9-render" (dev tools) retir\u00e9s.
@@ -20763,7 +20774,7 @@ function previewBailData(bail, log, ref, opts) {
   /* ── Scripts ─────────────────────────────────────────────── */
   /* Phase A.3 (v12.73 → v13.05) : structure du bail pour PDF natif sérialisée + injectée
      dans le preview. Réutilise _bailStruct calculé plus haut pour le rendu HTML. */
-  var bailStructureJson = JSON.stringify(_bailStruct);
+  var bailStructureJson = _jsonPourScript(_bailStruct);
   var scripts = '<script>'
     /* SIGNATURE-SMOKE S1/S3 — helpers PURS sérialisés depuis les modules testés (source unique :
        __tests__/helpers/*.js → js/helpers/*.global.js). La popup est un document about:blank :
@@ -20776,27 +20787,27 @@ function previewBailData(bail, log, ref, opts) {
        addition ici doit y être répercutée. */
     +'var _padSignersFor='+window.BailSignataires.padSignersFor.toString()+';'
     +'var _pageKinds='+window.PdfFlow.pageKinds.toString()+';'
-    +'var SECTION_TITRES='+JSON.stringify(window.PdfFlow.SECTION_TITRES.map(function(x){return {kind:x.kind,src:x.re.source,flags:x.re.flags};}))+';'
+    +'var SECTION_TITRES='+_jsonPourScript(window.PdfFlow.SECTION_TITRES.map(function(x){return {kind:x.kind,src:x.re.source,flags:x.re.flags};}))+';'
     +'SECTION_TITRES=SECTION_TITRES.map(function(x){return {kind:x.kind,re:new RegExp(x.src,x.flags)};});'
     +'var _sectionKindFromTitle='+window.PdfFlow.sectionKindFromTitle.toString()+';'
-    +'var SECTIONS_SANS_PARAPHE='+JSON.stringify(window.PdfFlow.SECTIONS_SANS_PARAPHE)+';'
-    +'var _BRAND_EMETTEUR='+JSON.stringify(sciLabel||'')+';'
-    +'var BRAND='+JSON.stringify(window.DocBrand.BRAND)+';'
-    +'var PROPRYO_MARK='+JSON.stringify(window.DocBrand.PROPRYO_MARK)+';'
+    +'var SECTIONS_SANS_PARAPHE='+_jsonPourScript(window.PdfFlow.SECTIONS_SANS_PARAPHE)+';'
+    +'var _BRAND_EMETTEUR='+_jsonPourScript(sciLabel||'')+';'
+    +'var BRAND='+_jsonPourScript(window.DocBrand.BRAND)+';'
+    +'var PROPRYO_MARK='+_jsonPourScript(window.DocBrand.PROPRYO_MARK)+';'
     +'var _propryoMarkOps='+window.DocBrand.propryoMarkOps.toString()+';'
     +'var _brandzoneModel='+window.DocBrand.brandzoneModel.toString()+';'
     +'var bodyBottom='+window.PdfFlow.bodyBottom.toString()+';'
-    +'var PDF_BODY='+JSON.stringify(window.PdfFlow.PDF_BODY)+';'
+    +'var PDF_BODY='+_jsonPourScript(window.PdfFlow.PDF_BODY)+';'
     +'var _splitBlockAcrossPages='+window.PdfFlow.splitBlockAcrossPages.toString()+';'
-    +'var WINANSI_HIGH='+JSON.stringify(window.MontantDoc.WINANSI_HIGH)+';'
-    +'var PDF_UNSAFE_MAP='+JSON.stringify(window.MontantDoc.PDF_UNSAFE_MAP)+';'
+    +'var WINANSI_HIGH='+_jsonPourScript(window.MontantDoc.WINANSI_HIGH)+';'
+    +'var PDF_UNSAFE_MAP='+_jsonPourScript(window.MontantDoc.PDF_UNSAFE_MAP)+';'
     +'var isWinAnsiChar='+window.MontantDoc.isWinAnsiChar.toString()+';'
     +'var hasPdfUnsafeChars='+window.MontantDoc.hasPdfUnsafeChars.toString()+';'
     +'var pdfSafeText='+window.MontantDoc.pdfSafeText.toString()+';'
     +'var hardenJsPdfText='+window.MontantDoc.hardenJsPdfText.toString()+';'
     /* PARAPHE-UNIQUE (v15.709) — persistance : une image de paraphe par signataire. parapheCarte relit
        les DEUX formes (anciens baux verrouillés : paraphes[page][sigId]) ; compacterParaphes écrit. */
-    +'var FORMAT_SIGNATURES='+JSON.stringify(window.BailParaphes.FORMAT_SIGNATURES)+';'
+    +'var FORMAT_SIGNATURES='+_jsonPourScript(window.BailParaphes.FORMAT_SIGNATURES)+';'
     +'var parapheDe='+window.BailParaphes.parapheDe.toString()+';'
     +'var parapheCarte='+window.BailParaphes.parapheCarte.toString()+';'
     +'var compacterParaphes='+window.BailParaphes.compacterParaphes.toString()+';'
@@ -20809,28 +20820,28 @@ function previewBailData(bail, log, ref, opts) {
     +'var versionDepuisSw='+window.VersionApp.versionDepuisSw.toString()+';'
     +'var versionPlusRecente='+window.VersionApp.versionPlusRecente.toString()+';'
     +'var versionServieRecente='+window.VersionApp.versionServieRecente.toString()+';'
-    +'var MSG_VERSION_SIGNER='+JSON.stringify(window.VersionApp.MSG_VERSION_SIGNER)+';'
-    +'var MSG_VERSION_PDF='+JSON.stringify(window.VersionApp.MSG_VERSION_PDF)+';'
-    +'var MSG_FORMAT_INCONNU='+JSON.stringify(window.VersionApp.MSG_FORMAT_INCONNU)+';'
-    +'var _APP_VERSION='+JSON.stringify(typeof IMMOTRACK_VERSION!=='undefined'?IMMOTRACK_VERSION:'')+';'
-    +'var _VERSION_URL='+JSON.stringify(_swVersionUrl())+';'
+    +'var MSG_VERSION_SIGNER='+_jsonPourScript(window.VersionApp.MSG_VERSION_SIGNER)+';'
+    +'var MSG_VERSION_PDF='+_jsonPourScript(window.VersionApp.MSG_VERSION_PDF)+';'
+    +'var MSG_FORMAT_INCONNU='+_jsonPourScript(window.VersionApp.MSG_FORMAT_INCONNU)+';'
+    +'var _APP_VERSION='+_jsonPourScript(typeof IMMOTRACK_VERSION!=='undefined'?IMMOTRACK_VERSION:'')+';'
+    +'var _VERSION_URL='+_jsonPourScript(_swVersionUrl())+';'
     +'var _SIGS='+sigsJson+';'
     +'var _BAIL_STRUCTURE='+bailStructureJson+';'
-    +'var _BAIL_REF='+JSON.stringify(ref)+';' /* v13.02 : persistance signatures */
+    +'var _BAIL_REF='+_jsonPourScript(ref)+';' /* v13.02 : persistance signatures */
     /* Annexes du DDT (plan figé au lancement) → écran « Annexes au bail » avant la signature finale des
        LOCATAIRES présents (accusé de réception obligatoire, validé Didier 29/09). Chevron ouvrant échappé
        (<) : une fin de balise script dans la chaîne fermerait le bloc. */
-    +'var _BAIL_ANNEXES='+JSON.stringify(((bail && bail.annexesDdt && Array.isArray(bail.annexesDdt.items)) ? bail.annexesDdt.items : []).filter(function(it){return it && it.statut!=="na";}).map(function(it){return {label:String(it.label||""),statut:it.statut,docName:it.docName||""};})).replace(/</g,'\\u003c')+';'
-    +'var _CLAUSE_IRL_V='+JSON.stringify(_bailClauseVersion(bail))+';' /* IRL-REVISION N4 : version de la clause 5.2 affichée à la signature */
+    +'var _BAIL_ANNEXES='+_jsonPourScript(((bail && bail.annexesDdt && Array.isArray(bail.annexesDdt.items)) ? bail.annexesDdt.items : []).filter(function(it){return it && it.statut!=="na";}).map(function(it){return {label:String(it.label||""),statut:it.statut,docName:it.docName||""};})).replace(/</g,'\\u003c')+';'
+    +'var _CLAUSE_IRL_V='+_jsonPourScript(_bailClauseVersion(bail))+';' /* IRL-REVISION N4 : version de la clause 5.2 affichée à la signature */
     +'var _BAIL_REMOTE_SIGN='+(opts&&opts.remoteSign?'true':'false')+';' /* Task 6 BAIL-SIGNATURE-DISTANCE : bailleur in-app, locataires à distance */
-    +'var _BAIL_REMOTE_SIGID_MAP='+JSON.stringify((typeof window!=='undefined'&&window.BailSignSigid&&window.BailSignSigid.buildRemoteSigIdMap)?window.BailSignSigid.buildRemoteSigIdMap(bail.locataires):[])+';' /* B1 : sigId distant aligné relais (présentiel→null) */
-    +'var _BAIL_BAILLEUR_MODES='+JSON.stringify(_d2aBModes)+';' /* D2a : "pres"|"dist"|"no" par index gérant */
-    +'var _BAIL_REMOTE_BAILLEUR_SIGID_MAP='+JSON.stringify(_d2aBSigIdMap)+';' /* D2a : sigId "bailleur-N" par index gérant (distant→bailleur-N, présentiel/exclu→null) */
+    +'var _BAIL_REMOTE_SIGID_MAP='+_jsonPourScript((typeof window!=='undefined'&&window.BailSignSigid&&window.BailSignSigid.buildRemoteSigIdMap)?window.BailSignSigid.buildRemoteSigIdMap(bail.locataires):[])+';' /* B1 : sigId distant aligné relais (présentiel→null) */
+    +'var _BAIL_BAILLEUR_MODES='+_jsonPourScript(_d2aBModes)+';' /* D2a : "pres"|"dist"|"no" par index gérant */
+    +'var _BAIL_REMOTE_BAILLEUR_SIGID_MAP='+_jsonPourScript(_d2aBSigIdMap)+';' /* D2a : sigId "bailleur-N" par index gérant (distant→bailleur-N, présentiel/exclu→null) */
     /* v14.71 BUG-FIX : sérialiser la KEY localStorage pour supporter le mode test (sandbox).
        Sans ça, la popup signature lit/écrit en dur 'immotrack_v4' (PROD) même quand
        l'opener est en mode test (_test_immotrack_v4) → fuite sandbox→prod. */
-    +'var _BAIL_LS_KEY='+JSON.stringify(typeof KEY !== 'undefined' ? KEY : 'immotrack_v4')+';'
-    +'var _BAIL_SIGNED='+JSON.stringify(!!(bail.signatures&&bail.signatures.signedAt))+';'
+    +'var _BAIL_LS_KEY='+_jsonPourScript(typeof KEY !== 'undefined' ? KEY : 'immotrack_v4')+';'
+    +'var _BAIL_SIGNED='+_jsonPourScript(!!(bail.signatures&&bail.signatures.signedAt))+';'
     /* BAIL-SIGNE-MODIFS (28/09) — les signatures enregistrées ne sont réinjectées QUE sur le contenu
        SIGNÉ (vue snapshot, opts.useSnapshot) ou pour compléter une signature partielle (bailleur seul).
        Sur l'aperçu VIVANT d'un bail signé (modifié depuis, journal réappliqué), « PDF » aurait posé les
@@ -20839,7 +20850,7 @@ function previewBailData(bail, log, ref, opts) {
     /* Audit : on ne retire les signatures QUE si ce bail a été réellement modifié depuis sa signature
        (entrée de journal) et hors de tout flux de signature (file, distance, phase 2) — un bail archivé,
        une signature en cours ou partielle, un ancien bail sans PDF gardent leur réinjection. */
-    +'var _SAVED_SIGNATURES='+JSON.stringify((function(){
+    +'var _SAVED_SIGNATURES='+_jsonPourScript((function(){
         const _sg = bail.signatures; if (!_sg) return null;
         if (opts.useSnapshot || opts.signQueue || opts.remoteSign || opts.phase2 || _sg.mode === 'bailleur-seul') return _sg;
         const _jr = (window.BailModifs && ref) ? (window.BailModifs.modificationsDuBail || window.BailModifs.journalDuBail)(DB.baux_evenements, ref, bail) : [];
@@ -20847,10 +20858,10 @@ function previewBailData(bail, log, ref, opts) {
       })())+';' /* v13.03 : hydrate */
     /* PARAPHE-UNIQUE (audit 01/10) — signatures d'une forme FUTURE (format > FORMAT_SIGNATURES) : cette
        version ne les relit pas et ne les réécrit pas (signer, enregistrer, « PDF » refusés). */
-    +'var _SIG_FORMAT_INCONNU='+JSON.stringify(!!(bail.signatures && !window.BailParaphes.formatSignaturesConnu(bail.signatures)))+';'
+    +'var _SIG_FORMAT_INCONNU='+_jsonPourScript(!!(bail.signatures && !window.BailParaphes.formatSignaturesConnu(bail.signatures)))+';'
     /* FIL-ROUGE cleanup — _AUTO_SIGN / _AUTO_PHASE2 retirés (triggers + setters supprimés). */
-    +'var _BAIL_SIGN_QUEUE='+JSON.stringify((opts&&opts.signQueue)||null)+';' /* FIL-ROUGE : sigIds présentiels ordonnés (chacun son tour) */
-    +'var _BAIL_SIGN_DISTANTS='+JSON.stringify((opts&&opts.distants)||[])+';' /* FIL-ROUGE : signataires distants à relayer après les présentiels */
+    +'var _BAIL_SIGN_QUEUE='+_jsonPourScript((opts&&opts.signQueue)||null)+';' /* FIL-ROUGE : sigIds présentiels ordonnés (chacun son tour) */
+    +'var _BAIL_SIGN_DISTANTS='+_jsonPourScript((opts&&opts.distants)||[])+';' /* FIL-ROUGE : signataires distants à relayer après les présentiels */
     +'var _N='+N_PAGES+';'
     +'function initPad(c){'
     +  'var ctx=c.getContext("2d"),drawing=false;'
@@ -20884,7 +20895,7 @@ function previewBailData(bail, log, ref, opts) {
     +      '+\'<canvas id="\'+cid+\'" class="pz-cv" width="\'+w+\'" height="\'+hh+\'"></canvas>\''
     +      '+\'<img id="img-\'+cid+\'" class="pz-img" width="\'+w+\'" height="\'+hh+\'">\''
     +      '+\'<button id="clr-\'+cid+\'" class="btn-x">\u2715 Effacer</button>\''
-    +      '+\'<span class="pz-name">\'+s.nomCourt+\'</span>\''
+    +      '+\'<span class="pz-name">\'+_wizV2Esc(s.nomCourt)+\'</span>\''
     +      '+\'</span>\';'
     +  '});'
     +  'h+=\'<span class="pz-pgnum">p.\'+pageNum+\'/\'+totalPages+\'</span>\';'
@@ -21307,13 +21318,13 @@ function previewBailData(bail, log, ref, opts) {
     +  'sigs.forEach(function(s){'
     +    'var cid="wizV2-finalsig-"+s.id;'
     +    'html+="<div style=\\"background:#eff6ff;border:2px solid #1a4b8c;border-radius:8px;padding:12px\\">";'
-    +    'html+="<label style=\\"font-size:12pt;color:#1a4b8c;font-weight:bold;text-align:center;margin-bottom:8px;display:block\\">"+s.role+" — "+s.nomCourt+"</label>";'
+    +    'html+="<label style=\\"font-size:12pt;color:#1a4b8c;font-weight:bold;text-align:center;margin-bottom:8px;display:block\\">"+_wizV2Esc(s.role)+" — "+_wizV2Esc(s.nomCourt)+"</label>";'
     +    'html+="<canvas id=\\""+cid+"\\" data-sig=\\""+s.id+"\\" width=\\"720\\" height=\\"220\\" style=\\"width:100%;max-width:380px;height:120px;border:1.5px dashed #1a4b8c;background:#fff;cursor:crosshair;touch-action:none;border-radius:4px;display:block;margin:0 auto\\"></canvas>";'
     +    'html+="<div style=\\"display:flex;justify-content:center;margin-top:8px\\"><button id=\\"clr-"+cid+"\\" style=\\"font-size:11pt;color:#c00;padding:4px 14px;background:#fff;border:1px solid #c00;border-radius:4px;cursor:pointer\\">✕ Effacer</button></div>";'
     /* checkbox "Lu et approuvé" sous le canvas */
     +    'html+="<label style=\\"display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:10px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:6px;cursor:pointer;font-size:10.5pt\\">";'
     +    'html+="<input type=\\"checkbox\\" id=\\"wizV2-lu-"+s.id+"\\" data-sig=\\""+s.id+"\\" style=\\"width:22px;height:22px;flex-shrink:0;margin-top:1px;cursor:pointer\\""+(luBy[s.id]?" checked":"")+">";'
-    +    'html+="<span><b>« Lu et approuvé »</b> — "+s.nomCourt+" <span style=\\"color:#c00;font-weight:bold\\">*</span><br><span style=\\"font-size:9pt;color:#666\\">Affichée au-dessus de la signature dans le PDF</span></span>";'
+    +    'html+="<span><b>« Lu et approuvé »</b> — "+_wizV2Esc(s.nomCourt)+" <span style=\\"color:#c00;font-weight:bold\\">*</span><br><span style=\\"font-size:9pt;color:#666\\">Affichée au-dessus de la signature dans le PDF</span></span>";'
     +    'html+="</label>";'
     +    'html+="</div>";'
     +  '});'
@@ -22046,7 +22057,7 @@ function previewBailData(bail, log, ref, opts) {
     /* PDF en Blob → ArrayBuffer pour pdfjsLib */
     +  'var pdfBlob=pdf.output("blob");'
     +  'var arrayBuffer=await pdfBlob.arrayBuffer();'
-    +  'var loadingTask=window.pdfjsLib.getDocument({data:arrayBuffer});'
+    +  'var loadingTask=window.pdfjsLib.getDocument({data:arrayBuffer,isEvalSupported:false});'
     +  'var pdfDoc=await loadingTask.promise;'
     +  'var totalPages=pdfDoc.numPages;'
     +  'var results=[];'
@@ -22480,7 +22491,7 @@ function previewBailData(bail, log, ref, opts) {
                      + '<script src="' + _h2cUrl + '"><\/script>'
                      + '<script src="' + _pdfjsUrl + '"><\/script>'
                      /* Configure le worker pdfjs apr\u00e8s chargement du main lib */
-                     + '<script>window.__PDFJS_WORKER_URL=' + JSON.stringify(_pdfjsWorkerUrl) + ';if(window.pdfjsLib&&window.pdfjsLib.GlobalWorkerOptions){window.pdfjsLib.GlobalWorkerOptions.workerSrc=window.__PDFJS_WORKER_URL;}<\/script>';
+                     + '<script>window.__PDFJS_WORKER_URL=' + _jsonPourScript(_pdfjsWorkerUrl) + ';if(window.pdfjsLib&&window.pdfjsLib.GlobalWorkerOptions){window.pdfjsLib.GlobalWorkerOptions.workerSrc=window.__PDFJS_WORKER_URL;}<\/script>';
     } catch(e) {
       pdfLibsDiag = 'Blob URL cr\u00e9ation \u00e9chou\u00e9e : ' + e.message;
       showToast('\u26a0 Pr\u00e9paration libs PDF \u00e9chou\u00e9e : ' + e.message, 'err', 6000);
@@ -22502,7 +22513,7 @@ function previewBailData(bail, log, ref, opts) {
   }
   var finalHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
     +'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-    +'<title>Bail \u2014 '+titleLabel+'<\/title>'+css
+    +'<title>Bail \u2014 '+escHtml(titleLabel)+'<\/title>'+css
     +pdfLibsScripts
     +'<\/head><body>'
     +toolbar

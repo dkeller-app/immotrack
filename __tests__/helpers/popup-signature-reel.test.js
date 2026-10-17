@@ -17,6 +17,13 @@ const MIRRORS = ['bail-signataires', 'pdf-flow', 'doc-brand', 'montant-doc', 'ba
 const REF = 'T-1';
 const VERSION_COURANTE = /const IMMOTRACK_VERSION = '([0-9.]+)'/.exec(SRC)[1];
 const B = 'data:image/png;base64,BAILLEUR', L = 'data:image/png;base64,LOCATAIRE';
+// Échappeur des données sérialisées dans le <script> de la popup (fonction RÉELLE, extraite de la source).
+const JSON_POUR_SCRIPT = (() => {
+  const i = SRC.indexOf('function _jsonPourScript(');
+  const j = SRC.indexOf('\n}', i);
+  if (i < 0 || j < 0) throw new Error('_jsonPourScript introuvable dans index.html');
+  return new Function(SRC.slice(i, j + 2) + '\nreturn _jsonPourScript;')();
+})();
 const SIGS = [{ id: 'bailleur-0', nomCourt: 'Demo', role: 'BAILLEUR' }, { id: 'loc-0', nomCourt: 'Loc', role: 'LOCATAIRE' }];
 
 // ── 1. Assemble la chaîne `scripts` exactement comme previewBailData ────────────────────────────
@@ -34,7 +41,7 @@ function assemblerBundle({ bail, opts }) {
     window: parent, bail, opts, ref: REF, DB: { baux: { [REF]: bail }, baux_evenements: [], params: {} },
     sigsJson: JSON.stringify(SIGS), bailStructureJson: '[]', sciLabel: 'SCI T', KEY: '_test_immotrack_v4', N_PAGES: 10,
     _d2aBModes: ['pres'], _d2aBSigIdMap: [], titleLabel: 'T',
-    IMMOTRACK_VERSION: VERSION_COURANTE, _swVersionUrl: () => 'http://127.0.0.1/sw.js'
+    IMMOTRACK_VERSION: VERSION_COURANTE, _swVersionUrl: () => 'http://127.0.0.1/sw.js', _jsonPourScript: JSON_POUR_SCRIPT
   };
   const scope = new Proxy(locaux, {
     has: () => true,

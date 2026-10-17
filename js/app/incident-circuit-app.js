@@ -665,7 +665,7 @@ async function imagesDe(blob) {
   if (blob.type === 'application/pdf') {
     if (!G('_ensurePdfjsLoaded')) return []
     await W._ensurePdfjsLoaded()
-    const pdf = await W.pdfjsLib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise
+    const pdf = await W.pdfjsLib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false }).promise
     const out = []
     for (let p = 1; p <= Math.min(2, pdf.numPages); p++) {
       const page = await pdf.getPage(p); const vp = page.getViewport({ scale: 1.6 })

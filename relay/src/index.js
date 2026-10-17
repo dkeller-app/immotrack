@@ -40,6 +40,24 @@ app.use('*', cors({
   maxAge: 86400 // 86400 s = 24 h (plafond Firefox)
 }));
 
+// Pages publiques porteuses d'un jeton (signataire /s, candidat /d) : jamais en cache, jamais dans un cadre
+// tiers, jamais de Referer. CSP limitée aux directives sans effet sur leurs scripts inline (pas de
+// script-src ici : la page de signature injecte son jeton par un <script> inline).
+const ENTETES_PAGES_JETON = {
+  'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY', 'X-Robots-Tag': 'noindex, nofollow, noarchive',
+  'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'",
+};
+const pagesJeton = async (c, next) => { await next(); for (const [k, v] of Object.entries(ENTETES_PAGES_JETON)) c.res.headers.set(k, v); };
+// Réponses d'API qui portent un jeton ou un document : jamais en cache.
+const sansCache = async (c, next) => { await next(); c.res.headers.set('Cache-Control', 'no-store'); };
+app.use('/s/*', pagesJeton);
+app.use('/d/*', pagesJeton);
+app.use('/sessions', sansCache);
+app.use('/candidatures', sansCache);
+app.use('/api/sessions/*', sansCache);
+app.use('/api/candidatures/*', sansCache);
+
 app.get('/health', (c) => c.json({ ok: true, service: 'bail-sign-relay' }));
 
 function expEpoch() {

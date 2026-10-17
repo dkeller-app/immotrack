@@ -208,7 +208,7 @@ describe('M1 — dates échappées (fenêtre de règle et « Mes règles »)', (
     const html = A.call('_bankRulesCarteHtml', r, null);
     expect(html).not.toContain('<img');
     expect(html).not.toContain('<svg');
-    expect(html).toContain('&lt;img src=x onerror=window.__xss=1&gt;');
+    expect(html).toContain('img src=x onerror=window.__xss=1');   // fd() retire < > " & d'une valeur non datable (lot A avant bêta), le reste est rendu en texte
   });
   it('fenêtre de règle : exceptions et lignes de l\'aperçu', () => {
     const A = scenarioB1();
@@ -219,7 +219,7 @@ describe('M1 — dates échappées (fenêtre de règle et « Mes règles »)', (
     A.els['bank-rule-preview'] = { innerHTML: '' };
     A.call('_bankRulePreviewRender');
     expect(A.els['bank-rule-preview'].innerHTML).not.toContain('<img');
-    expect(A.els['bank-rule-preview'].innerHTML).toContain('&lt;img');
+    expect(A.els['bank-rule-preview'].innerHTML).toContain('img src=x onerror=window.__xss=1');   // idem : date non datable neutralisée par fd()
   });
 });
 

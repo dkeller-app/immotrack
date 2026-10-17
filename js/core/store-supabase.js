@@ -110,6 +110,13 @@ export const splitConfig = cfg => {
   return { shared, priv }
 }
 
+// Identifiant applicatif sûr : nombre fini, ou jeton [A-Za-z0-9_.:@|-] de 1 à 200 caractères (toutes les
+// formes générées par l'app). `legacy_raw.id` est réécrivable par tout membre en écriture via l'API, et l'app
+// l'interpole dans des gestionnaires on… et des attributs : un identifiant d'une autre forme n'est pas chargé.
+export const idEnregistrementSur = v => v == null
+  || (typeof v === 'number' && Number.isFinite(v))
+  || (typeof v === 'string' && /^[A-Za-z0-9_.:@|-]{1,200}$/.test(v))
+
 export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConfig, fetchConfigPrivate, writeConfigPrivate, detUuid, espaceId, ownerId }) {
   if (typeof fetchTable !== 'function' || typeof fetchConfig !== 'function')
     throw new Error('createSupabaseStore: fetchTable et fetchConfig (fonctions) requis')
@@ -153,7 +160,11 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
     ])
     entries.forEach(([, coll], i) => {
       const rows = tablesRows[i]
-      db[coll] = rows.map(r => r && r.legacy_raw).filter(lr => lr != null)
+      db[coll] = rows.map(r => r && r.legacy_raw).filter(lr => lr != null).filter(lr => {
+        if (idEnregistrementSur(lr.id)) return true
+        console.warn('[SupabaseStore] enregistrement écarté (identifiant de forme inattendue) dans « ' + coll + ' »')
+        return false
+      })
       captureVersions(rows)
     })
     db.baux = {}

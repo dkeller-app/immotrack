@@ -1243,6 +1243,11 @@ function _lyDpeNonConcerne(ref) {
 function _lyQ(s2) {
   return escHtml(String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
+/* Valeur passée telle quelle (nombre ou chaîne, type conservé) en argument d'un gestionnaire on…="…" :
+   littéral JSON (guillemets doubles), puis échappé pour l'attribut — le parseur HTML le redécode avant le JS. */
+function _jsArgAttr(v) {
+  return escHtml(JSON.stringify(v == null ? null : v));
+}
 
 /**
  * V15 — LA ligne : quatre colonnes, UNE ligne de texte, 40 px en densité Confort.
@@ -3953,7 +3958,7 @@ function rEDLList() {
     const _np = (e.pieces||[]).length;
     return `<tr data-edl-id="${e.id}">
       <td class="edl-lcell-log"><b>${escHtml(e.logement ? _logLabel(e.logement) : '–')}</b><button type="button" class="edl-lmore" onclick="_edlListMore(${e.id})" aria-label="Plus d'actions : supprimer l'état des lieux">${_uiIcon('dots')}</button></td><td>${escHtml(e.locataire||'–')}</td>
-      <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${e.type}</span> ${_ext ? '<span class="badge gry" title="État des lieux réalisé et signé sur papier : classé ici, sans saisie dans Propryo">Hors Propryo</span>' : brouillon}</td>
+      <td><span class="badge ${e.type==='Entrée'?'grn':'info'}">${escHtml(e.type || '')}</span> ${_ext ? '<span class="badge gry" title="État des lieux réalisé et signé sur papier : classé ici, sans saisie dans Propryo">Hors Propryo</span>' : brouillon}</td>
       <td>${fd(e.date)}</td>
       <td class="mu sm">${_ext ? (_edlExtPj(e) ? escHtml(_edlExtPj(e).originalName || _edlExtPj(e).name) : 'Aucun PDF joint') : `${_np} pièce${_np>1?'s':''} · ${nb} élément${nb>1?'s':''}${sig}${abri}`}</td>
       <td class="act-cell">${_ext ? _edlExtBoutons(e, 'btn bs bb') : `
@@ -16784,7 +16789,7 @@ async function _ddtDryRun(bytes) {
   // couverture légère ne suffit pas) ; la fusion mesure ensuite les octets RÉELS et tranche.
   await _ensurePdfjsLoaded();
   let pdf;
-  try { pdf = await window.pdfjsLib.getDocument({ data: bytes.slice() }).promise; }
+  try { pdf = await window.pdfjsLib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise; }
   catch (e) { throw new Error((e && e.name === 'PasswordException') ? 'protégé par un mot de passe d\'ouverture' : 'PDF illisible'); }
   try {
     const n = pdf.numPages;
@@ -17048,7 +17053,7 @@ async function _ddtEmbedFile(out, PDFLib, bytes, kind) {
   }
   // PDF protégé → rendu JPEG par pdf.js (qui ouvre les PDF à mot de passe propriétaire)
   await _ensurePdfjsLoaded();
-  const pdf = await window.pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+  const pdf = await window.pdfjsLib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise;
   try {
     for (let i = 1; i <= pdf.numPages; i++) {
       const r = await _ddtRenderPdfPage(pdf, i);
@@ -17323,7 +17328,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.762 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.763 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -17584,7 +17589,7 @@ function _renderLogFichePanelAgenda(log, ref) {
       </div>
       <div class="logf-doc-actions" style="display:flex;flex-direction:column;gap:4px">
         ${badge}
-        <button class="btn bs bb" style="font-size:11px;padding:3px 8px" onclick="openAgendaEvt('${e.id}')" title="Modifier">${_uiIcon('edit')} Modifier</button>
+        <button class="btn bs bb" style="font-size:11px;padding:3px 8px" onclick="openAgendaEvt('${_lyQ(e.id)}')" title="Modifier">${_uiIcon('edit')} Modifier</button>
         ${!e.done?`<button class="btn bs bb" style="font-size:11px;padding:3px 8px;color:var(--grn);border-color:rgba(22,163,74,.3);background:rgba(22,163,74,.08)" onclick="agendaMarkDone(event,'${e.id}');setTimeout(rLogFiche,50)" title="Marquer fait">${_uiIcon('check')} Fait</button>`:''}
       </div>
     </div>`;
@@ -17691,11 +17696,11 @@ function _renderAttachmentSection(opts) {
     : `<div class="logf-doc-empty" style="padding:12px;text-align:center;color:var(--t2);background:var(--sur2);border-radius:6px">${escHtml(emptyText)}</div>`;
   // v15.156 — id + opts sérialisés pour rafraîchissement en place (fiches ET modales).
   const _optsAttr = encodeURIComponent(JSON.stringify({ parentType, parentId, parentRef, logRef, category, title, emptyText, accept }));
-  return `<div class="att-section" id="att-sec-${parentType}-${parentId}" data-att-opts="${_optsAttr}">
+  return `<div class="att-section" id="att-sec-${escHtml(parentType)}-${escHtml(parentId)}" data-att-opts="${_optsAttr}">
     <div class="flex-b" style="align-items:center;margin-bottom:8px">
       <h4 style="margin:0;font-size:14px;color:var(--t1)">${title} ${docs.length?`<span class="mu sm" style="font-weight:400">(${docs.length})</span>`:''}</h4>
-      <label for="${uploaderId}" class="btn bs bb" style="cursor:pointer">+ Ajouter</label>
-      <input type="file" id="${uploaderId}" accept="${accept}" style="display:none"
+      <label for="${escHtml(uploaderId)}" class="btn bs bb" style="cursor:pointer">+ Ajouter</label>
+      <input type="file" id="${escHtml(uploaderId)}" accept="${accept}" style="display:none"
              onchange="_handleAttachmentUpload(this, '${parentType}', ${typeof parentId==='number'?parentId:`'${_lyQ(parentId)}'`}, ${parentRef!=null?`'${_lyQ(parentRef)}'`:'null'}, ${logRef!=null?`'${_lyQ(logRef)}'`:'null'}, '${category}')">
     </div>
     ${listHtml}
@@ -17729,7 +17734,7 @@ function _renderCandidatPiecesGrouped(cand){
   const _addBtn = (catKey) => {
     const upId = `att-up-candidat-${candId}-${catKey}`;
     return `<div style="margin-top:8px"><label for="${upId}" class="btn bs bb" style="cursor:pointer;font-size:12px">+ Ajouter</label>`
-      + `<input type="file" id="${upId}" accept="${accept}" style="display:none" onchange="_handleAttachmentUpload(this,'candidat','${candId}','${candId}',${logRefArg},'${catKey}')"></div>`;
+      + `<input type="file" id="${upId}" accept="${accept}" style="display:none" onchange="_handleAttachmentUpload(this,'candidat','${_lyQ(candId)}','${_lyQ(candId)}',${logRefArg},'${catKey}')"></div>`;
   };
   // CANDIDATURES-CONFORMITE lot 2 — TYPE de chaque pièce, pris dans la liste FERMÉE du décret n° 2015-1437
   // pour sa catégorie (pas d'option « Autre » : la loi ferme la liste). Pièce existante → « Type non précisé ».
@@ -17954,7 +17959,7 @@ function _bailPiecesFicheHtml(ref, bail) {
     const p = papier[P.cleGarant(bail, g.nom)];
     const titre = 'Acte de cautionnement — ' + g.nom;
     if (d) h += ligne(ic(d), titre, (d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size),
-      b('Ouvrir', 'data-act="ouvrir" data-doc="' + d.id + '"') + b('Remplacer', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
+      b('Ouvrir', 'data-act="ouvrir" data-doc="' + escHtml(d.id) + '"') + b('Remplacer', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Retirer', 'data-act="retirer" data-doc="' + escHtml(d.id) + '"'));
     else if (p) h += ligne(_uiIcon('doc', 18), titre, 'Déclaré détenu le ' + fd(p.at) + ' · aucun fichier',
       b('Ajouter le fichier', 'data-act="deposer" data-piece="caution" data-g="' + g.idx + '"') + b('Annuler « papier »', 'data-act="papier" data-g="' + g.idx + '" data-on="0"'), 'détenu en papier');
     else h += ligne(_uiIcon('doc', 18), titre, 'Garant inscrit au bail · aucun fichier',
@@ -17964,7 +17969,7 @@ function _bailPiecesFicheHtml(ref, bail) {
   pieces.filter(d => d.piece !== 'caution' || !pris.has(d.id)).forEach(d => {
     const orphelin = d.piece === 'caution';
     h += ligne(ic(d), P.libellePiece(d, garants), (d.originalName || d.name) + ' · ' + _bailScanFmtTaille(d.size) + (orphelin ? ' · n\'est plus garant de ce bail' : ''),
-      b('Ouvrir', 'data-act="ouvrir" data-doc="' + d.id + '"') + (orphelin ? '' : b('Remplacer', 'data-act="deposer" data-piece="' + escHtml(d.piece) + '" data-doc="' + d.id + '" data-lib="' + escHtml(d.pieceLibelle || '') + '"')) + b('Retirer', 'data-act="retirer" data-doc="' + d.id + '"'));
+      b('Ouvrir', 'data-act="ouvrir" data-doc="' + escHtml(d.id) + '"') + (orphelin ? '' : b('Remplacer', 'data-act="deposer" data-piece="' + escHtml(d.piece) + '" data-doc="' + escHtml(d.id) + '" data-lib="' + escHtml(d.pieceLibelle || '') + '"')) + b('Retirer', 'data-act="retirer" data-doc="' + escHtml(d.id) + '"'));
   });
   const types = P.PIECE_TYPES.filter(t => t.k !== 'bail' && t.k !== 'caution');
   return (h ? '<div class="bpx-pcs" style="margin-top:8px">' + h + '</div>' : '')
@@ -18249,8 +18254,8 @@ function _renderLogFichePanelDocuments(log, ref) {
           </div>
         </div>
         <div class="logf-doc-actions">
-          <button class="btn bs bb" onclick="openEditEDL('${e.id}')" title="Ouvrir l'EDL">${_uiIcon('eye')} Ouvrir</button>
-          ${e.cloudPdfKey?`<button class="btn bs bb" onclick="openLastEDLPDF('${e.id}')" title="Ouvrir le PDF de l'EDL">${_uiIcon('doc')} PDF</button>`:''}
+          <button class="btn bs bb" onclick="openEditEDL('${_lyQ(e.id)}')" title="Ouvrir l'EDL">${_uiIcon('eye')} Ouvrir</button>
+          ${e.cloudPdfKey?`<button class="btn bs bb" onclick="openLastEDLPDF('${_lyQ(e.id)}')" title="Ouvrir le PDF de l'EDL">${_uiIcon('doc')} PDF</button>`:''}
         </div>
       </div>`;
     }).join('');
@@ -19850,9 +19855,9 @@ function _coverImg(parentType, parentId, iconeParDefaut) {
   // REPLI : tant que le binaire n'est pas là — et DÉFINITIVEMENT s'il est introuvable (photo
   // supprimée du Drive, IDB vidée, hors ligne) — on affiche l'icône, jamais un carré vide.
   // `onerror` couvre en plus le cas d'un src posé mais illisible.
-  return `<span class="cover-wrap" data-cover="${domId}">${icone}</span>`
-    + `<img id="${domId}" alt="" loading="lazy" style="display:none;width:100%;height:100%;object-fit:cover"`
-    + ` onload="_coverShow('${domId}')" onerror="_coverFallback('${domId}')">`;
+  return `<span class="cover-wrap" data-cover="${escHtml(domId)}">${icone}</span>`
+    + `<img id="${escHtml(domId)}" alt="" loading="lazy" style="display:none;width:100%;height:100%;object-fit:cover"`
+    + ` onload="_coverShow('${_lyQ(domId)}')" onerror="_coverFallback('${_lyQ(domId)}')">`;
 }
 
 /** Le binaire est arrivé : on montre la photo et on retire l'icône de repli. */
@@ -21196,7 +21201,7 @@ async function _logDiagExtractPdfText(dataUrl) {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+  const pdf = await window.pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
   const maxPages = Math.min(pdf.numPages || 1, 30);
   let out = '';
   for (let p = 1; p <= maxPages; p++) {
@@ -26315,7 +26320,7 @@ function addCat(){
   }
   // M-1 bis (arbitrage Didier 19/08) : AUCUNE catégorie ne naît sans sa famille, et l'app ne
   // devine RIEN — la création passe par le choix EXPLICITE d'une famille du référentiel.
-  const _e2 = (typeof escHtml === 'function') ? escHtml : (x => x);
+  const _e2 = escHtml;
   window._finNewCatNom = trimmed;
   const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">« <b>' + _e2(trimmed) + '</b> » doit être rattachée à une famille du référentiel — elle en hérite le traitement fiscal <b>et</b> cash-flow. Sans famille, pas de création. Rien n\'est pré-rempli.</div>'
     + '<select class="inp" id="newcat-mere" style="width:100%">' + _finMereOptionsHtml() + '</select>'
@@ -27404,7 +27409,7 @@ function _agendaEvtCard(e, compact=false) {
           ? `<span class="badge ora">J-${daysLeft}</span>`
           : `<span class="badge acc">À réaliser</span>`;
 
-  return `<div class="agenda-card${e.done?' agenda-done':' agenda-todo'}${_agendaRevisionEnRetard(e)?' agenda-late':''}" onclick="openAgendaEvt('${e.id}')">
+  return `<div class="agenda-card${e.done?' agenda-done':' agenda-todo'}${_agendaRevisionEnRetard(e)?' agenda-late':''}" onclick="openAgendaEvt('${_lyQ(e.id)}')">
     <div class="agenda-card-top">
       <span class="agenda-cat-badge">${_agendaIconSvg(e.cat,13)} ${cat.label}</span>
       ${badge}
@@ -27602,7 +27607,7 @@ function _agendaEvtCardPhone(e){
   const acts=e.done
     ? `<button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Supprimer</button>`
     : `<button class="done" onclick="agendaMarkDone(event,'${e.id}')">${_uiIcon('check')}Marquer fait</button><button class="del" onclick="deleteAgendaEvt(event,'${e.id}')">${_uiIcon('trash')}Suppr.</button>`;
-  return `<div class="agph-card${e.done?' done':' todo'}${_agendaRevisionEnRetard(e)?' late':''}" onclick="openAgendaEvt('${e.id}')">
+  return `<div class="agph-card${e.done?' done':' todo'}${_agendaRevisionEnRetard(e)?' late':''}" onclick="openAgendaEvt('${_lyQ(e.id)}')">
     <div class="agph-top"><div class="agph-ico">${_agendaIconSvg(e.cat,19)}</div>
       <div style="flex:1;min-width:0"><div class="agph-ti">${escHtml(e.titre)}</div><div class="agph-meta">${meta.join('')}${badge}</div></div></div>
     <div class="agph-acts">${acts}</div>
@@ -27708,7 +27713,7 @@ function openDayDetail(ds) {
     const today = new Date().toISOString().slice(0,10);
     const isOverdue = !e.done && e.date < today;
     // v15.62x REFONTE-PC — neutre + charte : liseré corail = action à réaliser ; type = line-icon encre.
-    return `<div onclick="closeM('ov-agenda-day');openAgendaEvt('${e.id}')"
+    return `<div onclick="closeM('ov-agenda-day');openAgendaEvt('${_lyQ(e.id)}')"
       style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);
              border:1px solid var(--bor);${e.done?'':'box-shadow:inset 3px 0 0 var(--acc);'}background:${e.done?'var(--sur2)':'var(--sur)'};
              cursor:pointer;transition:box-shadow .15s"
@@ -32594,7 +32599,7 @@ function _finCatsRetireesUtilisees() {
 // Ouvre le rattachement OBLIGATOIRE (modal drill réutilisé). M-1 : bloquant — tant que des
 // catégories flottent, des montants déjà saisis restent invisibles du compte de résultat.
 function _finOpenCatMapping() {
-  const _e = (typeof escHtml === 'function') ? escHtml : (x => x); // échappe " → clé data-cat correcte + pas d'injection
+  const _e = escHtml; // échappe " → clé data-cat correcte + pas d'injection
   const unmapped = _finUnmappedCats();
   if (!unmapped.length) { if (typeof showToast === 'function') showToast('Toutes les catégories sont déjà rattachées ✓', 'ok'); return; }
   // M-1 bis : AUCUNE suggestion pré-cochée — « l'app ne devine rien », le choix est explicite.
@@ -32637,7 +32642,7 @@ function _finFamilleEffet(mere) {
   return { groupe, compte: groupe !== 'horsCf', tag: mere.ligne2044 ? '2044 · ' + mere.ligne2044 : 'hors 2044' };
 }
 function _finMereOptionsHtml(cur) {
-  const _e = (typeof escHtml === 'function') ? escHtml : (x => x);
+  const _e = escHtml;
   const all = (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : []);
   const curOk = !!cur && all.some(c => c.nom === cur);
   return (curOk ? '' : '<option value="">— choisir la famille —</option>')
@@ -32650,7 +32655,7 @@ function _finMereOptionsHtml(cur) {
 }
 // La ligne sous la liste (Réglages) : l'effet de la famille choisie.
 function _finFamilleEffetHtml(mereNom) {
-  const _e = (typeof escHtml === 'function') ? escHtml : (x => x);
+  const _e = escHtml;
   const mere = mereNom ? _stdCategoryByName(mereNom) : null;
   const ligne = (couleur, point, txt) => '<span style="display:flex;gap:6px;align-items:center;font-size:11px;line-height:1.3;color:' + couleur + '">'
     + '<i aria-hidden="true" style="width:7px;height:7px;border-radius:99px;flex:none;background:' + point + '"></i>' + txt + '</span>';
@@ -32855,7 +32860,7 @@ function rFinances() {
   // F-1 / F-1 v2 — LES DEUX FENÊTRES de la page, construites une fois (fin des lastMonth à la main).
   const W = _finWindows(yr, scope);
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
-  const _esc = (typeof esc === 'function') ? esc : (x => x);
+  const _esc = escHtml;
 
   // ── BARRE DE PÉRIMÈTRE (P-1..P-6 + F-1) — catalogue du résolveur, jamais un filtre maison ──
   const yearOpts = [cy, cy - 1, cy - 2, cy - 3].map(y =>
@@ -34003,7 +34008,7 @@ function _finDrillLigne(kind, yr, mo) {
         + '<input type="hidden" id="fdrAff-qui"><input type="hidden" id="fdrAff-imm"><input type="hidden" id="fdrAff-cc">'
         + '<div id="fdrAff-aff"></div>'
         + '<div class="act"><button type="button" class="btn bp" onclick="_finAffecter([' + JSON.stringify(nvIds[0]) + '],\'' + kind + '\',\'' + yr + '\',' + mo + ')">Affecter ce mouvement</button>'
-        +   '<span class="or">ou <a onclick="_finVentiler(' + JSON.stringify(nvIds[0]) + ')" style="color:var(--pur);cursor:pointer;text-decoration:underline;font-weight:600">' + _uiIcon('scissors',13) + ' ventiler</a> (si cette ligne couvre plusieurs biens)</span></div>'
+        +   '<span class="or">ou <a onclick="_finVentiler(' + _jsArgAttr(nvIds[0]) + ')" style="color:var(--pur);cursor:pointer;text-decoration:underline;font-weight:600">' + _uiIcon('scissors',13) + ' ventiler</a> (si cette ligne couvre plusieurs biens)</span></div>'
         + '</div>';
     }
     // ── Répartition par bien : bande d'une ligne (nom condensé + montant · %), scroll horizontal ──
@@ -34028,7 +34033,7 @@ function _finDrillLigne(kind, yr, mo) {
       const s = _sgn(x.montant);
       const bienCell = x.lot
         ? ' <span class="badge gry">' + esc(_short(x.lot)) + '</span>'
-        : ' <span class="badge ora">non ventilé</span>' + (x.id != null ? ' <a onclick="_finVentiler(' + JSON.stringify(x.id) + ')" style="cursor:pointer;color:var(--pur);font-size:11px;text-decoration:underline">' + _uiIcon('scissors',13) + '</a>' : '');
+        : ' <span class="badge ora">non ventilé</span>' + (x.id != null ? ' <a onclick="_finVentiler(' + _jsArgAttr(x.id) + ')" style="cursor:pointer;color:var(--pur);font-size:11px;text-decoration:underline">' + _uiIcon('scissors',13) + '</a>' : '');
       const sciBadge = x.sci ? ' <span class="badge ora">' + _uiIcon('warn',12) + ' SCI ' + Math.round(x.sci.part * 100) + ' % de ' + f(x.sci.brut) + '</span>' : '';
       return '<tr><td><span class="fdr-dt">' + esc(dfr(x.date).slice(0, 5)) + '</span><span class="fdr-lib">' + esc(x.lib || x.cat || '—') + '</span>' + bienCell + sciBadge + '</td>'
         + '<td class="' + s.cls + '">' + s.txt + '</td></tr>';
@@ -34316,7 +34321,7 @@ function _mvAlerteHtml(m, phone) {
   let a = null; try { a = _finAlertesMouvements()[String(m.id)] || null; } catch (e) { a = null; }
   if (!a || _mvAlerteVue(m.id, a.type)) return '';
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
-  const idA = JSON.stringify(m.id).replace(/"/g, '&quot;');
+  const idA = _jsArgAttr(m.id);
   const croix = '<button type="button" class="fmv-x" title="Masquer" aria-label="Masquer" onclick="event.stopPropagation();_mvAlerteMasquer(' + idA + ',\'' + a.type + '\')">×</button>';
   let corps;
   if (a.type === 'q3') {
@@ -34441,7 +34446,7 @@ function _fin2044DownloadCsv() {
 }
 function _fin2044PrevisuHtml(r, opts) {
   const f = (typeof fmt === 'function') ? fmt : (x => (Math.round(x) || 0) + ' €');
-  const e = (typeof escHtml === 'function') ? escHtml : (x => x);
+  const e = escHtml;
   const L = r.lignes || {};
   const LBL = { '211': 'Loyers encaissés', '213': 'Recettes diverses (GLI, indemnités, subv.)', '221': 'Frais de gestion / honoraires / comptabilité', '222': 'Forfait gestion (20 €/local)', '223': 'Assurances (PNO, GLI)', '224': 'Travaux & entretien', '224bis': 'Travaux rénovation énergétique', '225': 'Charges récup. non récupérées', '226': 'Indemnités d\'éviction', '227': 'Taxe foncière', '229': 'Provisions copropriété', '230': 'Régularisation N-1', '250': 'Intérêts d\'emprunt' };
   const grp = t => '<tr><td colspan="2" style="text-align:left;padding:7px 8px;font:700 10.5px/1.2 sans-serif;text-transform:uppercase;letter-spacing:.04em;color:#8ba0b6;background:#f5f8fc">' + t + '</td></tr>';
@@ -36110,7 +36115,7 @@ function _antRender(initial) {
     corps += '<div class="fg2"><div class="fg ant-fld"><label for="ant-loyer">Loyer impayé, hors charges</label><div class="ant-euro"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-loyer" value="' + escHtml(String(val('loyer'))) + '" oninput="_antEffet()"><span>€</span></div></div>'
       + '<div class="fg ant-fld"><label for="ant-charges">Charges impayées (facultatif)</label><div class="ant-euro"><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" id="ant-charges" value="' + escHtml(String(val('charges'))) + '" oninput="_antEffet()"><span>€</span></div></div></div>'
       + '<div class="fg ant-fld"><span class="ant-lbl">Mois concernés (si connus)</span><div class="ant-chips">'
-      + E.mois.map(m => '<button type="button" class="ant-chip on" onclick="_antMoisRetirer(\'' + m + '\')" aria-label="Retirer ' + escHtml(_antMoisFr(m)) + '">' + escHtml(_antMoisFr(m)) + ic('close') + '</button>').join('')
+      + E.mois.map(m => '<button type="button" class="ant-chip on" onclick="_antMoisRetirer(\'' + _lyQ(m) + '\')" aria-label="Retirer ' + escHtml(_antMoisFr(m)) + '">' + escHtml(_antMoisFr(m)) + ic('close') + '</button>').join('')
       + '<label class="ant-chip add">' + ic('plus') + '<span>Ajouter un mois</span><input type="month" id="ant-mois-add" onchange="_antMoisAjout(this.value)"></label></div></div>';
     if (repris) corps += '<div class="ant-info" role="note">' + ic('info') + '<div>Les loyers de la période antérieure à la vente reviennent au vendeur (art. 1614 du Code civil : depuis la vente, les fruits appartiennent à l\'acquéreur). Un arriéré de cette période n\'est dû au bailleur actuel que si l\'acte de vente le lui a transmis (cession de créance ou subrogation) ; sinon, le laisser à 0 €.</div></div>';
   } else if (E.situation === 'avance') {
