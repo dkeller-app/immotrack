@@ -183,6 +183,18 @@ export function _calculerSoldeDG(bail, mouvements) {
   return { dgPaid, retenuesDG, loyerImpaye, loyerDu, soldeRestitue };
 }
 
+/** Le SOLDE DE TOUT COMPTE d'un bail est-il enregistré ? (décision pilotage 17/10, CDC Charges v15.574 « impayé = LOYER,
+ *  charges = régul ») — restitution du dépôt datée (`dgRestitueAt`), ou solde enregistré sans date de virement
+ *  (`dgRestitueMontant` posé par la confirmation), ou clôture ANCIENNE (sans `clotureV`) portant ses montants (même règle
+ *  que les dépôts détenus). Alors les provisions de charges encore dues du bail sorti quittent l'arriéré affiché et passent
+ *  à la régularisation de charges. */
+export function _dgSoldeToutCompteEnregistre(bail) {
+  if (!bail || bail._deleted) return false;
+  if (bail.dgRestitueAt) return true;
+  if (bail.dgRestitueMontant != null && bail.dgRestitueMontant !== '') return true;
+  return !!bail.cloture && !bail.clotureV && (Number(bail.dgRestitue) > 0 || Number(bail.dgRetenu) > 0);
+}
+
 /** La retenue pour loyer sur le dépôt ENREGISTRÉE d'un bail (`dgRetenueLoyer`, ≥ 0, au centime), ou null si aucune
  *  n'a été décidée (champ absent ou vide). Lue par le solde de tout compte et par les dépôts détenus. */
 export function _dgRetenueLoyerDecidee(bail) {

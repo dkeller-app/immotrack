@@ -20,6 +20,7 @@ import { _computeFinancesMonthly, _computeDetteBail, _avantBorne, _computeSuiviL
 import { computeConstatWindow } from '../../js/core/finances-window.js';
 import { etatMoisLot, etatDepuisSuivi, ymRange as ymRangeCore, retardLot, lignesRelance, moisAQuittancer } from '../../js/core/loyers-mois.js';
 import { jeuAnteriorite, dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
+import { _dgSoldeToutCompteEnregistre } from '../../js/core/gestion-dg-impayes.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
@@ -33,7 +34,7 @@ const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraire
 function monter(DB, today, { avecModule = true } = {}) {
   const window = {
     _dbGen: 1, duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, etatMoisLot, etatDepuisSuivi, _positionLot, finOccupationBail, ymRange: ymRangeCore,
-    _loyerTodayLocal: () => today,
+    _loyerTodayLocal: () => today, _dgSoldeToutCompteEnregistre,
     _computeFinancesMonthly: (i) => _computeFinancesMonthly({ today, ...i }), _computeDetteBail: (i) => _computeDetteBail({ today, ...i }), _computeSuiviLot: (i) => _computeSuiviLot({ today, ...i }),
     _anteriorite: avecModule ? Anteriorite : undefined, _avantBorne: avecModule ? _avantBorne : undefined
   };
@@ -253,5 +254,47 @@ describe('C1 — un versement d\'avant la date d\'achat est SIGNALÉ (onglet Loy
     expect(api._lyLigneRetard({ ref: 'L', log: { ref: 'L' }, etat, retard: retardLot(etat, {}) }).html).not.toContain('ly2-av');
     api._lyRelance('L');
     expect(toasts).toEqual([]);
+  });
+});
+
+// Décision pilotage 17/10 (CDC Charges v15.574 « impayé = LOYER, charges = régul ») : une fois le solde de tout compte
+// enregistré (restitution du dépôt datée), les provisions de charges impayées d'un bail SORTI quittent l'arriéré affiché
+// (Loyers, relance, Finances, impayés) ; avant, elles restent dues. Le loyer impayé, lui, reste dû dans les deux cas.
+describe('charges d’un bail sorti : à la régularisation après le solde de tout compte', () => {
+  const sorti = (extra = {}) => {
+    const DB = lot();
+    DB.baux = {};
+    DB.baux_historique = [Object.assign({ ref: 'L', debut: '2025-01-01', fin: '2030-12-31', finEffective: '2026-04-13', hc: 700, ch: 50, dg: 700,
+      cloture: true, clotureV: 2 }, extra)];
+    DB.mouvements = [pay('L', '2026-01-05', 750), pay('L', '2026-02-05', 750)];   // mars et avril impayés
+    return DB;
+  };
+  const r2 = (n) => Math.round(n * 100) / 100;
+  it('avant la restitution datée : loyer ET charges dus (mars 700 + 50, avril 303,33 + 21,67) — partout le même chiffre', () => {
+    const DB = sorti();
+    const app = monter(DB, TODAY);
+    const r = trois(app, DB, TODAY, 'L', '2025-01-01');
+    expect(r).toMatchObject({ loyers: 1075, finances: 1075, dette: 1075 });
+    expect(r.etat.resteCharge).toBe(71.67);
+  });
+  it('restitution datée : seules les charges quittent l’arriéré (1 003,33 € de loyer restent dus), le mois reste NON payé', () => {
+    const DB = sorti({ dgRestitueAt: '2026-06-10', dgRestitueMontant: 0 });
+    const app = monter(DB, TODAY);
+    const r = trois(app, DB, TODAY, 'L', '2025-01-01');
+    expect(r).toMatchObject({ loyers: 1003.33, finances: 1003.33, dette: 1003.33 });
+    expect(r.etat.resteCharge).toBe(0);
+    const avril = r.etat.byYm['2026-04'];
+    expect(avril).toMatchObject({ resteCharge: 0, aLaRegul: 21.67, solde: false });   // jamais quittancé pour des charges non reçues
+    expect(r.etat.byYm['2026-03'].aLaRegul).toBe(50);
+    const d = app._finDetteBail('L', '2025-01-01', null);
+    expect(d).toMatchObject({ charge: 0, chargesRegul: 71.67 });
+    // la relance ne réclame plus les charges
+    expect(r2(lignesRelance(app._loyerEtatLot('L', { visibles: true }), {}).reduce((t, l) => t + l.montant, 0))).toBe(1003.33);
+  });
+  it('solde de tout compte enregistré SANS date de virement : même effet ; ancienne clôture avec montants : même effet', () => {
+    const a = trois(monter(sorti({ dgRestitueMontant: 0 }), TODAY), sorti({ dgRestitueMontant: 0 }), TODAY, 'L', '2025-01-01');
+    expect(a.loyers).toBe(1003.33);
+    const b = trois(monter(sorti({ clotureV: undefined, dgRetenu: 100 }), TODAY), sorti({ clotureV: undefined, dgRetenu: 100 }), TODAY, 'L', '2025-01-01');
+    expect(b.loyers).toBe(1003.33);
   });
 });

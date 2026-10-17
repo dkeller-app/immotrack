@@ -600,6 +600,10 @@ export function _bailDuPaiement(segs, date, choix) {
  * @param {{loyer?:number, charge?:number, avance?:number}|null} [input.ouverture] solde d'ouverture noté sur CE bail
  * @param {Array<{ym:string, montant:number, id?:string, _deleted?:boolean}>} [input.manques] manques acceptés de CE bail
  * @param {number} [input.retenueLoyer] retenue pour loyer sur le dépôt de CE bail (bail sorti)
+ * @param {boolean} [input.chargesALaRegul] bail SORTI dont le solde de tout compte est enregistré (restitution du dépôt
+ *        datée…) : ses provisions de charges encore dues QUITTENT l'arriéré (`chargeRetard`, `retardCharge`, `charge` à 0)
+ *        et sont rendues à part (`mois[].aLaRegul`, `chargesRegul`) — elles se règlent à la régularisation de charges
+ *        (CDC Charges v15.574 « impayé = LOYER, charges = régul », décision pilotage 17/10). L'imputation ne change pas.
  * @param {number} [input.seuilArrondi] 0 par défaut ; le suivi passe 1
  * @param {string} [input.today] horloge locale 'YYYY-MM-DD'
  * @returns {null|Object} null = bail introuvable ou bornes incohérentes : dette INCONNUE (≠ 0).
@@ -689,13 +693,17 @@ export function _computeDetteBail(input) {
   const opening = ouv ? Object.assign({}, ouv, { idx: debutSuivi ? Math.max(0, yms.indexOf(debutSuivi.slice(0, 7))) : 0 }) : null;
   const r = _loyerArrearsPass(lignesMois, { carry: true, graceLast, opening, seuilArrondi: Number(i.seuilArrondi) || 0 });
   const aConfLignes = lignesSuivi.filter(l => l.aConfirmer);
+  const aLaRegul = !!(i.chargesALaRegul && finDu);
   const mois = lignesMois.map((m, idx) => {
     const pm = r.months[idx] || {};
-    const retL = round2(pm.loyerArrear || 0), retC = round2(pm.chargeArrear || 0), av = round2(pm.avance || 0);
+    const retL = round2(pm.loyerArrear || 0), retC = aLaRegul ? 0 : round2(pm.chargeArrear || 0), av = round2(pm.avance || 0);
+    const resC = round2(r.retardMois[idx].charge);
     return {
       ym: m.ym, duHC: round2(m.hcDue), duCH: round2(m.chDue), encaisse: round2(m.received),
       // résidu : ce qui reste dû AUJOURD'HUI de CE mois (relance, quittances, ancienneté)
-      loyerRetard: round2(r.retardMois[idx].loyer), chargeRetard: round2(r.retardMois[idx].charge),
+      loyerRetard: round2(r.retardMois[idx].loyer), chargeRetard: aLaRegul ? 0 : resC,
+      // provisions de charges de CE mois passées à la régularisation (bail sorti, solde de tout compte enregistré)
+      aLaRegul: aLaRegul ? resC : 0,
       // position du bail à la FIN du mois (Finances, fenêtre, bandeau) : avance OU retard
       avance: av, retardLoyer: retL, retardCharge: retC, position: round2(av - retL - retC),
       remise: round2(pm.remise || 0), reglement: round2(pm.reglement || 0), arrondi: round2(pm.arrondi || 0),
@@ -741,6 +749,7 @@ export function _computeDetteBail(input) {
     // Σ des résidus mensuels ARRONDIS au centime — exactement la règle d'agrégation du maître.
     loyer: round2(mois.reduce((s, m) => s + m.loyerRetard, 0)),
     charge: round2(mois.reduce((s, m) => s + m.chargeRetard, 0)),
+    chargesRegul: round2(mois.reduce((s, m) => s + m.aLaRegul, 0)),
     // Q5 — trop-perçu restituable : jamais celui qui viendrait d'un encaissement à rattacher / à confirmer.
     avance: round2(Math.max(0, avanceBrute - enAttente)),
     avanceBrute,
@@ -769,6 +778,7 @@ export function _computeDetteBail(input) {
  *   ouverture  {bailDebut, loyer, charge, avance}|null — l'antériorité notée (un bail)
  *   manques    [{bailDebut, ym, montant, id, ...}] — journal du lot (tombstones ignorés)
  *   retenues   {[bailDebut]: montant} — retenues pour loyer sur le dépôt
+ *   chargesRegul {[bailDebut]: true} — baux sortis au solde de tout compte enregistré (charges dues → régularisation)
  * @returns {null|{ref:string, debutSuivi:string|null, baux:Array}}
  */
 export function _computeSuiviLot(input) {
@@ -780,7 +790,8 @@ export function _computeSuiviLot(input) {
     const r = _computeDetteBail(Object.assign({}, i, {
       bailDebut: s.debut, fin: null, ouverture: ouvDe(s.debut),
       manques: (Array.isArray(i.manques) ? i.manques : []).filter(m => m && !m._deleted && String(m.bailDebut || '').slice(0, 10) === s.debut),
-      retenueLoyer: (i.retenues && i.retenues[s.debut]) || 0
+      retenueLoyer: (i.retenues && i.retenues[s.debut]) || 0,
+      chargesALaRegul: !!(i.chargesRegul && i.chargesRegul[s.debut])
     }));
     return r ? Object.assign({ debut: s.debut, end: s.end }, r) : null;
   }).filter(Boolean);

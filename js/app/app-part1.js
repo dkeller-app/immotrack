@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.759';
+const IMMOTRACK_VERSION = '15.760';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -9552,7 +9552,8 @@ function _loyerPayeDuMois(ref, ym) {
   const e = _loyerEtatLot(ref);
   const m = e && e.byYm && e.byYm[ym];
   // FINANCES-SUIVI-V2 : une remise (manque accepté) n'est pas un paiement — le payé du mois s'en déduit.
-  return m ? Math.round((m.du - m.reste - (m.remise || 0)) * 100) / 100 : 0;
+  // charges passées à la régularisation (bail sorti, 17/10) : pas payées non plus
+  return m ? Math.round((m.du - m.reste - (m.remise || 0) - (m.aLaRegul || 0)) * 100) / 100 : 0;
 }
 
 // ═══ FINANCES-SUIVI-V2 (repris de FINANCES-SUIVI-UNIQUE P2) — MANQUE ACCEPTÉ (écriture / annulation) ═══
@@ -25783,6 +25784,7 @@ function _rgDetailLocHtml(r){
       <tbody>${rows || '<tr><td colspan="4" class="mu sm">Aucune charge répartie sur cette période.</td></tr>'}
         <tr class="rg-det-sum"><td colspan="3">Total charges réparties</td><td class="num">${fmt(r.charges)}</td></tr>
         <tr class="rg-det-prov"><td colspan="3">Provisions versées</td><td class="num">${fmt(r.provisions)}</td></tr>
+        ${(r.aLaRegul||0) > 0.005 ? `<tr class="rg-det-regul"><td colspan="3" class="mu sm">Provisions non versées par le locataire sorti, passées à la régularisation (hors impayés) — déjà comprises dans le solde</td><td class="num mu sm">${fmt(r.aLaRegul)}</td></tr>` : ''}
         ${r.forfait ? `<tr class="rg-det-forfait"><td colspan="4" class="mu sm">Forfait de charges (${escHtml(_rgForfaitRef(r.bail).citation)}) ${escHtml(_rgForfaitPeriode(r.forfait))} — non régularisable. Exclus : ${fmt(r.forfait.excluCharges)} de charges réelles, ${fmt(r.forfait.excluProvisions)} de provisions.</td></tr>` : ''}
         <tr class="rg-det-solde"><td colspan="3">Solde ${solde>=0?'(à restituer)':'(à demander)'}</td><td class="num">${solde>=0?'+':''}${fmt(solde)}</td></tr>
       </tbody>
@@ -26924,22 +26926,23 @@ function computeRegul(from, to) {
           e._moisSet.add(m.date.slice(0,7));
         });
     });
-  // FINANCES-SUIVI-V2 (décision Didier Q1, 06/10) : un mois soldé par un MANQUE ACCEPTÉ ne voit pas sa provision
-  // réclamée à la régularisation (provision abandonnée) — même sans aucun virement ce mois-là.
-  if (typeof _finManquesDuLot === 'function') {
+  // Décision pilotage 17/10 (CDC Charges v15.574 « impayé = LOYER, charges = régul ») : une provision REMISE par un manque
+  // accepté n'est PAS une provision versée — elle n'est plus comptée ici (elle l'était depuis le 06/10). Les charges
+  // se règlent à la régularisation, et seulement là.
+  // Les provisions d'un bail SORTI passées à la régularisation (solde de tout compte enregistré : elles ont quitté les
+  // impayés) sont dites à part (`aLaRegul`) : elles ne sont pas versées, le solde les demande déjà — rien n'est compté deux fois.
+  if (typeof _finSuiviLot === 'function') {
     Object.values(res).forEach(e=>{
       const deb = e.bail && e.bail.debut ? String(e.bail.debut).slice(0,10) : '';
+      e.aLaRegul = 0;
       if(!deb) return;
-      // Relecture Fable (16/10) : seulement si le mois est réellement SOLDÉ (un manque partiel ne vaut pas provision versée).
-      const _et = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(e.ref, { bailDebut: deb }) : null;
-      _finManquesDuLot(e.ref).forEach(mq=>{
-        if(mq.bailDebut!==deb || mq.ym < String(from).slice(0,7) || mq.ym > String(to).slice(0,7)) return;
-        if(e.debutOcc && e.finOcc && (mq.ym < e.debutOcc.slice(0,7) || mq.ym > e.finOcc.slice(0,7))) return;
-        const _mm = _et && _et.byYm && _et.byYm[mq.ym];
-        if(!_mm || !_mm.solde) return;
-        if(!e._moisSet) e._moisSet = new Set();
-        e._moisSet.add(mq.ym);
-      });
+      let s = null; try { s = _finSuiviLot(e.ref); } catch(err) { s = null; }
+      const b = s && (s.baux||[]).find(x => x.debut === deb);
+      if(!b) return;
+      const f7 = String(from).slice(0,7), t7 = String(to).slice(0,7);
+      const o1 = e.debutOcc ? e.debutOcc.slice(0,7) : null, o2 = e.finOcc ? e.finOcc.slice(0,7) : null;
+      e.aLaRegul = Math.round((b.mois||[]).filter(m => m.ym >= f7 && m.ym <= t7 && (!o1 || m.ym >= o1) && (!o2 || m.ym <= o2))
+        .reduce((t, m) => t + (Number(m.aLaRegul) || 0), 0) * 100) / 100;
     });
   }
   Object.values(res).forEach(e=>{

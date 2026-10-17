@@ -118,6 +118,26 @@ describe('restitution : les charges dues sont dites, jamais retenues sur le dép
   })
 })
 
+describe('régularisation : charges d’un bail sorti, manque accepté (décision pilotage 17/10)', () => {
+  it('une provision REMISE par un manque accepté n’est plus comptée comme versée ; les provisions passées à la régul sont lues au suivi', () => {
+    const c = extraireFonction(P1, 'computeRegul')
+    expect(c).not.toMatch(/_finManquesDuLot/)
+    expect(c).toMatch(/Number\(m\.aLaRegul\) \|\| 0/)
+  })
+  it('le détail de la régularisation dit les provisions non versées du locataire sorti, sans les recompter', () => {
+    // eslint-disable-next-line no-new-func
+    const f = new Function('scope', 'with (scope) {\n' + extraireFonction(P1, '_rgDetailLocHtml') + '\nreturn _rgDetailLocHtml;\n}')({
+      fmt, escHtml: esc, fd: (s) => s, _logLabel: (r) => r, _rgForfaitRef: () => ({ citation: '' }), _rgForfaitPeriode: () => '',
+    })
+    const r = { ref: 'L', loc: 'X', details: [], charges: 600, provisions: 100, aLaRegul: 71.67 }
+    const h = f(r)
+    expect(h).toContain('Provisions non versées par le locataire sorti, passées à la régularisation (hors impayés) — déjà comprises dans le solde')
+    expect(h).toContain('71,67 €')
+    expect(h).toContain('(à demander)</td><td class="num">-500,00 €')   // solde = versées − charges : 100 − 600, rien de plus
+    expect(f({ ...r, aLaRegul: 0 })).not.toContain('passées à la régularisation')
+  })
+})
+
 describe('historique : jamais « rendu » sans date de virement', () => {
   const f = monter(['_dgEtatHist', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgRetenueLoyerDe'])
   it('Ferrette - 101 après la remise à zéro : « 397,00 € détenus · à justifier ou à rendre »', () => {

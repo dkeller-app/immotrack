@@ -204,11 +204,12 @@ export function etatDepuisSuivi(suivi, opts) {
     const ouv = b.ouverture || null;
     for (const m of b.mois) {
       const e = parYm[m.ym] || (parYm[m.ym] = { ym: m.ym, hcDue: 0, chDue: 0, received: 0, resteLoyer: 0, resteCharge: 0,
-        brut: [], remise: 0, remiseMotifs: [], bailDebut: b.debut });
+        brut: [], remise: 0, remiseMotifs: [], aLaRegul: 0, bailDebut: b.debut });
       e.hcDue += m.duHC; e.chDue += m.duCH; e.received += m.encaisse;
       const surOuv = !!ouv && ouv.ym === m.ym;
       e.resteLoyer += Math.max(0, m.loyerRetard - (surOuv ? ouv.loyer : 0));
       e.resteCharge += Math.max(0, m.chargeRetard - (surOuv ? ouv.charge : 0));
+      e.aLaRegul += Number(m.aLaRegul) || 0;   // provisions passées à la régularisation (bail sorti, solde de tout compte)
       (m.imputations || []).forEach((p) => e.brut.push(p));
       if (m.remise > EPS_CENTIME) { e.remise += m.remise; motifsDe(b.debut, m.ym).forEach((x) => e.remiseMotifs.push(x)); }
       if (m.arrondi < -EPS_CENTIME) { e.remise += -m.arrondi; e.remiseMotifs.push('écart d’arrondi'); }
@@ -225,7 +226,10 @@ export function etatDepuisSuivi(suivi, opts) {
     const resteLoyer = _r2(e.resteLoyer), resteCharge = _r2(e.resteCharge);
     const reste = _r2(resteLoyer + resteCharge);
     const vacance = du <= EPS_CENTIME;
-    const solde = !vacance && reste <= EPS_CENTIME;
+    // Charges passées à la régularisation (17/10) : plus un retard (ni relance, ni arriéré), mais le mois n'est pas
+    // PAYÉ — jamais « soldé » ni quittancé pour une somme qui n'a pas été reçue (art. 21).
+    const aLaRegul = _r2(e.aLaRegul);
+    const solde = !vacance && reste <= EPS_CENTIME && aLaRegul <= EPS_CENTIME;
     const paiements = e.brut.filter((p) => p.date).map((p) => ({ date: p.date, id: p.id, montant: p.montant, poste: p.poste }));
     const totalImpute = _r2(e.brut.reduce((s, p) => s + p.montant, 0));
     const totalDate = _r2(paiements.reduce((s, p) => s + p.montant, 0));
@@ -234,10 +238,10 @@ export function etatDepuisSuivi(suivi, opts) {
     return {
       ym, hcDue: _r2(e.hcDue), chDue: _r2(e.chDue), du, received: _r2(e.received),
       resteLoyer, resteCharge, reste, solde,
-      partiel: !vacance && reste > EPS_CENTIME && reste < du - EPS_CENTIME,
+      partiel: !vacance && (reste + aLaRegul) > EPS_CENTIME && (reste + aLaRegul) < du - EPS_CENTIME,
       vacance, paiements, montantImpute: totalImpute, datesVersements, nbVersements: datesVersements.length,
       datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null,
-      remise: _r2(e.remise), remiseMotifs: [...new Set(e.remiseMotifs)], bailDebut: e.bailDebut
+      remise: _r2(e.remise), remiseMotifs: [...new Set(e.remiseMotifs)], aLaRegul, bailDebut: e.bailDebut
     };
   });
   const byYm = {};

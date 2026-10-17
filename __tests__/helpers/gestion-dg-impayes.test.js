@@ -397,3 +397,17 @@ describe('_dgRetenueLoyerDecidee / _calculerSoldeDG — retenue pour loyer sur l
     expect(zero.soldeRestitue).toBe(1000);
   });
 });
+
+// ═══ Décision pilotage 17/10 — solde de tout compte enregistré (charges d'un bail sorti → régularisation) ═══
+import { _dgSoldeToutCompteEnregistre } from '../../js/core/gestion-dg-impayes.js';
+describe('_dgSoldeToutCompteEnregistre', () => {
+  it('restitution datée, ou solde enregistré sans date, ou ancienne clôture avec montants : oui ; sinon non', () => {
+    expect(_dgSoldeToutCompteEnregistre({ dgRestitueAt: '2026-06-10' })).toBe(true);
+    expect(_dgSoldeToutCompteEnregistre({ dgRestitueMontant: 0 })).toBe(true);
+    expect(_dgSoldeToutCompteEnregistre({ cloture: true, dgRetenu: 150 })).toBe(true);
+    expect(_dgSoldeToutCompteEnregistre({ cloture: true, clotureV: 2, dgRetenu: 150, dgRestitue: 0 })).toBe(false);   // Ferrette - 101 : dépôt encore détenu
+    expect(_dgSoldeToutCompteEnregistre({ dgRestitueMontant: '' })).toBe(false);
+    expect(_dgSoldeToutCompteEnregistre({ dgRestitueAt: '2026-06-10', _deleted: true })).toBe(false);
+    expect(_dgSoldeToutCompteEnregistre(null)).toBe(false);
+  });
+});

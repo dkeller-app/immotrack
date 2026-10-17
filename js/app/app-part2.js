@@ -17323,7 +17323,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.759 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.760 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -33243,11 +33243,15 @@ function _finPremierLoyerBase() {
 function _finEntreesSuivi(qui, opts) {
   const o = opts || {};
   const raw = _finDuRaw(qui), s = _finLotSuivi(qui), want = _finCleNue(qui);
-  const retenues = {};
+  const retenues = {}, chargesRegul = {};
   if (!o.sansRetenue) {
+    const soldeTC = (typeof window._dgSoldeToutCompteEnregistre === 'function') ? window._dgSoldeToutCompteEnregistre : null;
     [raw.currentBail].concat((raw.bauxHistorique || []).filter(b => b && _finCleNue(b.ref) === want)).forEach(b => {
       const v = b && !b._deleted && b.debut ? Number(b.dgRetenueLoyer) : 0;
       if (v > 0) retenues[String(b.debut).slice(0, 10)] = v;
+      // décision pilotage 17/10 (CDC Charges v15.574) : solde de tout compte enregistré → les provisions de charges encore
+      // dues de ce bail sorti quittent l'arriéré et passent à la régularisation de charges
+      if (b && b.debut && soldeTC && soldeTC(b)) chargesRegul[String(b.debut).slice(0, 10)] = true;
     });
   }
   // Date PROVISOIRE (b) d'un lot qui n'a encore AUCUN loyer encaissé (= début de son bail) : jamais avant le 1ᵉʳ
@@ -33262,7 +33266,7 @@ function _finEntreesSuivi(qui, opts) {
     ref: qui, ctx: { ref: qui, bails: window.bailsFromRaw(qui, raw), bareme: raw.bareme },
     mouvements: DB.mouvements || [], catLigne: _finCatLigne,
     debutSuivi: debut, sourceSuivi: s ? s.source : null, ouverture: s ? s.ouverture : null,
-    manques: _finManquesDuLot(qui), retenues, seuilArrondi: 1, sansTolerance: !!o.sansTolerance,
+    manques: _finManquesDuLot(qui), retenues, chargesRegul, seuilArrondi: 1, sansTolerance: !!o.sansTolerance,
     today: (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)
   };
 }
@@ -33298,7 +33302,7 @@ function _finDetteBail(ref, bailDebut, fin, opts) {
   return window._computeDetteBail(Object.assign(e, {
     bailDebut: deb, fin: fin || null,
     ouverture: e.ouverture && e.ouverture.bailDebut === deb ? e.ouverture : null,
-    manques: e.manques.filter(m => m.bailDebut === deb), retenueLoyer: e.retenues[deb] || 0
+    manques: e.manques.filter(m => m.bailDebut === deb), retenueLoyer: e.retenues[deb] || 0, chargesALaRegul: !!e.chargesRegul[deb]
   }));
 }
 let _finMonthlyCache = { gen: -1, m: new Map() };
