@@ -61,7 +61,8 @@ describe('lecture des bulletins par l\'IA — à la demande', () => {
     expect(j.modale).toBe('ov-verif-piece');
     expect(dom['vp-body'].innerHTML).toContain('bulletin-aout.pdf'); expect(dom['vp-body'].innerHTML).toContain('contrat.pdf');
     expect(dom['vp-body'].innerHTML).not.toContain('avis.pdf'); expect(dom['vp-body'].innerHTML).not.toContain('cni.pdf');
-    expect(dom['vp-body'].innerHTML).toContain('30 jours au plus');
+    expect(dom['vp-body'].innerHTML).toContain('ne conserve ni les images ni le texte (rétention zéro)');   // v15.761 : rétention zéro Mistral activée le 16/10/2026
+    expect(dom['vp-body'].innerHTML).not.toContain('30 jours au plus');
   });
   it('lecture : une page par pièce, valeurs posées sur la pièce, audit sans contenu ; net à payer incohérent → « Non vérifiable », jamais « À vérifier »', async () => {
     const DB = parc();
@@ -190,12 +191,13 @@ describe('page publique de dépôt : information du candidat', () => {
   it('contrôles annoncés avant le dépôt et dans la mention RGPD (2D-Doc, IA Mistral UE, conservation, opposition)', () => {
     expect(D).toContain('<b>Contrôles des pièces.</b>');
     expect(D).toContain('signature du code 2D-Doc des pièces qui en portent un');
-    expect(D).toContain('Mistral AI, sous-traitant, lecture dans l\'Union européenne, conservation 30 jours au plus');
+    expect(D).toContain('Mistral AI, sous-traitant, lecture dans l\'Union européenne, rétention zéro : le contenu n\'est pas conservé par Mistral AI, aucun entraînement');
+    expect(D).not.toContain('30 jours au plus pour la détection des abus');
     expect(D).toContain('aucune pièce supplémentaire n\'est demandée');
     expect(D).toContain('opposition');
     expect(D).toContain('si le propriétaire l\'active');
     const v = readFileSync(resolve(root, 'relay/src/dossier-page.js'), 'utf8').match(/ASSET_VERSION = '(\d+)'/);
-    expect(+v[1]).toBeGreaterThanOrEqual(4);                       // monté à chaque changement de la page (LECTURE-PHOTOS : 5)
+    expect(+v[1]).toBeGreaterThanOrEqual(7);                       // monté à chaque changement de la page (LECTURE-PHOTOS : 5 ; ACTIVATION-IA-OCR : 7)
   });
 });
 

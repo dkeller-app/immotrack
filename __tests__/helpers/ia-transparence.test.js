@@ -11,10 +11,16 @@ const TUTOIE = /(?<!\p{L})(tu|te|toi|ton|ta|tes|vous|votre|vos)(?!\p{L})/iu;
 const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 describe('notice de première utilisation', () => {
-  it('défaut v15.733 : rétention zéro pas encore confirmée par Mistral → la notice par défaut dit « 30 jours au plus »', () => {
-    expect(T.RETENTION_ZERO).toBe(false);
+  it('défaut v15.761 : rétention zéro activée par Mistral le 16/10/2026 → la notice par défaut dit « ne conserve ni … »', () => {
+    expect(T.RETENTION_ZERO).toBe(true);
     const d = T.notice();
-    expect([d.intro, ...d.sections.map((s) => s.texte)].join(' ')).toContain('garde les échanges 30 jours');
+    const tout = [d.intro, ...d.sections.map((s) => s.texte)].join(' ');
+    expect(tout).toContain('ne conserve ni l’enregistrement ni le texte (rétention zéro)');
+    expect(tout).not.toContain('garde les échanges 30 jours');
+    // les trois notices (dictée, vidéo, bulletins) suivent la même constante
+    expect(JSON.stringify(T.noticeVideo())).toContain('ne conserve ni les images ni le son');
+    expect(JSON.stringify(T.noticeBulletins())).toContain('ne conserve ni les images ni le texte');
+    expect(JSON.stringify([T.noticeVideo(), T.noticeBulletins()])).not.toContain('30 jours au plus pour');
   });
   it('rétention zéro confirmée : « ne conserve ni l’enregistrement ni le texte »', () => {
     const n = T.notice({ retentionZero: true });

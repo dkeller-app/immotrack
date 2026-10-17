@@ -191,9 +191,19 @@ describe('Signaux du miroir — double panne hors ligne (audit final 🟡3)', ()
   it('HORS LIGNE, echec-repli SEUL (sans echec-ecriture juste avant) : texte générique inchangé', () => {
     const toasts = [];
     const f = gestionnaire({ __immoHorsLigne: true, __immoMiroirPasAJour: () => false, showToast: (m, t) => toasts.push([t, m]) });
-    f({ type: 'echec-ecriture' }); f({ type: 'repli' }); f({ type: 'echec-repli' });
+    const quota = Object.assign(new Error('quota'), { name: 'QuotaExceededError' });
+    f({ type: 'echec-ecriture' }); f({ type: 'repli' }); f({ type: 'echec-repli', erreur: quota });
     expect(toasts.map(t => t[1])).not.toContain(T.horsLigne);
     expect(toasts[toasts.length - 1]).toEqual(['err', 'Copie hors ligne non mise à jour : stockage de cet appareil plein.']);
+  });
+  it('HORS LIGNE, echec-repli SANS refus de quota (IndexedDB, erreur inconnue) : jamais « plein » (retour pilotage 17/10)', () => {
+    for (const erreur of [undefined, new Error('indexeddb-muet'), Object.assign(new Error('x'), { name: 'UnknownError' })]) {
+      const toasts = [];
+      const f = gestionnaire({ __immoHorsLigne: true, __immoMiroirPasAJour: () => false, showToast: (m, t) => toasts.push([t, m]) });
+      f({ type: 'echec-repli', erreur });
+      expect(toasts).toEqual([['err', 'Copie hors ligne non mise à jour : le stockage local de cet appareil a échoué.']]);
+      expect(toasts[0][1]).not.toMatch(/plein/);
+    }
   });
 });
 

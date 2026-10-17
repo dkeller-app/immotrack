@@ -93,7 +93,7 @@ longtemps en cas de contentieux). Décret n° 2016-382, art. 2 1° h (« illustr
 ## 7. Activation (plus tard, avec les premiers clients payants) — sans redéploiement de code
 
 Prérequis : migration 0058 appliquée (pilotage), fonction Edge `purge-medias-edl` déployée, AIPD faite avec
-l'avocat, rétention zéro Mistral confirmée (sinon la notice dit « 30 jours au plus », déjà le cas).
+l'avocat, rétention zéro Mistral confirmée (fait le 16/10/2026 : la notice dit « ne conserve ni les images ni le son » depuis v15.761).
 1. **Supabase → plan Pro** ; Storage → Settings → *Global file size limit* ≥ 200 Mo.
 2. **Cloudflare → Workers Paid** (CPU : 30 s par requête au lieu de 10 ms).
 3. **Variables du relais** (tableau de bord Cloudflare → Workers → `bail-sign-relay` → Settings → Variables) :

@@ -1,5 +1,5 @@
 // VERIF-DOCUMENTS lot 3 — tâche « bulletin-paie » : lecture d'UNE page par le modèle d'OCR de Mistral (annotations
-// structurées) sur le point d'accès UE, derrière l'interrupteur AI_OCR (éteint par défaut). L'IA recopie ; les règles
+// structurées) sur le point d'accès UE, derrière l'interrupteur AI_OCR (allumé le 16/10/2026, v15.761). L'IA recopie ; les règles
 // de cohérence sont dans l'app (js/core/regles-bulletin.js). Aucun réseau réel : fetch injecté ou fournisseur simulé.
 import { describe, it, expect, vi } from 'vitest';
 import { env } from 'cloudflare:test';
@@ -47,14 +47,21 @@ describe('entrée et sortie de la tâche', () => {
   });
 });
 
-describe('interrupteur AI_OCR (éteint par défaut)', () => {
-  it('éteint : 503 ocr_disabled, rien n\'est compté ; /ai/status annonce ocr.actif=false', async () => {
+describe('interrupteur AI_OCR (allumé dans wrangler.toml depuis le 16/10/2026)', () => {
+  it('wrangler.toml allume la lecture : /ai/status annonce ocr.actif=true dès qu\'un fournisseur est actif', async () => {
+    expect(env.AI_OCR).toBe('true');
+    const s = await (await app.request('/ai/status', { headers: await appAuth() }, FAKE)).json();
+    expect(s.ocr).toEqual({ actif: true });
+    expect(ocrActif({ ...env, AI_PROVIDER: undefined, MISTRAL_API_KEY: undefined })).toBe(false);   // sans clé : fermé
+  });
+  it('éteint (variable retirée) : 503 ocr_disabled, rien n\'est compté ; /ai/status annonce ocr.actif=false', async () => {
     const sub = uid();
-    const r = await struct(FAKE, { type: 'bulletin', images: [IMG] }, sub);
+    const ETEINT = { ...FAKE, AI_OCR: undefined };
+    const r = await struct(ETEINT, { type: 'bulletin', images: [IMG] }, sub);
     expect(r.status).toBe(503);
     expect((await r.json()).error).toBe('ocr_disabled');
     expect((await lireUsageJour(env.SESSIONS_KV, sub)).appels).toBe(0);
-    const s = await (await app.request('/ai/status', { headers: await appAuth() }, FAKE)).json();
+    const s = await (await app.request('/ai/status', { headers: await appAuth() }, ETEINT)).json();
     expect(s.ocr).toEqual({ actif: false });
     expect(ocrActif({ AI_OCR: 'true' })).toBe(false);   // sans fournisseur : jamais actif
   });

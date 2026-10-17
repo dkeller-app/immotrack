@@ -61,14 +61,18 @@ AI_AUDIO_MAX_BYTES = "10485760"
 # ATTENTION : un `wrangler deploy` ultérieur REMPLACE les variables posées au tableau de bord par celles de
 # ce fichier (sauf `wrangler deploy --keep-vars`) : reporter ces trois lignes ici au déploiement suivant.
 
-# ── LECTURE DES BULLETINS DE SALAIRE (VERIF-DOCUMENTS) — src/ai/ocr.js, src/ai/tasks/bulletin-paie.js ── ÉTEINTE ──
-# Décision Didier (14/10/2026) : Mistral OCR sur le POINT D'ACCÈS UE (api.eu.mistral.ai), brique reportée s'il ne sert pas
-# /v1/ocr. Tant que AI_OCR est ABSENTE : /ai/status annonce ocr.actif=false, la tâche bulletin-paie répond 503
-# ocr_disabled, l'app ne propose pas « Lire avec l'IA ». Le contrôle 2D-Doc et les indices techniques ne dépendent pas d'ici.
-# ACTIVATION (sans redéploiement de code) : 1) `node relay/scripts/verif-ocr-ue.mjs` (clé copiée) doit répondre OK ;
-# 2) rétention zéro demandée à Mistral ; 3) poser AI_OCR = "true" (tableau de bord ou ici + deploy --keep-vars).
+# ── LECTURE DES BULLETINS DE SALAIRE (VERIF-DOCUMENTS) — src/ai/ocr.js, src/ai/tasks/bulletin-paie.js ── ALLUMÉE ──
+# Décision Didier (14/10/2026) : Mistral OCR sur le POINT D'ACCÈS UE (api.eu.mistral.ai). Prérequis, tous faits le 16/10/2026 :
+#   1) `node relay/scripts/verif-ocr-ue.mjs` : OK, mistral-ocr-latest servi par api.eu.mistral.ai ;
+#   2) rétention zéro (Zero Data Retention) ACTIVÉE sur le compte Mistral (Admin › Confidentialité). Elle couvre les
+#      points d'accès SANS ÉTAT seulement : /v1/ocr, /v1/audio/transcriptions, /v1/chat/completions (ceux du relais) ;
+#   3) entraînement sur les données désactivé ;
+#   4) suivi de consommation et plafonds par compte (CONSO-IA, v15.756, migration 0062 appliquée).
+# AI_OCR = "true" : /ai/status annonce ocr.actif=true, la tâche bulletin-paie lit, l'app propose « Lire avec l'IA » (si le
+# bailleur l'active dans Paramètres › Candidatures). Retirer la ligne (ou ≠ "true") = 503 ocr_disabled, rien d'autre ne change :
+# le contrôle 2D-Doc et les indices techniques ne dépendent pas d'ici.
 # Point d'accès imposé : MISTRAL_OCR_BASE_URL (défaut https://api.eu.mistral.ai) ; modèle : AI_MODEL_OCR (défaut mistral-ocr-latest).
-# AI_OCR = "true"
+AI_OCR = "true"
 
 # ── ESPACE LOCATAIRE (migration 0059 ; CDC mockups/ESPACE-LOCATAIRE) — src/espace-locataire.js, src/el-supabase.js ──
 # Clé PUBLIQUE du projet (la même que l'app, js/app/supabase-config.js) : en-tête apikey des appels de l'identité technique.

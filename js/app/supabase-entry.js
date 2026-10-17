@@ -529,6 +529,8 @@ async function boot() {
       'transfert-echec': 'Copie hors ligne en mode réduit : le transfert vers IndexedDB n’a pas abouti. Rien n’est perdu : la copie locale est conservée.',
       'echec-ecriture': 'Copie hors ligne : IndexedDB a refusé l’écriture, bascule sur le stockage local de cet appareil.',
       'echec-repli': 'Copie hors ligne non mise à jour : stockage de cet appareil plein.',
+      // « plein » seulement si le navigateur a refusé faute de place (retour pilotage 17/10, même règle que la carte)
+      'echec-repli-autre': 'Copie hors ligne non mise à jour : le stockage local de cet appareil a échoué.',
       'copie-incomplete': 'Copie hors ligne incomplète sur cet appareil : la base ne tient pas dans le stockage local. Les états des lieux saisis sont conservés.',
     }
     // Audit final 🟡3 — le signal PRÉCÉDENT : un `echec-repli` qui suit immédiatement un `echec-ecriture`
@@ -549,9 +551,15 @@ async function boot() {
         const perte = _stockageLocal && _stockageLocal.TEXTES_ECHEC_MIROIR && _stockageLocal.TEXTES_ECHEC_MIROIR.horsLigne
         if (perte) { try { if (typeof window.showToast === 'function') window.showToast(perte, 'err', 10000) } catch (e) {} return }
       }
-      const t = TEXTES[s.type]
-      if (!t || _dejaDit.has(s.type)) return
-      _dejaDit.add(s.type)
+      let _cleTexte = s.type
+      if (s.type === 'echec-repli') {
+        let _plein = false
+        try { _plein = !!(_stockageLocal && typeof _stockageLocal.estQuotaDepasse === 'function' && _stockageLocal.estQuotaDepasse(s.erreur)) } catch (e) { _plein = false }
+        if (!_plein) _cleTexte = 'echec-repli-autre'
+      }
+      const t = TEXTES[_cleTexte]
+      if (!t || _dejaDit.has(_cleTexte)) return
+      _dejaDit.add(_cleTexte)
       try { if (typeof window.showToast === 'function') window.showToast(t, s.type === 'echec-repli' ? 'err' : 'warn', 9000) } catch (e) {}
     })
     const r = await M.initialiser()

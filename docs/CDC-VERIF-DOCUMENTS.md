@@ -218,7 +218,7 @@ Recommandations (toutes retenues) en **gras**.
 3. **Lancement de la lecture IA** : à la demande, dossier par dossier, ou automatiquement à la réception. **À la demande** (minimisation : seuls les dossiers étudiés partent ; coût maîtrisé). 2D-Doc et indices : automatiques à l'import (locaux, gratuits).
 4. **Moteur de lecture** : Mistral OCR 4.1 avec annotations (`/v1/ocr`, 5 $/1 000 pages, rétention zéro possible) ou modèle de chat avec image. **OCR 4.1**, ajouté comme méthode du fournisseur existant (pas de second adaptateur).
 5. **Point d'accès UE** : si `/v1/ocr` n'est pas servi sur `api.eu.mistral.ai`, **reporter la brique IA** plutôt que d'envoyer des bulletins sans garantie de traitement dans l'UE (à vérifier avec la clé au début du lot 3).
-6. **Rétention zéro** : demander l'activation à Mistral maintenant (motif : pièces de candidats) ; en attendant, notice « 30 jours au plus » (`RETENTION_ZERO = false`). **Oui, et couper l'interrupteur d'entraînement.**
+6. **Rétention zéro** : demander l'activation à Mistral maintenant (motif : pièces de candidats) ; en attendant, notice « 30 jours au plus » (`RETENTION_ZERO = false`). **Oui, et couper l'interrupteur d'entraînement.** → **Fait le 16/10/2026** (cf. §10).
 7. **Lecteur DataMatrix** : @zxing/library (JS pur, Apache-2.0, aucun changement de CSP) ou zxing-wasm (plus robuste, impose `'wasm-unsafe-eval'` dans la CSP). **@zxing/library en V1**, zxing-wasm évalué dans le volet R&D.
 8. **Liste de confiance** : route relais (TSL + annuaires + révocations, cache 24 h) avec les 7 AC ancrées dans le code, ou instantané embarqué seul (révocations non à jour). **Route relais + ancrage**, instantané en repli hors ligne (alors « non vérifiable » si le certificat n'y est pas).
 9. **Contrat de travail** : envoyer sa première page à l'IA pour comparer employeur et date d'entrée (B7), ou renoncer à B7. **Envoyer la page 1 seulement.**
@@ -273,3 +273,23 @@ Chaque règle sort au format `{code, ok, titre, detail, source}` : `ok: true` re
 
 ### 9.5 Coût et taille
 Prix inchangé : l'OCR annoté est facturé **à la page** (§6) ; le schéma étendu ne change que la taille de la réponse (≈ 12 Ko au pire avec l'échappement JSON : 40 lignes, libellés ≤ 80 caractères ; ~3 Ko en pratique). À l'activation : essayer `maxItems` (40 / 8) en mode strict avec `relay/scripts/verif-ocr-ue.mjs`. Délai de la tâche inchangé (45 s).
+
+---
+
+## 10. Activation de la lecture IA (16/10/2026, v15.761)
+
+> Branche `feat/activation-ia-ocr` (worktree `Immo-wt-activation-ia`), version provisoire **v15.761**.
+
+Prérequis remplis le 16/10/2026 :
+- point d'accès UE vérifié : `node relay/scripts/verif-ocr-ue.mjs` OK, `mistral-ocr-latest` servi par `api.eu.mistral.ai` ;
+- **rétention zéro (Zero Data Retention) activée** sur le compte Mistral (Admin › Confidentialité). Elle couvre les **points d'accès sans état seulement** : `/v1/ocr`, `/v1/audio/transcriptions`, `/v1/chat/completions` — les trois qu'appelle le relais (`relay/src/ai/provider.js`). Tout appel futur à un autre point d'accès (lots, fichiers, agents) imposerait de repasser `RETENTION_ZERO` à `false` ;
+- entraînement sur les données désactivé ;
+- suivi de consommation et plafonds par compte (CONSO-IA, v15.756, migration 0062 appliquée).
+
+Bascule :
+- relais : `AI_OCR = "true"` dans `relay/wrangler.toml` → `/ai/status` annonce `ocr.actif=true` (avec `MISTRAL_API_KEY`) ;
+- app : `RETENTION_ZERO = true` (`js/core/ia-transparence.js`) → les trois notices (dictée, vidéo, bulletins) disent « Mistral AI ne conserve ni … (rétention zéro) » ;
+- page publique de dépôt (`relay/public/dossier.js`, `ASSET_VERSION` 7) : « rétention zéro : le contenu n'est pas conservé par Mistral AI, aucun entraînement » ;
+- Paramètres › Candidatures : la ligne « Lecture des bulletins de salaire par l'IA » remplace « Bientôt disponible » dès que le relais annonce la lecture ouverte (aucun changement de code : `_candIaOcr`).
+
+Reste à la charge de Didier : redéployer le relais, puis un premier essai réel sur un de ses propres bulletins (essai `maxItems` du §9.5 à cette occasion).

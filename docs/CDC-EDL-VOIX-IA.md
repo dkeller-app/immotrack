@@ -117,6 +117,6 @@ validation contre saisie manuelle ; geste réel téléphone + PC ; charte M-1 à
 
 ## 7. Décisions de Didier (13/10)
 
-1. **Rétention zéro chez Mistral : OUI.** La notice dit « le fournisseur ne conserve rien ». Constante unique `RETENTION_ZERO` (`js/core/ia-transparence.js`) : la passer à `false` tant que l'activation n'est pas confirmée sur le compte → la notice dit « 30 jours au plus ».
+1. **Rétention zéro chez Mistral : OUI.** La notice dit « le fournisseur ne conserve rien ». Constante unique `RETENTION_ZERO` (`js/core/ia-transparence.js`) : la passer à `false` tant que l'activation n'est pas confirmée sur le compte → la notice dit « 30 jours au plus ». → **Activée le 16/10/2026** (points d'accès sans état `/v1/audio/transcriptions`, `/v1/chat/completions`, `/v1/ocr`) : `RETENTION_ZERO = true` depuis v15.761.
 2. **Mention dans le PDF signé : OUI**, seulement si au moins une proposition a été acceptée, après les cadres de signature : « Observations préparées avec une aide à la dictée (IA), relues et validées par les parties. »
 3. **État déduit d'une description : OUI**, toujours avec la justification affichée et l'extrait entendu ; un état sans justification est retiré par le relais.
