@@ -11,7 +11,7 @@ function fakeClient({ sessionUserId = 'u1', userId = 'u1' } = {}) {
     espaces: { data: [{ id: 'e1', created_by: userId, nom: 'Mon patrimoine' }], error: null },
   }
   const query = (table) => {
-    const q = { select: () => q, eq: () => q, in: () => q, then: (ok) => ok(rows[table]) }
+    const q = { select: () => q, eq: () => q, in: () => q, order: () => q, then: (ok) => ok(rows[table]) }
     return q
   }
   const client = {

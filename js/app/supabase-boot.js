@@ -175,18 +175,29 @@ export function createBoot(client) {
     const uid = u && u.id
     const { data: mems, error } = await client.from('espace_members')
       .select('espace_id, full_espace').eq('user_id', uid).eq('invite_status', 'active')
+      .order('created_at', { ascending: true })
     if (error) throw new Error('resolveEspaces: ' + error.message)
     if (!mems || !mems.length) {
       const one = await resolveEspace(defaultName)
       return [{ espaceId: one.espaceId, ownerId: one.ownerId, espaceNom: one.espaceNom, mine: true }]
     }
     const ids = [...new Set(mems.map(m => m.espace_id))]
-    const { data: esps, error: e2 } = await client.from('espaces').select('id, created_by, nom').in('id', ids)
+    const { data: esps, error: e2 } = await client.from('espaces').select('id, created_by, nom, created_at').in('id', ids)
     if (e2) throw new Error('resolveEspaces espaces: ' + e2.message)
     const metaById = {}; (esps || []).forEach(e => { metaById[e.id] = e })
+    // Espace PROPRE = celui que le compte a CRÉÉ (`created_by`, figé côté serveur) ET où il est membre plein.
+    // Jamais `full_espace` seul : une ligne de membre plein posée par un tiers (avant 0063) ne doit pas faire
+    // d'un espace étranger « le mien » (sa config et les nouveaux enregistrements y partiraient). Plusieurs
+    // espaces créés : le plus ancien, choix stable quel que soit l'ordre rendu par le serveur.
+    const candidats = mems
+      .filter(m => metaById[m.espace_id] && m.full_espace === true && metaById[m.espace_id].created_by === uid)
+      .map(m => metaById[m.espace_id])
+      .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')) || String(a.id).localeCompare(String(b.id)))
+    const propreId = candidats.length ? candidats[0].id : null
+    if (candidats.length > 1) console.warn('[resolveEspaces] plusieurs espaces créés par ce compte : le plus ancien est retenu', candidats.map(e => e.id))
     const list = mems
       .filter(m => metaById[m.espace_id])
-      .map(m => ({ espaceId: m.espace_id, ownerId: metaById[m.espace_id].created_by, espaceNom: metaById[m.espace_id].nom, mine: m.full_espace === true }))
+      .map(m => ({ espaceId: m.espace_id, ownerId: metaById[m.espace_id].created_by, espaceNom: metaById[m.espace_id].nom, mine: m.espace_id === propreId }))
     list.sort((a, b) => (b.mine - a.mine))   // espace propre d'abord
     // Espaces TIERS : SCI où l'utilisateur est GESTIONNAIRE (entite_membre, RLS « ses propres octrois »).
     // Sert au routage des enregistrements NEUFS (store-multi inferEspace) : un mouvement, un document ou un

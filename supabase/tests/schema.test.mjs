@@ -50,8 +50,8 @@ async function rlsForced(name, minPolicies) {
 describe('RLS forcée + policies', () => {
   // espaces : select/update/delete (insert retiré en 0006, bootstrap via create_espace RPC).
   it('espaces : RLS forcée + ≥3 policies',        async () => { expect(await rlsForced('espaces', 3)).toBe(true) })
-  // espace_members : select/insert/update/delete.
-  it('espace_members : RLS forcée + ≥4 policies', async () => { expect(await rlsForced('espace_members', 4)).toBe(true) })
+  // espace_members : select/delete seulement (0063 : insert/update retirés au client, écrivains = RPC).
+  it('espace_members : RLS forcée + ≥2 policies', async () => { expect(await rlsForced('espace_members', 2)).toBe(true) })
 })
 
 describe('RPC create_espace', () => {

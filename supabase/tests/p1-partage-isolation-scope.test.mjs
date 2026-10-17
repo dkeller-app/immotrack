@@ -88,9 +88,11 @@ beforeAll(async () => {
   SA = await seedSci(clientA, espaceA, `SCI-A-${RUN}`)
   SB = await seedSci(clientA, espaceA, `SCI-B-${RUN}`)
 
-  // Bob = scopé LECTURE SCI-A ; Carol = scopée GESTIONNAIRE SCI-A (posés par Alice, manager plein).
+  // Bob = scopé LECTURE SCI-A ; Carol = scopée GESTIONNAIRE SCI-A. L'appartenance est posée en service-role
+  // (0063 : plus d'écriture client sur espace_members ; en production elle naît d'accept_invitation) ;
+  // l'octroi par SCI reste posé par Alice, manager plein.
   for (const [uid, role, mail] of [[bobId, 'lecture_seule', B.email], [carolId, 'gestionnaire', C.email]]) {
-    const { error: em } = await clientA.from('espace_members').insert({ espace_id: espaceA, user_id: uid, role: 'lecture_seule', invite_status: 'active', full_espace: false, invite_email: mail })
+    const { error: em } = await admin.from('espace_members').insert({ espace_id: espaceA, user_id: uid, role: 'lecture_seule', invite_status: 'active', full_espace: false, invite_email: mail })
     if (em) throw em
     const { error: eg } = await clientA.from('entite_membre').insert({ espace_id: espaceA, entite_id: SA.entites, user_id: uid, role })
     if (eg) throw eg
