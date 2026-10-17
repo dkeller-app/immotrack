@@ -119,10 +119,12 @@ describe('restitution : les charges dues sont dites, jamais retenues sur le dép
 })
 
 describe('régularisation : charges d’un bail sorti, manque accepté (décision pilotage 17/10)', () => {
-  it('une provision REMISE par un manque accepté n’est plus comptée comme versée ; les provisions passées à la régul sont lues au suivi', () => {
-    const c = extraireFonction(P1, 'computeRegul')
-    expect(c).not.toMatch(/_finManquesDuLot/)
-    expect(c).toMatch(/Number\(m\.aLaRegul\) \|\| 0/)
+  it('provisions versées : un seul calcul (_rgProvisionsVersees), mode « payé » par défaut, provision remise réputée versée', () => {
+    expect(extraireFonction(P1, 'computeRegul')).toMatch(/_rgProvisionsVersees\(e, from, to\)/)
+    const h = extraireFonction(P1, '_rgProvisionsVersees')
+    expect(h).toMatch(/Number\(m\.remiseCharge\) \|\| 0/)
+    expect(h).toMatch(/Number\(m\.aLaRegul\) \|\| 0/)
+    expect(P1).toMatch(/const _RG_PROVISIONS_MODE = 'paye';/)
   })
   it('le détail de la régularisation dit les provisions non versées du locataire sorti, sans les recompter', () => {
     // eslint-disable-next-line no-new-func

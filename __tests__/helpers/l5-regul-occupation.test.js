@@ -24,7 +24,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8');
 const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8');
 const F1 = ['_isoLocal', '_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog',
-  '_getLogementStartIso', 'computeRegul'];
+  '_getLogementStartIso', '_rgProvisionsVersees', 'computeRegul'];
 const F2 = ['_ccLogOccupations', '_ccLogsInScope', '_ccApplyCleSimple', '_ccApplySousCompteurs', '_calcCcRepartition',
   '_finImmDuLot', '_finDuRaw', '_finLotSuivi', '_finLotOccupe', '_finIsRecupACharge'];
 const SRC = F1.map((n) => extraireFonction(P1, n)).concat(F2.map((n) => extraireFonction(P2, n))).join('\n');

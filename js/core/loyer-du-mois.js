@@ -404,7 +404,8 @@ export function _loyerArrearsPass(months, opts) {
   const seuilArrondi = Math.max(0, Number(opts && opts.seuilArrondi) || 0);
   let arrondiNet = 0;
   const ms = months || [];
-  const parOrigine = { reglement: ms.map(() => 0), remise: ms.map(() => 0), arrondi: ms.map(() => 0) };
+  // `remiseCharge` : la part d'une remise qui a soldé des CHARGES (provision remise, réputée versée à la régularisation)
+  const parOrigine = { reglement: ms.map(() => 0), remise: ms.map(() => 0), remiseCharge: ms.map(() => 0), arrondi: ms.map(() => 0) };
   const lastIdx = ms.length - 1;
   const loyerQ = [], chargeQ = [];                  // files des manques : {idx, short, due, recv}
   const sumQ = (q) => q.reduce((s, e) => s + e.short, 0);
@@ -511,7 +512,7 @@ export function _loyerArrearsPass(months, opts) {
     //   Décision Didier du 17/10 : la retenue sur le dépôt (`reglement`) ne règle QUE le loyer HC (loyer du mois, puis
     //   arriérés de loyer, plus vieux d'abord) — JAMAIS les charges, qui restent dues et passent par la régularisation.
     //   Le manque accepté (`remise`) et l'argent reçu gardent l'ordre H-1.
-    const solder = (amt, trace, loyerSeul) => {
+    const solder = (amt, trace, loyerSeul, traceCharge) => {
       let a = Math.max(0, Number(amt) || 0);
       if (a <= 0.005) return 0;
       const avant = a;
@@ -520,7 +521,7 @@ export function _loyerArrearsPass(months, opts) {
           if (a <= 0.0000001) break;
           if (courant !== (e.idx === idx)) continue;
           const t = Math.min(a, e.short); e.short -= t; a -= t;
-          if (t > 0 && !e.opening) trace[e.idx] += t;
+          if (t > 0 && !e.opening) { trace[e.idx] += t; if (traceCharge && q === chargeQ) traceCharge[e.idx] += t; }
         }
       };
       if (loyerSeul) { prendre(loyerQ, true); prendre(loyerQ, false); }
@@ -528,7 +529,7 @@ export function _loyerArrearsPass(months, opts) {
       return _r2(avant - a);
     };
     solder(m.reglement, parOrigine.reglement, true);
-    solder(m.remise, parOrigine.remise);
+    solder(m.remise, parOrigine.remise, false, parOrigine.remiseCharge);
     // Écart d'arrondi (décision 05/10 n° 2 : « sous 1 €, soldé d'office, trace visible ») : en fin de mois,
     // une dette ou une avance totale strictement sous le seuil est soldée, et tracée (`arrondi`, signé :
     // − = dette abandonnée, + = avance abandonnée). Plafond NET par passe : |Σ arrondis| < seuil — une avance
@@ -552,6 +553,7 @@ export function _loyerArrearsPass(months, opts) {
     const g = (k) => _r2(parOrigine[k][j]);
     if (Math.abs(g('reglement')) > 0.005) out.reglement = g('reglement');
     if (Math.abs(g('remise')) > 0.005) out.remise = g('remise');
+    if (Math.abs(g('remiseCharge')) > 0.005) out.remiseCharge = g('remiseCharge');
     if (Math.abs(g('arrondi')) > 0.005) out.arrondi = g('arrondi');
   });
   const clean = (q) => q.filter((e) => e.short > 0.005).map((e) => ({ idx: e.idx, short: _r2(e.short), due: _r2(e.due), recv: _r2(e.recv) }));

@@ -706,7 +706,7 @@ export function _computeDetteBail(input) {
       aLaRegul: aLaRegul ? resC : 0,
       // position du bail à la FIN du mois (Finances, fenêtre, bandeau) : avance OU retard
       avance: av, retardLoyer: retL, retardCharge: retC, position: round2(av - retL - retC),
-      remise: round2(pm.remise || 0), reglement: round2(pm.reglement || 0), arrondi: round2(pm.arrondi || 0),
+      remise: round2(pm.remise || 0), remiseCharge: round2(pm.remiseCharge || 0), reglement: round2(pm.reglement || 0), arrondi: round2(pm.arrondi || 0),
       paiements: (src[m.ym] || []).map(p => ({ id: p.id, date: p.date, montant: round2(p.montant),
         aConfirmer: aConfLignes.some(l => l.id === p.id && l.date === p.date) })),
       imputations: (r.imputations && r.imputations[idx]) || []

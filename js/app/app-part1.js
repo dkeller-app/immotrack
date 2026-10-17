@@ -26851,6 +26851,51 @@ async function _rgBuildJustifsZip(immNom){
   showToast('📦 Paquet .zip téléchargé — '+entries.length+' pièce(s)'+(failed>0?` · ${failed} introuvable(s)`:''),'ok',5500);
 }
 
+// PROVISIONS VERSÉES d'une entrée de régularisation — deux calculs, un interrupteur (pilotage 17/10, soumis à Didier) :
+//   'paye'   (défaut) : sur les mois que suit le moteur des loyers, ce qui a été RÉELLEMENT imputé aux charges de chaque mois
+//            (par mois d'origine, quelle que soit la date du virement — un paiement reçu après la sortie compte), PLUS la part
+//            de charges REMISE par un manque accepté (décision Didier du 06/10 : provision abandonnée, réputée versée, jamais
+//            réclamée une 2ᵉ fois) ; une provision passée à la régularisation (bail sorti) n'est pas versée. Hors des mois
+//            suivis (avant le début du suivi) : un mois avec un loyer encaissé × la provision du bail.
+//   'ancien' : la règle d'avant le 17/10 — un mois avec un loyer encaissé × la provision du bail, plus les mois SOLDÉS par
+//            un manque accepté (06/10).
+// `e._moisSet` = les mois (date du virement) ayant un loyer encaissé, posé par computeRegul.
+const _RG_PROVISIONS_MODE = 'paye';
+function _rgProvisionsVersees(e, from, to) {
+  const ch = (e.bail && e.bail.ch) != null ? Number(e.bail.ch) || 0 : 0;
+  const set = new Set(e._moisSet || []);
+  const deb = e.bail && e.bail.debut ? String(e.bail.debut).slice(0,10) : '';
+  const f7 = String(from).slice(0,7), t7 = String(to).slice(0,7);
+  const o1 = e.debutOcc ? e.debutOcc.slice(0,7) : null, o2 = e.finOcc ? e.finOcc.slice(0,7) : null;
+  const dansPeriode = (ym) => !(ym < f7 || ym > t7 || (o1 && ym < o1) || (o2 && ym > o2));
+  let b = null;
+  if (deb && typeof _finSuiviLot === 'function') { try { const s = _finSuiviLot(e.ref); b = s && (s.baux||[]).find(x => x.debut === deb) || null; } catch(err) { b = null; } }
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const aLaRegul = b ? r2((b.mois||[]).filter(m => dansPeriode(m.ym)).reduce((t, m) => t + (Number(m.aLaRegul) || 0), 0)) : 0;
+  const det = [];
+  if ((typeof _RG_PROVISIONS_MODE !== 'undefined' ? _RG_PROVISIONS_MODE : 'paye') === 'ancien') {
+    if (typeof _finManquesDuLot === 'function' && deb) {
+      const _et = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(e.ref, { bailDebut: deb }) : null;
+      _finManquesDuLot(e.ref).forEach(mq => {
+        if (mq.bailDebut !== deb || !dansPeriode(mq.ym)) return;
+        const _mm = _et && _et.byYm && _et.byYm[mq.ym];
+        if (_mm && _mm.solde) set.add(mq.ym);
+      });
+    }
+    set.forEach(ym => det.push({ mois: ym, ch }));
+  } else {
+    const suivis = new Set(), parMois = {};
+    (b ? b.mois : []).forEach(m => {
+      if (!dansPeriode(m.ym)) return;
+      suivis.add(m.ym);
+      parMois[m.ym] = r2((m.imputations||[]).filter(p => p.poste === 'charge').reduce((t, p) => t + (Number(p.montant) || 0), 0) + (Number(m.remiseCharge) || 0));
+    });
+    set.forEach(ym => { if (!suivis.has(ym)) det.push({ mois: ym, ch }); });
+    suivis.forEach(ym => { if (parMois[ym] > 0.005) det.push({ mois: ym, ch: parMois[ym] }); });
+  }
+  det.sort((x, y) => x.mois.localeCompare(y.mois));
+  return { moisDetails: det, provisions: r2(det.reduce((t, m) => t + (Number(m.ch) || 0), 0)), aLaRegul };
+}
 function computeRegul(from, to) {
   const res = {};
   const fromD     = new Date(from+'T00:00:00');
@@ -26926,53 +26971,12 @@ function computeRegul(from, to) {
           e._moisSet.add(m.date.slice(0,7));
         });
     });
-  // Décision pilotage 17/10 (CDC Charges v15.574 « impayé = LOYER, charges = régul ») : une provision REMISE par un manque
-  // accepté n'est PAS une provision versée — elle n'est plus comptée ici (elle l'était depuis le 06/10). Les charges
-  // se règlent à la régularisation, et seulement là.
-  // Les provisions d'un bail SORTI passées à la régularisation (solde de tout compte enregistré : elles ont quitté les
-  // impayés) sont dites à part (`aLaRegul`) : elles ne sont pas versées, le solde les demande déjà — rien n'est compté deux fois.
-  if (typeof _finSuiviLot === 'function') {
-    Object.values(res).forEach(e=>{
-      const deb = e.bail && e.bail.debut ? String(e.bail.debut).slice(0,10) : '';
-      e.aLaRegul = 0;
-      if(!deb) return;
-      let s = null; try { s = _finSuiviLot(e.ref); } catch(err) { s = null; }
-      const b = s && (s.baux||[]).find(x => x.debut === deb);
-      if(!b) return;
-      const f7 = String(from).slice(0,7), t7 = String(to).slice(0,7);
-      const o1 = e.debutOcc ? e.debutOcc.slice(0,7) : null, o2 = e.finOcc ? e.finOcc.slice(0,7) : null;
-      e.aLaRegul = Math.round((b.mois||[]).filter(m => m.ym >= f7 && m.ym <= t7 && (!o1 || m.ym >= o1) && (!o2 || m.ym <= o2))
-        .reduce((t, m) => t + (Number(m.aLaRegul) || 0), 0) * 100) / 100;
-    });
-  }
-  // PROVISIONS VERSÉES (relecture Fable 17/10) : sur les mois que suit le moteur des loyers, ce qui a été RÉELLEMENT imputé
-  // aux charges de chaque mois (par mois d'origine, quelle que soit la date du virement — un paiement reçu après la sortie
-  // compte ; une provision remise par un manque accepté, ou passée à la régularisation, ne compte pas) ; hors de ces mois
-  // (avant le début du suivi), la règle d'avant : un mois avec un loyer encaissé × la provision du bail.
-  Object.values(res).forEach(e=>{
-    const ch = e.bail?.ch ?? 0;
-    const set = e._moisSet || new Set();
-    const deb = e.bail && e.bail.debut ? String(e.bail.debut).slice(0,10) : '';
-    let suivis = null; const parMois = {};
-    if (deb && typeof _finSuiviLot === 'function') {
-      let s = null; try { s = _finSuiviLot(e.ref); } catch(err) { s = null; }
-      const b = s && (s.baux||[]).find(x => x.debut === deb);
-      if (b) {
-        const f7 = String(from).slice(0,7), t7 = String(to).slice(0,7);
-        const o1 = e.debutOcc ? e.debutOcc.slice(0,7) : null, o2 = e.finOcc ? e.finOcc.slice(0,7) : null;
-        suivis = new Set();
-        (b.mois||[]).forEach(m => {
-          if (m.ym < f7 || m.ym > t7 || (o1 && m.ym < o1) || (o2 && m.ym > o2)) return;
-          suivis.add(m.ym);
-          parMois[m.ym] = Math.round((m.imputations||[]).filter(p => p.poste === 'charge').reduce((t, p) => t + (Number(p.montant) || 0), 0) * 100) / 100;
-        });
-      }
-    }
-    const det = [];
-    set.forEach(ym => { if (!suivis || !suivis.has(ym)) det.push({ mois: ym, ch }); });
-    if (suivis) suivis.forEach(ym => { if (parMois[ym] > 0.005) det.push({ mois: ym, ch: parMois[ym] }); });
-    e.moisDetails = det.sort((a, b) => a.mois.localeCompare(b.mois));
-    e.provisions = Math.round(det.reduce((t, m) => t + (Number(m.ch) || 0), 0) * 100) / 100;
+  // PROVISIONS VERSÉES — _rgProvisionsVersees (mode _RG_PROVISIONS_MODE). Les provisions d'un bail SORTI passées à la
+  // régularisation (solde de tout compte enregistré : elles ont quitté les impayés) sont dites à part (`aLaRegul`) : elles
+  // ne sont pas versées, le solde les demande déjà — rien n'est compté deux fois.
+  Object.values(res).forEach(e => {
+    const r = _rgProvisionsVersees(e, from, to);
+    e.moisDetails = r.moisDetails; e.provisions = r.provisions; e.aLaRegul = r.aLaRegul;
     delete e._moisSet;
   });
 

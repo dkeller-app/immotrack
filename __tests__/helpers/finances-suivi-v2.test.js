@@ -141,6 +141,13 @@ describe('règlements sans virement (_loyerArrearsPass)', () => {
     const q = _loyerArrearsPass([m(700, 50, 0), m(303, 20, 0, { remise: 330 })], { carry: true });
     expect(q.retardMois[1]).toEqual({ loyer: 0, charge: 0 });
   });
+  it('cas Arslan, août 2026 : 760 € reçus pour 760 + 20, manque de 20 € accepté → la remise solde les CHARGES, tracées (remiseCharge)', () => {
+    const r = _loyerArrearsPass([m(760, 20, 760, { remise: 20 })], { carry: true });
+    expect(r.months[0]).toMatchObject({ loyerArrear: 0, chargeArrear: 0, remise: 20, remiseCharge: 20 });
+    const s = suivi({ manques: [MANQUE_AOUT] });
+    const aout = s.baux.find((x) => x.debut === '2026-05-03').mois.find((x) => x.ym === '2026-08');
+    expect(aout).toMatchObject({ remise: 20, remiseCharge: 20 });
+  });
   it('sans remise ni règlement : sortie identique à l\'historique (option absente)', () => {
     const ms = [m(500, 30, 530), m(500, 30, 0), m(500, 30, 900)];
     expect(_loyerArrearsPass(ms, { carry: true })).toEqual(_loyerArrearsPass(ms.map((x) => Object.assign({}, x, { remise: 0, reglement: 0 })), { carry: true }));

@@ -52,7 +52,7 @@ const LIGNE_2044 = { [RECUP]: null, [COPRO]: '229', 'Loyers encaissés': '211' }
  */
 function chargerRegul(DB, { conso = {} } = {}) {
   const fns = ['_isoLocal', '_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog', '_ccLogOccupations',
-    '_ccLogsInScope', '_ccApplyCleSimple', '_ccApplySousCompteurs', '_calcCcRepartition', 'computeRegul'];
+    '_ccLogsInScope', '_ccApplyCleSimple', '_ccApplySousCompteurs', '_calcCcRepartition', '_rgProvisionsVersees', 'computeRegul'];
   const src = fns.map((n) => {
     const c = corpsDe(html, n);
     if (!c) throw new Error('fonction introuvable : ' + n);

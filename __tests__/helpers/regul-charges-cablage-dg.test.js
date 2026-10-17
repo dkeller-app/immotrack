@@ -87,7 +87,9 @@ function monter(sc, noms) {
     _rgClotureImpayes: W._rgClotureImpayes, _DEPART_ACOMPTE_CAT: 'Acompte de charges (départ)',
     _forfaitAvenantsDuBail: () => undefined, _isPhone: () => false, _rgIsValidated: () => false, _activeEntity: null, _logInEnt: () => true,   // filtre de bailleur (aucun actif)
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
-    _finSuiviLot: sc.suivi ? (() => sc.suivi) : undefined,   // suivi des loyers (moteur unique) du scénario, s'il en porte un
+    _finSuiviLot: sc.suivi ? (() => sc.suivi) : undefined,
+    _RG_PROVISIONS_MODE: sc.modeProvisions || 'paye',   // constante de script (app-part1) : le calcul des provisions versées
+    _finManquesDuLot: sc.manques ? (() => sc.manques) : undefined, _loyerEtatLot: sc.etat ? (() => sc.etat) : (() => null),   // suivi des loyers (moteur unique) du scénario, s'il en porte un
   };
   // DÉPÔT DÉTENU (17/10) : les vrais helpers de la fenêtre de restitution (loyer retenu saisi, avertissement art. 22).
   noms = noms.concat(['_dgRestitLoyerSaisi', '_dgRestitLoyerEffectif', '_dgAvertRetenuesHtml', '_dgRestitChargesNote', '_dgRetenueLoyerDe'].filter(n => !noms.includes(n)));
@@ -97,7 +99,7 @@ function monter(sc, noms) {
   return { fn: f(scope), els, W };
 }
 const CHAINE_REGUL = ['_isoLocal', '_bailTypeHasTacite', '_bailFinOccupation', '_findBailByRefTolerant', '_getAllBailsForLog',
-  '_ccLogOccupations', '_ccLogsInScope', '_ccApplyCleSimple', '_ccApplySousCompteurs', '_calcCcRepartition', 'computeRegul'];
+  '_ccLogOccupations', '_ccLogsInScope', '_ccApplyCleSimple', '_ccApplySousCompteurs', '_calcCcRepartition', '_rgProvisionsVersees', 'computeRegul'];
 
 let saveWindow;
 beforeAll(() => { saveWindow = globalThis.window; });
@@ -135,8 +137,27 @@ describe('2bis · provisions versées = ce que le moteur a imputé aux charges (
     const { fn } = monter(sc, CHAINE_REGUL);
     const e = fn.computeRegul('2026-01-01', '2026-12-31').entries[REF];
     expect(e.moisDetails.map((m) => m.mois)).toEqual(['2026-01', '2026-02', '2026-04', '2026-06', '2026-07', '2026-08']);
-    expect(e.provisions).toBe(600);   // mars (impayé, passé à la régul) et mai (provision remise) ne sont pas versés ; juillet l'est
+    expect(e.provisions).toBe(600);   // mars (impayé, passé à la régul) et mai (rien d'imputé aux charges) ne sont pas versés ; juillet l'est
     expect(e.aLaRegul).toBe(100);
+  });
+  it('cas Arslan, août 2026 : 760 € reçus pour 760 + 20, 20 € de charges remis (panne) → provision réputée versée, jamais redemandée (décision Didier 06/10)', () => {
+    const sc = DEPART();
+    sc.DB.mouvements.push({ id: 'La', date: '2026-08-05', cat: 'Loyers encaissés', cr: 760, db: 0, qui: REF, imm: IMM });
+    sc.suivi = { baux: [{ debut: '2023-07-01', mois: [{ ym: '2026-08', aLaRegul: 0, remise: 20, remiseCharge: 20, imputations: [{ poste: 'loyer', montant: 760 }] }] }] };
+    const e = monter(sc, CHAINE_REGUL).fn.computeRegul('2026-01-01', '2026-12-31').entries[REF];
+    expect(e.moisDetails).toEqual([{ mois: '2026-08', ch: 20 }]);
+    expect(e.provisions).toBe(20);
+  });
+  it('interrupteur « ancien » calcul (si Didier le préfère) : provision du bail × mois avec virement, + mois soldés par un manque', () => {
+    const sc = DEPART();
+    sc.modeProvisions = 'ancien';
+    sc.DB.mouvements.push({ id: 'Lj', date: '2026-07-05', cat: 'Loyers encaissés', cr: 600, db: 0, qui: REF, imm: IMM });
+    sc.manques = [{ bailDebut: '2023-07-01', ym: '2026-03', montant: 600 }];
+    sc.etat = { byYm: { '2026-03': { solde: true } } };
+    sc.suivi = { baux: [{ debut: '2023-07-01', mois: [] }] };
+    const e = monter(sc, CHAINE_REGUL).fn.computeRegul('2026-01-01', '2026-12-31').entries[REF];
+    expect(e.moisDetails.map((m) => m.mois)).toEqual(['2026-03', '2026-07']);
+    expect(e.provisions).toBe(200);
   });
 });
 
