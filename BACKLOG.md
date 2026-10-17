@@ -1,4 +1,8 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.762 (17/10, pilotage Desktop)** — **Stockage : textes vrais** (`fix/stockage-indexeddb`, 54c7d29d ; 8 456 tests verts). Ce lot clôt le P0 « Mémoire pleine », livré en v15.705→724 et revérifié le 17/10 (88 tests, geste quota plein OK).
+> - Carte « Stockage de cet appareil » : « partent au cloud ».
+> - La carte et le toast `echec-repli` ne disent « plein » que si le navigateur a refusé faute de place ; sinon « le stockage local de cet appareil a échoué ».
+> - Reste : toasts PC (TOASTS-CHARTE-M15).
 > 🚦 **MAIN = v15.761 (17/10, pilotage Desktop, GO Didier)** — **Lecture IA des pièces ACTIVABLE** (`feat/activation-ia-ocr`, 3cd1a062 ; 8 451 tests app + 487 relais verts ; relecture Opus sans bloquant).
 > - `AI_OCR = "true"` dans `relay/wrangler.toml`. **Effet seulement après le redéploiement du relais par Didier** (`deployer-relais.cmd`).
 > - `RETENTION_ZERO = true`, texte exact : « le contenu n'est pas conservé ». ZDR Mistral activée le 16/10 sur les points d'accès sans état.
