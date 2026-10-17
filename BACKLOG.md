@@ -1,4 +1,10 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.759 (17/10, pilotage Desktop, décision Didier)** — **Retenue sur dépôt = loyers seulement** (`fix/depot-loyers-seuls`, 8d977c54 ; 8 439 tests verts ; Fable : 0 🔴 / 0 🟠).
+> - Une retenue sur dépôt règle d'abord le loyer HC du mois, puis les arriérés de loyer, jamais les charges. Les charges dues partent à la régularisation.
+> - Écran de restitution : pré-remplissage et plafond portent sur le loyer HC seul ; une ligne signale les charges restantes.
+> - Ferrette - 101 inchangé.
+> - « Immeuble » et D-003 = logements de test (Didier) : laissés en l'état.
+> - Suite en cours : les charges d'un bail sorti, une fois la restitution datée, passent « à la régularisation » et sortent de l'arriéré affiché (règle « impayé = LOYER, charges = régul »).
 > 🚦 **MAIN = v15.758 (17/10, pilotage Desktop, GO Didier)** — **Dépôt détenu après sortie** (`feat/depot-detenu`, b6b09578 ; 8 434 tests verts ; Fable argent : 0 🔴, 2 🟠 corrigés ; Opus : 1 🔴 corrigé).
 >
 > **Écrans :**
