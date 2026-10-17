@@ -1,4 +1,28 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.757 (17/10, pilotage Desktop, GO Didier)** — **Finances : suivi unique des loyers** (`feat/finances-suivi-v2`, 2becd255 ; 8 415 tests verts ; relectures Opus + Fable argent/migration, corrections faites).
+>
+> **Livré :**
+> - Un seul calcul, bail par bail : Finances, Loyers, relance, quittances, fiche du logement, impayés de l'Accueil, régul. Il étend `_computeDetteBail` / netting, sans nouveau moteur.
+> - Ligne unique « Avance / retard des locataires » ; fenêtre au clic avec liens vers les mouvements.
+> - KPI Recouvrement et bulle Impayés = somme des retards.
+> - « Accepter le manque » : journal du bail, **migration 0056 APPLIQUÉE le 17/10**.
+> - Alertes « à qui ? » et « il manque X € » dans Mouvements.
+> - Mois dans l'ordre ; un seul sélecteur de bailleur.
+>
+> **Données de Didier :** migration de données Ferrette appliquée par Didier le 17/10 (`migrer-ferrette.mjs commit`, sauvegarde 08:40 UTC dans `mockups/FINANCES-SUIVI-V2/migrations-donnees/`).
+> - Ferrette - 101 : retenue loyer 303 €.
+> - Ferrette 001 : retenue 90 €, 495 € reclassés en dépôt.
+> - Ferrette - 104 : barème 650 → 655,05 € au 01/06/2026, charges 30 € au 01/08.
+>
+> Arslan : 20 € = vrai manque (760 € versés le 05/08 au lieu de 780 €). Prorata d'entrée vérifié (jours réels).
+>
+> **Migration 0062 (conso IA) APPLIQUÉE le 17/10.**
+>
+> **Restes :**
+> - Partie dépôt détenu (maquette en attente de Didier + remise à 0 de `dgRestitue` 247 €).
+> - Mention GLI.
+> - Panier « Sans bailleur » plus sélectionnable.
+> - Smoke Didier.
 > 🚦 **MAIN = v15.756 (16/10, pilotage Desktop, GO Didier)** — **Consommation IA + plafonds par compte selon l'offre** (`feat/conso-ia`, 660cfd32, renuméroté v15.757 → v15.756 ; tests : 8 346 app + 486 relais verts ; relecture Opus sans bloquant, 4 importants corrigés ; relecture Fable : atomicité / admin / RLS sans défaut, 1 important corrigé).
 >
 > **Livré :**
