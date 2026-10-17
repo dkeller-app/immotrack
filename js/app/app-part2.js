@@ -17323,7 +17323,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.760 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.765 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -27245,7 +27245,8 @@ function _renderStockageCard() {
   let dernierOk = _miroirDernierOk;
   if (!dernierOk) { try { const t = Number(localStorage.getItem(KEY + '_ecrit_at')); if (t > 0) dernierOk = t; } catch (e) {} }
   const etat = S.etatCopieAppareil({ cloud: !!window.__immoSupabaseMode, sandbox: !!_isTestMode, backend,
-    copieIncomplete: incomplete, echecDepuis: _miroirEchecDepuis, dernierOk, enLigne: _miroirModeCourant() === 'cloud-en-ligne' });
+    copieIncomplete: incomplete, echecDepuis: _miroirEchecDepuis, dernierOk, enLigne: _miroirModeCourant() === 'cloud-en-ligne',
+    plein: _miroirEchecPlein });
   let base = 0;
   try { base = JSON.stringify(DB).length; } catch (e) {}
   const QUOTA = 5 * 1024 * 1024;   // ~5 M caractères par origine (Chromium) : l'ordre de grandeur, pas une promesse

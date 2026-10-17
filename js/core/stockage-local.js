@@ -358,9 +358,11 @@ export function quandCourt(t, maintenant = Date.now()) {
  * @param {boolean} o.copieIncomplete
  * @param {number} o.echecDepuis      0, ou heure de la 1re écriture ratée depuis la dernière réussie
  * @param {number} o.dernierOk        0, ou heure de la dernière écriture réussie connue
+ * @param {boolean} [o.plein]         la dernière écriture ratée l'a été faute de place (`estQuotaDepasse`) ; sinon
+ *                                    (IndexedDB en échec, erreur inconnue) la carte ne parle pas de place
  * @returns {{ etat:string, libelle:string, ton:string, explication:string }}
  */
-export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncomplete = false, echecDepuis = 0, dernierOk = 0, enLigne = true, maintenant = Date.now() }) {
+export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncomplete = false, echecDepuis = 0, dernierOk = 0, enLigne = true, plein = false, maintenant = Date.now() }) {
   if (!cloud) {
     return sandbox
       ? { etat: 'test', libelle: 'Base de test', ton: 'gry', explication: 'Mode test : les données sont gardées dans ce navigateur uniquement.' }
@@ -370,11 +372,15 @@ export function etatCopieAppareil({ cloud, sandbox, backend = null, copieIncompl
     const depuis = dernierOk && dernierOk < echecDepuis ? dernierOk : echecDepuis;
     const q = quandCourt(depuis, maintenant);
     const libelle = 'Pas à jour depuis ' + (q.startsWith('le ') ? q : q.replace(/^aujourd’hui à /, ''));
+    // La cause : « plein » seulement si le navigateur a refusé faute de place ; un échec d'IndexedDB (ou une
+    // erreur inconnue) n'est pas un manque de place (retour pilotage du 17/10).
+    const cause = plein ? 'Le stockage de cet appareil est plein.' : 'Le stockage local de cet appareil a échoué.';
     // Hors ligne / réseau coupé / session expirée : rien ne garantit que le cloud a reçu (contre-audit, I3).
     if (!enLigne) return { etat: 'pas-a-jour', libelle, ton: 'blu',
-      explication: 'Le stockage de cet appareil est plein. Sans réseau, les modifications qui ne sont pas encore parties au cloud ne sont pas en sécurité.' };
+      explication: cause + ' Sans réseau, les modifications qui ne sont pas encore parties au cloud ne sont pas en sécurité.' };
+    // « partent au cloud », jamais « bien enregistrées » : la carte ne sait pas si l'envoi a abouti (même règle que `enLigne`, 🟡1).
     return { etat: 'pas-a-jour', libelle, ton: 'blu',
-      explication: 'Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données ' + (q.startsWith('le ') ? 'du ' + q.slice(3) : 'd’' + q) + '.' };
+      explication: cause + ' Les modifications partent au cloud ; sans réseau, cet appareil afficherait les données ' + (q.startsWith('le ') ? 'du ' + q.slice(3) : 'd’' + q) + '.' };
   }
   if (copieIncomplete) {
     return { etat: 'incomplete', libelle: 'Incomplète', ton: 'blu',

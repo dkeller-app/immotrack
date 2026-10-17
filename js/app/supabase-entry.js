@@ -541,7 +541,7 @@ async function boot() {
       // STOCKAGE lot 3 (D1 B) : en ligne, une copie complète non écrite n'est pas une perte (le cloud a
       // la modification, le journal garde les EDL) → état « pas à jour » + avis unique de saveDB, pas de
       // message d'erreur. Hors ligne, le texte ci-dessous reste.
-      if (s.type === 'echec-repli') { try { if (typeof window.__immoMiroirPasAJour === 'function' && window.__immoMiroirPasAJour()) return } catch (e) {} }
+      if (s.type === 'echec-repli') { try { if (typeof window.__immoMiroirPasAJour === 'function' && window.__immoMiroirPasAJour({ erreur: s.erreur })) return } catch (e) {} }
       // HORS LIGNE, double panne : saveDB a pu dire « enregistré » (écriture IndexedDB planifiée, audit 🟠1)
       // et la modification n'est plus sur aucun support de l'appareil. Le dire avec le texte de perte de
       // saveDB (« PAS enregistrée… »), pas avec le texte générique de copie non mise à jour.

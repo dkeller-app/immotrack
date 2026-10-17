@@ -91,13 +91,24 @@ describe('§3.7 — etatCopieAppareil : les 5 états de la maquette', () => {
     expect(e({ backend: 'localStorage' })).toMatchObject({ etat: 'reduit', ton: 'blu', libelle: 'Mode réduit' });
   });
   it('C — pas à jour : depuis la dernière écriture RÉUSSIE ; date complète si un autre jour', () => {
-    const c = e({ backend: 'indexeddb', dernierOk: VEILLE, echecDepuis: H1432 });
+    const c = e({ backend: 'indexeddb', dernierOk: VEILLE, echecDepuis: H1432, plein: true });
     expect(c).toMatchObject({ etat: 'pas-a-jour', ton: 'blu', libelle: 'Pas à jour depuis le 05/10 à 14:32' });
-    expect(c.explication).toBe('Le stockage de cet appareil est plein. Les modifications sont bien enregistrées dans le cloud ; sans réseau, cet appareil afficherait les données du 05/10 à 14:32.');
+    expect(c.explication).toBe('Le stockage de cet appareil est plein. Les modifications partent au cloud ; sans réseau, cet appareil afficherait les données du 05/10 à 14:32.');
     expect(e({ echecDepuis: H1432 }).libelle).toBe('Pas à jour depuis 14:32');
     const hl = e({ echecDepuis: H1432, enLigne: false });                  // hors ligne : pas de « bien enregistrées »
     expect(hl.etat).toBe('pas-a-jour');
     expect(hl.explication).not.toMatch(/bien enregistrées/);
+  });
+  it('C bis — la carte ne dit jamais « bien enregistrées », et ne parle de place que si le navigateur a refusé faute de place (retour pilotage 17/10)', () => {
+    for (const enLigne of [true, false]) for (const plein of [true, false]) {
+      const x = e({ echecDepuis: H1432, enLigne, plein });
+      expect(x.etat).toBe('pas-a-jour');
+      expect(x.explication).not.toMatch(/bien enregistr/);
+      if (plein) expect(x.explication).toMatch(/^Le stockage de cet appareil est plein\./);
+      else { expect(x.explication).toMatch(/^Le stockage local de cet appareil a échoué\./); expect(x.explication).not.toMatch(/plein|place/); }
+    }
+    expect(e({ echecDepuis: H1432 }).explication).toBe('Le stockage local de cet appareil a échoué. Les modifications partent au cloud ; sans réseau, cet appareil afficherait les données d’aujourd’hui à 14:32.');
+    expect(e({ echecDepuis: H1432, enLigne: false }).explication).toBe('Le stockage local de cet appareil a échoué. Sans réseau, les modifications qui ne sont pas encore parties au cloud ne sont pas en sécurité.');
   });
   it('priorité : pas à jour > incomplète > mode réduit > à jour', () => {
     expect(e({ backend: 'localStorage', copieIncomplete: true, echecDepuis: H1432 }).etat).toBe('pas-a-jour');
@@ -153,10 +164,10 @@ function monter({ cloud = true, horsLigne = false, enLigne = true, sessionMorte 
   if (module) win._stockage = Stockage;
   if (miroir) win._miroirLocal = { miroir: () => miroir };
   const src = etatDeclare()
-    + ['saveDB', '_miroirEcrire', '_miroirEcrireCloud', '_miroirNoterOk', '_miroirModeCourant', '_miroirIdbPlanifie', '_miroirEchec']
+    + ['saveDB', '_miroirEcrire', '_miroirEcrireCloud', '_miroirNoterOk', '_miroirNoterCause', '_miroirModeCourant', '_miroirIdbPlanifie', '_miroirEchec']
       .map(n => extraireFonction(HTML, n)).join('\n')
     + '\n' + HTML.slice(HTML.indexOf('window.__immoMiroirPasAJour = function'), HTML.indexOf('};', HTML.indexOf('window.__immoMiroirPasAJour = function')) + 2)
-    + '\nreturn { saveDB, etat: () => ({ _miroirEchecDepuis, _miroirDernierOk, avis: [..._miroirAvisDonnes] }) };';
+    + '\nreturn { saveDB, etat: () => ({ _miroirEchecDepuis, _miroirDernierOk, _miroirEchecPlein, avis: [..._miroirAvisDonnes] }) };';
   const r = new Function('window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', 'navigator', 'showToast', '_isTestMode', 'console', src)(
     win, st, sandbox ? '_test_immotrack_v4' : 'immotrack_v4', db || { baux: {}, logements: [], edl: [], x: chaine(500) }, false,
     { onLine: enLigne }, (m, t) => toasts.push([t, m]), sandbox, { error() {}, info() {}, warn() {} });
@@ -272,10 +283,26 @@ describe('G4 — câblage dans saveDB (miroir plein)', () => {
     expect(m.etat()._miroirEchecDepuis).toBe(0);
     expect(m.etat()._miroirDernierOk).toBeGreaterThan(0);
   });
+  it('cause de l’échec retenue pour la carte : quota → « plein » ; autre erreur → pas « plein » ; réussite → effacée', () => {
+    let erreur = null;
+    const st = fauxStockageQuota({ quota: Infinity });
+    const set = st.setItem.bind(st);
+    st.setItem = (k, v) => { if (erreur && String(k).startsWith('immotrack_v4')) throw erreur(); return set(k, v); };
+    const m = monter({ stockage: st });
+    erreur = () => { const e = new Error('quota'); e.name = 'QuotaExceededError'; return e; };
+    m.saveDB();
+    expect(m.etat()._miroirEchecPlein).toBe(true);
+    erreur = () => { const e = new Error('écriture refusée'); e.name = 'UnknownError'; return e; };
+    m.saveDB();
+    expect(m.etat()._miroirEchecPlein).toBe(false);                         // la DERNIÈRE cause compte
+    erreur = null;
+    expect(m.saveDB()).toBe(true);
+    expect(m.etat()._miroirEchecPlein).toBe(false);
+  });
   it('un showToast qui lève ne fait JAMAIS sauter l’envoi au cloud', () => {
     const m = monter({});
     const casse = new Function('window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', 'navigator', 'showToast', '_isTestMode', 'console',
-      etatDeclare() + ['saveDB', '_miroirEcrire', '_miroirEcrireCloud', '_miroirNoterOk', '_miroirModeCourant', '_miroirIdbPlanifie', '_miroirEchec']
+      etatDeclare() + ['saveDB', '_miroirEcrire', '_miroirEcrireCloud', '_miroirNoterOk', '_miroirNoterCause', '_miroirModeCourant', '_miroirIdbPlanifie', '_miroirEchec']
         .map(n => extraireFonction(HTML, n)).join('\n') + '\nreturn saveDB;')(
       m.win, m.st, 'immotrack_v4', {}, false, { onLine: true }, () => { throw new Error('toast'); }, false, { error() {} });
     expect(casse()).toBe(true);
@@ -298,9 +325,24 @@ describe('__immoMiroirPasAJour — signaux hors saveDB (echec-repli du lot 4, re
     expect(h.win.__immoMiroirPasAJour()).toBe(false);
     expect(h.toasts).toEqual([]);
   });
+  it('cause transmise par le signal : erreur de quota → « plein » ; échec IndexedDB ou rebase sans erreur → pas « plein »', () => {
+    const m = monter({});
+    const q = new Error('quota'); q.name = 'QuotaExceededError';
+    m.win.__immoMiroirPasAJour({ erreur: q });
+    expect(m.etat()._miroirEchecPlein).toBe(true);
+    const idb = new Error('indexeddb-muet');
+    m.win.__immoMiroirPasAJour({ erreur: idb });
+    expect(m.etat()._miroirEchecPlein).toBe(false);
+    m.win.__immoMiroirPasAJour({ erreur: q });
+    m.win.__immoMiroirPasAJour({ silencieux: true });                       // rebase raté : aucune erreur connue
+    expect(m.etat()._miroirEchecPlein).toBe(false);
+  });
+  it('carte Réglages : la cause est passée à etatCopieAppareil', () => {
+    expect(HTML).toMatch(/plein: _miroirEchecPlein \}\)/);
+  });
   it('câblage dans supabase-entry : echec-repli en ligne → pas de toast propre ; rebase raté → signal silencieux ; session expirée posée', () => {
     const E = readFileSync(resolve(repoRoot, 'js/app/supabase-entry.js'), 'utf8');
-    expect(E).toMatch(/if \(s\.type === 'echec-repli'\) \{ try \{ if \(typeof window\.__immoMiroirPasAJour === 'function' && window\.__immoMiroirPasAJour\(\)\) return \} catch \(e\) \{\} \}/);
+    expect(E).toMatch(/if \(s\.type === 'echec-repli'\) \{ try \{ if \(typeof window\.__immoMiroirPasAJour === 'function' && window\.__immoMiroirPasAJour\(\{ erreur: s\.erreur \}\)\) return \} catch \(e\) \{\} \}/);
     expect(E).toMatch(/_ecrireMiroir\(db\) === false && typeof window\.__immoMiroirPasAJour === 'function'\) window\.__immoMiroirPasAJour\(\{ silencieux: true \}\)/);
     expect(E).toMatch(/_deadShown = true\s+window\.__immoSessionMorte = true/);
   });

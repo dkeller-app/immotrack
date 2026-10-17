@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.760';
+const IMMOTRACK_VERSION = '15.765';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -2805,7 +2805,12 @@ let _saveDBQuotaAt = 0;
 const _miroirAvisDonnes = new Set();   // avis « une fois par session » déjà donnés (clés du verdict)
 let _miroirEchecDepuis = 0;   // 1re écriture ratée depuis la dernière réussie (0 = à jour) — carte Sauvegarde & export
 let _miroirDernierOk = 0;     // dernière écriture réussie dans cette session
-function _miroirNoterOk() { _miroirDernierOk = Date.now(); _miroirEchecDepuis = 0; }
+let _miroirEchecPlein = false;   // la dernière écriture ratée l'a-t-elle été FAUTE DE PLACE ? (carte : jamais « plein » pour un échec d'IndexedDB)
+function _miroirNoterOk() { _miroirDernierOk = Date.now(); _miroirEchecDepuis = 0; _miroirEchecPlein = false; }
+function _miroirNoterCause(err) {
+  const S = (typeof window !== 'undefined') ? window._stockage : null;
+  try { _miroirEchecPlein = !!(err && S && typeof S.estQuotaDepasse === 'function' && S.estQuotaDepasse(err)); } catch (e) { _miroirEchecPlein = false; }
+}
 function _miroirModeCourant() {
   const S = (typeof window !== 'undefined') ? window._stockage : null;
   const w = (typeof window !== 'undefined') ? window : {};
@@ -2826,6 +2831,7 @@ function _miroirEchec(e, quoi) {
   try {
     console.error('[saveDB] copie locale non écrite :', e);
     if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
+    _miroirNoterCause(e);
     const S = (typeof window !== 'undefined') ? window._stockage : null;
     const v = (S && typeof S.verdictEchecMiroir === 'function')
       ? S.verdictEchecMiroir({ mode: _miroirModeCourant(), quoi, miroirIdb: _miroirIdbPlanifie(),
@@ -2850,6 +2856,7 @@ function _miroirEchec(e, quoi) {
 // Rend true si le signal est traité ici (en ligne) ; hors ligne, l'appelant garde son propre texte.
 window.__immoMiroirPasAJour = function(opts) {
   if (!_miroirEchecDepuis) _miroirEchecDepuis = Date.now();
+  _miroirNoterCause(opts && opts.erreur);   // sans erreur (rebase raté) : cause inconnue → la carte ne parle pas de place
   if (_miroirModeCourant() !== 'cloud-en-ligne') return false;
   if (opts && opts.silencieux) return true;
   const S = window._stockage;
