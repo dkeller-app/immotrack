@@ -25784,7 +25784,7 @@ function _rgDetailLocHtml(r){
       <tbody>${rows || '<tr><td colspan="4" class="mu sm">Aucune charge répartie sur cette période.</td></tr>'}
         <tr class="rg-det-sum"><td colspan="3">Total charges réparties</td><td class="num">${fmt(r.charges)}</td></tr>
         <tr class="rg-det-prov"><td colspan="3">Provisions versées</td><td class="num">${fmt(r.provisions)}</td></tr>
-        ${(r.aLaRegul||0) > 0.005 ? `<tr class="rg-det-regul"><td colspan="3" class="mu sm">Provisions non versées par le locataire sorti, passées à la régularisation (hors impayés) — déjà comprises dans le solde</td><td class="num mu sm">${fmt(r.aLaRegul)}</td></tr>` : ''}
+        ${(r.aLaRegul||0) > 0.005 ? `<tr class="rg-det-regul"><td colspan="3" class="mu sm">Provisions non versées par le locataire sorti, passées à la régularisation (hors impayés)</td><td class="num mu sm">${fmt(r.aLaRegul)}</td></tr>` : ''}
         ${r.forfait ? `<tr class="rg-det-forfait"><td colspan="4" class="mu sm">Forfait de charges (${escHtml(_rgForfaitRef(r.bail).citation)}) ${escHtml(_rgForfaitPeriode(r.forfait))} — non régularisable. Exclus : ${fmt(r.forfait.excluCharges)} de charges réelles, ${fmt(r.forfait.excluProvisions)} de provisions.</td></tr>` : ''}
         <tr class="rg-det-solde"><td colspan="3">Solde ${solde>=0?'(à restituer)':'(à demander)'}</td><td class="num">${solde>=0?'+':''}${fmt(solde)}</td></tr>
       </tbody>
@@ -26875,11 +26875,9 @@ function _rgProvisionsVersees(e, from, to) {
   const det = [];
   if ((typeof _RG_PROVISIONS_MODE !== 'undefined' ? _RG_PROVISIONS_MODE : 'paye') === 'ancien') {
     if (typeof _finManquesDuLot === 'function' && deb) {
-      const _et = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(e.ref, { bailDebut: deb }) : null;
       _finManquesDuLot(e.ref).forEach(mq => {
         if (mq.bailDebut !== deb || !dansPeriode(mq.ym)) return;
-        const _mm = _et && _et.byYm && _et.byYm[mq.ym];
-        if (_mm && _mm.solde) set.add(mq.ym);
+        set.add(mq.ym);   // à l'identique du 06/10 : tout mois portant un manque accepté dans la période
       });
     }
     set.forEach(ym => det.push({ mois: ym, ch }));

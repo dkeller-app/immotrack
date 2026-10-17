@@ -432,7 +432,9 @@ export function _loyerArrearsPass(months, opts) {
     // portée comme avance de départ → couvre les 1ers mois dus de l'année AVANT qu'un retard naisse.
     // Sinon l'Accueil afficherait un faux impayé sur un locataire qui a payé d'avance (audit C2 #1,
     // décision CDC (b) l.136). N'a de sens qu'avec le report (carry) — la politique du maître.
-    if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) avanceCarry += oA; }
+    // Relecture Fable 17/10 : l'avance porte un fragment ANONYME (aucune date inventée, I-DATE) — sans lui, le mois qu'elle
+    // paie n'aurait aucune imputation (la régularisation n'y verrait aucune provision versée).
+    if (carry) { const oA = Math.max(0, Number(_open.avance) || 0); if (oA > 0.005) { avanceCarry += oA; frags.push({ date: null, id: null, reste: oA }); } }
   };
 
   // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────

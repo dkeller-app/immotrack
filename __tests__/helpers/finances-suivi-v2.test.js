@@ -148,6 +148,11 @@ describe('règlements sans virement (_loyerArrearsPass)', () => {
     const aout = s.baux.find((x) => x.debut === '2026-05-03').mois.find((x) => x.ym === '2026-08');
     expect(aout).toMatchObject({ remise: 20, remiseCharge: 20 });
   });
+  it('relecture Fable 17/10 : le mois payé par l’AVANCE d’ouverture porte son imputation (anonyme, sans date) — loyer ET charges', () => {
+    const r = _loyerArrearsPass([m(700, 50, 0), m(700, 50, 750)], { carry: true, opening: { avance: 750, idx: 0 } });
+    expect(r.months[0]).toMatchObject({ loyerArrear: 0, chargeArrear: 0 });
+    expect(r.imputations[0]).toEqual([{ date: null, id: null, montant: 700, poste: 'loyer' }, { date: null, id: null, montant: 50, poste: 'charge' }]);
+  });
   it('sans remise ni règlement : sortie identique à l\'historique (option absente)', () => {
     const ms = [m(500, 30, 530), m(500, 30, 0), m(500, 30, 900)];
     expect(_loyerArrearsPass(ms, { carry: true })).toEqual(_loyerArrearsPass(ms.map((x) => Object.assign({}, x, { remise: 0, reglement: 0 })), { carry: true }));

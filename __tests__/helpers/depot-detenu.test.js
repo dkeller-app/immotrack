@@ -133,7 +133,7 @@ describe('régularisation : charges d’un bail sorti, manque accepté (décisio
     })
     const r = { ref: 'L', loc: 'X', details: [], charges: 600, provisions: 100, aLaRegul: 71.67 }
     const h = f(r)
-    expect(h).toContain('Provisions non versées par le locataire sorti, passées à la régularisation (hors impayés) — déjà comprises dans le solde')
+    expect(h).toContain('Provisions non versées par le locataire sorti, passées à la régularisation (hors impayés)')
     expect(h).toContain('71,67 €')
     expect(h).toContain('(à demander)</td><td class="num">-500,00 €')   // solde = versées − charges : 100 − 600, rien de plus
     expect(f({ ...r, aLaRegul: 0 })).not.toContain('passées à la régularisation')
