@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.757';
+const IMMOTRACK_VERSION = '15.758';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -7597,6 +7597,15 @@ function _pilCollectFamilles(ctx) {
     }
   } catch (e) {}
 
+  // ── DÉPÔTS À RESTITUER (17/10) : LA liste des dépôts détenus (_dgDetenusListe), locataires partis seulement — montant
+  //    encore détenu (retenues pour loyer déduites), échéance de l'art. 22 et pénalité qui court. Même source que la
+  //    tuile « Dépôts détenus » et sa liste ; `cle` = le bail exact (archive) pour le geste. ──
+  try {
+    _dgDetenusListe(scopeLogs).filter(e => e.parti).forEach(e => {
+      src.depot.push({ ref: e.ref, cle: e.cle, nom: _logLabel(e.ref), montant: e.detenu, urgenceJours: e.jours, echeance: e.echeance, penalite: e.penalite });
+    });
+  } catch (e) {}
+
   // ── Le reste vient des règles canoniques + de _computeUnifiedTodo par type ──
   try {
     const items = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
@@ -7619,10 +7628,11 @@ function _pilCollectFamilles(ctx) {
       else if (it.type === 'regul') src.regul.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
       else if (it.type === 'equip') src.entretien.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
       else if (it.type === 'depart') {
-        // Un départ en cours : dépôt à restituer (si échéance DG) OU fin de bail à préparer.
-        const hasDG = !!it.hasDG;
-        if (hasDG) src.depot.push({ ref: it.contextRef, nom, montant: 0, urgenceJours: jFromScore(it) });
-        else src.finbail.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
+        // Le DÉPÔT d'un locataire parti est porté par « Dépôts à restituer » (liste ci-dessus : archives et bail en cours
+        // dont la sortie est passée) ; un départ encore à venir est une fin de bail à préparer.
+        if (it.archive) return;
+        if (src.depot.some(x => x.ref === it.contextRef && !x.cle)) return;
+        src.finbail.push({ ref: it.contextRef, nom, urgenceJours: jFromScore(it) });
       }
     });
     // Bulle = nombre de LOTS (décision Didier) : un lot avec 2 documents/entretiens à faire compte 1.
@@ -7823,8 +7833,9 @@ function _accmGoto(id, ref, count){
     switch(id){
       case 'impaye':   // impayé d'un lot → sa comptabilité (suivi des loyers), pas la page Loyers globale
         if(single && hasFiche){ openLogFiche(ref); setTab('compta'); } else go('loyers'); break;
-      case 'depot':    // dépôt à restituer → assistant départ / restitution DG (JAMAIS Loyers)
-        if(!openDepart()) go('baux'); break;
+      case 'depot':    // dépôt à restituer → le solde de tout compte du bail EXACT (17/10) : jamais l'assistant de départ du
+                       // locataire suivant (bug téléphone : « Déclarer le départ » du nouveau locataire s'ouvrait)
+        _dgBulleClick(); break;
       case 'finbail':  // fin de bail à préparer → assistant départ (déclare le congé si absent)
         if(single && openDepart()){} else go('baux'); break;
       case 'irl':      // la révision IRL s'applique dans l'onglet Loyers (bloc « Révisions »)
@@ -7927,9 +7938,9 @@ function _renderAccueilPhone(ctx){
   }
   if (_cfrPh && _cfrPh.recettes != null) encYTD = _cfrPh.recettes;
   else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });
-  var dg=0, nbDep=0;
-  // R-0 : la porte d'entree etait `l.locataire` alors que le montant, lui, venait deja du bail.
-  logs.forEach(function(l){ var d=_dgDetenuDuLot(l);   /* dépôt DÉTENU : reçu, pas encore restitué */ if(d>0){ dg+=d; nbDep+=_dgNbDetenusDuLot(l); } });
+  // DÉPÔT DÉTENU (17/10) : la tuile lit LA liste des dépôts détenus (retenues pour loyer déduites, part à rendre).
+  var _dgT = { total: 0, nb: 0, aRendre: 0 }; try { _dgT = _dgTuileFaits(logs); _dgCss(); } catch(e) {}
+  var dg = _dgT.total;
   var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
   var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
   var bits=[];
@@ -8026,7 +8037,7 @@ function _renderAccueilPhone(ctx){
   +'<div class="srow"><div class="k">Loyers encaissés ce mois<span class="sub2">'+_subMois+'</span></div><div class="v">'+F(encMois)+' <small>/ '+F(attMois)+'</small></div></div>'
   +'<div class="bar"><i style="width:'+pctPay+'%"></i></div>'
   +'<div class="srow occ"><div class="k">Occupation<span class="sub2">'+occ.nbOcc+' lot'+(occ.nbOcc>1?'s':'')+' loué'+(occ.nbOcc>1?'s':'')+' sur '+occ.nbTotal+' · '+occSub+'</span></div><div class="right">'+gauge+'<span class="v">'+(occ.pctOcc||0)+' %</span></div></div>'
-  +'<div class="srow"><div class="k">Dépôts détenus<span class="sub2">'+nbDep+' dépôt'+(nbDep>1?'s':'')+' · argent des locataires</span></div><div class="v">'+F(dg)+'</div></div>'
+  +'<button type="button" class="srow dep-tuile" style="width:100%;background:none;border-left:0;border-right:0;border-bottom:0" onclick="_dgListeDetenus()"><span class="k">Dépôts détenus<span class="sub2">'+escHtml(_dgTuileSous(_dgT))+'</span></span><span class="v">'+F(dg)+'</span></button>'
   +'<button type="button" class="watch" onclick="_accmShowAregarder()"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 004 0"/></svg></span><span class="m"><span class="t">À regarder</span><span class="s">'+escHtml(sub)+'</span></span><span class="cnt">'+aReg+'</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>'
   +'</div>';
 }
@@ -8052,7 +8063,25 @@ const _PIL_ICONS = {
 // LE PIRE CAS NOMMÉ — 3ᵉ ligne de la bulle (CDC §2.4 règle 3), pour TOUTES les familles.
 // Quand le chiffre (.a) montre déjà un temps de gravité, on ne le répète pas ; quand il montre
 // un euro, on ajoute le repère de temps (« Meyer · 67 j »).
+// « Dépôts à restituer » (17/10) : avant l'échéance « X € à rendre · avant le JJ/MM » ; après, la pénalité qui court
+// « + N € de pénalité · échéance JJ/MM dépassée » (art. 22). null → rendu générique.
+function _pilDepotTxt(f) {
+  const items = (f && f.items) || []; if (!items.length) return null;
+  // montant rond sans centimes (« + 350 € de pénalité », maquette validée) ; les centimes restent quand il y en a
+  const F = (n) => { const t = (typeof fmt === 'function') ? fmt(n) : (n + ' €'); return Math.abs(n - Math.round(n)) < 0.005 ? t.replace(/,00(?=[\s  ]*€)/, '') : t; };
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const pen = r2(items.reduce((s, i) => s + (Number(i.penalite) || 0), 0));
+  if (pen > 0.005) {
+    const q = items.filter(i => (Number(i.penalite) || 0) > 0.005).sort((a, b) => (a.urgenceJours == null ? 0 : a.urgenceJours) - (b.urgenceJours == null ? 0 : b.urgenceJours))[0];
+    return { a: '+ ' + F(pen) + ' de pénalité', sub: (q.echeance ? 'échéance ' + _dgJjMm(q.echeance) + ' dépassée · ' : '') + escHtml(q.nom || q.ref || '') };
+  }
+  const tot = r2(items.reduce((s, i) => s + (Number(i.montant) || 0), 0));
+  if (tot <= 0.005) return null;
+  const p = f.pire || items[0];
+  return { a: F(tot) + ' à rendre', sub: (p.echeance ? 'avant le ' + _dgJjMm(p.echeance) + ' · ' : '') + escHtml(p.nom || p.ref || '') };
+}
 function _pilPireTxt(f) {
+  if (f && f.id === 'depot') { const t = _pilDepotTxt(f); if (t) return t.sub; }
   const p = f.pire; if (!p) return '';
   const nom = escHtml(p.nom || p.ref || '');
   const j = p.urgenceJours;
@@ -8066,6 +8095,7 @@ function _pilPireTxt(f) {
 // familles à euros, le montant EST la gravité ; pour les autres, il porte la gravité du PIRE cas
 // (CDC §2.4 règle 2 : « 8 mois de retard », « dans 35 jours », « échéance dépassée »).
 function _pilChiffre(f) {
+  if (f && f.id === 'depot') { const t = _pilDepotTxt(f); if (t) return t.a; }
   if (f.montant != null && Math.abs(f.montant) > 0.005) {
     const s = (typeof fmt === 'function') ? fmt(Math.abs(f.montant)) : (Math.abs(f.montant) + ' €');
     const val = (f.unite === '€/mois') ? s.replace(' €', ' €/mois') : s;
@@ -8088,7 +8118,7 @@ function _pilBulleHtml(f, premier) {
     + '<span class="bh"><span class="ic"><svg viewBox="0 0 24 24">' + (_PIL_ICONS[f.id] || '') + '</svg></span></span>'
     + (f.count > 1 ? '<span class="n">' + f.count + '</span>' : '')
     + '<span class="v">' + escHtml(f.lbl) + '</span>'
-    + '<span class="a ' + ((f.montant != null && Math.abs(f.montant) > 0.005) ? 'euro' : 'txt') + '">' + _pilChiffre(f) + '</span>'
+    + '<span class="a ' + ((f.id !== 'depot' && f.montant != null && Math.abs(f.montant) > 0.005) ? 'euro' : 'txt') + '">' + _pilChiffre(f) + '</span>'   // dépôt : une phrase, jamais coupée (M-14)
     + '<span class="sub">' + _pilPireTxt(f) + '</span>'
     + '</button>';
 }
@@ -8224,9 +8254,9 @@ function _renderPilotage(ctx) {
   const _cfr = (typeof _dashCfReel === 'function') ? _dashCfReel(ctx) : null;
   const encaisse = _cfr ? _cfr.recettes : null;
   // R-0 : lot LOUE selon le bail, et montant du bail en cours (revu a la relocation).
-  const _dgLots = scopeLogs.filter(l => _dgDetenuDuLot(l) > 0);   // dépôt DÉTENU : reçu, pas encore restitué
-  const dgTot = _dgLots.reduce((s, l) => s + _dgDetenuDuLot(l), 0);
-  const nbDg = _dgLots.reduce((s, l) => s + _dgNbDetenusDuLot(l), 0);   // des DÉPÔTS, pas des lots
+  // DÉPÔT DÉTENU (17/10) : dépôt reçu, pas encore restitué, retenues pour loyer déduites ; « dont X € à justifier ou à
+  // rendre » = les dépôts des locataires partis. Clic = la liste (_dgListeDetenus). Des DÉPÔTS, pas des lots.
+  let _dgT = { total: 0, nb: 0, aRendre: 0 }; try { _dgT = _dgTuileFaits(scopeLogs); _dgCss(); } catch (e) {}
   const strip = [
     '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
       + '<div class="v">' + (encaisse != null ? fmtN(encaisse) : '—') + '</div>'
@@ -8235,8 +8265,8 @@ function _renderPilotage(ctx) {
       + '<div class="s">' + occSub + '</div></div>',
     '<div class="pil-s1"><div class="k">Logements</div><div class="v">' + _occKpi.nbTotal + ' <small>· ' + _occKpi.nbVacants + ' vides</small></div>'
       + '<div class="s">' + _occKpi.nbOcc + ' loués</div></div>',
-    '<div class="pil-s1"><div class="k">Dépôts détenus</div><div class="v">' + fmtN(dgTot) + '</div>'
-      + '<div class="s">' + nbDg + ' dépôt' + (nbDg > 1 ? 's' : '') + ' · argent des locataires</div></div>',
+    '<button type="button" class="pil-s1 dep-tuile" onclick="_dgListeDetenus()"><span class="k">Dépôts détenus</span><span class="v">' + fmtN(_dgT.total) + '</span>'
+      + '<span class="s">' + esc(_dgTuileSous(_dgT)) + '</span></button>',
     '<div class="pil-s1"><div class="k">Périmètre</div><div class="v" style="font-size:16px">' + (activeEnt ? esc(activeEnt) : 'Tout le parc') + '</div>'
       + '<div class="s">filtre entité global</div></div>'
   ].join('');
@@ -8409,6 +8439,7 @@ let _pilDeclencheur = null;
 
 // Bulle cliquée : famille AVEC colonne → filtre la matrice ; SANS colonne → liste.
 function _pilBulleClick(famId) {
+  if (famId === 'depot') { _dgBulleClick(); return; }   // le solde de tout compte du bail exact (17/10), PC comme téléphone
   if (_PIL_HORS[famId]) { _pilOpenListe(famId); return; }
   _pilMtxFamActive = (_pilMtxFamActive === famId) ? null : famId;
   const rAcc = (typeof rAccueil === 'function') ? rAccueil : null;
@@ -9830,7 +9861,7 @@ function _computeUnifiedTodo(ctx) {
           type:'depart', severity:e.severity, score:e.score,
           title:'Départ — dépôt de garantie à restituer (bail archivé)',
           subtitle:_logLabel(l.ref) + ' — ' + locH + ' · ' + fmt(montant) + e.txt,
-          contextRef:l.ref, nom:_logLabel(l.ref), hasDG:true,   // champ STRUCTURÉ : un dépôt à restituer (jamais déduit du texte affiché)
+          contextRef:l.ref, nom:_logLabel(l.ref), hasDG:true, archive:true,   // champs STRUCTURÉS : un dépôt à restituer, d'un bail archivé (jamais déduits du texte affiché)
           actionLabel:'Préparer la restitution du DG',
           actionFn:"_dgOpenRestitution('" + _lyQ(l.ref) + "','" + _lyQ(cle) + "')"
         });
@@ -9999,9 +10030,17 @@ function _dgRestitutionEnregistree(b) {
 }
 /** Le dépôt DÉTENU par un bail (vivant ou archivé) : dg > 0 et restitution non enregistrée. `dgLot` = repli
  *  sur le dépôt de la fiche du lot, pour le seul bail courant (sémantique de _dgDuLot). */
+// DÉPÔT DÉTENU (17/10, maquette validée par Didier) : la RETENUE POUR LOYER (`dgRetenueLoyer`, décidée au solde de
+// tout compte) n'est plus l'argent du locataire — c'est du loyer réglé. Elle sort du dépôt détenu ; le reste (autres
+// retenues comprises) reste détenu, « à justifier ou à rendre », tant que la restitution n'est pas enregistrée.
+function _dgRetenueLoyerDe(b) {
+  const v = (typeof window !== 'undefined' && typeof window._dgRetenueLoyerDecidee === 'function') ? window._dgRetenueLoyerDecidee(b) : null;
+  return v > 0 ? v : 0;
+}
 function _dgDetenuDuBail(b, dgLot) {
   if (!b || b._deleted || _dgRestitutionEnregistree(b)) return 0;
-  return _dgVerseMontant(b, dgLot);   // définition unique (R-0) : case « versé » décochée → rien n'est détenu
+  // définition unique (R-0) : case « versé » décochée → rien n'est détenu
+  return Math.max(0, Math.round((_dgVerseMontant(b, dgLot) - _dgRetenueLoyerDe(b)) * 100) / 100);
 }
 /** LES dépôts DÉTENUS d'un lot (bandeau PC, Accueil téléphone, widget), un montant par bail : son bail courant (même parti, même
  *  porteur d'une fin effective) + ses baux archivés (relocation avant restitution, clôture sans restitution).
@@ -10036,6 +10075,139 @@ function _dgDetenusDuLot(l) {
 // source (_dgDetenusDuLot), pour que le compteur des tuiles compte des dépôts, pas des lots (audit 06/10).
 function _dgDetenuDuLot(l) { return _dgDetenusDuLot(l).reduce(function (s, a) { return s + a; }, 0); }
 function _dgNbDetenusDuLot(l) { return _dgDetenusDuLot(l).length; }
+
+// ═══ DÉPÔT DÉTENU (17/10, maquette mockups/FINANCES-SUIVI-V2/depot validée par Didier) ═══
+// LA liste des dépôts détenus d'un périmètre, un élément par bail (même source que la tuile : _dgDetenuDuBail +
+// _archivesDetenuesDuLot). Un dépôt dont le locataire est PARTI (bail archivé, clôturé, sortie ou fin effective
+// passée) est « à justifier ou à rendre » : il porte son échéance (art. 22, _departDeadlineDG) et la pénalité
+// qui court (_penaliteRetardDG, certaine seulement). Lue par la tuile, sa liste, la bulle et « À regarder ».
+function _dgLocatairePartiDe(b, today) {
+  if (!b) return false;
+  const s = String((b.depart && b.depart.dateSortie) || b.finEffective || '').slice(0, 10);
+  return !!b.cloture || (/^\d{4}-\d{2}-\d{2}$/.test(s) && s <= today);
+}
+function _dgEntreeDepot(ref, b, cle, archive, detenu, dgLot, today) {
+  const e = { ref, bail: b, cle: cle || '', archive: !!archive, parti: !!archive || _dgLocatairePartiDe(b, today), detenu,
+    verse: _dgVerseMontant(b, dgLot), retenueLoyer: _dgRetenueLoyerDe(b), nom: (_nomsDuBail(b) || _logLabel(ref)),
+    sortie: String(b.finEffective || (b.depart && b.depart.dateSortie) || '').slice(0, 10) || null,
+    echeance: null, jours: null, penalite: 0, parMois: 0, moisRetard: 0 };
+  if (!e.parti) return e;
+  let dl = null; try { dl = _departDeadlineDG(b); } catch (err) { dl = null; }
+  if (dl && dl.iso) {
+    e.echeance = String(dl.iso).slice(0, 10);
+    e.jours = Math.round((Date.parse(e.echeance + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+    if (dl.remise) e.sortie = String(dl.remise).slice(0, 10);
+  }
+  try {
+    const p = (typeof window !== 'undefined' && typeof window._penaliteRetardDG === 'function')
+      ? window._penaliteRetardDG(Object.assign({}, b, { fin: _bailFinOccupation(b, false) })) : null;
+    if (p && p.enRetard && !p.exclue && p.penalite > 0) { e.penalite = Number(p.penalite) || 0; e.moisRetard = p.moisRetard || 0; e.parMois = Math.round((Number(p.base) || 0) * 10) / 100; }
+  } catch (err) {}
+  return e;
+}
+function _dgDetenusListe(scopeLogs) {
+  const today = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : new Date().toISOString().slice(0, 10);
+  const out = [];
+  (scopeLogs || []).forEach(function (l) {
+    if (!l || !l.ref) return;
+    const cur = DB.baux && DB.baux[l.ref];
+    const dgLot = (cur && !cur.cloture) ? l.dg : 0;
+    const c = _dgDetenuDuBail(cur, dgLot);
+    if (c > 0) out.push(_dgEntreeDepot(l.ref, cur, '', false, c, dgLot, today));
+    _archivesDetenuesDuLot(l.ref).forEach(function (x) { out.push(_dgEntreeDepot(l.ref, x.h, x.cle, true, x.montant, 0, today)); });
+  });
+  return out;
+}
+// « Retenu pour le loyer d'avril » : les mois que la retenue a réglés, lus dans le moteur unique (règlement par origine).
+function _dgRetenueMoisTxt(ref, debut) {
+  let ms = [];
+  try {
+    const s = (typeof _finSuiviLot === 'function') ? _finSuiviLot(ref) : null;
+    const b = s && (s.baux || []).find(x => x.debut === String(debut || '').slice(0, 10));
+    ms = b ? (b.mois || []).filter(m => (Number(m.reglement) || 0) > 0.005).map(m => m.ym) : [];
+  } catch (e) { ms = []; }
+  if (!ms.length || typeof _FIN_MOIS_LONG === 'undefined') return 'Retenu pour loyer impayé';
+  const noms = ms.map(ym => _FIN_MOIS_LONG[parseInt(ym.slice(5, 7), 10) - 1]);
+  const de = (n) => (/^[aeiouyéèêàâîôû]/i.test(n) ? 'd’' : 'de ') + n;
+  return noms.length === 1 ? 'Retenu pour le loyer ' + de(noms[0])
+    : 'Retenu pour les loyers ' + de(noms.slice(0, -1).join(', ')) + ' et ' + noms[noms.length - 1];
+}
+function _dgJjMm(iso) { const s = String(iso || ''); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(8, 10) + '/' + s.slice(5, 7) : ''; }
+function _dgScopeLogs() {
+  const activeEnt = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
+  const ctx = DashCtx.buildDashCtx(DB.logements, DB.mouvements, String(new Date().getFullYear()), '', activeEnt);
+  return { scopeLogs: (ctx && ctx.scopeLogs) || [], activeEnt };
+}
+// Le geste : le solde de tout compte du bail EXACT (archive → sa clé ; bail en cours parti → lui), jamais l'assistant
+// de départ du locataire suivant.
+function _dgOuvrirSolde(ref, cle) { if (typeof _dgOpenRestitution === 'function') _dgOpenRestitution(ref, cle || ''); }
+// Clic sur la bulle « Dépôts à restituer » (PC et téléphone) : un seul dépôt → son solde de tout compte ; sinon la liste.
+function _dgBulleClick() {
+  let aR = [];
+  try { aR = _dgDetenusListe(_dgScopeLogs().scopeLogs).filter(e => e.parti); } catch (e) { aR = []; }
+  if (aR.length === 1) { _dgOuvrirSolde(aR[0].ref, aR[0].cle); return; }
+  _dgListeDetenus();
+}
+function _dgCss() {
+  if (document.getElementById('dep-css')) return;
+  const s = document.createElement('style'); s.id = 'dep-css';
+  s.textContent = [
+    '.dep-sum{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 12px;color:var(--t2);font-size:14px}.dep-sum .v{font:800 22px var(--ff-display,Inter);color:var(--t1)}',
+    '.dep-grp{font:700 11px Inter;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 6px;color:var(--t2)}.dep-grp.w{color:var(--warn)}',
+    '.dep-lot{border:1px solid var(--bor);border-radius:12px;margin:0 0 8px;background:var(--sur)}',
+    '.dep-lot>.h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:48px;padding:6px 12px}.dep-lot>.h .n{flex:1;min-width:150px;font-weight:600;color:var(--t1);font-size:14px}.dep-lot>.h .n small{display:block;color:var(--t3);font-weight:500;font-size:12.5px}',
+    '.dep-tag{font:700 11px Inter;padding:2px 8px;border-radius:6px;background:var(--warn-soft);color:var(--warn);white-space:nowrap}',
+    '.dep-d{border-top:1px solid var(--bor2);padding:10px 12px 12px;font-size:13.5px;color:var(--t2)}.dep-d .l{display:flex;justify-content:space-between;gap:12px;padding:4px 0}.dep-d .l b{color:var(--t1);white-space:nowrap}',
+    '.dep-d .r{margin-top:6px;padding:8px 10px;border-radius:9px;background:var(--sur2);color:var(--t1);font-weight:600}',
+    '.dep-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.dep-acts .btn{min-height:44px}',
+    '.dep-ok{color:var(--t3);font-size:13px}',
+    '.dep-avert{margin:8px 0 2px;padding:9px 11px;border-radius:9px;border:1px solid var(--bor);border-left:3px solid var(--warn);background:var(--sur2);font-size:12.5px;line-height:1.45;color:var(--t1)}',
+    '.dep-avert q{display:block;margin-top:5px;color:var(--t2);font-style:italic}.dep-avert q:before,.dep-avert q:after{content:none}',
+    '#p-accueil .pil-b[data-pilfam="depot"] .sub{-webkit-line-clamp:2}',
+    '.dep-tuile{cursor:pointer;font:inherit;color:inherit;text-align:left;width:100%;min-height:44px}.pil-s1.dep-tuile>span{display:block}.dep-tuile:hover{border-color:var(--acc)}.dep-tuile:focus-visible{outline:2px solid var(--acc);outline-offset:2px}'
+  ].join('\n');
+  document.head.appendChild(s);
+}
+// Clic sur la tuile « Dépôts détenus » : LA liste — à justifier ou à rendre d'abord (retenues, échéance, pénalité, geste),
+// puis les dépôts des baux en cours.
+function _dgListeDetenus() {
+  _dgCss();
+  const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
+  const sc = _dgScopeLogs();
+  const L = _dgDetenusListe(sc.scopeLogs);
+  const aR = L.filter(e => e.parti).sort((a, b) => (a.jours == null ? 1e9 : a.jours) - (b.jours == null ? 1e9 : b.jours));
+  const enCours = L.filter(e => !e.parti);
+  const tot = Math.round(L.reduce((s, e) => s + e.detenu, 0) * 100) / 100;
+  const today = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : '';
+  const L2 = (a, b) => '<div class="l"><span>' + a + '</span><b>' + b + '</b></div>';
+  const carte = (e) => {
+    const tag = e.echeance ? (e.jours < 0 ? 'échéance ' + _dgJjMm(e.echeance) + ' dépassée' : 'avant le ' + _dgJjMm(e.echeance)) : '';
+    let d = L2('Dépôt versé', f(e.verse));
+    if (e.retenueLoyer > 0.005) d += L2(esc(_dgRetenueMoisTxt(e.ref, e.bail && e.bail.debut)), '− ' + f(e.retenueLoyer));
+    d += L2('Encore détenu', f(e.detenu));
+    if (e.penalite > 0.005) d += '<div class="r">Pénalité si une somme reste due : ' + f(e.parMois) + ' par mois commencé depuis le ' + _dgJjMm(e.echeance) + ', soit ' + f(e.penalite) + ' au ' + _dgJjMm(today) + '</div>';
+    else if (e.echeance) d += '<div class="r">À rendre, ou à justifier, avant le ' + esc(fd(e.echeance)) + ' (art. 22)</div>';
+    d += '<div class="dep-acts"><button type="button" class="btn bp" onclick="closeM(\'ov-dash-drill\');_dgOuvrirSolde(\'' + _lyQ(e.ref) + '\',\'' + _lyQ(e.cle) + '\')">' + _uiIcon('check') + ' Faire le solde de tout compte</button></div>';
+    return '<div class="dep-lot"><div class="h"><span class="n">' + esc(e.nom) + '<small>' + esc(_logLabel(e.ref)) + (e.sortie ? ' · sortie le ' + esc(fd(e.sortie)) : '') + '</small></span>'
+      + (tag ? '<span class="dep-tag">' + tag + '</span>' : '') + '<b>' + f(e.detenu) + '</b></div><div class="dep-d">' + d + '</div></div>';
+  };
+  const body = '<div class="dep-sum"><span class="v">' + f(tot) + '</span><span>détenus' + (aR.length ? ' · ' + aR.length + ' à justifier ou à rendre' : '') + '</span></div>'
+    + (aR.length ? '<div class="dep-grp w">À justifier ou à rendre</div>' + aR.map(carte).join('') : '')
+    + (enCours.length ? '<div class="dep-grp">Baux en cours · ' + enCours.length + '</div><div class="dep-ok">' + enCours.map(e => esc(e.nom) + ' ' + f(e.detenu)).join(' · ') + '</div>' : '')
+    + (!L.length ? '<div class="dep-ok">Aucun dépôt détenu.</div>' : '');
+  openDashDrill('Dépôts détenus' + (sc.activeEnt ? ' · ' + sc.activeEnt : ''), body);
+}
+// La tuile (PC et téléphone) : total détenu (retenues pour loyer déduites) + « dont X € à justifier ou à rendre ».
+function _dgTuileFaits(scopeLogs) {
+  const L = _dgDetenusListe(scopeLogs);
+  const r2 = (n) => Math.round(n * 100) / 100;
+  return { total: r2(L.reduce((s, e) => s + e.detenu, 0)), nb: L.length, aRendre: r2(L.filter(e => e.parti).reduce((s, e) => s + e.detenu, 0)) };
+}
+function _dgTuileSous(t) {
+  const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
+  return t.nb + ' dépôt' + (t.nb > 1 ? 's' : '') + (t.aRendre > 0.005 ? ' · dont ' + f(t.aRendre) + ' à justifier ou à rendre' : ' · argent des locataires');
+}
 
 /**
  * LE RÔLE d'un mouvement pour une surface de LOT, lu comme Finances le lit.
@@ -12612,11 +12784,34 @@ function setBauxTab(tab, tabEl) {
 /* TÉLÉPHONE (≤767) : une entrée d'historique de bail rendue en CARTE (au lieu de la ligne
    de tableau 7 colonnes). Réutilise fd/fmt/_uiIcon + les actions existantes (index numérique
    origIdx, comme le desktop). CSS : bloc @media≤767 #baux-tab-historique dans main.css. */
+// DÉPÔT DÉTENU (17/10) — l'état du dépôt d'une archive, en clair. JAMAIS « restitué » sans date de virement
+// (`dgRestitueAt`) : un montant saisi à la clôture n'est pas un virement. Encore détenu → « X € détenus · à justifier
+// ou à rendre » (_dgDetenuDuBail : retenue pour loyer déduite). Ancienne clôture sans date (comptée soldée par
+// _dgRestitutionEnregistree) → les montants notés, dits comme tels.
+function _dgEtatHist(b) {
+  if (!b) return { cls: '', txt: '–' };
+  if (b.dgRestitueAt) {
+    const m = (b.dgRestitueMontant != null && b.dgRestitueMontant !== '') ? Number(b.dgRestitueMontant) : Number(b.dgRestitue) || 0;
+    return { cls: 'ok', txt: 'Rendu le ' + fd(b.dgRestitueAt) + ' : ' + fmt(m) };
+  }
+  const det = _dgDetenuDuBail(b, 0);
+  if (det > 0) return { cls: 'warn', txt: fmt(det) + ' détenus · à justifier ou à rendre' };
+  if (_dgVerseMontant(b) <= 0) return { cls: '', txt: '–' };
+  const rest = Number(b.dgRestitue) || 0, ret = Number(b.dgRetenu) || 0, rl = _dgRetenueLoyerDe(b);
+  // rien de détenu sans restitution enregistrée : le dépôt a entièrement réglé du loyer
+  if (!_dgRestitutionEnregistree(b)) return { cls: '', txt: 'Retenu pour loyer : ' + fmt(rl) };
+  const bits = [];
+  if (rest > 0) bits.push(fmt(rest) + ' noté rendu');
+  if (ret > 0) bits.push(fmt(ret) + ' retenu');
+  else if (rl > 0) bits.push(fmt(rl) + ' retenu pour loyer');
+  return { cls: '', txt: bits.join(' · ') + ' · sans date de virement' };
+}
 function _bauxHistCardPhone(b, origIdx, locNames){
   const motif = b.finMotif ? `<span class="bxh-motif">${escHtml(b.finMotif)}</span>` : '';
-  const dg = b.dgRestitue>0
-    ? `<span class="dg ok">${_uiIcon('check',12)}DG restitué ${fmt(b.dgRestitue)}</span>`
-    : `<span class="dg">DG restitué —</span>`;
+  const _e = _dgEtatHist(b);
+  const dg = _e.cls === 'ok'
+    ? `<span class="dg ok">${_uiIcon('check',12)}${escHtml(_e.txt)}</span>`
+    : `<span class="dg"${_e.cls === 'warn' ? ' style="color:var(--warn);font-weight:700"' : ''}>Dépôt : ${escHtml(_e.txt)}</span>`;
   return `<tr class="bxh-row"><td colspan="8">
     <div class="bxh-card">
       <div class="bxh-top"><span class="bxh-ref">${escHtml(b.ref ? _logLabel(b.ref) : '–')}</span><span class="bxh-loc">${escHtml(locNames)}</span><button type="button" class="bxh-more" aria-label="Plus d'actions" onclick="this.closest('.bxh-card').classList.toggle('open')">${_uiIcon('dots',18)}</button></div>
@@ -12652,7 +12847,7 @@ function rBauxHistorique() {
       <td>${fd(b.finEffective||b.fin)}</td>
       <td class="mu sm">${b.finMotif||'–'}</td>
       <td class="mu sm">${fd(b._archivedAt)}</td>
-      <td class="num">${b.dgRestitue>0?fmt(b.dgRestitue):'–'}</td>
+      <td class="num"${(() => { const _e = _dgEtatHist(b); return (_e.cls === 'warn' ? ' style="color:var(--warn);font-weight:700;white-space:normal"' : ' style="white-space:normal"') + '>' + escHtml(_e.txt); })()}</td>
       <td class="act-cell">
         <button class="btn bs bb" onclick="openBailHist(${origIdx})" title="Voir toutes les informations">${_uiIcon('list')} Détail</button>
         <button class="btn bs bb" onclick="previewBailHist(${origIdx})" title="Aperçu du bail">${_uiIcon('eye')}</button>

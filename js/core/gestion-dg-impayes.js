@@ -167,16 +167,28 @@ export function _calculerSoldeDG(bail, mouvements) {
   // l'impayé. Fallback sur l'ancien cumul total (loyer+charges) si le résolveur n'est pas dispo.
   // _calculerLoyerImpayeCumule (total) reste utilisé pour les ALERTES impayés (où le total est juste).
   const W = (typeof window !== 'undefined') ? window : null;
-  let loyerImpaye;
+  let loyerDu;
   if (W && typeof W._rgClotureImpayes === 'function' && typeof W._loyerEtatLot === 'function' && bail.ref) {
     const today = (typeof W.td === 'function') ? W.td() : new Date().toISOString().slice(0, 10);
     const finBail = bail.finEffective || bail.fin || (bail.depart && bail.depart.dateSortie) || today;
-    loyerImpaye = W._rgClotureImpayes(bail.ref, bail.debut || null, finBail);
+    loyerDu = W._rgClotureImpayes(bail.ref, bail.debut || null, finBail);
   } else {
-    loyerImpaye = _calculerLoyerImpayeCumule(bail, mouvements);
+    loyerDu = _calculerLoyerImpayeCumule(bail, mouvements);
   }
-  const soldeRestitue = Math.max(0, dgPaid - retenuesDG - loyerImpaye);
-  return { dgPaid, retenuesDG, loyerImpaye, soldeRestitue };
+  // DÉPÔT DÉTENU (17/10) : la RETENUE POUR LOYER décidée à la restitution (`dgRetenueLoyer`, un règlement du loyer
+  // par le dépôt) fait foi dès qu'elle est enregistrée, même à 0 (le bailleur ne retient rien) ; sinon les loyers
+  // dus du bail lus dans le moteur unique (`loyerDu`, avant toute retenue — rendu pour être affiché à côté).
+  const loyerImpaye = _dgRetenueLoyerDecidee(bail) ?? loyerDu;
+  const soldeRestitue = Math.max(0, Math.round((dgPaid - retenuesDG - loyerImpaye) * 100) / 100);
+  return { dgPaid, retenuesDG, loyerImpaye, loyerDu, soldeRestitue };
+}
+
+/** La retenue pour loyer sur le dépôt ENREGISTRÉE d'un bail (`dgRetenueLoyer`, ≥ 0, au centime), ou null si aucune
+ *  n'a été décidée (champ absent ou vide). Lue par le solde de tout compte et par les dépôts détenus. */
+export function _dgRetenueLoyerDecidee(bail) {
+  if (!bail || bail.dgRetenueLoyer == null || bail.dgRetenueLoyer === '') return null;
+  const v = Number(String(bail.dgRetenueLoyer).replace(',', '.'));
+  return Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : null;
 }
 
 /**

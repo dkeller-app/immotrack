@@ -11,9 +11,10 @@ import { extraireFonction } from './_extraction-source.js'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const P1 = readFileSync(resolve(root, 'js/app/app-part1.js'), 'utf8')
 
-function familles(items) {
+function familles(items, depots) {
   const scope = {
     window: { _loyerTodayLocal: () => '2026-10-07', AlertRules: {} }, DB: { agenda: [], candidats: [] },
+    _dgDetenusListe: () => depots || [],   // DÉPÔT DÉTENU (17/10) : la liste des dépôts détenus (double)
     _isLoyerCategory: () => false, _computeImpayes: () => ({ items: [] }), _computeUnifiedTodo: () => items,
     _lotEstLoue: () => true, _logLabel: (r) => r, computePilotageFamilles: (src) => src,
     Date, Math, Number, String, Object, Array, Set, Map, parseInt, isNaN,
@@ -29,10 +30,26 @@ describe('_pilCollectFamilles — champs structurés, jamais le sous-titre', () 
     expect(src.depot).toEqual([])
     expect(src.finbail).toEqual([expect.objectContaining({ ref: 'D-101', nom: NOM })])
   })
-  it('dépôt à restituer (hasDG) dont le sous-titre ne contient pas « DG » → dépôt', () => {
-    const src = familles([{ type: 'depart', score: 78, contextRef: 'D-102', nom: 'D-102', hasDG: true, subtitle: 'D-102 — Lea · 900 €' }])
-    expect(src.depot).toEqual([expect.objectContaining({ ref: 'D-102', nom: 'D-102' })])
+  it('DÉPÔT DÉTENU (17/10) : la bulle « Dépôts à restituer » lit LA liste des dépôts détenus (locataires partis), jamais deux fois', () => {
+    const depots = [
+      { ref: 'D-102', cle: '', parti: true, detenu: 900, jours: -5, echeance: '2026-10-02', penalite: 90 },
+      { ref: 'D-101', cle: 'D-101|2026-04-20|a1', parti: true, archive: true, detenu: 397, jours: 20, echeance: '2026-10-27', penalite: 0 },
+      { ref: 'D-101', cle: '', parti: false, detenu: 760 },   // bail en cours : détenu, pas à rendre
+    ]
+    const src = familles([
+      { type: 'depart', score: 78, contextRef: 'D-102', nom: 'D-102', hasDG: true, subtitle: 'D-102 — Lea · 900 €' },
+      { type: 'depart', score: 97, contextRef: 'D-101', nom: 'D-101', hasDG: true, archive: true, subtitle: 'D-101 — Inès · 397 €' },
+    ], depots)
+    expect(src.depot).toEqual([
+      expect.objectContaining({ ref: 'D-102', cle: '', montant: 900, echeance: '2026-10-02', penalite: 90, urgenceJours: -5 }),
+      expect.objectContaining({ ref: 'D-101', cle: 'D-101|2026-04-20|a1', montant: 397, urgenceJours: 20 }),
+    ])
     expect(src.finbail).toEqual([])
+  })
+  it('départ annoncé (locataire pas encore parti) avec une échéance de dépôt → fin de bail à préparer', () => {
+    const src = familles([{ type: 'depart', score: 78, contextRef: 'D-102', nom: 'D-102', hasDG: true, subtitle: 'D-102 — Lea' }], [])
+    expect(src.depot).toEqual([])
+    expect(src.finbail).toEqual([expect.objectContaining({ ref: 'D-102' })])
   })
   it('documents, IRL, régul, entretiens : le nom structuré, entier', () => {
     const src = familles([

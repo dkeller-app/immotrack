@@ -299,7 +299,7 @@ import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
 
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
-  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _penaliteRetardDG,
+  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG, _dgRetenueLoyerDecidee, _penaliteRetardDG,
   _dgVerseMontant, _dgVerseCoche,
   _planApurementStatut, _procedureJudiciaireEtat,
   DG_STATUS, PROCEDURE_ETAT
@@ -769,6 +769,7 @@ window._dgVerseMontant = _dgVerseMontant;   // dépôt VERSÉ : définition uniq
 window._dgVerseCoche = _dgVerseCoche;
 window._calculerDelaiRestitution = _calculerDelaiRestitution;
 window._calculerSoldeDG = _calculerSoldeDG;
+window._dgRetenueLoyerDecidee = _dgRetenueLoyerDecidee;
 window._penaliteRetardDG = _penaliteRetardDG;
 // Avenant au bail (loi 89-462) — articles + garde-fous loyer travaux
 window.loyerTravauxGuard = loyerTravauxGuard;

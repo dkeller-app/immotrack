@@ -61,7 +61,9 @@ function monter(DB, noms, extra = {}) {
   const fn = new Function('scope', 'with (scope) {\n' + noms.map(corps).join('\n') + '\nreturn {' + noms.join(',') + '};\n}')(scope);
   return { fn, base, els, html };
 }
-const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgDetenusDuLot', '_dgNbDetenusDuLot', '_bailHistCleDe', '_archivesDetenuesDuLot'];
+const STATUT = ['_bienActiveBail', '_bienIsBailActif', '_lotStatutLibelle', '_lotEstLoue', '_lotBailOuvert', '_logementsVacants', '_dgDuLot', '_dgDetenuDuLot', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgDetenusDuLot', '_dgNbDetenusDuLot', '_bailHistCleDe', '_archivesDetenuesDuLot',
+  // DÉPÔT DÉTENU (17/10) : la tuile lit LA liste des dépôts détenus (retenue pour loyer déduite, part à rendre)
+  '_dgRetenueLoyerDe', '_dgLocatairePartiDe', '_dgEntreeDepot', '_dgDetenusListe', '_dgTuileFaits', '_dgTuileSous'];
 
 describe('1 · la règle de statut (module pur)', () => {
   it('bail nu reconduit (échéance passée), sans départ : loué', () => expect(bailLoueAu(BAIL, AUJ)).toBe(true));
@@ -827,6 +829,22 @@ describe('26 · dépôts détenus : doublons d\'archive, bail courant clôturé,
     const { fn, els } = monter(DB, [...STATUT, '_renderPilotage']);
     try { fn._renderPilotage({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '' }); } catch (e) { /* bulles non simulées */ }
     expect(els['pil-strip'].innerHTML).toContain('1 dépôt · argent des locataires');
+  });
+  it('DÉPÔT DÉTENU (17/10) — tuile PC : locataire parti → « dont X € à justifier ou à rendre » ; la retenue pour loyer sort du total', async () => {
+    const { _dgRetenueLoyerDecidee } = await import('../../js/core/gestion-dg-impayes.js');
+    const tuile = (baux) => {
+      const DB = dbDe(baux);
+      const { fn, els } = monter(DB, [...STATUT, '_renderPilotage'], { window: { _dgRetenueLoyerDecidee } });
+      try { fn._renderPilotage({ scopeLogs: DB.logements, yr: '2026', mo: null, activeEnt: '' }); } catch (e) { /* bulles non simulées */ }
+      return els['pil-strip'].innerHTML;
+    };
+    const h1 = tuile({ A1: DEPART, B2: { ...BAIL, dg: 400 } });
+    expect(h1).toContain('1300 €');
+    expect(h1).toContain('2 dépôts · dont 900 € à justifier ou à rendre');
+    expect(h1).toContain('onclick="_dgListeDetenus()"');
+    const h2 = tuile({ A1: { ...DEPART, dgRetenueLoyer: 300 }, B2: { ...BAIL, dg: 400 } });
+    expect(h2).toContain('1000 €');
+    expect(h2).toContain('dont 600 € à justifier ou à rendre');
   });
 });
 describe('27 · échéance du dépôt (VRAI _departDeadlineDG) : EDL de sortie de CE bail, date locale', () => {

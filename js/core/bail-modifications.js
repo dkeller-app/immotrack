@@ -114,6 +114,8 @@ export const CHAMPS_VIE = {
   dgDetailRetenues: { l: 'Détail des retenues sur le dépôt', t: 'texte' },
   dgAdresseNonCommuniquee: { l: 'Adresse de restitution non communiquée', t: 'booleen' },
   dgPenaliteArt22: { l: 'Pénalité de retard de restitution (art. 22)', t: 'nombre' },
+  // DÉPÔT DÉTENU (17/10) : loyer dû réglé par le dépôt, décidé au solde de tout compte (lu par le moteur des loyers).
+  dgRetenueLoyer: { l: 'Loyer retenu sur le dépôt de garantie', t: 'nombre' },
   // `locNouvIban` (IBAN du locataire sortant) RETIRÉ (NORMALISATION-LOYERS, 01/10, RGPD) : l'IBAN n'est
   // plus demandé ni gardé. Hors liste, un ancien journal qui le porterait n'est plus réappliqué
   // (cheminAutorise le refuse) ; js/core/normalisation-loyers.js le purge des données.

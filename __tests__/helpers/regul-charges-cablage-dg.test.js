@@ -68,6 +68,7 @@ function monter(sc, noms) {
     baseChargesLogement,
     computeVetusteTotal: () => ({ total: 0 }),
     __immoGetDB: () => sc.DB,   // le DB vivant (le module DG y lit les EDL quand on ne les lui passe pas)
+    _dgRetenueLoyerDecidee: DG._dgRetenueLoyerDecidee,   // DÉPÔT DÉTENU (17/10) : retenue pour loyer décidée
   };
   globalThis.window = W;   // le module DG lit `window` à l'appel
   const scope = {
@@ -87,6 +88,8 @@ function monter(sc, noms) {
     _forfaitAvenantsDuBail: () => undefined, _isPhone: () => false, _rgIsValidated: () => false, _activeEntity: null, _logInEnt: () => true,   // filtre de bailleur (aucun actif)
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
   };
+  // DÉPÔT DÉTENU (17/10) : les vrais helpers de la fenêtre de restitution (loyer retenu saisi, avertissement art. 22).
+  noms = noms.concat(['_dgRestitLoyerSaisi', '_dgAvertRetenuesHtml', '_dgRetenueLoyerDe'].filter(n => !noms.includes(n)));
   const src = noms.map(corpsDe).join('\n');
   // eslint-disable-next-line no-new-func
   const f = new Function('scope', 'with (scope) {\n' + src + '\nreturn {' + noms.join(',') + '};\n}');
@@ -138,7 +141,9 @@ describe('3 · étape régularisation ET étape restitution du DG : un seul sold
     expect(c.impayes).toBe(0);
     fn._dgOpenRestitution(REF);
     const body = els['ov-dg-restitution-body'].innerHTML.replace(/\s+/g, ' ');
-    expect(body).toMatch(/Loyers impayés cumulés<\/td><td[^>]*>0\.00 €/);
+    // DÉPÔT DÉTENU (17/10) : le loyer dû (moteur unique) pré-remplit « Loyer dû retenu sur le dépôt », éditable
+    expect(body).toMatch(/Loyer dû retenu sur le dépôt .*loyers dus du bail \(suivi des loyers\) : 0\.00 €/);
+    expect(body).toMatch(/id="dg-restit-loyer" value="0"/);
     expect(body).toMatch(/id="dg-restit-solde-display"[^>]*>500\.00 €/);
   });
   it('tacite reconduction : la restitution compte les 2 000 € d\'impayés (juillet → octobre), 0 € à restituer', () => {
@@ -146,7 +151,8 @@ describe('3 · étape régularisation ET étape restitution du DG : un seul sold
     expect(fn._rgClotureCompute(REF).impayes).toBe(2000);
     fn._dgOpenRestitution(REF);
     const body = els['ov-dg-restitution-body'].innerHTML.replace(/\s+/g, ' ');
-    expect(body).toMatch(/Loyers impayés cumulés<\/td><td[^>]*>2000\.00 €/);
+    expect(body).toMatch(/loyers dus du bail \(suivi des loyers\) : 2000\.00 €/);
+    expect(body).toMatch(/id="dg-restit-loyer" value="2000"/);
     expect(body).toMatch(/id="dg-restit-solde-display"[^>]*>0\.00 €/);
   });
 });

@@ -370,3 +370,30 @@ describe('_procedureJudiciaireEtat', () => {
     expect(r.etat).toBe(PROCEDURE_ETAT.ASSIGNATION);
   });
 });
+
+// ═══ DÉPÔT DÉTENU (17/10) — la retenue pour loyer décidée fait foi au solde de tout compte ═══
+import { _dgRetenueLoyerDecidee } from '../../js/core/gestion-dg-impayes.js';
+describe('_dgRetenueLoyerDecidee / _calculerSoldeDG — retenue pour loyer sur le dépôt', () => {
+  it('absente ou vide : null ; décidée (même 0) : le montant au centime ; négative ou illisible : null', () => {
+    expect(_dgRetenueLoyerDecidee({})).toBe(null);
+    expect(_dgRetenueLoyerDecidee({ dgRetenueLoyer: '' })).toBe(null);
+    expect(_dgRetenueLoyerDecidee({ dgRetenueLoyer: 0 })).toBe(0);
+    expect(_dgRetenueLoyerDecidee({ dgRetenueLoyer: '303,004' })).toBe(303);
+    expect(_dgRetenueLoyerDecidee({ dgRetenueLoyer: -5 })).toBe(null);
+    expect(_dgRetenueLoyerDecidee({ dgRetenueLoyer: 'abc' })).toBe(null);
+  });
+  it('Ferrette - 101 : 700 € versés − 150 € d\'autres retenues − 303 € de loyer retenu = 247 € (pénalité à part)', () => {
+    const r = _calculerSoldeDG({ dg: 700, dgRetenu: 150, dgRetenueLoyer: 303, debut: '2024-08-20', finEffective: '2026-04-13' }, []);
+    expect(r.loyerImpaye).toBe(303);
+    expect(r.soldeRestitue).toBe(247);
+  });
+  it('sans retenue décidée : les loyers dus du bail (moteur) ; une retenue à 0 décidée : rien n\'est retenu', () => {
+    const b = { dg: 1000, debut: '2026-01-01', finEffective: '2026-03-31', hc: 500, ch: 0, ref: 'X' };
+    const sans = _calculerSoldeDG(b, []);
+    expect(sans.loyerImpaye).toBe(sans.loyerDu);
+    const zero = _calculerSoldeDG({ ...b, dgRetenueLoyer: 0 }, []);
+    expect(zero.loyerImpaye).toBe(0);
+    expect(zero.loyerDu).toBe(sans.loyerDu);
+    expect(zero.soldeRestitue).toBe(1000);
+  });
+});

@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
-import { _dgStatut as dgCore, _calculerSoldeDG as soldeCore, _dgVerseMontant as montantCore, _dgVerseCoche as cocheCore, DG_STATUS } from '../../js/core/gestion-dg-impayes.js'
+import { _dgStatut as dgCore, _calculerSoldeDG as soldeCore, _dgVerseMontant as montantCore, _dgVerseCoche as cocheCore, _dgRetenueLoyerDecidee as retenueCore, DG_STATUS } from '../../js/core/gestion-dg-impayes.js'
 import { CHAMPS_BAIL } from '../../js/core/bail-modifications.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -83,9 +83,10 @@ describe('_calculerSoldeDG — case décochée : rien n\'est déduit ni restitu�
 })
 
 describe('_dgDetenuDuBail (vrai code d\'app-part1) — dépôts détenus', () => {
-  const w = { _dgVerseMontant: montantCore, Number }
+  const w = { _dgVerseMontant: montantCore, Number, Math }
+  w.window = { _dgRetenueLoyerDecidee: retenueCore }
   vm.createContext(w)
-  vm.runInContext(extraire(P1, '_dgRestitutionEnregistree') + '\n' + extraire(P1, '_dgDetenuDuBail'), w)
+  vm.runInContext(extraire(P1, '_dgRestitutionEnregistree') + '\n' + extraire(P1, '_dgRetenueLoyerDe') + '\n' + extraire(P1, '_dgDetenuDuBail'), w)
   it('case décochée → rien n\'est détenu ; absente ou cochée → le dépôt ; repli sur la fiche du lot', () => {
     expect(w._dgDetenuDuBail({ dg: 760, dgVerse: false }, 0)).toBe(0)
     expect(w._dgDetenuDuBail({ dg: 760 }, 0)).toBe(760)
@@ -93,6 +94,15 @@ describe('_dgDetenuDuBail (vrai code d\'app-part1) — dépôts détenus', () =>
     expect(w._dgDetenuDuBail({ dg: 0 }, 640)).toBe(640)
     expect(w._dgDetenuDuBail({ dg: 0, dgVerse: false }, 640)).toBe(0)
     expect(w._dgDetenuDuBail({ dg: 760, dgRestitueAt: '2026-09-01' }, 0)).toBe(0)
+  })
+  it('DÉPÔT DÉTENU (17/10) : la retenue pour loyer sort du dépôt détenu, le reste reste détenu jusqu\'à la restitution datée', () => {
+    expect(w._dgDetenuDuBail({ dg: 700, dgRetenueLoyer: 303 }, 0)).toBe(397)
+    expect(w._dgDetenuDuBail({ dg: 700, dgRetenueLoyer: 303, cloture: true, clotureV: 2, dgRetenu: 150, dgRestitue: 0 }, 0)).toBe(397)
+    expect(w._dgDetenuDuBail({ dg: 450, dgRetenueLoyer: 900 }, 0)).toBe(0)
+    expect(w._dgDetenuDuBail({ dg: 700, dgRetenueLoyer: '' }, 0)).toBe(700)
+    expect(w._dgDetenuDuBail({ dg: 700, dgRetenueLoyer: 303, dgRestitueAt: '2026-10-20' }, 0)).toBe(0)
+    // ancienne clôture (avant clotureV) avec un montant saisi : comptée soldée — la migration de données la date ou la rouvre
+    expect(w._dgDetenuDuBail({ dg: 700, cloture: true, dgRestitue: 247, dgRetenu: 150 }, 0)).toBe(0)
   })
 })
 
