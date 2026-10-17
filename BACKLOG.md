@@ -1,4 +1,9 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.760 (17/10, pilotage Desktop, décision Didier)** — **Charges d'un bail sorti → régularisation + provisions versées = réellement payé** (`fix/charges-bail-sorti-regul`, c2d377c4 ; 8 451 tests verts ; deux relectures Fable, corrections faites).
+> - Solde de tout compte enregistré : les charges impayées d'un bail sorti quittent l'arriéré affiché et passent « à la régularisation ». Aucune quittance possible pour ces mois.
+> - Manque accepté : la provision remise est réputée versée et n'est jamais redemandée à la régul (décision du 06/10, cas Arslan d'août testé).
+> - **Décision Didier du 17/10 : provisions versées = ce que le locataire a réellement payé en charges** (`_RG_PROVISIONS_MODE = 'paye'`, retour possible à `'ancien'`). Les montants de régul 2026 changent sur 10 lots, par ex. Ferrette - 102 : 210 → 120 €.
+> - Lancé : chantier VIDÉO DE PRÉSENTATION (`PROMPT-CHANTIER-VIDEO-PRESENTATION.md`).
 > 🚦 **MAIN = v15.759 (17/10, pilotage Desktop, décision Didier)** — **Retenue sur dépôt = loyers seulement** (`fix/depot-loyers-seuls`, 8d977c54 ; 8 439 tests verts ; Fable : 0 🔴 / 0 🟠).
 > - Une retenue sur dépôt règle d'abord le loyer HC du mois, puis les arriérés de loyer, jamais les charges. Les charges dues partent à la régularisation.
 > - Écran de restitution : pré-remplissage et plafond portent sur le loyer HC seul ; une ligne signale les charges restantes.
