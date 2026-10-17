@@ -289,7 +289,7 @@ Prérequis remplis le 16/10/2026 :
 Bascule :
 - relais : `AI_OCR = "true"` dans `relay/wrangler.toml` → `/ai/status` annonce `ocr.actif=true` (avec `MISTRAL_API_KEY`) ;
 - app : `RETENTION_ZERO = true` (`js/core/ia-transparence.js`) → les trois notices (dictée, vidéo, bulletins) disent « Mistral AI ne conserve ni … (rétention zéro) » ;
-- page publique de dépôt (`relay/public/dossier.js`, `ASSET_VERSION` 7) : « rétention zéro : rien n'est conservé par Mistral AI, aucun entraînement » ;
+- page publique de dépôt (`relay/public/dossier.js`, `ASSET_VERSION` 7) : « rétention zéro : le contenu n'est pas conservé par Mistral AI, aucun entraînement » ;
 - Paramètres › Candidatures : la ligne « Lecture des bulletins de salaire par l'IA » remplace « Bientôt disponible » dès que le relais annonce la lecture ouverte (aucun changement de code : `_candIaOcr`).
 
 Reste à la charge de Didier : redéployer le relais, puis un premier essai réel sur un de ses propres bulletins (essai `maxItems` du §9.5 à cette occasion).

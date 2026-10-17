@@ -191,7 +191,7 @@ describe('page publique de dépôt : information du candidat', () => {
   it('contrôles annoncés avant le dépôt et dans la mention RGPD (2D-Doc, IA Mistral UE, conservation, opposition)', () => {
     expect(D).toContain('<b>Contrôles des pièces.</b>');
     expect(D).toContain('signature du code 2D-Doc des pièces qui en portent un');
-    expect(D).toContain('Mistral AI, sous-traitant, lecture dans l\'Union européenne, rétention zéro : rien n\'est conservé par Mistral AI, aucun entraînement');
+    expect(D).toContain('Mistral AI, sous-traitant, lecture dans l\'Union européenne, rétention zéro : le contenu n\'est pas conservé par Mistral AI, aucun entraînement');
     expect(D).not.toContain('30 jours au plus pour la détection des abus');
     expect(D).toContain('aucune pièce supplémentaire n\'est demandée');
     expect(D).toContain('opposition');
