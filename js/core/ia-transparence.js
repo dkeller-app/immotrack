@@ -8,17 +8,18 @@
  *   - le marquage lisible par machine (`iaE` / `iaS` sur l'élément, `compteursIA` sur l'EDL).
  *
  * ┌─ RÉTENTION ZÉRO — CONSTANTE UNIQUE ────────────────────────────────────────────────────────────┐
- * │ RETENTION_ZERO = true : Didier a décidé (13/10) d'activer la rétention zéro chez Mistral. La     │
- * │ notice dit alors « le fournisseur ne conserve rien ». TANT QUE l'activation n'est pas confirmée  │
- * │ sur le compte Mistral (facturation à l'usage + rétention zéro + refus de l'entraînement, cf.     │
- * │ rapport du chantier), passer cette constante à false : la notice dit alors « 30 jours au plus    │
- * │ pour la détection des abus ». Aucun autre texte n'est à toucher.                                 │
+ * │ RETENTION_ZERO = true : rétention zéro (Zero Data Retention) ACTIVÉE sur le compte Mistral le    │
+ * │ 16/10/2026 (Admin › Confidentialité), entraînement sur les données désactivé. Elle couvre les     │
+ * │ points d'accès SANS ÉTAT seulement : /v1/ocr, /v1/audio/transcriptions, /v1/chat/completions —   │
+ * │ ceux qu'appelle le relais (relay/src/ai/provider.js) ; tout nouvel appel à un autre point d'accès │
+ * │ (lots, fichiers, agents…) devra repasser cette constante à false. La notice dit alors « ne       │
+ * │ conserve ni … ». À false, elle dit « 30 jours au plus pour la détection des abus ».              │
  * └──────────────────────────────────────────────────────────────────────────────────────────────────┘
  * Ton neutre (charte M-13) : infinitif, générique, ni « tu » ni « vous ».
  */
 
-// false à l intégration v15.733 (14/10) : rétention zéro demandée mais PAS encore confirmée par Mistral.
-export const RETENTION_ZERO = false;
+// true depuis v15.761 (activation de la lecture des pièces) : rétention zéro activée par Mistral le 16/10/2026.
+export const RETENTION_ZERO = true;
 
 export const FOURNISSEUR = 'Mistral AI';
 

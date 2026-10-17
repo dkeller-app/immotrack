@@ -263,8 +263,8 @@ describe('cohérence des libellés (app, fiche, page de dépôt du relais)', () 
     expect(dep).toContain('le propriétaire peut comparer les dossiers reçus pour ce logement sur des critères objectifs');
     expect(dep).toContain('sans note ni classement');
   });
-  it('page de dépôt modifiée → ASSET_VERSION 6', () => {
-    expect(lire('relay/src/dossier-page.js')).toContain("export const ASSET_VERSION = '6';");
+  it('page de dépôt modifiée → ASSET_VERSION ≥ 6 (7 : ACTIVATION-IA-OCR)', () => {
+    expect(+(/export const ASSET_VERSION = '(\d+)';/.exec(lire('relay/src/dossier-page.js')) || [])[1]).toBeGreaterThanOrEqual(6);
   });
   it('module exposé et préchargé', () => {
     expect(lire('js/main.js')).toContain('window.AideDecision = AideDecision;');
