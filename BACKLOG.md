@@ -1,4 +1,17 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.761 (17/10, pilotage Desktop, GO Didier)** — **Lecture IA des pièces ACTIVABLE** (`feat/activation-ia-ocr`, 3cd1a062 ; 8 451 tests app + 487 relais verts ; relecture Opus sans bloquant).
+> - `AI_OCR = "true"` dans `relay/wrangler.toml`. **Effet seulement après le redéploiement du relais par Didier** (`deployer-relais.cmd`).
+> - `RETENTION_ZERO = true`, texte exact : « le contenu n'est pas conservé ». ZDR Mistral activée le 16/10 sur les points d'accès sans état.
+> - Page de dépôt : `ASSET_VERSION` 7.
+> - Registre RGPD (n° 6, 7, 8) et CDC à jour.
+> - Retour arrière : retirer `AI_OCR`, puis redéployer.
+>
+> **Aussi au 17/10** : P0 « Mémoire pleine » revérifié CLOS (livré v15.705→724). Correction des 2 textes de la carte Stockage en cours (v15.765 provisoire).
+>
+> **Restes :**
+> - Premier essai réel sur un bulletin de Didier (avec son accord) + essai `maxItems` (§9.5).
+> - Audits avant bêta en cours (lots A/B/C).
+> - Vidéo de présentation en tournage.
 > 🚦 **MAIN = v15.760 (17/10, pilotage Desktop, décision Didier)** — **Charges d'un bail sorti → régularisation + provisions versées = réellement payé** (`fix/charges-bail-sorti-regul`, c2d377c4 ; 8 451 tests verts ; deux relectures Fable, corrections faites).
 > - Solde de tout compte enregistré : les charges impayées d'un bail sorti quittent l'arriéré affiché et passent « à la régularisation ». Aucune quittance possible pour ces mois.
 > - Manque accepté : la provision remise est réputée versée et n'est jamais redemandée à la régul (décision du 06/10, cas Arslan d'août testé).
