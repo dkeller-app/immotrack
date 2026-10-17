@@ -26945,11 +26945,34 @@ function computeRegul(from, to) {
         .reduce((t, m) => t + (Number(m.aLaRegul) || 0), 0) * 100) / 100;
     });
   }
+  // PROVISIONS VERSÉES (relecture Fable 17/10) : sur les mois que suit le moteur des loyers, ce qui a été RÉELLEMENT imputé
+  // aux charges de chaque mois (par mois d'origine, quelle que soit la date du virement — un paiement reçu après la sortie
+  // compte ; une provision remise par un manque accepté, ou passée à la régularisation, ne compte pas) ; hors de ces mois
+  // (avant le début du suivi), la règle d'avant : un mois avec un loyer encaissé × la provision du bail.
   Object.values(res).forEach(e=>{
-    if(!e._moisSet) return;
     const ch = e.bail?.ch ?? 0;
-    e.provisions = e._moisSet.size * ch;
-    e.moisDetails = [...e._moisSet].sort().map(m=>({mois:m, ch}));
+    const set = e._moisSet || new Set();
+    const deb = e.bail && e.bail.debut ? String(e.bail.debut).slice(0,10) : '';
+    let suivis = null; const parMois = {};
+    if (deb && typeof _finSuiviLot === 'function') {
+      let s = null; try { s = _finSuiviLot(e.ref); } catch(err) { s = null; }
+      const b = s && (s.baux||[]).find(x => x.debut === deb);
+      if (b) {
+        const f7 = String(from).slice(0,7), t7 = String(to).slice(0,7);
+        const o1 = e.debutOcc ? e.debutOcc.slice(0,7) : null, o2 = e.finOcc ? e.finOcc.slice(0,7) : null;
+        suivis = new Set();
+        (b.mois||[]).forEach(m => {
+          if (m.ym < f7 || m.ym > t7 || (o1 && m.ym < o1) || (o2 && m.ym > o2)) return;
+          suivis.add(m.ym);
+          parMois[m.ym] = Math.round((m.imputations||[]).filter(p => p.poste === 'charge').reduce((t, p) => t + (Number(p.montant) || 0), 0) * 100) / 100;
+        });
+      }
+    }
+    const det = [];
+    set.forEach(ym => { if (!suivis || !suivis.has(ym)) det.push({ mois: ym, ch }); });
+    if (suivis) suivis.forEach(ym => { if (parMois[ym] > 0.005) det.push({ mois: ym, ch: parMois[ym] }); });
+    e.moisDetails = det.sort((a, b) => a.mois.localeCompare(b.mois));
+    e.provisions = Math.round(det.reduce((t, m) => t + (Number(m.ch) || 0), 0) * 100) / 100;
     delete e._moisSet;
   });
 

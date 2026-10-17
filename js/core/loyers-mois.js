@@ -329,6 +329,8 @@ export function peutQuittancer(etat, ym) {
   if (!e) return { ok: false, motif: 'mois hors période de suivi', reste: 0 };
   if (e.vacance) return { ok: false, motif: 'aucun loyer dû ce mois', reste: 0 };
   if (e.reste > EPS_CENTIME) return { ok: false, motif: `non soldé — reste ${e.reste.toFixed(2)} €`, reste: e.reste };
+  // charges d'un bail sorti passées à la régularisation (17/10) : elles n'ont pas été REÇUES — pas de quittance (art. 21)
+  if ((Number(e.aLaRegul) || 0) > EPS_CENTIME) return { ok: false, motif: 'provisions de charges non reçues — à la régularisation', reste: _r2(e.aLaRegul) };
   return { ok: true, motif: '', reste: 0 };
 }
 

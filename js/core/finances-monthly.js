@@ -763,8 +763,9 @@ export function _computeDetteBail(input) {
     retenue: { montant: retenue, appliquee: round2(mois.reduce((s, m) => s + m.reglement, 0)) },
     arrondis: mois.filter(m => Math.abs(m.arrondi) > 0.005).map(m => ({ ym: m.ym, montant: m.arrondi })),
     // R0-C (2ᵉ audit 🟠3) — ce qui reste dû de l'antériorité NOTÉE (jamais la dette d'un mois suivi) et ce qui l'a soldée.
-    ouverture: (r.ouvertureReste && (r.ouvertureReste.loyer + r.ouvertureReste.charge) > 0.005 && yms[r.ouvertureReste.idx])
-      ? { date: debutSuivi, ym: yms[r.ouvertureReste.idx], loyer: r.ouvertureReste.loyer, charge: r.ouvertureReste.charge,
+    // charges passées à la régularisation : le reste de charges de l'antériorité est déjà dans `aLaRegul` (un seul porteur)
+    ouverture: (r.ouvertureReste && (r.ouvertureReste.loyer + (aLaRegul ? 0 : r.ouvertureReste.charge)) > 0.005 && yms[r.ouvertureReste.idx])
+      ? { date: debutSuivi, ym: yms[r.ouvertureReste.idx], loyer: r.ouvertureReste.loyer, charge: aLaRegul ? 0 : r.ouvertureReste.charge,
           paiements: (r.imputationsOuverture || []).filter(p => p.date) }
       : null
   };

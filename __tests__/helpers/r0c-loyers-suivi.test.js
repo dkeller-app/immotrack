@@ -18,7 +18,7 @@ import * as Anteriorite from '../../js/core/anteriorite.js';
 import { duMoisFromRaw, duMoisSuiviFromRaw, bailsFromRaw, _debutSuivi, finOccupationBail } from '../../js/core/loyer-du-mois.js';
 import { _computeFinancesMonthly, _computeDetteBail, _avantBorne, _computeSuiviLot, _positionLot, _friseLot } from '../../js/core/finances-monthly.js';
 import { computeConstatWindow } from '../../js/core/finances-window.js';
-import { etatMoisLot, etatDepuisSuivi, ymRange as ymRangeCore, retardLot, lignesRelance, moisAQuittancer } from '../../js/core/loyers-mois.js';
+import { etatMoisLot, etatDepuisSuivi, ymRange as ymRangeCore, retardLot, lignesRelance, moisAQuittancer, peutQuittancer } from '../../js/core/loyers-mois.js';
 import { jeuAnteriorite, dbAppDe, catLigne, estLoyer, ymRange } from './r0c-jeux.js';
 import { _dgSoldeToutCompteEnregistre } from '../../js/core/gestion-dg-impayes.js';
 
@@ -286,6 +286,11 @@ describe('charges d’un bail sorti : à la régularisation après le solde de t
     const avril = r.etat.byYm['2026-04'];
     expect(avril).toMatchObject({ resteCharge: 0, aLaRegul: 21.67, solde: false });   // jamais quittancé pour des charges non reçues
     expect(r.etat.byYm['2026-03'].aLaRegul).toBe(50);
+    // relecture Fable : jamais de quittance pour des charges non reçues (mars : loyer payé par la retenue, charges à la régul)
+    expect(peutQuittancer(r.etat, '2026-03').ok).toBe(false);
+    // loyer payé (par la retenue ou un virement), charges à la régul : toujours pas de quittance
+    expect(peutQuittancer({ byYm: { '2026-03': { reste: 0, aLaRegul: 50, vacance: false } } }, '2026-03')).toMatchObject({ ok: false, motif: 'provisions de charges non reçues — à la régularisation', reste: 50 });
+    expect(moisAQuittancer(r.etat, [])).not.toContain('2026-03');
     const d = app._finDetteBail('L', '2025-01-01', null);
     expect(d).toMatchObject({ charge: 0, chargesRegul: 71.67 });
     // la relance ne réclame plus les charges

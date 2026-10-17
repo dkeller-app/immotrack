@@ -49,6 +49,21 @@ describe('cas Arslan : la dette de l\'ancien locataire n\'est plus payée par le
     expect(b.retenue).toEqual({ montant: 5000, appliquee: 1703.33 });
     expect(b.mois.filter((x) => x.ym >= '2026-02').map((x) => x.chargeRetard)).toEqual([50, 50, 21.67]);
   });
+  it('charges d’un bail sorti à la régularisation (17/10) : arriéré, antériorité de charges et position sans elles — un seul porteur', () => {
+    const R3 = 'L-303';
+    const ctx3 = { ref: R3, bareme: [{ ref: R3, debut: '2025-01-01', fin: '2026-04-13', hc: 700, ch: 50, source: 'bail', bailDebut: '2025-01-01' }],
+      bails: [{ debut: '2025-01-01', finEffective: '2026-04-13', archive: true, hc: 700, ch: 50 }] };
+    const base = { ref: R3, ctx: ctx3, catLigne, today: TODAY, debutSuivi: '2026-01-01', sourceSuivi: 'anteriorite', seuilArrondi: 1,
+      mouvements: ['01', '02', '03'].map((mm) => pay(R3, '2026-' + mm + '-05', 750)).concat([pay(R3, '2026-04-05', 303.33)]),
+      ouverture: { bailDebut: '2025-01-01', loyer: 0, charge: 120, avance: 0 } };
+    const avant = _computeSuiviLot(base).baux[0];
+    expect(avant).toMatchObject({ loyer: 0, charge: 141.67, chargesRegul: 0 });   // 120 d'antériorité + 21,67 d'avril
+    expect(avant.ouverture).toMatchObject({ charge: 120 });
+    const apres = _computeSuiviLot(Object.assign({}, base, { chargesRegul: { '2025-01-01': true } })).baux[0];
+    expect(apres).toMatchObject({ loyer: 0, charge: 0, chargesRegul: 141.67, position: 0 });
+    expect(apres.ouverture).toBeNull();   // l'antériorité de charges n'est plus réclamée à part : elle est dans aLaRegul
+    expect(pos({ baux: [apres] }, '2026-04')).toMatchObject({ retard: 0 });
+  });
   it('nouveau bail, positions de fin de mois : mai 0 (0,32 € ignorés) · juin +780 · juillet 0 · août/sept/oct −20', () => {
     const s = suivi();
     const v = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'].map((ym) => pos(s, ym).position);

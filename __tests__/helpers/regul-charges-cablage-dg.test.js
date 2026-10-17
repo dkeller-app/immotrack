@@ -87,6 +87,7 @@ function monter(sc, noms) {
     _rgClotureImpayes: W._rgClotureImpayes, _DEPART_ACOMPTE_CAT: 'Acompte de charges (départ)',
     _forfaitAvenantsDuBail: () => undefined, _isPhone: () => false, _rgIsValidated: () => false, _activeEntity: null, _logInEnt: () => true,   // filtre de bailleur (aucun actif)
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
+    _finSuiviLot: sc.suivi ? (() => sc.suivi) : undefined,   // suivi des loyers (moteur unique) du scénario, s'il en porte un
   };
   // DÉPÔT DÉTENU (17/10) : les vrais helpers de la fenêtre de restitution (loyer retenu saisi, avertissement art. 22).
   noms = noms.concat(['_dgRestitLoyerSaisi', '_dgRestitLoyerEffectif', '_dgAvertRetenuesHtml', '_dgRestitChargesNote', '_dgRetenueLoyerDe'].filter(n => !noms.includes(n)));
@@ -118,6 +119,24 @@ describe('1 · _bailFinOccupation — départ déclaré et bail clôturé', () =
   });
   it('bail archivé : la date de départ déclarée ne prime pas sur sa fin (finEffective || fin)', () => {
     expect(H()({ type: 'nu', fin: '2026-03-31', depart: { dateSortie: '2026-08-31' } }, true)).toBe('2026-03-31');
+  });
+});
+
+describe('2bis · provisions versées = ce que le moteur a imputé aux charges (décision pilotage + relecture Fable 17/10)', () => {
+  it('mois impayé, provision remise par un manque, paiement reçu après la sortie, charges passées à la régul : rien de compté deux fois', () => {
+    const sc = DEPART();
+    const L = (ym, jour, cr) => ({ id: 'L' + ym + jour, date: ym + '-' + jour, cat: 'Loyers encaissés', cr, db: 0, qui: REF, imm: IMM });
+    // virements : janv., févr., avril, mai (loyer seul : ses 100 € de charges remis par un manque), juin, août ; juillet payé le 15/09 (après la sortie)
+    sc.DB.mouvements.push(L('2026-01', '05', 600), L('2026-02', '05', 600), L('2026-04', '05', 600), L('2026-05', '05', 500),
+      L('2026-06', '05', 600), L('2026-08', '05', 600), L('2026-09', '15', 600));
+    const imp = (ym, charge) => ({ ym, aLaRegul: 0, imputations: [{ poste: 'loyer', montant: 500 }].concat(charge ? [{ poste: 'charge', montant: charge }] : []) });
+    sc.suivi = { baux: [{ debut: '2023-07-01', mois: [imp('2026-01', 100), imp('2026-02', 100), { ym: '2026-03', aLaRegul: 100, imputations: [] },
+      imp('2026-04', 100), imp('2026-05', 0), imp('2026-06', 100), imp('2026-07', 100), imp('2026-08', 100)] }] };
+    const { fn } = monter(sc, CHAINE_REGUL);
+    const e = fn.computeRegul('2026-01-01', '2026-12-31').entries[REF];
+    expect(e.moisDetails.map((m) => m.mois)).toEqual(['2026-01', '2026-02', '2026-04', '2026-06', '2026-07', '2026-08']);
+    expect(e.provisions).toBe(600);   // mars (impayé, passé à la régul) et mai (provision remise) ne sont pas versés ; juillet l'est
+    expect(e.aLaRegul).toBe(100);
   });
 });
 
