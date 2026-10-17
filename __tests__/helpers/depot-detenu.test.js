@@ -106,7 +106,7 @@ describe('restitution : les charges dues sont dites, jamais retenues sur le dép
   }
   it('121,67 € de charges dues → une ligne au ton neutre, lue en CHARGES sur le bail exact', () => {
     const r = note(121.67)
-    expect(r.html).toContain('121,67 € de charges restent dues : elles se règlent à la régularisation, pas sur le dépôt.')
+    expect(r.html).toContain('121,67 € de provisions de charges restent dues : elles entrent dans la régularisation de charges, jamais dans le loyer retenu.')
     expect(r.appels).toEqual([['L-202', '2025-01-01', '2026-04-13', 'charge']])
   })
   it('aucune charge due (Ferrette - 101 : avril sans charges) → rien', () => {

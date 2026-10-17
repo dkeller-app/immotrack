@@ -28887,7 +28887,7 @@ function _dgRestitChargesNote(bail) {
       ch = _rgClotureImpayes(bail.ref, String(bail.debut).slice(0, 10), fin, 'charge') || 0;
     }
   } catch (e) { ch = 0; }
-  return ch > 0.005 ? '<span class="mu" style="font-size:10.5px;display:block">' + fmt(ch) + ' de charges restent dues : elles se règlent à la régularisation, pas sur le dépôt.</span>' : '';
+  return ch > 0.005 ? '<span class="mu" style="font-size:10.5px;display:block">' + fmt(ch) + ' de provisions de charges restent dues : elles entrent dans la régularisation de charges, jamais dans le loyer retenu.</span>' : '';
 }
 // Le loyer dû retenu sur le dépôt, saisi dans la fenêtre (null si le champ est absent ou vide).
 function _dgRestitLoyerSaisi() {
