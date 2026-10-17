@@ -391,7 +391,8 @@ export function segmentsOccupation(bails) {
  *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
  *        chronologiques (échus) ; `sources` optionnel, trié ou non (trié ici par date).
  * FINANCES-SUIVI-V2 — un mois peut aussi porter `reglement` (retenue pour loyer sur le dépôt) et `remise`
- * (manque accepté) : soldés après l'argent du mois, ordre H-1, plafonnés, jamais une avance. Et
+ * (manque accepté) : soldés après l'argent du mois, plafonnés, jamais une avance — la remise dans l'ordre H-1, la
+ * retenue sur le LOYER HC seulement (décision Didier 17/10 : les charges vont à la régularisation). Et
  * `opts.seuilArrondi` solde en fin de mois un écart total sous le seuil (plafond cumulé), tracé `arrondi`.
  *
  * @param {{carry?:boolean, graceLast?:boolean, opening?:Object, seuilArrondi?:number}} [opts]
@@ -507,7 +508,10 @@ export function _loyerArrearsPass(months, opts) {
     //   `remise`    : manque accepté par le bailleur (décision 05/10, Q1 du 06/10).
     // Chaque somme soldée est TRACÉE SUR LE MOIS D'ORIGINE de la dette (`parOrigine`), jamais sur le mois du geste :
     // la quittance d'un mois ne peut dire « remise accordée » que pour SA dette (relecture Fable du 16/10).
-    const solder = (amt, trace) => {
+    //   Décision Didier du 17/10 : la retenue sur le dépôt (`reglement`) ne règle QUE le loyer HC (loyer du mois, puis
+    //   arriérés de loyer, plus vieux d'abord) — JAMAIS les charges, qui restent dues et passent par la régularisation.
+    //   Le manque accepté (`remise`) et l'argent reçu gardent l'ordre H-1.
+    const solder = (amt, trace, loyerSeul) => {
       let a = Math.max(0, Number(amt) || 0);
       if (a <= 0.005) return 0;
       const avant = a;
@@ -519,10 +523,11 @@ export function _loyerArrearsPass(months, opts) {
           if (t > 0 && !e.opening) trace[e.idx] += t;
         }
       };
-      prendre(loyerQ, true); prendre(chargeQ, true); prendre(loyerQ, false); prendre(chargeQ, false);
+      if (loyerSeul) { prendre(loyerQ, true); prendre(loyerQ, false); }
+      else { prendre(loyerQ, true); prendre(chargeQ, true); prendre(loyerQ, false); prendre(chargeQ, false); }
       return _r2(avant - a);
     };
-    solder(m.reglement, parOrigine.reglement);
+    solder(m.reglement, parOrigine.reglement, true);
     solder(m.remise, parOrigine.remise);
     // Écart d'arrondi (décision 05/10 n° 2 : « sous 1 €, soldé d'office, trace visible ») : en fin de mois,
     // une dette ou une avance totale strictement sous le seuil est soldée, et tracée (`arrondi`, signé :

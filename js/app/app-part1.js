@@ -1,7 +1,7 @@
 
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.758';
+const IMMOTRACK_VERSION = '15.759';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -25926,7 +25926,9 @@ function _rgN1Charges(ref){
 // AVANT la retenue pour loyer sur le dépôt (`sansRetenue`) : la restitution déduit elle-même ce loyer du dépôt,
 // il ne doit pas l'être deux fois. Seul le LOYER compte (resteLoyer) : les provisions impayées relèvent de la
 // régularisation (anti-double-compte).
-function _rgClotureImpayes(ref, from, to){
+// `quoi` = 'charge' : les CHARGES dues de la même occupation (elles se règlent à la régularisation, jamais par le dépôt —
+// décision Didier 17/10) ; défaut : le loyer HC.
+function _rgClotureImpayes(ref, from, to, quoi){
   const s = (typeof _finSuiviLot==='function') ? _finSuiviLot(ref, { sansRetenue: true }) : null;
   if(!s) return 0;
   const f10 = from ? String(from).slice(0,10) : null, t10 = to ? String(to).slice(0,10) : null;
@@ -25942,7 +25944,8 @@ function _rgClotureImpayes(ref, from, to){
     (b.mois||[]).forEach(m => {
       if(f7 && m.ym < f7) return;
       if(t7 && m.ym > t7) return;
-      if(m.loyerRetard > 0) total += m.loyerRetard;
+      const v = (quoi === 'charge') ? m.chargeRetard : m.loyerRetard;
+      if(v > 0) total += v;
     });
   });
   return Math.round(total*100)/100;

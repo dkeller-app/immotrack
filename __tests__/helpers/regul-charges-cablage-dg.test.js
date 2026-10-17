@@ -61,7 +61,7 @@ function monter(sc, noms) {
   const W = {
     finOccupationBail,
     _regulFrom: '2026-01-01', _regulTo: '2026-12-31',
-    _rgClotureImpayes: (ref, debut, fin) => unpaid(debut, fin),
+    _rgClotureImpayes: (ref, debut, fin, quoi) => (quoi === 'charge' ? 0 : unpaid(debut, fin)),   // charges dues : à la régularisation (17/10)
     _loyerEtatLot: () => ({}),
     td: () => AUJ,
     _penaliteRetardDG: DG._penaliteRetardDG,
@@ -89,7 +89,7 @@ function monter(sc, noms) {
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
   };
   // DÉPÔT DÉTENU (17/10) : les vrais helpers de la fenêtre de restitution (loyer retenu saisi, avertissement art. 22).
-  noms = noms.concat(['_dgRestitLoyerSaisi', '_dgRestitLoyerEffectif', '_dgAvertRetenuesHtml', '_dgRetenueLoyerDe'].filter(n => !noms.includes(n)));
+  noms = noms.concat(['_dgRestitLoyerSaisi', '_dgRestitLoyerEffectif', '_dgAvertRetenuesHtml', '_dgRestitChargesNote', '_dgRetenueLoyerDe'].filter(n => !noms.includes(n)));
   const src = noms.map(corpsDe).join('\n');
   // eslint-disable-next-line no-new-func
   const f = new Function('scope', 'with (scope) {\n' + src + '\nreturn {' + noms.join(',') + '};\n}');

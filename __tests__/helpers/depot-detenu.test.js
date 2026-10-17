@@ -93,6 +93,31 @@ describe('liste des dépôts détenus : nom du locataire échappé', () => {
   })
 })
 
+describe('restitution : les charges dues sont dites, jamais retenues sur le dépôt (décision Didier 17/10)', () => {
+  const P2 = readFileSync(resolve(root, 'js/app/app-part2.js'), 'utf8')
+  const note = (chargesDues) => {
+    const appels = []
+    // eslint-disable-next-line no-new-func
+    const f = new Function('scope', 'with (scope) {\n' + extraireFonction(P2, '_dgRestitChargesNote') + '\nreturn _dgRestitChargesNote;\n}')({
+      fmt, td: () => '2026-10-17', _bailFinOccupation: () => '2026-04-13', String,
+      _rgClotureImpayes: (ref, from, to, quoi) => { appels.push([ref, from, to, quoi]); return quoi === 'charge' ? chargesDues : 999 },
+    })
+    return { html: f({ ref: 'L-202', debut: '2025-01-01', finEffective: '2026-04-13' }), appels }
+  }
+  it('121,67 € de charges dues → une ligne au ton neutre, lue en CHARGES sur le bail exact', () => {
+    const r = note(121.67)
+    expect(r.html).toContain('121,67 € de charges restent dues : elles se règlent à la régularisation, pas sur le dépôt.')
+    expect(r.appels).toEqual([['L-202', '2025-01-01', '2026-04-13', 'charge']])
+  })
+  it('aucune charge due (Ferrette - 101 : avril sans charges) → rien', () => {
+    expect(note(0).html).toBe('')
+  })
+  it('le champ « Loyer dû retenu » est pré-rempli et plafonné par les loyers HC dus seulement (_rgClotureImpayes sans « charge »)', () => {
+    const c = extraireFonction(P1, '_rgClotureImpayes')
+    expect(c).toMatch(/const v = \(quoi === 'charge'\) \? m\.chargeRetard : m\.loyerRetard;/)
+  })
+})
+
 describe('historique : jamais « rendu » sans date de virement', () => {
   const f = monter(['_dgEtatHist', '_dgDetenuDuBail', '_dgRestitutionEnregistree', '_dgRetenueLoyerDe'])
   it('Ferrette - 101 après la remise à zéro : « 397,00 € détenus · à justifier ou à rendre »', () => {

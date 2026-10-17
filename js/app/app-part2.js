@@ -17323,7 +17323,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.758 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.759 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -28840,7 +28840,7 @@ function _dgOpenRestitution(ref, cle) {
         <tr><td>– Autres retenues <span class="mu" style="font-size:10.5px">(régularisation de charges, etc.)</span></td>
             <td style="text-align:right"><input class="inp" type="number" id="dg-restit-autres" value="${_dgAutresRetenues}" min="0" step="0.01" style="width:110px;text-align:right;color:var(--red)" onchange="_dgRestitRecalc('${_lyQ(ref)}')"></td></tr>
         <tr id="dg-restit-avert-row" hidden><td colspan="2">${_dgAvertRetenuesHtml(bail)}</td></tr>
-        <tr><td>– Loyer dû retenu sur le dépôt <span class="mu" style="font-size:10.5px;display:block">loyers dus du bail (suivi des loyers) : ${fmt(solde.loyerDu != null ? solde.loyerDu : solde.loyerImpaye)}</span><span id="dg-restit-loyer-warn" class="mu" hidden style="font-size:10.5px;display:block;color:var(--warn)"></span></td>
+        <tr><td>– Loyer dû retenu sur le dépôt <span class="mu" style="font-size:10.5px;display:block">loyers dus du bail (suivi des loyers) : ${fmt(solde.loyerDu != null ? solde.loyerDu : solde.loyerImpaye)}</span><span id="dg-restit-loyer-warn" class="mu" hidden style="font-size:10.5px;display:block;color:var(--warn)"></span>${_dgRestitChargesNote(bail)}</td>
             <td style="text-align:right"><input class="inp" type="number" id="dg-restit-loyer" value="${solde.loyerImpaye}" min="0" step="0.01" style="width:110px;text-align:right;color:var(--red)" onchange="_dgRestitRecalc('${_lyQ(ref)}')"></td></tr>
         <tr id="dg-restit-pen-row" hidden><td>+ Pénalité de retard (art. 22)</td><td style="text-align:right;color:#185fa5;font-weight:600" id="dg-restit-pen-amt">—</td></tr>
         <tr style="border-top:2px solid var(--bor)">
@@ -28877,6 +28877,18 @@ function _dgOpenRestitution(ref, cle) {
   _dgVgRender(ref);
 }
 
+// Décision Didier 17/10 : le dépôt ne règle que le LOYER HC. Les charges encore dues de ce bail sont dites en une ligne :
+// elles se règlent à la régularisation (jamais retenues ici).
+function _dgRestitChargesNote(bail) {
+  let ch = 0;
+  try {
+    if (bail && bail.ref && bail.debut && typeof _rgClotureImpayes === 'function') {
+      const fin = bail.finEffective || _bailFinOccupation(bail, false) || (typeof td === 'function' ? td() : '');
+      ch = _rgClotureImpayes(bail.ref, String(bail.debut).slice(0, 10), fin, 'charge') || 0;
+    }
+  } catch (e) { ch = 0; }
+  return ch > 0.005 ? '<span class="mu" style="font-size:10.5px;display:block">' + fmt(ch) + ' de charges restent dues : elles se règlent à la régularisation, pas sur le dépôt.</span>' : '';
+}
 // Le loyer dû retenu sur le dépôt, saisi dans la fenêtre (null si le champ est absent ou vide).
 function _dgRestitLoyerSaisi() {
   const e = el('dg-restit-loyer'); if (!e || String(e.value).trim() === '') return null;

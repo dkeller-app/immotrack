@@ -36,6 +36,19 @@ describe('cas Arslan : la dette de l\'ancien locataire n\'est plus payée par le
     expect(b.retenue).toEqual({ montant: 303, appliquee: 303 });
     expect(b.arrondis).toEqual([{ ym: '2026-04', montant: -0.33 }]);
   });
+  it('décision 17/10 : départ avec plusieurs mois impayés, loyer + charges — la retenue ne règle aucune charge', () => {
+    const R2 = 'L-202';
+    const ctx2 = { ref: R2, bareme: [{ ref: R2, debut: '2025-01-01', fin: '2026-04-13', hc: 700, ch: 50, source: 'bail', bailDebut: '2025-01-01' }],
+      bails: [{ debut: '2025-01-01', finEffective: '2026-04-13', archive: true, hc: 700, ch: 50 }] };
+    const s = _computeSuiviLot({ ref: R2, ctx: ctx2, mouvements: [pay(R2, '2026-01-05', 750)], catLigne, today: TODAY,
+      debutSuivi: '2026-01-01', sourceSuivi: 'provisoire', seuilArrondi: 1, retenues: { '2025-01-01': 5000 } });
+    const b = s.baux[0];
+    // février 700 + 50, mars 700 + 50, avril 13/30 : 303,33 + 21,67 — tout le loyer est retenu, les charges restent dues
+    expect(b.loyer).toBe(0);
+    expect(b.charge).toBe(121.67);
+    expect(b.retenue).toEqual({ montant: 5000, appliquee: 1703.33 });
+    expect(b.mois.filter((x) => x.ym >= '2026-02').map((x) => x.chargeRetard)).toEqual([50, 50, 21.67]);
+  });
   it('nouveau bail, positions de fin de mois : mai 0 (0,32 € ignorés) · juin +780 · juillet 0 · août/sept/oct −20', () => {
     const s = suivi();
     const v = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'].map((ym) => pos(s, ym).position);
@@ -96,6 +109,22 @@ describe('règlements sans virement (_loyerArrearsPass)', () => {
     expect(r.months[1]).toMatchObject({ loyerArrear: 600, chargeArrear: 80, remise: 620 });
     expect(r.retardMois[0]).toEqual({ loyer: 600, charge: 50 });
     expect(r.retardMois[1]).toEqual({ loyer: 0, charge: 30 });
+  });
+  it('décision Didier 17/10 : la retenue sur le dépôt ne règle QUE le loyer HC (mois, puis arriérés), jamais les charges', () => {
+    // mars et avril impayés (700 + 50, puis 303 + 20) ; retenue de 2 000 € : seuls les 1 003 € de loyer sont réglés
+    const r = _loyerArrearsPass([m(700, 50, 0), m(303, 20, 0, { reglement: 2000 })], { carry: true });
+    expect(r.months[1]).toMatchObject({ loyerArrear: 0, chargeArrear: 70, avance: 0 });
+    expect(r.retardMois[0]).toEqual({ loyer: 0, charge: 50 });
+    expect(r.retardMois[1]).toEqual({ loyer: 0, charge: 20 });
+    expect(r.months[0].reglement).toBe(700);
+    expect(r.months[1].reglement).toBe(303);
+    // retenue plus courte que le loyer dû : loyer du mois, puis le plus vieux arriéré ; aucune charge touchée
+    const p = _loyerArrearsPass([m(700, 50, 0), m(303, 20, 0, { reglement: 500 })], { carry: true });
+    expect(p.retardMois[0]).toEqual({ loyer: 503, charge: 50 });
+    expect(p.retardMois[1]).toEqual({ loyer: 0, charge: 20 });
+    // un manque accepté garde l'ordre H-1 (loyer du mois, charges du mois, arriérés)
+    const q = _loyerArrearsPass([m(700, 50, 0), m(303, 20, 0, { remise: 330 })], { carry: true });
+    expect(q.retardMois[1]).toEqual({ loyer: 0, charge: 0 });
   });
   it('sans remise ni règlement : sortie identique à l\'historique (option absente)', () => {
     const ms = [m(500, 30, 530), m(500, 30, 0), m(500, 30, 900)];

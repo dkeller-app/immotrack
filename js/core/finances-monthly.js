@@ -568,7 +568,7 @@ export function _bailDuPaiement(segs, date, choix) {
  *   - la POSITION du bail à la fin de chaque mois (`mois[].retardLoyer/retardCharge/avance/position`) :
  *     avance OU retard, jamais les deux (même cascade compensée) ;
  *   - les règlements sans virement : `retenueLoyer` (retenue pour loyer sur le dépôt, posée au mois de la
- *     fin du bail) et `manques` (manques acceptés, à leur mois) — plafonnés, jamais une avance, jamais un
+ *     fin du bail, imputée sur le LOYER HC seulement — décision Didier 17/10) et `manques` (manques acceptés, à leur mois) — plafonnés, jamais une avance, jamais un
  *     encaissement (la 2044 n'en sait rien) ;
  *   - l'arrondi sous `seuilArrondi` (le suivi passe 1 €), tracé ;
  *   - le rattachement des encaissements de `_bailDuPaiement` (Q3) et la liste `aConfirmer`.
