@@ -89,7 +89,7 @@ function monter(sc, noms) {
     _rgJustifFactures: () => [], _rgForfaitRef: () => ({ citation: '' }), _ensureRegulPhCss: () => {},
   };
   // DÉPÔT DÉTENU (17/10) : les vrais helpers de la fenêtre de restitution (loyer retenu saisi, avertissement art. 22).
-  noms = noms.concat(['_dgRestitLoyerSaisi', '_dgAvertRetenuesHtml', '_dgRetenueLoyerDe'].filter(n => !noms.includes(n)));
+  noms = noms.concat(['_dgRestitLoyerSaisi', '_dgRestitLoyerEffectif', '_dgAvertRetenuesHtml', '_dgRetenueLoyerDe'].filter(n => !noms.includes(n)));
   const src = noms.map(corpsDe).join('\n');
   // eslint-disable-next-line no-new-func
   const f = new Function('scope', 'with (scope) {\n' + src + '\nreturn {' + noms.join(',') + '};\n}');
@@ -151,6 +151,9 @@ describe('3 · étape régularisation ET étape restitution du DG : un seul sold
     expect(fn._rgClotureCompute(REF).impayes).toBe(2000);
     fn._dgOpenRestitution(REF);
     const body = els['ov-dg-restitution-body'].innerHTML.replace(/\s+/g, ' ');
+    // relecture Opus 17/10 : une retenue pour loyer DÉCIDÉE fait foi des deux côtés (un seul solde)
+    const sc0 = TACITE(); sc0.DB.baux[REF].dgRetenueLoyer = 0;
+    expect(monter(sc0, NOMS).fn._rgClotureCompute(REF).impayes).toBe(0);
     expect(body).toMatch(/loyers dus du bail \(suivi des loyers\) : 2000\.00 €/);
     expect(body).toMatch(/id="dg-restit-loyer" value="2000"/);
     expect(body).toMatch(/id="dg-restit-solde-display"[^>]*>0\.00 €/);
@@ -195,6 +198,15 @@ describe('5 · _dgConfirmerRestitution — montant ÉCRIT sur le bail', () => {
     const b = confirmer(TACITE());
     expect(b.dgRestitueMontant).toBe(0);
     expect(b.dgPenaliteArt22).toBe(0);
+    // relecture Fable 17/10 : la retenue pour loyer ÉCRITE = ce que le dépôt couvre (500 €), jamais les 2 000 € dus —
+    // le moteur des loyers garde les 1 500 € restants à réclamer.
+    expect(b.dgRetenueLoyer).toBe(500);
+  });
+  it('champ « Loyer dû retenu » vidé : ce que le solde déduit (les loyers dus) est écrit — jamais déduit ET encore réclamé', () => {
+    const b = confirmer(DEPART());
+    expect(b.dgRetenueLoyer).toBe(0);   // départ au 31/08, impayés de septembre-octobre hors occupation : rien à retenir
+    const t = confirmer(TACITE());
+    expect(t.dgRetenueLoyer).toBe(500);
   });
   it('départ déclaré, EDL de sortie conforme : 500 € + 50 € de pénalité', () => {
     const b = confirmer(DEPART_EDL_CONFORME());

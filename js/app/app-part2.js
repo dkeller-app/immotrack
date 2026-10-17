@@ -15040,11 +15040,14 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
       const dgInfo=_dgStatutDuBail(_dgCible);
       // 17/10 : un dépôt entièrement retenu pour loyer n'est pas « restitué » (aucun virement) — le flag de restitution fait foi.
       const isRestit = dgInfo.statut===DG_STATUS.RESTITUE || (c.statut==='clos' && typeof _dgRestitutionEnregistree==='function' && (_dgRestitutionEnregistree(_dgCible) || _dgVerseMontant(_dgCible) <= 0));
-      const st = _dgStatutLibelle(dgInfo, isRestit, true);
+      // dépôt ENTIÈREMENT retenu pour loyer (relecture Opus 17/10) : rien n'est détenu ni à rendre (pas de tâche, pas de bulle) —
+      // la carte le dit, sans « à restituer » ni geste
+      const retenuTout = !isRestit && c.statut==='clos' && typeof _dgDetenuDuBail==='function' && _dgDetenuDuBail(_dgCible, 0) <= 0 && typeof _dgRetenueLoyerDe==='function' && _dgRetenueLoyerDe(_dgCible) > 0;
+      const st = retenuTout ? ['Retenu pour loyer', _dgStatutLibelle(dgInfo, true, true)[1]] : _dgStatutLibelle(dgInfo, isRestit, true);
       statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
       const _DgD = (typeof window !== 'undefined') ? window.DgDelai : null;
-      if(!isRestit && dgInfo.limite && _DgD) delaiDesc = 'à restituer ' + escHtml(_DgD.libelleEcheance(dgInfo, fd));
-      if(c.statut==='clos' && !isRestit){
+      if(!isRestit && !retenuTout && dgInfo.limite && _DgD) delaiDesc = 'à restituer ' + escHtml(_DgD.libelleEcheance(dgInfo, fd));
+      if(c.statut==='clos' && !isRestit && !retenuTout){
         const _cle = _lyQ(_bailHistCleDe(_dgCible));
         ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}','${_cle}')">✦ Préparer la restitution du DG</button></div>`;
       }
@@ -28880,6 +28883,20 @@ function _dgRestitLoyerSaisi() {
   const n = parseFloat(String(e.value).replace(',', '.'));
   return Number.isFinite(n) ? Math.max(0, Math.round(n * 100) / 100) : null;
 }
+// La retenue pour loyer EFFECTIVE (relecture Fable 17/10) : la saisie (sinon les loyers dus du moteur), bornée à ce que
+// le dépôt couvre après les autres retenues — c'est CE montant que le solde déduit ET que la confirmation écrit
+// (`dgRetenueLoyer`, lu par le moteur des loyers) : jamais un loyer soldé que le dépôt n'a pas couvert, jamais un loyer
+// déduit du dépôt et encore réclamé.
+function _dgRestitLoyerEffectif(bail, dgVerse, retenuesTotal) {
+  const saisi = _dgRestitLoyerSaisi();
+  const s = _calculerSoldeDG(Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) }, saisi != null ? { dgRetenueLoyer: saisi } : {}), DB.mouvements || []);
+  const voulu = Math.round((Number(s.loyerImpaye) || 0) * 100) / 100;
+  const plafond = Math.max(0, Math.round((dgVerse - retenuesTotal) * 100) / 100);
+  const loyerDu = Math.round((Number(s.loyerDu) || 0) * 100) / 100;
+  // borné aussi aux loyers dus (relecture Opus) : un surplus saisi ne serait ni du loyer (le moteur plafonne à la dette)
+  // ni du dépôt détenu — il disparaîtrait. L'avertissement le dit, rien n'est bloqué.
+  return { saisi, voulu, plafond, retenu: Math.min(voulu, plafond, loyerDu), loyerDu };
+}
 // (d) Avertissement sous « Autres retenues » (maquette validée 17/10) : une retenue pour travaux se justifie — art. 22
 // cité mot pour mot (_ART22_RESTITUTION) ; l'absence d'EDL de sortie est dite. Jamais bloquant.
 function _dgAvertRetenuesHtml(bail) {
@@ -28905,14 +28922,18 @@ function _dgRestitRecalc(ref) {
   const autres = Math.max(0, parseFloat(v('dg-restit-autres')) || 0);
   const retenuesTotal = Math.round((reparations + autres) * 100) / 100;
   const dgVerse = _dgVerseMontant(bail);
-  const retLoyer = _dgRestitLoyerSaisi();
-  const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false) }, retLoyer != null ? { dgRetenueLoyer: retLoyer } : {});
+  const rl = _dgRestitLoyerEffectif(bail, dgVerse, retenuesTotal);
+  const tempBail = Object.assign({}, bail, { dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false), dgRetenueLoyer: rl.retenu });
   const solde = _calculerSoldeDG(tempBail, DB.mouvements || []);
   // (d) retenue pour travaux / autres : avertir (art. 22, EDL de sortie), jamais bloquer
   const av = el('dg-restit-avert-row'); if (av) av.hidden = !(retenuesTotal > 0.005);
   const lw = el('dg-restit-loyer-warn');
-  if (lw) { const du = Number(solde.loyerDu) || 0, trop = retLoyer != null && retLoyer > du + 0.005;
-    lw.hidden = !trop; lw.textContent = trop ? 'Plus que les loyers dus (' + fmt(du) + ') : le surplus n’est pas du loyer.' : ''; }
+  if (lw) {
+    const trop = rl.saisi != null && rl.saisi > rl.loyerDu + 0.005, court = rl.voulu > rl.plafond + 0.005;
+    lw.hidden = !(trop || court);
+    lw.textContent = court ? 'Le dépôt ne couvre que ' + fmt(rl.plafond) + ' de loyer après les autres retenues : ' + fmt(rl.retenu) + ' retenus, le reste du loyer reste dû.'
+      : (trop ? 'Plus que les loyers dus (' + fmt(rl.loyerDu) + ') : seuls ' + fmt(rl.retenu) + ' sont retenus, le surplus n’est pas du loyer.' : '');
+  }
   // Pénalité art. 22 (au crédit du locataire), recomputée avec le toggle adresse + la date saisie.
   const adresseKO = !!(el('dg-restit-adresse-ko') && el('dg-restit-adresse-ko').checked);
   const dateRestit = v('dg-restit-date') || '';
@@ -28977,8 +28998,8 @@ function _dgConfirmerRestitution() {
   // porter au document une date qui n'était celle de rien.
   const dateRestitution = v('dg-restit-date') || '';
   const dgVerse = _dgVerseMontant(bail);
-  const retLoyer = _dgRestitLoyerSaisi();
-  const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false), ...(retLoyer != null ? { dgRetenueLoyer: retLoyer } : {}) }, DB.mouvements || []);
+  const retLoyer = _dgRestitLoyerEffectif(bail, dgVerse, retenuesTotal).retenu;   // ce que le solde déduit = ce qui est écrit
+  const solde = _calculerSoldeDG({ ...bail, dgPaid: dgVerse, dgRetenu: retenuesTotal, fin: _bailFinOccupation(bail, false), dgRetenueLoyer: retLoyer }, DB.mouvements || []);
   // Pénalité art. 22 (au crédit du locataire) — ajoutée au montant restitué.
   const pen = window._penaliteRetardDG
     ? window._penaliteRetardDG({ ...bail, dgRetenu: retenuesTotal, dgAdresseNonCommuniquee: adresseKO, dgRestitueAt: dateRestitution || bail.dgRestitueAt, fin: _bailFinOccupation(bail, false) }, dateRestitution || undefined)
@@ -29004,7 +29025,7 @@ function _dgConfirmerRestitution() {
   bail.dgRetenu = retenuesTotal;
   // DÉPÔT DÉTENU (17/10) : le loyer dû réglé par le dépôt — lu par le moteur des loyers (dette du bail soldée d'autant)
   // et par les dépôts détenus (il n'est plus l'argent du locataire).
-  if (retLoyer != null) bail.dgRetenueLoyer = retLoyer;
+  bail.dgRetenueLoyer = retLoyer;
   bail.dgDetailRetenues = detailRetenues;
   // NORMALISATION-LOYERS (01/10, RGPD) : l'IBAN du locataire n'est plus demandé ni gardé. Un ancien
   // IBAN encore porté par ce bail est retiré ici (la normalisation le retire aussi au chargement).

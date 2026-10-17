@@ -7602,7 +7602,7 @@ function _pilCollectFamilles(ctx) {
   //    tuile « Dépôts détenus » et sa liste ; `cle` = le bail exact (archive) pour le geste. ──
   try {
     _dgDetenusListe(scopeLogs).filter(e => e.parti).forEach(e => {
-      src.depot.push({ ref: e.ref, cle: e.cle, nom: _logLabel(e.ref), montant: e.detenu, urgenceJours: e.jours, echeance: e.echeance, penalite: e.penalite });
+      src.depot.push({ ref: e.ref, cle: e.cle, nom: _logLabel(e.ref), montant: e.detenu, urgenceJours: e.jours, echeance: e.echeance, echeancePossible: e.echeancePossible || null, etat: e.etat || null, penalite: e.penalite });
     });
   } catch (e) {}
 
@@ -7939,7 +7939,8 @@ function _renderAccueilPhone(ctx){
   if (_cfrPh && _cfrPh.recettes != null) encYTD = _cfrPh.recettes;
   else logs.forEach(function(l){ try{ encYTD += (_v4ComputeLotStatus(l, yr, '', ctx.mvsYTD).recu||0); }catch(e){} });
   // DÉPÔT DÉTENU (17/10) : la tuile lit LA liste des dépôts détenus (retenues pour loyer déduites, part à rendre).
-  var _dgT = { total: 0, nb: 0, aRendre: 0 }; try { _dgT = _dgTuileFaits(logs); _dgCss(); } catch(e) {}
+  var _dgT = { total: 0, nb: 0, aRendre: 0 }; try { _dgT = _dgTuileFaits(logs); } catch(e) {}
+  try { _dgCss(); } catch(e) {}
   var dg = _dgT.total;
   var fams={total:0,familles:[]}; try{ fams=_pilCollectFamilles(ctx); }catch(e){}
   var aReg = fams.total||0, famBy={}; (fams.familles||[]).forEach(function(f){ famBy[f.id]=f; });
@@ -8078,7 +8079,7 @@ function _pilDepotTxt(f) {
   const tot = r2(items.reduce((s, i) => s + (Number(i.montant) || 0), 0));
   if (tot <= 0.005) return null;
   const p = f.pire || items[0];
-  return { a: F(tot) + ' à rendre', sub: (p.echeance ? 'avant le ' + _dgJjMm(p.echeance) + ' · ' : '') + escHtml(p.nom || p.ref || '') };
+  return { a: F(tot) + ' à rendre', sub: _dgEcheanceTxt(p) + escHtml(p.nom || p.ref || '') };
 }
 function _pilPireTxt(f) {
   if (f && f.id === 'depot') { const t = _pilDepotTxt(f); if (t) return t.sub; }
@@ -8256,7 +8257,8 @@ function _renderPilotage(ctx) {
   // R-0 : lot LOUE selon le bail, et montant du bail en cours (revu a la relocation).
   // DÉPÔT DÉTENU (17/10) : dépôt reçu, pas encore restitué, retenues pour loyer déduites ; « dont X € à justifier ou à
   // rendre » = les dépôts des locataires partis. Clic = la liste (_dgListeDetenus). Des DÉPÔTS, pas des lots.
-  let _dgT = { total: 0, nb: 0, aRendre: 0 }; try { _dgT = _dgTuileFaits(scopeLogs); _dgCss(); } catch (e) {}
+  let _dgT = { total: 0, nb: 0, aRendre: 0 }; try { _dgT = _dgTuileFaits(scopeLogs); } catch (e) {}
+  try { _dgCss(); } catch (e) {}
   const strip = [
     '<div class="pil-s1"><div class="k">Encaissé · ' + (mo ? _DMF[parseInt(mo) - 1] : yr) + '</div>'
       + '<div class="v">' + (encaisse != null ? fmtN(encaisse) : '—') + '</div>'
@@ -10094,8 +10096,13 @@ function _dgEntreeDepot(ref, b, cle, archive, detenu, dgLot, today) {
   if (!e.parti) return e;
   let dl = null; try { dl = _departDeadlineDG(b); } catch (err) { dl = null; }
   if (dl && dl.iso) {
+    const j = (iso) => Math.round((Date.parse(String(iso).slice(0, 10) + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
     e.echeance = String(dl.iso).slice(0, 10);
-    e.jours = Math.round((Date.parse(e.echeance + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+    e.jours = j(e.echeance);
+    // conformité de l'EDL de sortie inconnue : l'urgence se compte jusqu'à la PREMIÈRE date (1 mois), comme la tâche 7bis ;
+    // passée, l'échéance n'est que POSSIBLEMENT dépassée (DgDelai : 'depassement_possible')
+    if (dl.provisional && dl.isoSiConforme) { e.echeancePossible = String(dl.isoSiConforme).slice(0, 10); e.jours = j(e.echeancePossible); }
+    e.etat = dl.etat || null;
     if (dl.remise) e.sortie = String(dl.remise).slice(0, 10);
   }
   try {
@@ -10106,7 +10113,9 @@ function _dgEntreeDepot(ref, b, cle, archive, detenu, dgLot, today) {
   return e;
 }
 function _dgDetenusListe(scopeLogs) {
-  const today = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : new Date().toISOString().slice(0, 10);
+  // même horloge que l'Accueil (_pilCollectFamilles : _loyerTodayLocal, figée en démonstration)
+  const today = (typeof window !== 'undefined' && typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal()
+    : ((typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : new Date().toISOString().slice(0, 10));
   const out = [];
   (scopeLogs || []).forEach(function (l) {
     if (!l || !l.ref) return;
@@ -10131,6 +10140,14 @@ function _dgRetenueMoisTxt(ref, debut) {
   const de = (n) => (/^[aeiouyéèêàâîôû]/i.test(n) ? 'd’' : 'de ') + n;
   return noms.length === 1 ? 'Retenu pour le loyer ' + de(noms[0])
     : 'Retenu pour les loyers ' + de(noms.slice(0, -1).join(', ')) + ' et ' + noms[noms.length - 1];
+}
+// L'échéance d'un dépôt à rendre, en clair (bulle, liste) : « avant le JJ/MM » ; « échéance JJ/MM dépassée » ; EDL de
+// sortie de conformité inconnue → la première date (1 mois) : « échéance possible JJ/MM dépassée » (DgDelai). '' sans échéance.
+function _dgEcheanceTxt(e) {
+  if (!e || !e.echeance) return '';
+  if (e.etat === 'en_retard') return 'échéance ' + _dgJjMm(e.echeance) + ' dépassée · ';
+  if (e.etat === 'depassement_possible' && e.echeancePossible) return 'échéance possible ' + _dgJjMm(e.echeancePossible) + ' dépassée · ';
+  return 'avant le ' + _dgJjMm(e.echeancePossible || e.echeance) + ' · ';
 }
 function _dgJjMm(iso) { const s = String(iso || ''); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(8, 10) + '/' + s.slice(5, 7) : ''; }
 function _dgScopeLogs() {
@@ -10164,7 +10181,7 @@ function _dgCss() {
     '.dep-avert{margin:8px 0 2px;padding:9px 11px;border-radius:9px;border:1px solid var(--bor);border-left:3px solid var(--warn);background:var(--sur2);font-size:12.5px;line-height:1.45;color:var(--t1)}',
     '.dep-avert q{display:block;margin-top:5px;color:var(--t2);font-style:italic}.dep-avert q:before,.dep-avert q:after{content:none}',
     '#p-accueil .pil-b[data-pilfam="depot"] .sub{-webkit-line-clamp:2}',
-    '.dep-tuile{cursor:pointer;font:inherit;color:inherit;text-align:left;width:100%;min-height:44px}.pil-s1.dep-tuile>span{display:block}.dep-tuile:hover{border-color:var(--acc)}.dep-tuile:focus-visible{outline:2px solid var(--acc);outline-offset:2px}'
+    '.dep-tuile{cursor:pointer;font:inherit;color:inherit;text-align:left;width:100%;min-height:44px}.pil-s1.dep-tuile>span{display:block}.pil-s1.dep-tuile:hover{border-color:var(--acc)}.dep-tuile:focus-visible{outline:2px solid var(--acc);outline-offset:2px}'
   ].join('\n');
   document.head.appendChild(s);
 }
@@ -10182,7 +10199,7 @@ function _dgListeDetenus() {
   const today = (typeof _todayIsoLocal === 'function') ? _todayIsoLocal() : '';
   const L2 = (a, b) => '<div class="l"><span>' + a + '</span><b>' + b + '</b></div>';
   const carte = (e) => {
-    const tag = e.echeance ? (e.jours < 0 ? 'échéance ' + _dgJjMm(e.echeance) + ' dépassée' : 'avant le ' + _dgJjMm(e.echeance)) : '';
+    const tag = e.echeance ? _dgEcheanceTxt(e).replace(/ · $/, '') : '';
     let d = L2('Dépôt versé', f(e.verse));
     if (e.retenueLoyer > 0.005) d += L2(esc(_dgRetenueMoisTxt(e.ref, e.bail && e.bail.debut)), '− ' + f(e.retenueLoyer));
     d += L2('Encore détenu', f(e.detenu));
@@ -12792,7 +12809,7 @@ function _dgEtatHist(b) {
   if (!b) return { cls: '', txt: '–' };
   if (b.dgRestitueAt) {
     const m = (b.dgRestitueMontant != null && b.dgRestitueMontant !== '') ? Number(b.dgRestitueMontant) : Number(b.dgRestitue) || 0;
-    return { cls: 'ok', txt: 'Rendu le ' + fd(b.dgRestitueAt) + ' : ' + fmt(m) };
+    return { cls: 'ok', txt: m > 0.005 ? 'Rendu le ' + fd(b.dgRestitueAt) + ' : ' + fmt(m) : 'Solde de tout compte le ' + fd(b.dgRestitueAt) + ' : rien à rendre' };
   }
   const det = _dgDetenuDuBail(b, 0);
   if (det > 0) return { cls: 'warn', txt: fmt(det) + ' détenus · à justifier ou à rendre' };
@@ -26020,7 +26037,10 @@ function _rgClotureCompute(entryKey){
   const dgRestit = Math.round((dg - retenueSugg)*100)/100;
   // Lot 4 (mockup 11) — SOLDE DE TOUT COMPTE : dettes connues (loyers+charges impayés, réparations)
   // + régularisation → total dû → réconciliation avec le dépôt de garantie.
-  const impayes = _rgClotureImpayes(entry.ref, entry.debutOcc, entry.finOcc);
+  // DÉPÔT DÉTENU (17/10, relecture Opus) : un seul solde avec la restitution — la retenue pour loyer DÉCIDÉE fait foi
+  // (même règle que _calculerSoldeDG), sinon les loyers dus du moteur.
+  const _rlDec = (typeof window !== 'undefined' && typeof window._dgRetenueLoyerDecidee === 'function') ? window._dgRetenueLoyerDecidee(bail) : null;
+  const impayes = (_rlDec != null) ? _rlDec : _rgClotureImpayes(entry.ref, entry.debutOcc, entry.finOcc);
   const reparations = Math.round((Number((bail.depart||{}).reparations)||0)*100)/100;
   const regulDu = du;                          // dû sur la régul (0 si trop-perçu)
   const regulCredit = solde > 0 ? solde : 0;   // trop-perçu de charges → à restituer
