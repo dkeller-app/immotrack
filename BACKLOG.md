@@ -1,4 +1,32 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.763 (18/10, pilotage Desktop, GO Didier)** — **Audits avant bêta, lot A : fuites entre comptes** (`fix/audit-beta-A`, d0f891e8 ; 8 479 tests app + 491 relais verts ; relecture Opus adverse : 1 🔴 corrigé ; Fable : 0 🔴, 1 🟠 corrigé). État complet : `mockups/AUDITS-AVANT-BETA/ETAT.md`.
+>
+> **Migration 0063 à appliquer par Didier (après 0062)** :
+> - plus d'INSERT ni d'UPDATE client sur `espace_members` (SECU-C3) ;
+> - `espace_config` réservé au membre plein ;
+> - EXECUTE retiré à anon/PUBLIC.
+>
+> Lectures préalables faites le 18/10 :
+> - 0 membre plein hors de son propre espace ;
+> - 0 compte avec plusieurs espaces ;
+> - `current_user` = postgres.
+>
+> Le client actuel ne fait que SELECT/DELETE sur `espace_members` : l'ordre front/migration est donc sans risque.
+>
+> **Côté app :**
+> - XSS corrigés : `rFinances` (`_esc` = x=>x !), `_affDestBadge`, popup du bail (`_jsonPourScript`), id forgés via `legacy_raw`, `fd()`.
+> - pdf.js `isEvalSupported:false` (CVE-2024-4367).
+>
+> **Côté relais :** en-têtes no-store, nosniff et anti-cadre sur `/s` et `/d`. Relais à redéployer.
+>
+> **Décisions Didier 17/10 :**
+> - SIG-1 : un lien par signataire ;
+> - F-26 : décompte de restitution remis au locataire ;
+> - N-2 : plafond d'e-mails par compte (Resend gratuit = 100/jour) → lot C.
+>
+> F-4 (notice du congé) et DOC-Q (quittance sur mois impayé) expliqués, en attente de réponse.
+>
+> **En cours :** lot B (pertes de données, v15.764, 2 🔴 Fable en correction), lot C (v15.765).
 > 🚦 **MAIN = v15.762 (17/10, pilotage Desktop)** — **Stockage : textes vrais** (`fix/stockage-indexeddb`, 54c7d29d ; 8 456 tests verts). Ce lot clôt le P0 « Mémoire pleine », livré en v15.705→724 et revérifié le 17/10 (88 tests, geste quota plein OK).
 > - Carte « Stockage de cet appareil » : « partent au cloud ».
 > - La carte et le toast `echec-repli` ne disent « plein » que si le navigateur a refusé faute de place ; sinon « le stockage local de cet appareil a échoué ».
