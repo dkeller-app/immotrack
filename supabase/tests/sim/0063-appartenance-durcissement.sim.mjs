@@ -4,8 +4,7 @@
 //
 // Acteurs : Alice = owner PLEIN de l'espace A · Bob = owner de SON espace B (autre compte) · Carol = membre
 // SCOPÉE de SCI-A1 dans l'espace A · Dave = connecté sans espace.
-// Prouve AVANT 0063 le défaut (un owner inscrit un autre compte comme membre plein actif de son espace, sans
-// son consentement), puis APRÈS : écriture directe refusée, révocation (DELETE) conservée, create_espace et
+// Vérifie l'état AVANT 0063, puis APRÈS : écriture directe refusée, révocation (DELETE) conservée, create_espace et
 // accept_invitation intacts, invitation_preview toujours appelable sans connexion, config écrite par le seul
 // membre plein gestionnaire, justificatif d'un mouvement mixte caché au scopé, EXECUTE retiré à anon (y
 // compris pour une fonction créée APRÈS la migration).
@@ -98,9 +97,9 @@ try {
 
   console.log('AVANT 0063 :')
   const av1 = await asUser(U.bob, INS_MEMBRE, [EB, U.alice])
-  check('défaut prouvé : Bob inscrit Alice comme membre PLEIN actif de SON espace, sans consentement', av1.ok, JSON.stringify(av1))
+  check('état antérieur : écriture directe d’appartenance acceptée', av1.ok, JSON.stringify(av1))
   const av2 = await asUser(U.carol, 'select id from public.documents where id = $1', [DOCMV])
-  check('défaut prouvé : Carol (scopée SCI-A1) voit le justificatif du mouvement mixte', av2.ok && av2.rows.length === 1, JSON.stringify(av2))
+  check('état antérieur : justificatif d’un mouvement mixte lisible par un membre scopé', av2.ok && av2.rows.length === 1, JSON.stringify(av2))
 
   await q(MIG)
   console.log('APRÈS 0063 :')

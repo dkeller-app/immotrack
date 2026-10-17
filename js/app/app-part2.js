@@ -5262,10 +5262,10 @@ function _edlPhotoCell(pi,ei,side) {
   const photos=(side==='E'?_edlP[pi]?.elements[ei]?.photosE:_edlP[pi]?.elements[ei]?.photosS)||[];
   const thumbs=photos.map((ph,phi)=>{
     const srcBadge=ph._source
-      ?`<span style="position:absolute;bottom:0;left:0;right:0;background:${ph._source==='Entrée'?'rgba(56,139,253,.85)':'rgba(240,136,62,.85)'};color:#fff;font-size:8px;text-align:center;padding:0 1px;border-radius:0 0 3px 3px">${ph._source}</span>`
+      ?`<span style="position:absolute;bottom:0;left:0;right:0;background:${ph._source==='Entrée'?'rgba(56,139,253,.85)':'rgba(240,136,62,.85)'};color:#fff;font-size:8px;text-align:center;padding:0 1px;border-radius:0 0 3px 3px">${escHtml(ph._source)}</span>`
       :'';
     return `<div style="position:relative;display:inline-block;margin:1px;vertical-align:top">
-      <img src="${escHtml(_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE)}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
+      <img src="${escHtml(_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE)}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+escHtml(ph._source)+' '+fd(ph._sourceDate)+']':''}">
       ${srcBadge}
       ${locked?'':`<button class="edl-delphoto" onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" aria-label="Supprimer la photo"><span class="edl-dp-i">${_uiIcon('close')}</span></button>`}
     </div>`;
@@ -15648,8 +15648,8 @@ function _renderAssForLog(ref) {
         ${a.notes?`<div class="logf-equip-notes">${escHtml(a.notes)}</div>`:''}
       </div>
       <div class="logf-equip-actions" style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 4px">
-        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`openMrh(${a.id},'${_refA}')`:`openAss(${a.id},'${_refA}')`}" title="Modifier">${_uiIcon('edit')} Modifier</button>
-        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`delMrh(${a.id})`:`delAss(${a.id})`}" title="Supprimer">${_uiIcon('trash')}</button>
+        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`openMrh(${_jsArgAttr(a.id)},'${_refA}')`:`openAss(${_jsArgAttr(a.id)},'${_refA}')`}" title="Modifier">${_uiIcon('edit')} Modifier</button>
+        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="${isMrh?`delMrh(${_jsArgAttr(a.id)})`:`delAss(${_jsArgAttr(a.id)})`}" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
     </div>`;
   };
@@ -20185,8 +20185,8 @@ function _renderAssForImm(ent, im) {
         ${a.notes?`<div class="logf-equip-notes">${escHtml(a.notes)}</div>`:''}
       </div>
       <div class="logf-equip-actions" style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 4px">
-        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="openAss(${a.id})" title="Modifier">${_uiIcon('edit')} Modifier</button>
-        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="delAss(${a.id})" title="Supprimer">${_uiIcon('trash')}</button>
+        <button class="btn bs bb" style="font-size:11px;padding:3px 9px" onclick="openAss(${_jsArgAttr(a.id)})" title="Modifier">${_uiIcon('edit')} Modifier</button>
+        <button class="btn br bb" style="font-size:11px;padding:3px 9px" onclick="delAss(${_jsArgAttr(a.id)})" title="Supprimer">${_uiIcon('trash')}</button>
       </div>
     </div>`;
   }).join('');
@@ -30150,10 +30150,10 @@ function _bankAccountsRender() {
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--bor2)">
-        <button class="btn bs bb" onclick="_bankAccountRename(${a.id})" title="Renommer le compte">${_uiIcon('edit')} Renommer</button>
-        <button class="btn bs bb" onclick="_bankAccountSetBailleur(${a.id})" title="Changer le bailleur de ce compte">${_uiIcon('bank')} Bailleur</button>
-        <button class="btn bs bb" onclick="_bankAccountResetPointer(${a.id})" title="Force le prochain import à passer par le choix « 1er import » (date / tout / manuel)"${li?'':' disabled style="opacity:.4;cursor:not-allowed"'}>${_uiIcon('refresh')} Reset pointeur</button>
-        <button class="btn br bb" onclick="_bankAccountDelete(${a.id})" title="Supprimer ce compte (les mouvements déjà importés sont CONSERVÉS)" style="margin-left:auto">${_uiIcon('trash')} Supprimer</button>
+        <button class="btn bs bb" onclick="_bankAccountRename(${_jsArgAttr(a.id)})" title="Renommer le compte">${_uiIcon('edit')} Renommer</button>
+        <button class="btn bs bb" onclick="_bankAccountSetBailleur(${_jsArgAttr(a.id)})" title="Changer le bailleur de ce compte">${_uiIcon('bank')} Bailleur</button>
+        <button class="btn bs bb" onclick="_bankAccountResetPointer(${_jsArgAttr(a.id)})" title="Force le prochain import à passer par le choix « 1er import » (date / tout / manuel)"${li?'':' disabled style="opacity:.4;cursor:not-allowed"'}>${_uiIcon('refresh')} Reset pointeur</button>
+        <button class="btn br bb" onclick="_bankAccountDelete(${_jsArgAttr(a.id)})" title="Supprimer ce compte (les mouvements déjà importés sont CONSERVÉS)" style="margin-left:auto">${_uiIcon('trash')} Supprimer</button>
       </div>
     </div>`;
   }).join('');
@@ -30616,7 +30616,7 @@ function _bankScopeBar() {
     <select class="inp" style="font-size:12px;padding:4px 8px;width:auto" onchange="_bankSetScope(this.value)">
       <option value="">Tous ses immeubles</option>${immOpts}
     </select>
-    <a onclick="_bankAccountSetBailleur(${acct.id})" style="cursor:pointer;text-decoration:underline;color:var(--t3);font-size:11px">changer de bailleur</a>
+    <a onclick="_bankAccountSetBailleur(${_jsArgAttr(acct.id)})" style="cursor:pointer;text-decoration:underline;color:var(--t3);font-size:11px">changer de bailleur</a>
   </div>`;
 }
 function _bankSetScope(v) {

@@ -18643,7 +18643,7 @@ function previewBailRef(ref) {
     // v15.407 (audit) : passer la clé résolue — sans keyOverride, _openCloudBailPdf ne relit
     // que sig.cloudPdfKey et raterait un artefact stocké uniquement sous sig.pdfRef.cloudPdfKey.
     if (pdfKey) { _openCloudBailPdf(ref, pdfKey); return; }
-    if (pdfLegacy) { window.open(pdfLegacy, '_blank', 'noopener'); return; }
+    if (pdfLegacy && /^https:\/\//i.test(String(pdfLegacy))) { window.open(pdfLegacy, '_blank', 'noopener'); return; }   // lien Drive hérité : https seulement
     // BAIL-SIGNE-MODIFS — signé sans PDF archivé mais avec snapshot : on montre le contenu SIGNÉ
     // (snapshot), jamais le bail vivant qui peut avoir été modifié depuis (journal réappliqué).
     if (sig.bailSnapshot) { previewSignedBailRef(ref); return; }

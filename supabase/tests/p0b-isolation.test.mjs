@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { createUser, userClient, deleteUserByEmail } from './helpers/clients.mjs'
+import { createUser, userClient, deleteUserByEmail, adminClient } from './helpers/clients.mjs'
 import { teardownOwner } from './helpers/teardown.mjs'
 import { BUSINESS_TABLES, seedChain } from './helpers/p0b-fixtures.mjs'
 
@@ -26,7 +26,7 @@ beforeAll(async () => {
   if (e2) throw e2; espaceB = eb.id
 
   // Carol = lecture_seule active dans l'espace d'Alice
-  const { error: e3 } = await clientA.from('espace_members')
+  const { error: e3 } = await adminClient().from('espace_members')   // 0063 : appartenance posée en service-role (setup ; en prod elle naît d'accept_invitation)
     .insert({ espace_id: espaceA, user_id: carol.id, role: 'lecture_seule', invite_status: 'active' })
   if (e3) throw e3
 

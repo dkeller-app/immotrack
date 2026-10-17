@@ -121,7 +121,9 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
   async function remove(coll, rec) { const r = _bareKey(rec); return _route(r).remove(coll, r) }
   // Archivage d'un bail (migration 0055) : routé comme remove → l'espace du PROPRIÉTAIRE du bail.
   async function archive(coll, rec) { const r = _bareKey(rec); return _route(r).archive(coll, r) }
-  async function persistConfig(db) { return own.store.persistConfig(db) }   // config = espace propre uniquement
+  // config = espace propre uniquement ; aucun espace propre (associé invité sans espace à lui) → rien n'est écrit
+  // (sa config n'a pas été chargée : l'écrire réinitialiserait celle du propriétaire, ou serait refusé sans fin).
+  async function persistConfig(db) { return own.mine ? own.store.persistConfig(db) : { status: 'config-skipped' } }
   // Espace d'un enregistrement NEUF (non tagué), déduit de son rattachement (cf. inferRattachementOf). Ne
   // renvoie qu'un espace TIERS connu, et seulement si l'utilisateur peut y ÉCRIRE pour la SCI de rattachement
   // (`peutEcrire(nomSCI)`, posé par resolveEspaces depuis entite_membre role=gestionnaire) : un associé en

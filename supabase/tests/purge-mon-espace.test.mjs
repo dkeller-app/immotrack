@@ -41,7 +41,7 @@ beforeAll(async () => {
   espaceB = eb.id
 
   // Carol = membre ACTIF de A mais PAS owner (lecture_seule, espace entier).
-  const { error: e3 } = await clientA.from('espace_members')
+  const { error: e3 } = await adminClient().from('espace_members')   // 0063 : appartenance posée en service-role (setup ; en prod elle naît d'accept_invitation)
     .insert({ espace_id: espaceA, user_id: cUser.id, role: 'lecture_seule', invite_status: 'active', full_espace: true })
   if (e3) throw e3
 

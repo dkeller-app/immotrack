@@ -59,7 +59,7 @@ function monterAvecMoteur({ reponse = { data: [], error: null } } = {}) {
   client.from = () => tableFactice(reponse);
   const api = createBoot(client);
   api.wireStores({
-    espaces: [{ espaceId: 'e1', ownerId: 'o1' }],
+    espaces: [{ espaceId: 'e1', ownerId: 'o1', mine: true }],   // espace PROPRE (resolveEspaces le marque toujours ; sans lui, la config n'est plus écrite)
     getDB: () => ({ baux: {}, logements: [] }),
     schedule: () => {},
   });

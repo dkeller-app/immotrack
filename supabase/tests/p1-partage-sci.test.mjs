@@ -123,7 +123,7 @@ beforeAll(async () => {
   A2 = await seedSci(clientA, espaceA, `SCI-B-${RUN}`)
 
   // Bob = membre SCOPÉ (full_espace=false), octroi LECTURE sur SCI-A uniquement.
-  const { error: e2 } = await clientA.from('espace_members')
+  const { error: e2 } = await adminClient().from('espace_members')   // 0063 : appartenance posée en service-role (setup ; en prod elle naît d'accept_invitation)
     .insert({ espace_id: espaceA, user_id: bobId, role: 'lecture_seule', invite_status: 'active', full_espace: false })
   if (e2) throw e2
   const { error: e3 } = await clientA.from('entite_membre')
@@ -131,7 +131,7 @@ beforeAll(async () => {
   if (e3) throw e3
 
   // Carol = membre SCOPÉ (full_espace=false), octroi GESTIONNAIRE sur SCI-A uniquement.
-  const { error: e4 } = await clientA.from('espace_members')
+  const { error: e4 } = await adminClient().from('espace_members')   // 0063 : appartenance posée en service-role (setup ; en prod elle naît d'accept_invitation)
     .insert({ espace_id: espaceA, user_id: carolId, role: 'lecture_seule', invite_status: 'active', full_espace: false })
   if (e4) throw e4
   const { error: e5 } = await clientA.from('entite_membre')

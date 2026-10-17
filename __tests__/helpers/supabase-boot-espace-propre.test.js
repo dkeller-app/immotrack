@@ -78,6 +78,18 @@ describe('resolveEspaces — espace propre = espace créé par le compte', () =>
     expect(calls.order.some(([t]) => t === 'espace_members')).toBe(true)
   })
 
+  it('aucun espace créé : la plus ancienne appartenance PLEINE reste propre (co-gestionnaire plein historique)', async () => {
+    const { client } = fakeClient({
+      members: [{ espace_id: 'e-scope', full_espace: false }, { espace_id: 'e-plein', full_espace: true }],
+      espaces: [
+        { id: 'e-scope', created_by: 'x', nom: 'S', created_at: '2026-01-01T00:00:00Z' },
+        { id: 'e-plein', created_by: 'y', nom: 'P', created_at: '2026-02-01T00:00:00Z' },
+      ],
+    })
+    const list = await createBoot(client).resolveEspaces()
+    expect(list.filter(e => e.mine).map(e => e.espaceId)).toEqual(['e-plein'])
+  })
+
   it('cas nominal inchangé : un seul espace, créé par le compte → propre', async () => {
     const { client } = fakeClient({
       members: [{ espace_id: 'e1', full_espace: true }],

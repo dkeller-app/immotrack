@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { createUser, userClient, deleteUserByEmail } from './helpers/clients.mjs'
+import { createUser, userClient, deleteUserByEmail, adminClient } from './helpers/clients.mjs'
 import { teardownOwner } from './helpers/teardown.mjs'
 
 // Emails uniques par run : indépendance totale vis-à-vis d'un reliquat (crash d'un run
@@ -36,7 +36,7 @@ beforeAll(async () => {
   memberA_id = mem.id
 
   // Alice (owner) invite Carol comme 'proprietaire' actif dans SON espace (members_insert exige owner → OK).
-  const { error: e3 } = await clientA.from('espace_members')
+  const { error: e3 } = await adminClient().from('espace_members')   // 0063 : appartenance posée en service-role (setup ; en prod elle naît d'accept_invitation)
     .insert({ espace_id: espaceA, user_id: carolId, role: 'proprietaire', invite_status: 'active' })
   if (e3) throw e3
 })
@@ -113,9 +113,9 @@ describe('rôle proprietaire (gestion déléguée, D13)', () => {
 
 describe('anti auto-escalade & dernier owner', () => {
   it('Alice ne peut pas changer son propre rôle', async () => {
-    const { data } = await clientA.from('espace_members')
+    const { data, error } = await clientA.from('espace_members')
       .update({ role: 'lecture_seule' }).eq('id', memberA_id).select()
-    expect(data).toHaveLength(0)    // members_update exclut sa propre ligne → 0 ligne
+    expect(error ? true : (data || []).length === 0).toBe(true)    // 0063 : plus aucune policy UPDATE → refus (ou 0 ligne)
   })
   it('on ne peut pas supprimer le dernier owner (via service-role, bypass RLS)', async () => {
     // Le trigger protège même hors RLS : on tente en service-role pour isoler le trigger.

@@ -106,6 +106,14 @@ describe('createMultiStore — fusion multi-espace', () => {
     expect(storeB.calls.persistConfig).toBe(0)
   })
 
+  it('aucun espace propre (associé invité sans espace à lui) : la config n’est écrite NULLE PART', async () => {
+    const sB = makeFakeStore({}), sC = makeFakeStore({})
+    const multi = createMultiStore({ espaces: [{ espaceId: 'B', ownerId: 'b', mine: false }, { espaceId: 'C', ownerId: 'c', mine: false }], makeStore: (id) => (id === 'B' ? sB : sC), getDB: () => ({}) })
+    const r = await multi.persistConfig({ params: { x: 1 } })
+    expect(r).toEqual({ status: 'config-skipped' })
+    expect(sB.calls.persistConfig + sC.calls.persistConfig).toBe(0)
+  })
+
   it('N=1 (un seul espace) : équivaut au mono — pas de suffixe de clé, config présente, écritures routées', async () => {
     const storeA = makeFakeStore({
       entites: [{ nom: 'SCI A' }], logements: [{ ref: 'L1' }], baux: { L1: { ref: 'L1' } }, params: { theme: 'dark' },

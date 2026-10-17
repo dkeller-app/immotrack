@@ -193,7 +193,12 @@ export function createBoot(client) {
       .filter(m => metaById[m.espace_id] && m.full_espace === true && metaById[m.espace_id].created_by === uid)
       .map(m => metaById[m.espace_id])
       .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')) || String(a.id).localeCompare(String(b.id)))
-    const propreId = candidats.length ? candidats[0].id : null
+    // Aucun espace créé par ce compte (co-gestionnaire PLEIN de l'espace d'un autre, posé avant le partage par
+    // SCI) : la plus ancienne appartenance pleine reste « propre », comme avant — sinon sa config ne serait plus
+    // chargée mais serait quand même écrite là (relecture adverse du lot A). Les lignes pleines ne naissent plus
+    // que par create_espace (0063) : ce repli ne peut plus être provoqué par un tiers.
+    const pleines = mems.filter(m => metaById[m.espace_id] && m.full_espace === true)   // ordre created_at (requête)
+    const propreId = candidats.length ? candidats[0].id : (pleines.length ? pleines[0].espace_id : null)
     if (candidats.length > 1) console.warn('[resolveEspaces] plusieurs espaces créés par ce compte : le plus ancien est retenu', candidats.map(e => e.id))
     const list = mems
       .filter(m => metaById[m.espace_id])
