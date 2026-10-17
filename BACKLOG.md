@@ -1,4 +1,20 @@
 # Propryo — Backlog actif
+> 🚦 **MAIN = v15.758 (17/10, pilotage Desktop, GO Didier)** — **Dépôt détenu après sortie** (`feat/depot-detenu`, b6b09578 ; 8 434 tests verts ; Fable argent : 0 🔴, 2 🟠 corrigés ; Opus : 1 🔴 corrigé).
+>
+> **Écrans :**
+> - Tuile « Dépôts détenus » : retenues pour loyer déduites, « dont X € à justifier ou à rendre ».
+> - Bulle : échéance, puis « + N € de pénalité » (art. 22).
+> - Clic : solde de tout compte de l'ANCIEN bail ; bug téléphone « Déclarer le départ » corrigé.
+> - Avertissement art. 22 non bloquant sous « Autres retenues ».
+> - Champ « Loyer dû retenu sur le dépôt » (`dgRetenueLoyer`), lu dans le moteur unique.
+> - Historique : jamais « rendu » sans date de virement.
+>
+> **Données :** script `mockups/FINANCES-SUIVI-V2/migrations-donnees/remise-a-zero-dgrestitue.mjs` (dry / commit), à lancer par Didier. Il remet `dgRestitue` 247 € → 0 et pose `clotureV: 2` sur l'ancien bail Ferrette - 101.
+>
+> **À décider (Didier) :**
+> - Bail « Immeuble » du 15/05/2026 : 650 € notés rendus, sans virement (option `--anciennes-clotures`).
+> - D-003 (SCI DD2 IMMO) : 464,01 € de dépôt détenu depuis le 01/07, pénalité 92,80 €.
+> - Ordre d'imputation H-1 : une retenue sur dépôt peut régler des charges en cas de départ avec plusieurs mois impayés, alors que la règle prévoit « charges = régul ».
 > 🚦 **MAIN = v15.757 (17/10, pilotage Desktop, GO Didier)** — **Finances : suivi unique des loyers** (`feat/finances-suivi-v2`, 2becd255 ; 8 415 tests verts ; relectures Opus + Fable argent/migration, corrections faites).
 >
 > **Livré :**
